@@ -1,0 +1,593 @@
+import { useState, useEffect } from 'react';
+import {
+  Clock,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  TrendingUp,
+  Coffee,
+  Sun,
+  Moon,
+  Sunrise,
+  Target,
+  Zap,
+  Users,
+  MessageSquare,
+  Video,
+  Bell,
+  Heart,
+  Award,
+  Sparkles,
+  ChevronRight,
+  Play,
+  Pause,
+  RefreshCw,
+  Wifi,
+  Monitor,
+  Headphones,
+  Star,
+  Quote,
+  Lightbulb
+} from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
+
+const EmployeeDashboard = () => {
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [isWorking, setIsWorking] = useState(false);
+  const [workDuration, setWorkDuration] = useState(0);
+  const [quoteIndex, setQuoteIndex] = useState(0);
+
+  // Motivational quotes
+  const quotes = [
+    { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+    { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
+    { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
+    { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" },
+    { text: "Excellence is not a destination but a continuous journey that never ends.", author: "Brian Tracy" },
+    { text: "Your talent determines what you can do. Your motivation determines how much you're willing to do.", author: "Lou Holtz" },
+    { text: "The secret of getting ahead is getting started.", author: "Mark Twain" }
+  ];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+      if (isWorking) {
+        setWorkDuration(prev => prev + 1);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isWorking]);
+
+  // Change quote every 30 seconds
+  useEffect(() => {
+    const quoteTimer = setInterval(() => {
+      setQuoteIndex(prev => (prev + 1) % quotes.length);
+    }, 30000);
+    return () => clearInterval(quoteTimer);
+  }, []);
+
+  const formatTime = (seconds) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return { text: 'Good Morning', icon: Sunrise, emoji: '☀️' };
+    if (hour < 17) return { text: 'Good Afternoon', icon: Sun, emoji: '🌤️' };
+    return { text: 'Good Evening', icon: Moon, emoji: '🌙' };
+  };
+
+  const greeting = getGreeting();
+
+  // Online colleagues
+  const onlineColleagues = [
+    { name: 'Sarah J.', avatar: 'SJ', status: 'online', activity: 'In a meeting' },
+    { name: 'Mike C.', avatar: 'MC', status: 'online', activity: 'Available' },
+    { name: 'Emily D.', avatar: 'ED', status: 'away', activity: 'On break' },
+    { name: 'James W.', avatar: 'JW', status: 'online', activity: 'Coding' },
+    { name: 'Lisa A.', avatar: 'LA', status: 'online', activity: 'Available' },
+    { name: 'David K.', avatar: 'DK', status: 'busy', activity: 'Do not disturb' }
+  ];
+
+  // Today's meetings
+  const todayMeetings = [
+    { time: '10:00 AM', title: 'Daily Standup', type: 'team', duration: '15 min', participants: 8 },
+    { time: '2:00 PM', title: 'Project Review', type: 'client', duration: '45 min', participants: 5 },
+    { time: '4:30 PM', title: '1:1 with Manager', type: 'personal', duration: '30 min', participants: 2 }
+  ];
+
+  // Today's tasks
+  const todayTasks = [
+    { id: 1, title: 'Complete project documentation', priority: 'high', completed: false },
+    { id: 2, title: 'Review pull requests', priority: 'medium', completed: true },
+    { id: 3, title: 'Update sprint board', priority: 'low', completed: false },
+    { id: 4, title: 'Prepare for client meeting', priority: 'high', completed: false }
+  ];
+
+  // Company announcements
+  const announcements = [
+    { id: 1, title: 'Team Outing Next Friday!', type: 'event', isNew: true },
+    { id: 2, title: 'New Health Benefits Available', type: 'hr', isNew: true },
+    { id: 3, title: 'Q4 Goals Published', type: 'company', isNew: false }
+  ];
+
+  // Weekly stats
+  const weeklyStats = {
+    hoursWorked: 32,
+    hoursTarget: 40,
+    tasksCompleted: 24,
+    meetingsAttended: 12,
+    productivity: 94
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'online': return 'bg-green-500';
+      case 'away': return 'bg-yellow-500';
+      case 'busy': return 'bg-red-500';
+      default: return 'bg-gray-400';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-50';
+      case 'medium': return 'text-yellow-600 bg-yellow-50';
+      default: return 'text-blue-600 bg-blue-50';
+    }
+  };
+
+  const getMeetingTypeColor = (type) => {
+    switch (type) {
+      case 'team': return 'bg-primary-100 text-primary-700';
+      case 'client': return 'bg-secondary-100 text-secondary-700';
+      default: return 'bg-accent-100 text-accent-700';
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Welcome Banner with Quote */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-primary-dark to-primary p-6 text-white">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+        </div>
+
+        <div className="relative z-10">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-primary-100 mb-2">
+                <greeting.icon className="w-5 h-5" />
+                <span className="text-sm font-medium">{greeting.text}</span>
+                <span className="text-lg">{greeting.emoji}</span>
+              </div>
+              <h1 className="text-3xl font-bold font-heading mb-2">Welcome back, John!</h1>
+              <p className="text-primary-100 mb-4">Ready to make today productive?</p>
+
+              {/* Quote Section */}
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 max-w-xl">
+                <div className="flex gap-3">
+                  <Quote className="w-8 h-8 text-primary-200 flex-shrink-0" />
+                  <div>
+                    <p className="text-white/90 italic text-sm leading-relaxed">"{quotes[quoteIndex].text}"</p>
+                    <p className="text-primary-200 text-xs mt-2">— {quotes[quoteIndex].author}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Clock In Section */}
+            <div className="flex flex-col items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <div className="text-center">
+                <p className="text-primary-100 text-sm font-medium">Current Time</p>
+                <p className="text-4xl font-bold mt-1 font-heading">
+                  {currentTime.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
+                <p className="text-primary-200 text-xs mt-1">
+                  {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+
+              {isWorking && (
+                <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg">
+                  <p className="text-green-300 text-xs">Active Session</p>
+                  <p className="text-2xl font-bold text-white">{formatTime(workDuration)}</p>
+                </div>
+              )}
+
+              <Button
+                variant={isWorking ? 'accent' : 'secondary'}
+                size="lg"
+                onClick={() => setIsWorking(!isWorking)}
+                icon={isWorking ? Pause : Play}
+                className="w-full"
+              >
+                {isWorking ? 'Clock Out' : 'Clock In'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { icon: Clock, label: 'Time Clock', color: 'primary', link: '/employee/time-clock' },
+          { icon: Calendar, label: 'Schedule', color: 'secondary', link: '/employee/schedule' },
+          { icon: Video, label: 'Join Meeting', color: 'accent', link: '#' },
+          { icon: MessageSquare, label: 'Messages', color: 'info', badge: 3, link: '#' }
+        ].map((action) => (
+          <Card key={action.label} className="group cursor-pointer hover:shadow-lg transition-all">
+            <div className="flex items-center gap-4">
+              <div className={`p-3 rounded-xl bg-${action.color}-100 group-hover:scale-110 transition-transform`}>
+                <action.icon className={`w-6 h-6 text-${action.color}`} />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">{action.label}</p>
+                {action.badge && (
+                  <Badge variant="danger" size="xs">{action.badge} new</Badge>
+                )}
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column - Stats & Tasks */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
+                <Clock className="w-6 h-6 text-primary" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{weeklyStats.hoursWorked}h</p>
+              <p className="text-xs text-gray-500">Hours This Week</p>
+              <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full"
+                  style={{ width: `${(weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100}%` }}
+                />
+              </div>
+            </Card>
+
+            <Card className="text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-3">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{weeklyStats.tasksCompleted}</p>
+              <p className="text-xs text-gray-500">Tasks Done</p>
+              <Badge variant="success" size="xs" className="mt-2">+5 today</Badge>
+            </Card>
+
+            <Card className="text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-secondary-100 flex items-center justify-center mb-3">
+                <Video className="w-6 h-6 text-secondary-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{weeklyStats.meetingsAttended}</p>
+              <p className="text-xs text-gray-500">Meetings</p>
+              <p className="text-xs text-gray-400 mt-2">This week</p>
+            </Card>
+
+            <Card className="text-center">
+              <div className="w-12 h-12 mx-auto rounded-full bg-accent-100 flex items-center justify-center mb-3">
+                <Zap className="w-6 h-6 text-accent-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">{weeklyStats.productivity}%</p>
+              <p className="text-xs text-gray-500">Productivity</p>
+              <Badge variant="accent" size="xs" className="mt-2">Excellent!</Badge>
+            </Card>
+          </div>
+
+          {/* Today's Tasks */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Today's Focus
+                </CardTitle>
+                <Button variant="ghost" size="sm" icon={Sparkles}>
+                  Add Task
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {todayTasks.map((task) => (
+                  <div
+                    key={task.id}
+                    className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
+                      task.completed ? 'bg-green-50/50' : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
+                  >
+                    <button
+                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                        task.completed
+                          ? 'bg-green-500 border-green-500'
+                          : 'border-gray-300 hover:border-primary'
+                      }`}
+                    >
+                      {task.completed && <CheckCircle className="w-4 h-4 text-white" />}
+                    </button>
+                    <div className="flex-1">
+                      <p className={`font-medium ${task.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                        {task.title}
+                      </p>
+                    </div>
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+                      {task.priority}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Progress */}
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Daily Progress</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {todayTasks.filter(t => t.completed).length}/{todayTasks.length} tasks
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all"
+                    style={{ width: `${(todayTasks.filter(t => t.completed).length / todayTasks.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Today's Meetings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Video className="w-5 h-5 text-secondary" />
+                  Today's Meetings
+                </CardTitle>
+                <Badge variant="secondary">{todayMeetings.length} scheduled</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {todayMeetings.map((meeting, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
+                  >
+                    <div className="text-center min-w-[60px]">
+                      <p className="text-lg font-bold text-gray-900">{meeting.time.split(' ')[0]}</p>
+                      <p className="text-xs text-gray-500">{meeting.time.split(' ')[1]}</p>
+                    </div>
+                    <div className="w-px h-12 bg-gray-200" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-semibold text-gray-900">{meeting.title}</p>
+                        <span className={`text-xs px-2 py-0.5 rounded-full ${getMeetingTypeColor(meeting.type)}`}>
+                          {meeting.type}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          {meeting.duration}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {meeting.participants} people
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={Video}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      Join
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Column - Team & Announcements */}
+        <div className="space-y-6">
+          {/* Virtual Office - Online Colleagues */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Monitor className="w-5 h-5 text-primary" />
+                  Virtual Office
+                </CardTitle>
+                <div className="flex items-center gap-1 text-green-500 text-xs">
+                  <Wifi className="w-3.5 h-3.5" />
+                  <span>{onlineColleagues.filter(c => c.status === 'online').length} online</span>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {onlineColleagues.map((colleague, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
+                    <div className="relative">
+                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-semibold text-primary text-sm">
+                        {colleague.avatar}
+                      </div>
+                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(colleague.status)}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">{colleague.name}</p>
+                      <p className="text-xs text-gray-500 truncate">{colleague.activity}</p>
+                    </div>
+                    <button className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors">
+                      <MessageSquare className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <Button variant="ghost" size="sm" fullWidth className="mt-4">
+                View All Team Members
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Announcements */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Bell className="w-5 h-5 text-accent" />
+                Announcements
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {announcements.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg ${
+                        item.type === 'event' ? 'bg-purple-100' :
+                        item.type === 'hr' ? 'bg-green-100' : 'bg-blue-100'
+                      }`}>
+                        {item.type === 'event' ? <Calendar className="w-4 h-4 text-purple-600" /> :
+                         item.type === 'hr' ? <Heart className="w-4 h-4 text-green-600" /> :
+                         <Lightbulb className="w-4 h-4 text-blue-600" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium text-gray-900 text-sm">{item.title}</p>
+                          {item.isNew && <Badge variant="danger" size="xs">New</Badge>}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 capitalize">{item.type}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Wellness Reminder */}
+          <Card className="bg-gradient-to-br from-green-50 to-teal-50 border-green-100">
+            <CardContent>
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto rounded-full bg-white shadow-lg flex items-center justify-center mb-4">
+                  <Coffee className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-2">Take a Break!</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  You've been working for 2 hours. A short break can boost your productivity!
+                </p>
+                <Button variant="success" size="sm" icon={Heart}>
+                  Start 5-min Break
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Achievement */}
+          <Card className="bg-gradient-to-br from-accent-50 to-yellow-50 border-accent-100">
+            <CardContent>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center">
+                  <Award className="w-7 h-7 text-accent-600" />
+                </div>
+                <div>
+                  <p className="text-xs text-accent-600 font-medium">ACHIEVEMENT UNLOCKED</p>
+                  <p className="font-bold text-gray-900">Productivity Star!</p>
+                  <p className="text-sm text-gray-600">5 days streak of 8+ hours</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Weekly Schedule Preview */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              This Week's Schedule
+            </CardTitle>
+            <Button variant="ghost" size="sm" icon={ChevronRight} iconPosition="right">
+              View Full Schedule
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {[
+              { day: 'Mon', date: '16', hours: '9AM - 6PM', status: 'completed' },
+              { day: 'Tue', date: '17', hours: '9AM - 6PM', status: 'completed' },
+              { day: 'Wed', date: '18', hours: '9AM - 6PM', status: 'current' },
+              { day: 'Thu', date: '19', hours: '9AM - 6PM', status: 'upcoming' },
+              { day: 'Fri', date: '20', hours: '9AM - 5PM', status: 'upcoming' }
+            ].map((item) => (
+              <div
+                key={item.day}
+                className={`relative p-4 rounded-xl text-center transition-all ${
+                  item.status === 'current'
+                    ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105'
+                    : item.status === 'completed'
+                    ? 'bg-green-50 border border-green-100'
+                    : 'bg-gray-50 border border-gray-100'
+                }`}
+              >
+                {item.status === 'current' && (
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                    <Badge variant="accent" size="xs">Today</Badge>
+                  </div>
+                )}
+                <p className={`text-sm font-medium ${
+                  item.status === 'current' ? 'text-primary-100' : 'text-gray-500'
+                }`}>
+                  {item.day}
+                </p>
+                <p className={`text-2xl font-bold mt-1 ${
+                  item.status === 'current' ? 'text-white' : 'text-gray-900'
+                }`}>
+                  {item.date}
+                </p>
+                <p className={`text-sm mt-2 ${
+                  item.status === 'current' ? 'text-primary-100' : 'text-gray-600'
+                }`}>
+                  {item.hours}
+                </p>
+                {item.status === 'completed' && (
+                  <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
+                )}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default EmployeeDashboard;
