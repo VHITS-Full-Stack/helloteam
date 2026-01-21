@@ -6,6 +6,18 @@
 
 ---
 
+## Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React.js + Vite + Tailwind CSS |
+| **Backend** | Node.js + TypeScript + Express |
+| **Database** | PostgreSQL + Prisma ORM |
+| **Authentication** | JWT (JSON Web Tokens) |
+| **API** | RESTful API |
+
+---
+
 ## Overview
 
 Phase 1 establishes secure access, workforce visibility, and time tracking across three interconnected portals:
@@ -288,5 +300,55 @@ Phase 1 establishes secure access, workforce visibility, and time tracking acros
 
 ---
 
+## Backend Project Structure
+
+```
+backend/
+├── prisma/
+│   └── schema.prisma       # Database schema (PostgreSQL)
+├── src/
+│   ├── config/             # Configuration files
+│   │   ├── index.ts        # App configuration
+│   │   └── database.ts     # Prisma client
+│   ├── controllers/        # Route handlers
+│   │   └── auth.controller.ts
+│   ├── middleware/         # Express middleware
+│   │   ├── auth.middleware.ts
+│   │   └── error.middleware.ts
+│   ├── routes/             # API routes
+│   │   ├── index.ts
+│   │   └── auth.routes.ts
+│   ├── types/              # TypeScript types
+│   │   └── index.ts
+│   ├── utils/              # Utility functions
+│   │   └── helpers.ts
+│   ├── app.ts              # Express app setup
+│   └── index.ts            # Server entry point
+├── .env.example            # Environment variables template
+├── package.json
+└── tsconfig.json
+```
+
+---
+
+## Database Schema (Prisma)
+
+### Core Models:
+- **User** - Authentication & role management
+- **Employee** - Employee profiles & assignments
+- **Client** - Client accounts & policies
+- **Admin** - Admin profiles
+- **WorkSession** - Clock in/out tracking
+- **Break** - Break time tracking
+- **TimeRecord** - Daily time records with approval status
+- **Schedule** - Employee schedules
+- **LeaveRequest** - Leave/availability requests
+- **SupportTicket** - Employee support tickets
+- **Notification** - System notifications
+- **AuditLog** - Activity tracking
+
+---
+
 *Document Created: January 2026*
+*Last Updated: January 2026*
 *Project: Hello Team Workforce Hub Platform*

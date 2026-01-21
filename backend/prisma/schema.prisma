@@ -1,0 +1,423 @@
+// Hello Team Workforce Hub - Database Schema
+// Backend: Node.js + TypeScript
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OPERATIONS
+  HR
+  FINANCE
+  SUPPORT
+  CLIENT
+  EMPLOYEE
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum WorkSessionStatus {
+  ACTIVE
+  ON_BREAK
+  COMPLETED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  PAID
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED_BY_CLIENT
+  APPROVED
+  REJECTED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id                String      @id @default(uuid())
+  email             String      @unique
+  password          String
+  role              UserRole
+  status            UserStatus  @default(ACTIVE)
+  lastLoginAt       DateTime?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  employee          Employee?
+  client            Client?
+  admin             Admin?
+  sessions          Session[]
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Session {
+  id            String    @id @default(uuid())
+  userId        String
+  token         String    @unique
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  isActive      Boolean   @default(true)
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ============================================
+// EMPLOYEE
+// ============================================
+
+model Employee {
+  id                String      @id @default(uuid())
+  userId            String      @unique
+  firstName         String
+  lastName          String
+  profilePhoto      String?
+  phone             String?
+  address           String?
+  emergencyContact  String?
+  hireDate          DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientAssignments ClientEmployee[]
+  workSessions      WorkSession[]
+  schedules         Schedule[]
+  timeRecords       TimeRecord[]
+  leaveRequests     LeaveRequest[]
+  supportTickets    SupportTicket[]
+  wellbeingCheckins WellbeingCheckin[]
+
+  @@map("employees")
+}
+
+// ============================================
+// CLIENT
+// ============================================
+
+model Client {
+  id                String      @id @default(uuid())
+  userId            String      @unique
+  companyName       String
+  contactPerson     String
+  phone             String?
+  address           String?
+  timezone          String      @default("UTC")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  // Relations
+  user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employees         ClientEmployee[]
+  clientPolicies    ClientPolicy?
+  timeRecords       TimeRecord[]
+  leaveRequests     LeaveRequest[]
+
+  @@map("clients")
+}
+
+model ClientEmployee {
+  id          String    @id @default(uuid())
+  clientId    String
+  employeeId  String
+  assignedAt  DateTime  @default(now())
+  isActive    Boolean   @default(true)
+
+  client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, employeeId])
+  @@map("client_employees")
+}
+
+model ClientPolicy {
+  id                      String    @id @default(uuid())
+  clientId                String    @unique
+  allowPaidLeave          Boolean   @default(false)
+  paidLeaveType           String?   // 'fixed', 'accrued', 'milestone'
+  annualPaidLeaveDays     Int       @default(0)
+  allowUnpaidLeave        Boolean   @default(true)
+  requireTwoWeeksNotice   Boolean   @default(true)
+  allowOvertime           Boolean   @default(true)
+  overtimeRequiresApproval Boolean  @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  client                  Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_policies")
+}
+
+// ============================================
+// ADMIN
+// ============================================
+
+model Admin {
+  id          String    @id @default(uuid())
+  userId      String    @unique
+  firstName   String
+  lastName    String
+  department  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ticketAssignments SupportTicket[] @relation("AssignedAdmin")
+
+  @@map("admins")
+}
+
+// ============================================
+// WORK SESSIONS & TIME TRACKING
+// ============================================
+
+model WorkSession {
+  id            String            @id @default(uuid())
+  employeeId    String
+  startTime     DateTime
+  endTime       DateTime?
+  status        WorkSessionStatus @default(ACTIVE)
+  totalBreakMinutes Int           @default(0)
+  notes         String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  employee      Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  breaks        Break[]
+
+  @@map("work_sessions")
+}
+
+model Break {
+  id              String      @id @default(uuid())
+  workSessionId   String
+  startTime       DateTime
+  endTime         DateTime?
+  durationMinutes Int?
+  createdAt       DateTime    @default(now())
+
+  workSession     WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+
+  @@map("breaks")
+}
+
+model TimeRecord {
+  id              String          @id @default(uuid())
+  employeeId      String
+  clientId        String
+  date            DateTime        @db.Date
+  scheduledStart  DateTime?
+  scheduledEnd    DateTime?
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  totalMinutes    Int             @default(0)
+  breakMinutes    Int             @default(0)
+  overtimeMinutes Int             @default(0)
+  status          ApprovalStatus  @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  adjustedBy      String?
+  adjustedAt      DateTime?
+  adjustmentNotes String?
+  originalMinutes Int?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("time_records")
+}
+
+// ============================================
+// SCHEDULES
+// ============================================
+
+model Schedule {
+  id            String    @id @default(uuid())
+  employeeId    String
+  dayOfWeek     Int       // 0-6 (Sunday-Saturday)
+  startTime     String    // HH:MM format
+  endTime       String    // HH:MM format
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  employee      Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+// ============================================
+// LEAVE REQUESTS
+// ============================================
+
+model LeaveRequest {
+  id              String        @id @default(uuid())
+  employeeId      String
+  clientId        String
+  leaveType       LeaveType
+  startDate       DateTime      @db.Date
+  endDate         DateTime      @db.Date
+  reason          String?
+  status          LeaveStatus   @default(PENDING)
+  clientApprovedAt DateTime?
+  clientApprovedBy String?
+  adminApprovedAt DateTime?
+  adminApprovedBy String?
+  rejectedAt      DateTime?
+  rejectedBy      String?
+  rejectionReason String?
+  isShortNotice   Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client          Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("leave_requests")
+}
+
+// ============================================
+// SUPPORT TICKETS
+// ============================================
+
+model SupportTicket {
+  id              String          @id @default(uuid())
+  employeeId      String
+  assignedAdminId String?
+  subject         String
+  description     String
+  status          TicketStatus    @default(OPEN)
+  priority        TicketPriority  @default(MEDIUM)
+  resolvedAt      DateTime?
+  closedAt        DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assignedAdmin   Admin?          @relation("AssignedAdmin", fields: [assignedAdminId], references: [id])
+  messages        TicketMessage[]
+
+  @@map("support_tickets")
+}
+
+model TicketMessage {
+  id          String        @id @default(uuid())
+  ticketId    String
+  senderId    String
+  senderType  String        // 'employee' or 'admin'
+  message     String
+  isInternal  Boolean       @default(false)
+  createdAt   DateTime      @default(now())
+
+  ticket      SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_messages")
+}
+
+// ============================================
+// WELLBEING & ENGAGEMENT
+// ============================================
+
+model WellbeingCheckin {
+  id          String    @id @default(uuid())
+  employeeId  String
+  date        DateTime  @db.Date
+  mood        Int       // 1-5 scale
+  comment     String?
+  createdAt   DateTime  @default(now())
+
+  employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, date])
+  @@map("wellbeing_checkins")
+}
+
+// ============================================
+// AUDIT LOGS
+// ============================================
+
+model AuditLog {
+  id          String    @id @default(uuid())
+  userId      String?
+  action      String
+  entityType  String
+  entityId    String?
+  oldValues   Json?
+  newValues   Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  user        User?     @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id          String    @id @default(uuid())
+  userId      String
+  title       String
+  message     String
+  type        String
+  isRead      Boolean   @default(false)
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@map("notifications")
+}
