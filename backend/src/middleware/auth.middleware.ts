@@ -61,3 +61,8 @@ export const authorize = (...allowedRoles: string[]) => {
     next();
   };
 };
+
+// Alias for authorize that accepts an array of roles
+export const authorizeRoles = (allowedRoles: string[]) => {
+  return authorize(...allowedRoles);
+};

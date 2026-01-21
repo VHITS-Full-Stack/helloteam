@@ -38,6 +38,7 @@ import {
   AdminDashboard,
   Employees,
   Clients,
+  ClientDetail,
   AdminAnalytics,
   AdminTimeRecords,
   AdminApprovals,
@@ -147,6 +148,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="employees" element={<Employees />} />
         <Route path="clients" element={<Clients />} />
+        <Route path="clients/:id" element={<ClientDetail />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="time-records" element={<AdminTimeRecords />} />
         <Route path="approvals" element={<AdminApprovals />} />

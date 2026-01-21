@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import authRoutes from './auth.routes';
+import employeeRoutes from './employee.routes';
+import clientRoutes from './client.routes';
 
 const router = Router();
 
@@ -14,10 +16,10 @@ router.get('/health', (req, res) => {
 
 // API Routes
 router.use('/auth', authRoutes);
+router.use('/employees', employeeRoutes);
+router.use('/clients', clientRoutes);
 
 // Future routes will be added here:
-// router.use('/employees', employeeRoutes);
-// router.use('/clients', clientRoutes);
 // router.use('/admin', adminRoutes);
 // router.use('/work-sessions', workSessionRoutes);
 // router.use('/time-records', timeRecordRoutes);
