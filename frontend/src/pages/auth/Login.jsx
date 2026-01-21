@@ -1,64 +1,97 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, Eye, EyeOff, Users, Building2, Shield } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Button, Input, Card } from '../../components/common';
+import { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login, isAuthenticated, user, loading: authLoading, error: authError, clearError } = useAuth();
+
   const [showPassword, setShowPassword] = useState(false);
-  const [portalType, setPortalType] = useState('employee');
+  const [rememberMe, setRememberMe] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = user.role;
+      if (role === 'EMPLOYEE') {
+        navigate('/employee/dashboard');
+      } else if (role === 'CLIENT') {
+        navigate('/client/dashboard');
+      } else {
+        navigate('/admin/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
+
+  // Clear errors when typing
+  useEffect(() => {
+    setError('');
+    setValidationErrors({});
+    clearError();
+  }, [formData.email, formData.password, clearError]);
+
+  const validateForm = () => {
+    const errors = {};
+
+    if (!formData.email) {
+      errors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+
+    if (!formData.password) {
+      errors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+    }
+
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
 
-    // Simulate login
-    setTimeout(() => {
-      setLoading(false);
-      switch (portalType) {
-        case 'employee':
-          navigate('/employee/dashboard');
-          break;
-        case 'client':
-          navigate('/client/dashboard');
-          break;
-        case 'admin':
-          navigate('/admin/dashboard');
-          break;
-        default:
-          navigate('/employee/dashboard');
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      const result = await login(formData.email, formData.password, rememberMe);
+
+      if (!result.success) {
+        setError(result.error || 'Login failed. Please try again.');
       }
-    }, 1000);
+    } catch (err) {
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const portals = [
-    {
-      id: 'employee',
-      label: 'Employee',
-      description: 'Access your workspace',
-      icon: Users,
-      color: 'primary'
-    },
-    {
-      id: 'client',
-      label: 'Client',
-      description: 'Manage workforce',
-      icon: Building2,
-      color: 'secondary'
-    },
-    {
-      id: 'admin',
-      label: 'Admin',
-      description: 'System control',
-      icon: Shield,
-      color: 'accent'
-    },
-  ];
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-secondary-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-secondary-50 flex items-center justify-center p-4">
@@ -77,6 +110,9 @@ const Login = () => {
               src="/logo.png"
               alt="Hello Team"
               className="h-14 w-auto"
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
             />
           </div>
           <h1 className="text-2xl font-bold text-gray-900 font-heading">
@@ -86,72 +122,31 @@ const Login = () => {
         </div>
 
         <Card className="animate-fade-in backdrop-blur-sm bg-white/95">
-          {/* Portal Selection */}
-          <div className="mb-6">
-            <label className="label mb-3">Select Portal</label>
-            <div className="grid grid-cols-3 gap-3">
-              {portals.map((portal) => {
-                const Icon = portal.icon;
-                const isSelected = portalType === portal.id;
-                return (
-                  <button
-                    key={portal.id}
-                    type="button"
-                    onClick={() => setPortalType(portal.id)}
-                    className={`
-                      p-4 rounded-xl border-2 text-center transition-all duration-200
-                      ${isSelected
-                        ? portal.color === 'primary'
-                          ? 'border-primary bg-primary-50 shadow-md'
-                          : portal.color === 'secondary'
-                          ? 'border-secondary bg-secondary-50 shadow-md'
-                          : 'border-accent bg-accent-50 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                      }
-                    `}
-                  >
-                    <div className={`
-                      w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center
-                      ${isSelected
-                        ? portal.color === 'primary'
-                          ? 'bg-primary text-white'
-                          : portal.color === 'secondary'
-                          ? 'bg-secondary text-gray-900'
-                          : 'bg-accent text-gray-900'
-                        : 'bg-gray-100 text-gray-500'
-                      }
-                    `}>
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <p className={`font-semibold text-sm ${
-                      isSelected
-                        ? portal.color === 'primary'
-                          ? 'text-primary-700'
-                          : portal.color === 'secondary'
-                          ? 'text-secondary-700'
-                          : 'text-accent-700'
-                        : 'text-gray-900'
-                    }`}>
-                      {portal.label}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-0.5">{portal.description}</p>
-                  </button>
-                );
-              })}
+          {/* Error Alert */}
+          {(error || authError) && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">Login Failed</p>
+                <p className="text-sm text-red-600 mt-0.5">{error || authError}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            <Input
-              label="Email Address"
-              type="email"
-              placeholder="Enter your email"
-              icon={Mail}
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
+            <div>
+              <Input
+                label="Email Address"
+                type="email"
+                placeholder="Enter your email"
+                icon={Mail}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                error={validationErrors.email}
+                required
+              />
+            </div>
 
             <div className="relative">
               <Input
@@ -161,6 +156,7 @@ const Login = () => {
                 icon={Lock}
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                error={validationErrors.password}
                 required
               />
               <button
@@ -180,18 +176,20 @@ const Login = () => {
               <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary focus:ring-offset-0"
                 />
                 <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
                   Remember me
                 </span>
               </label>
-              <a
-                href="#"
+              <Link
+                to="/forgot-password"
                 className="text-sm text-primary hover:text-primary-dark font-medium transition-colors"
               >
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             <Button
@@ -200,30 +198,12 @@ const Login = () => {
               fullWidth
               size="lg"
               loading={loading}
+              disabled={loading}
               className="shadow-button hover:shadow-button-hover"
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In'}
             </Button>
           </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-100">
-            <p className="text-center text-sm text-gray-500 mb-3">Demo Credentials</p>
-            <div className="grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="p-2 bg-primary-50 rounded-lg border border-primary-100">
-                <p className="font-semibold text-primary-700">Employee</p>
-                <p className="text-gray-500 mt-0.5">employee@demo.com</p>
-              </div>
-              <div className="p-2 bg-secondary-50 rounded-lg border border-secondary-100">
-                <p className="font-semibold text-secondary-700">Client</p>
-                <p className="text-gray-500 mt-0.5">client@demo.com</p>
-              </div>
-              <div className="p-2 bg-accent-50 rounded-lg border border-accent-100">
-                <p className="font-semibold text-accent-700">Admin</p>
-                <p className="text-gray-500 mt-0.5">admin@demo.com</p>
-              </div>
-            </div>
-          </div>
         </Card>
 
         {/* Footer */}

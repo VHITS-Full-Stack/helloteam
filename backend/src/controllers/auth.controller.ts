@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import prisma from '../config/database';
 import { hashPassword, comparePassword, generateToken } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
+import { config } from '../config';
+import { sendPasswordResetEmail } from '../services/email.service';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -50,10 +53,31 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
+    // For employees: Invalidate existing sessions (prevent parallel logins)
+    if (user.role === 'EMPLOYEE') {
+      await prisma.session.updateMany({
+        where: { userId: user.id, isActive: true },
+        data: { isActive: false },
+      });
+    }
+
     const token = generateToken({
       userId: user.id,
       email: user.email,
       role: user.role,
+    });
+
+    // Create new session
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + config.session.timeoutMinutes);
+
+    await prisma.session.create({
+      data: {
+        userId: user.id,
+        token,
+        expiresAt,
+        isActive: true,
+      },
     });
 
     await prisma.user.update({
@@ -203,6 +227,17 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
 
 export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.split(' ')[1];
+      if (token) {
+        await prisma.session.updateMany({
+          where: { token, isActive: true },
+          data: { isActive: false },
+        });
+      }
+    }
+
     res.json({
       success: true,
       message: 'Logged out successfully',
@@ -212,6 +247,266 @@ export const logout = async (req: AuthenticatedRequest, res: Response): Promise<
     res.status(500).json({
       success: false,
       error: 'An error occurred during logout',
+    });
+  }
+};
+
+// Request password reset
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      res.status(400).json({
+        success: false,
+        error: 'Email is required',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      res.json({
+        success: true,
+        message: 'If an account exists with this email, a password reset link will be sent.',
+      });
+      return;
+    }
+
+    // Generate reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date();
+    resetExpires.setHours(resetExpires.getHours() + 1); // Token valid for 1 hour
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: resetToken,
+        passwordResetExpires: resetExpires,
+      },
+    });
+
+    // Send password reset email
+    const userName = user.employee?.firstName || user.client?.contactPerson || user.admin?.firstName;
+    await sendPasswordResetEmail(email, resetToken, userName || undefined);
+
+    // In development, also return the token for easy testing
+    if (config.env === 'development') {
+      res.json({
+        success: true,
+        message: 'Password reset email sent (check console in development)',
+        data: { resetToken }, // Only in development!
+      });
+    } else {
+      res.json({
+        success: true,
+        message: 'If an account exists with this email, a password reset link will be sent.',
+      });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while processing your request',
+    });
+  }
+};
+
+// Reset password with token
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      res.status(400).json({
+        success: false,
+        error: 'Token and new password are required',
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'Password must be at least 8 characters long',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        passwordResetToken: token,
+        passwordResetExpires: {
+          gt: new Date(),
+        },
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid or expired reset token',
+      });
+      return;
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+      },
+    });
+
+    // Invalidate all existing sessions
+    await prisma.session.updateMany({
+      where: { userId: user.id },
+      data: { isActive: false },
+    });
+
+    res.json({
+      success: true,
+      message: 'Password reset successful. Please login with your new password.',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while resetting your password',
+    });
+  }
+};
+
+// Change password (for authenticated users)
+export const changePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+      return;
+    }
+
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({
+        success: false,
+        error: 'Current password and new password are required',
+      });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({
+        success: false,
+        error: 'New password must be at least 8 characters long',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    const isValidPassword = await comparePassword(currentPassword, user.password);
+
+    if (!isValidPassword) {
+      res.status(400).json({
+        success: false,
+        error: 'Current password is incorrect',
+      });
+      return;
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while changing your password',
+    });
+  }
+};
+
+// Validate session (check if token is still valid)
+export const validateSession = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'Invalid session',
+      });
+      return;
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    const session = await prisma.session.findFirst({
+      where: {
+        token,
+        isActive: true,
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!session) {
+      res.status(401).json({
+        success: false,
+        error: 'Session expired or invalid',
+      });
+      return;
+    }
+
+    // Extend session expiry
+    const newExpiry = new Date();
+    newExpiry.setMinutes(newExpiry.getMinutes() + config.session.timeoutMinutes);
+
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { expiresAt: newExpiry },
+    });
+
+    res.json({
+      success: true,
+      message: 'Session is valid',
+      data: {
+        expiresAt: newExpiry,
+      },
+    });
+  } catch (error) {
+    console.error('Validate session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while validating session',
     });
   }
 };

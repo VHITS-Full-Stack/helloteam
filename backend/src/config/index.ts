@@ -24,6 +24,8 @@ export const config = {
     origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   },
 
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+
   logging: {
     level: process.env.LOG_LEVEL || 'debug',
   },

@@ -1,0 +1,294 @@
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import authService from '../services/auth.service';
+import { SessionTimeoutModal } from '../components/auth';
+
+const AuthContext = createContext(null);
+
+// Session timeout configuration (in milliseconds)
+const SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
+const WARNING_BEFORE_TIMEOUT = 5 * 60 * 1000; // Show warning 5 minutes before timeout
+const ACTIVITY_CHECK_INTERVAL = 60 * 1000; // Check activity every minute
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes in seconds
+  const [extendingSession, setExtendingSession] = useState(false);
+  const navigate = useNavigate();
+
+  const lastActivityRef = useRef(Date.now());
+  const timeoutCheckRef = useRef(null);
+
+  // Update last activity on user interaction
+  const updateActivity = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    if (showTimeoutWarning) {
+      setShowTimeoutWarning(false);
+    }
+  }, [showTimeoutWarning]);
+
+  // Listen for user activity
+  useEffect(() => {
+    if (!user) return;
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+
+    events.forEach(event => {
+      window.addEventListener(event, updateActivity);
+    });
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, updateActivity);
+      });
+    };
+  }, [user, updateActivity]);
+
+  // Check for session timeout
+  useEffect(() => {
+    if (!user) return;
+
+    const checkTimeout = () => {
+      const now = Date.now();
+      const timeSinceActivity = now - lastActivityRef.current;
+      const timeUntilTimeout = SESSION_TIMEOUT - timeSinceActivity;
+
+      if (timeUntilTimeout <= 0) {
+        // Session expired
+        logout();
+      } else if (timeUntilTimeout <= WARNING_BEFORE_TIMEOUT && !showTimeoutWarning) {
+        // Show warning
+        setTimeRemaining(Math.floor(timeUntilTimeout / 1000));
+        setShowTimeoutWarning(true);
+      } else if (showTimeoutWarning) {
+        // Update countdown
+        setTimeRemaining(Math.floor(timeUntilTimeout / 1000));
+      }
+    };
+
+    timeoutCheckRef.current = setInterval(checkTimeout, ACTIVITY_CHECK_INTERVAL);
+
+    return () => {
+      if (timeoutCheckRef.current) {
+        clearInterval(timeoutCheckRef.current);
+      }
+    };
+  }, [user, showTimeoutWarning]);
+
+  // Check authentication status on mount
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const checkAuth = async () => {
+    try {
+      // Check for remember me token first
+      const rememberMe = localStorage.getItem('rememberMe') === 'true';
+
+      if (!authService.isAuthenticated()) {
+        // If remember me was set, try to restore from session storage
+        if (rememberMe) {
+          const savedToken = localStorage.getItem('token');
+          if (savedToken) {
+            // Token exists, try to validate
+            try {
+              const response = await authService.getProfile();
+              if (response.success) {
+                setUser(response.data);
+                lastActivityRef.current = Date.now();
+                setLoading(false);
+                return;
+              }
+            } catch (e) {
+              // Token invalid, clear it
+              localStorage.removeItem('token');
+              localStorage.removeItem('rememberMe');
+            }
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
+      const response = await authService.getProfile();
+      if (response.success) {
+        setUser(response.data);
+        lastActivityRef.current = Date.now();
+      } else {
+        authService.logout();
+        localStorage.removeItem('rememberMe');
+      }
+    } catch (err) {
+      console.error('Auth check failed:', err);
+      authService.logout();
+      localStorage.removeItem('rememberMe');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const extendSession = async () => {
+    try {
+      setExtendingSession(true);
+      const response = await authService.validateSession();
+      if (response.success) {
+        lastActivityRef.current = Date.now();
+        setShowTimeoutWarning(false);
+      } else {
+        logout();
+      }
+    } catch (err) {
+      console.error('Failed to extend session:', err);
+      logout();
+    } finally {
+      setExtendingSession(false);
+    }
+  };
+
+  const login = async (email, password, rememberMe = false) => {
+    try {
+      setError(null);
+      setLoading(true);
+
+      const response = await authService.login(email, password);
+
+      if (response.success) {
+        setUser(response.data.user);
+        lastActivityRef.current = Date.now();
+
+        // Handle remember me
+        if (rememberMe) {
+          localStorage.setItem('rememberMe', 'true');
+        } else {
+          localStorage.removeItem('rememberMe');
+        }
+
+        // Navigate based on role
+        const role = response.data.user.role;
+        if (role === 'EMPLOYEE') {
+          navigate('/employee/dashboard');
+        } else if (role === 'CLIENT') {
+          navigate('/client/dashboard');
+        } else {
+          navigate('/admin/dashboard');
+        }
+
+        return { success: true };
+      } else {
+        setError(response.error);
+        return { success: false, error: response.error };
+      }
+    } catch (err) {
+      const errorMessage = err.message || 'Login failed';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setUser(null);
+      setShowTimeoutWarning(false);
+      localStorage.removeItem('rememberMe');
+      navigate('/login');
+    }
+  }, [navigate]);
+
+  const forgotPassword = async (email) => {
+    try {
+      setError(null);
+      const response = await authService.forgotPassword(email);
+      return response;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to send reset email';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const resetPassword = async (token, newPassword) => {
+    try {
+      setError(null);
+      const response = await authService.resetPassword(token, newPassword);
+      return response;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to reset password';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      setError(null);
+      const response = await authService.changePassword(currentPassword, newPassword);
+      return response;
+    } catch (err) {
+      const errorMessage = err.message || 'Failed to change password';
+      setError(errorMessage);
+      return { success: false, error: errorMessage };
+    }
+  };
+
+  // Check if user has specific role(s)
+  const hasRole = (roles) => {
+    if (!user) return false;
+    if (typeof roles === 'string') {
+      return user.role === roles;
+    }
+    return roles.includes(user.role);
+  };
+
+  // Check if user is admin (any admin role)
+  const isAdmin = () => {
+    return hasRole(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE', 'SUPPORT']);
+  };
+
+  const value = {
+    user,
+    loading,
+    error,
+    isAuthenticated: !!user,
+    login,
+    logout,
+    forgotPassword,
+    resetPassword,
+    changePassword,
+    hasRole,
+    isAdmin,
+    clearError: () => setError(null),
+    extendSession,
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <SessionTimeoutModal
+        isOpen={showTimeoutWarning}
+        timeRemaining={timeRemaining}
+        onExtendSession={extendSession}
+        onLogout={logout}
+        loading={extendingSession}
+      />
+    </AuthContext.Provider>
+  );
+};
+
+export default AuthContext;
