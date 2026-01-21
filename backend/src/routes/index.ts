@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authRoutes from './auth.routes';
 import employeeRoutes from './employee.routes';
 import clientRoutes from './client.routes';
+import permissionsRoutes from './permissions.routes';
+import rolesRoutes from './roles.routes';
 
 const router = Router();
 
@@ -18,6 +20,8 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/clients', clientRoutes);
+router.use('/permissions', permissionsRoutes);
+router.use('/roles', rolesRoutes);
 
 // Future routes will be added here:
 // router.use('/admin', adminRoutes);

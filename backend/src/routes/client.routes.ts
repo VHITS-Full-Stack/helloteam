@@ -10,29 +10,27 @@ import {
   removeEmployee,
   getClientStats,
 } from '../controllers/client.controller';
-import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../middleware/auth.middleware';
+import { PERMISSIONS } from '../config/permissions';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
 
-// Admin only routes
-const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE'];
+// Statistics - requires clients.view permission
+router.get('/stats', requirePermission(PERMISSIONS.CLIENTS.VIEW), getClientStats);
 
-// Statistics
-router.get('/stats', authorizeRoles(adminRoles), getClientStats);
+// CRUD operations with granular permissions
+router.get('/', requirePermission(PERMISSIONS.CLIENTS.VIEW), getClients);
+router.get('/:id', requirePermission(PERMISSIONS.CLIENTS.VIEW), getClient);
+router.post('/', requirePermission(PERMISSIONS.CLIENTS.CREATE), createClient);
+router.put('/:id', requirePermission(PERMISSIONS.CLIENTS.EDIT), updateClient);
+router.delete('/:id', requirePermission(PERMISSIONS.CLIENTS.DELETE), deleteClient);
 
-// CRUD operations
-router.get('/', authorizeRoles(adminRoles), getClients);
-router.get('/:id', authorizeRoles(adminRoles), getClient);
-router.post('/', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), createClient);
-router.put('/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS']), updateClient);
-router.delete('/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deleteClient);
-
-// Employee management for client
-router.get('/:id/employees', authorizeRoles(adminRoles), getClientEmployees);
-router.post('/:id/employees', authorizeRoles(adminRoles), assignEmployees);
-router.delete('/:id/employees/:employeeId', authorizeRoles(adminRoles), removeEmployee);
+// Employee management for client - requires clients.manage_employees permission
+router.get('/:id/employees', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getClientEmployees);
+router.post('/:id/employees', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), assignEmployees);
+router.delete('/:id/employees/:employeeId', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), removeEmployee);
 
 export default router;

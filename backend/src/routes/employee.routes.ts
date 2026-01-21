@@ -9,28 +9,26 @@ import {
   removeFromClient,
   getEmployeeStats,
 } from '../controllers/employee.controller';
-import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
+import { authenticate, requirePermission } from '../middleware/auth.middleware';
+import { PERMISSIONS } from '../config/permissions';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
 
-// Admin only routes
-const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR'];
+// Statistics - requires employees.view permission
+router.get('/stats', requirePermission(PERMISSIONS.EMPLOYEES.VIEW), getEmployeeStats);
 
-// Statistics
-router.get('/stats', authorizeRoles(adminRoles), getEmployeeStats);
+// CRUD operations with granular permissions
+router.get('/', requirePermission(PERMISSIONS.EMPLOYEES.VIEW), getEmployees);
+router.get('/:id', requirePermission(PERMISSIONS.EMPLOYEES.VIEW), getEmployee);
+router.post('/', requirePermission(PERMISSIONS.EMPLOYEES.CREATE), createEmployee);
+router.put('/:id', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), updateEmployee);
+router.delete('/:id', requirePermission(PERMISSIONS.EMPLOYEES.DELETE), deleteEmployee);
 
-// CRUD operations
-router.get('/', authorizeRoles(adminRoles), getEmployees);
-router.get('/:id', authorizeRoles(adminRoles), getEmployee);
-router.post('/', authorizeRoles(adminRoles), createEmployee);
-router.put('/:id', authorizeRoles(adminRoles), updateEmployee);
-router.delete('/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deleteEmployee);
-
-// Client assignment
-router.post('/:id/assign', authorizeRoles(adminRoles), assignToClient);
-router.post('/:id/unassign', authorizeRoles(adminRoles), removeFromClient);
+// Client assignment - requires employees.assign permission
+router.post('/:id/assign', requirePermission(PERMISSIONS.EMPLOYEES.ASSIGN), assignToClient);
+router.post('/:id/unassign', requirePermission(PERMISSIONS.EMPLOYEES.ASSIGN), removeFromClient);
 
 export default router;

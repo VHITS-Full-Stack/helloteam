@@ -71,6 +71,236 @@ Phase 1 establishes secure access, workforce visibility, and time tracking acros
 
 ### Completion Status: **COMPLETE**
 
+---
+
+## Sprint 1.5: Employee & Client Management ✅
+
+**Duration:** 1 week
+**Status:** COMPLETE
+
+### Objectives
+- Implement CRUD operations for employee management
+- Implement CRUD operations for client management
+- Build dedicated detail pages for clients
+- Establish basic RBAC on API routes
+
+### User Stories
+
+#### 1.5.1 Employee Management
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.5.1.1 | As an admin, I can view all employees | - Employee list with pagination<br>- Search and filter functionality<br>- Status badges (Active/Inactive) |
+| US-1.5.1.2 | As an admin, I can create new employees | - Employee creation form with validation<br>- Auto-create user account with credentials<br>- Success feedback and list refresh |
+| US-1.5.1.3 | As an admin, I can edit employee details | - Edit form pre-populated with current data<br>- Update status (Active/Inactive)<br>- Modal closes on success |
+| US-1.5.1.4 | As an admin, I can delete employees | - Confirmation dialog before deletion<br>- Soft delete (deactivation)<br>- List refresh after deletion |
+| US-1.5.1.5 | As an admin, I can assign employees to clients | - Client selection dropdown<br>- Assignment feedback<br>- Update employee's client info |
+
+#### 1.5.2 Client Management
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.5.2.1 | As an admin, I can view all clients | - Client cards with company info<br>- Employee count per client<br>- Policy badges |
+| US-1.5.2.2 | As an admin, I can create new clients | - Client creation form with policy config<br>- Auto-create user account<br>- Leave and overtime policy setup |
+| US-1.5.2.3 | As an admin, I can view client details | - Dedicated detail page (not popup)<br>- Contact info, policies, assigned employees<br>- Navigation from client list |
+| US-1.5.2.4 | As an admin, I can edit client details | - Edit form with all client fields<br>- Policy configuration update<br>- Status management |
+| US-1.5.2.5 | As an admin, I can delete clients | - Confirmation dialog<br>- Soft delete (deactivation)<br>- Cascade handling for assignments |
+| US-1.5.2.6 | As an admin, I can manage client employees | - View assigned employees<br>- Assign/remove employees<br>- Bulk assignment support |
+
+#### 1.5.3 Basic RBAC Implementation
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.5.3.1 | API routes protected by role | - `authorizeRoles` middleware<br>- Different access levels per endpoint |
+| US-1.5.3.2 | Delete operations restricted | - Only SUPER_ADMIN and ADMIN can delete<br>- Other roles can view/edit |
+
+### Deliverables
+- [x] Employee list page with CRUD operations
+- [x] Client list page with CRUD operations
+- [x] Client detail page with full information
+- [x] Employee service (`employee.service.js`)
+- [x] Client service (`client.service.js`)
+- [x] Employee API routes with RBAC (`employee.routes.ts`)
+- [x] Client API routes with RBAC (`client.routes.ts`)
+- [x] Employee controller (`employee.controller.ts`)
+- [x] Client controller (`client.controller.ts`)
+- [x] Modal fixes (proper closing, transparent backdrop)
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Backend API Endpoints - Employees
+| Method | Endpoint | Allowed Roles | Description |
+|--------|----------|---------------|-------------|
+| GET | `/api/employees` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | List all employees |
+| GET | `/api/employees/stats` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Employee statistics |
+| GET | `/api/employees/:id` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Get single employee |
+| POST | `/api/employees` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Create employee |
+| PUT | `/api/employees/:id` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Update employee |
+| DELETE | `/api/employees/:id` | SUPER_ADMIN, ADMIN | Delete (deactivate) employee |
+| POST | `/api/employees/:id/assign` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Assign to client |
+| POST | `/api/employees/:id/unassign` | SUPER_ADMIN, ADMIN, OPERATIONS, HR | Remove from client |
+
+#### Backend API Endpoints - Clients
+| Method | Endpoint | Allowed Roles | Description |
+|--------|----------|---------------|-------------|
+| GET | `/api/clients` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | List all clients |
+| GET | `/api/clients/stats` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | Client statistics |
+| GET | `/api/clients/:id` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | Get single client |
+| POST | `/api/clients` | SUPER_ADMIN, ADMIN | Create client |
+| PUT | `/api/clients/:id` | SUPER_ADMIN, ADMIN, OPERATIONS | Update client |
+| DELETE | `/api/clients/:id` | SUPER_ADMIN, ADMIN | Delete (deactivate) client |
+| GET | `/api/clients/:id/employees` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | Get client's employees |
+| POST | `/api/clients/:id/employees` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | Assign employees |
+| DELETE | `/api/clients/:id/employees/:employeeId` | SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE | Remove employee |
+
+#### Frontend Pages
+| Page | Location | Description |
+|------|----------|-------------|
+| Employees | `pages/admin/Employees.jsx` | Employee list with CRUD modals |
+| Clients | `pages/admin/Clients.jsx` | Client cards with CRUD modals |
+| ClientDetail | `pages/admin/ClientDetail.jsx` | Dedicated client detail page |
+
+#### Current RBAC Matrix (Basic)
+| Role | Employees | Clients | Delete Access |
+|------|-----------|---------|---------------|
+| SUPER_ADMIN | Full | Full | Yes |
+| ADMIN | Full | Full | Yes |
+| OPERATIONS | View/Edit/Assign | View/Edit | No |
+| HR | View/Edit/Assign | View | No |
+| FINANCE | No | View | No |
+| SUPPORT | No | No | No |
+
+---
+
+## Sprint 1.6: Granular RBAC & Permissions System ✅
+
+**Duration:** 1 week
+**Status:** COMPLETE
+
+### Objectives
+- Implement granular permission-based access control
+- Create permissions matrix for all admin roles
+- Build UI-level feature hiding based on permissions
+- Add role management settings page
+
+### User Stories
+
+#### 1.6.1 Permission System
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.6.1.1 | Define permission constants | - Create permissions enum/constants<br>- Group by feature area (employees, clients, reports, etc.) |
+| US-1.6.1.2 | Map roles to permissions | - Permission matrix per role<br>- Configurable via database or config |
+| US-1.6.1.3 | Backend permission middleware | - `hasPermission(permission)` middleware<br>- Granular route protection |
+
+#### 1.6.2 UI-Level Access Control
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.6.2.1 | Hide unauthorized actions | - Hide buttons/links user can't access<br>- `usePermissions` hook |
+| US-1.6.2.2 | Dynamic navigation menu | - Show only accessible menu items<br>- Role-specific sidebar |
+| US-1.6.2.3 | Disabled state for restricted features | - Grey out features without access<br>- Tooltip explaining restriction |
+
+#### 1.6.3 Role Management (Admin Settings)
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.6.3.1 | View role permissions | - Matrix view of roles vs permissions<br>- Read-only for non-SUPER_ADMIN |
+| US-1.6.3.2 | Create custom roles | - SUPER_ADMIN can create new roles<br>- Assign permissions to role |
+| US-1.6.3.3 | Edit role permissions | - SUPER_ADMIN can modify permissions<br>- Audit log for changes |
+
+### Permission Categories (Proposed)
+```
+EMPLOYEES:
+- employees.view
+- employees.create
+- employees.edit
+- employees.delete
+- employees.assign
+
+CLIENTS:
+- clients.view
+- clients.create
+- clients.edit
+- clients.delete
+- clients.manage_employees
+
+TIME_RECORDS:
+- time_records.view
+- time_records.approve
+- time_records.adjust
+- time_records.export
+
+REPORTS:
+- reports.view
+- reports.export
+- reports.analytics
+
+PAYROLL:
+- payroll.view
+- payroll.process
+- payroll.export
+
+SETTINGS:
+- settings.view
+- settings.edit
+- settings.roles_manage
+
+SUPPORT:
+- support.view
+- support.respond
+- support.escalate
+```
+
+### Deliverables
+- [x] Permission constants/enum definition (`backend/src/config/permissions.ts`)
+- [x] Role-permission mapping configuration (database-driven with `Role` and `RolePermission` models)
+- [x] `hasPermission` backend middleware (`backend/src/middleware/auth.middleware.ts`)
+- [x] `usePermissions` React hook (`frontend/src/hooks/usePermissions.js`)
+- [x] `PermissionGate` wrapper component (`frontend/src/components/auth/PermissionGate.jsx`)
+- [x] Dynamic sidebar based on permissions (`frontend/src/components/layout/Sidebar.jsx`)
+- [x] Role management page in Admin Settings (`frontend/src/pages/admin/Settings.jsx`)
+- [x] Permission caching (5-minute TTL) with invalidation support
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Database Models (Prisma)
+- **Role** - Stores custom roles with name, display name, description, and system flag
+- **RolePermission** - Many-to-many relationship between roles and permission strings
+
+#### Backend API Endpoints - Roles
+| Method | Endpoint | Required Permission | Description |
+|--------|----------|---------------------|-------------|
+| GET | `/api/roles/my-permissions` | (authenticated) | Get current user's permissions |
+| GET | `/api/roles/available-permissions` | settings.view | Get all available permissions |
+| GET | `/api/roles` | settings.view | List all roles with permissions |
+| GET | `/api/roles/:id` | settings.view | Get single role |
+| POST | `/api/roles` | settings.manage_roles | Create new role |
+| PUT | `/api/roles/:id` | settings.manage_roles | Update role |
+| DELETE | `/api/roles/:id` | settings.manage_roles | Delete role |
+| POST | `/api/roles/assign` | settings.manage_roles | Assign role to user |
+
+#### Default Roles Seeded (8 roles)
+1. **Super Administrator** - All permissions
+2. **Administrator** - Most permissions except some settings
+3. **Operations Manager** - Employees, clients, time records, reports
+4. **HR Manager** - Employees, time records, approvals
+5. **Finance Manager** - Clients, payroll, reports
+6. **Support Agent** - Support tickets, basic views
+7. **Employee** - Basic self-service permissions
+8. **Client** - Client-specific view permissions
+
+#### Permission Categories
+- **EMPLOYEES** - view, create, edit, delete, assign, view_sensitive
+- **CLIENTS** - view, create, edit, delete, manage_employees
+- **TIME_RECORDS** - view, view_all, approve, adjust, export
+- **REPORTS** - view, export, analytics
+- **PAYROLL** - view, process, export
+- **SETTINGS** - view, edit, manage_roles
+- **SUPPORT** - view, respond, escalate, manage
+- **APPROVALS** - view, approve_time, approve_leave, approve_overtime
+- **SCHEDULING** - view, create, edit, delete
+
+---
+
 ### Implementation Summary
 
 #### Authentication System
@@ -353,14 +583,16 @@ Phase 1 establishes secure access, workforce visibility, and time tracking acros
 | Sprint | Focus Area | Duration | Key Deliverables | Status |
 |--------|-----------|----------|------------------|--------|
 | Sprint 1 | Authentication & Core Infrastructure | 2 weeks | Login, RBAC, Components | ✅ Complete |
+| Sprint 1.5 | Employee & Client Management | 1 week | CRUD Operations, Detail Pages, Basic RBAC | ✅ Complete |
+| Sprint 1.6 | Granular RBAC & Permissions | 1 week | Permissions System, Role Management, UI Access Control | ✅ Complete |
 | Sprint 2 | Employee Portal - Work Sessions | 2 weeks | Clock In/Out, Timer | 🔲 Pending |
 | Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | 🔲 Pending |
 | Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | 🔲 Pending |
 | Sprint 5 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
 | Sprint 6 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
 
-**Total Phase 1 Duration: 12 weeks**
-**Current Progress: Sprint 1 Complete (1/6 sprints)**
+**Total Phase 1 Duration: 14 weeks**
+**Current Progress: Sprint 1 + 1.5 + 1.6 Complete (3/8 sprints)**
 
 ---
 
@@ -439,3 +671,4 @@ backend/
 *Document Created: January 2026*
 *Last Updated: January 21, 2026*
 *Project: Hello Team Workforce Hub Platform*
+*Version: 1.3 - Completed Sprint 1.6 (Granular RBAC & Permissions System)*

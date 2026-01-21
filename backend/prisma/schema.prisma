@@ -71,6 +71,39 @@ enum TicketPriority {
 }
 
 // ============================================
+// ROLES & PERMISSIONS (Dynamic RBAC)
+// ============================================
+
+model Role {
+  id            String          @id @default(uuid())
+  name          String          @unique  // e.g., "SUPER_ADMIN", "ADMIN", "OPERATIONS"
+  displayName   String          // e.g., "Super Admin", "Administrator"
+  description   String?
+  isSystem      Boolean         @default(false)  // System roles cannot be deleted
+  isActive      Boolean         @default(true)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  permissions   RolePermission[]
+  users         User[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id            String    @id @default(uuid())
+  roleId        String
+  permission    String    // e.g., "employees.view", "clients.create"
+  createdAt     DateTime  @default(now())
+
+  role          Role      @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permission])
+  @@map("role_permissions")
+}
+
+// ============================================
 // USER & AUTHENTICATION
 // ============================================
 
@@ -78,7 +111,8 @@ model User {
   id                String      @id @default(uuid())
   email             String      @unique
   password          String
-  role              UserRole
+  role              UserRole    // Legacy role enum (for backward compatibility)
+  roleId            String?     // New: Links to dynamic Role
   status            UserStatus  @default(ACTIVE)
   lastLoginAt       DateTime?
   passwordResetToken String?
@@ -92,6 +126,7 @@ model User {
   admin             Admin?
   sessions          Session[]
   auditLogs         AuditLog[]
+  dynamicRole       Role?       @relation(fields: [roleId], references: [id])
 
   @@map("users")
 }

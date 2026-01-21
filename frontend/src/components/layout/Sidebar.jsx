@@ -17,7 +17,9 @@ import {
   CheckSquare,
   Briefcase
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PERMISSIONS } from '../../config/permissions';
 
 const Sidebar = ({
   portalType = 'employee',
@@ -25,6 +27,7 @@ const Sidebar = ({
   onLogout
 }) => {
   const [collapsed, setCollapsed] = useState(false);
+  const { hasPermission, hasAnyPermission, loading: permissionsLoading } = usePermissions();
 
   const employeeLinks = [
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -46,16 +49,71 @@ const Sidebar = ({
     { to: '/client/settings', icon: Settings, label: 'Settings' },
   ];
 
-  const adminLinks = [
-    { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/admin/employees', icon: Users, label: 'Employees' },
-    { to: '/admin/clients', icon: Building2, label: 'Clients' },
-    { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-    { to: '/admin/time-records', icon: Clock, label: 'Time Records' },
-    { to: '/admin/approvals', icon: CheckSquare, label: 'Approvals' },
-    { to: '/admin/payroll', icon: Briefcase, label: 'Payroll' },
-    { to: '/admin/settings', icon: Settings, label: 'Settings' },
+  // Admin links with permission requirements
+  const adminLinksConfig = [
+    {
+      to: '/admin/dashboard',
+      icon: LayoutDashboard,
+      label: 'Dashboard',
+      permission: PERMISSIONS.DASHBOARD.VIEW
+    },
+    {
+      to: '/admin/employees',
+      icon: Users,
+      label: 'Employees',
+      permission: PERMISSIONS.EMPLOYEES.VIEW
+    },
+    {
+      to: '/admin/clients',
+      icon: Building2,
+      label: 'Clients',
+      permission: PERMISSIONS.CLIENTS.VIEW
+    },
+    {
+      to: '/admin/analytics',
+      icon: BarChart3,
+      label: 'Analytics',
+      permission: PERMISSIONS.REPORTS.VIEW
+    },
+    {
+      to: '/admin/time-records',
+      icon: Clock,
+      label: 'Time Records',
+      permission: PERMISSIONS.TIME_RECORDS.VIEW
+    },
+    {
+      to: '/admin/approvals',
+      icon: CheckSquare,
+      label: 'Approvals',
+      permission: PERMISSIONS.APPROVALS.VIEW
+    },
+    {
+      to: '/admin/payroll',
+      icon: Briefcase,
+      label: 'Payroll',
+      permission: PERMISSIONS.PAYROLL.VIEW
+    },
+    {
+      to: '/admin/settings',
+      icon: Settings,
+      label: 'Settings',
+      permission: PERMISSIONS.SETTINGS.VIEW
+    },
   ];
+
+  // Filter admin links based on permissions
+  const adminLinks = useMemo(() => {
+    if (permissionsLoading) {
+      // Show all links while loading (will be filtered once permissions load)
+      return adminLinksConfig;
+    }
+    return adminLinksConfig.filter(link => {
+      // If no permission required, show the link
+      if (!link.permission) return true;
+      // Check if user has the required permission
+      return hasPermission(link.permission);
+    });
+  }, [permissionsLoading, hasPermission]);
 
   const links = {
     employee: employeeLinks,

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Building2,
   Users,
@@ -9,21 +9,226 @@ import {
   Database,
   Save,
   Key,
-  Mail
+  Mail,
+  Lock,
+  Check,
+  X,
+  RefreshCw,
+  Plus,
+  Edit,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
-import { Card, Button, Badge } from '../../components/common';
+import { Card, Button, Badge, Modal } from '../../components/common';
+import { usePermissions } from '../../hooks/usePermissions';
+import { PermissionGate } from '../../components/auth';
+import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../config/permissions';
+import permissionsService from '../../services/permissions.service';
+import rolesService from '../../services/roles.service';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
+  const { isSuperAdmin, isAdmin } = usePermissions();
+  const [permissionMatrix, setPermissionMatrix] = useState(null);
+  const [loadingMatrix, setLoadingMatrix] = useState(false);
+  const [matrixError, setMatrixError] = useState(null);
+
+  // Role management state
+  const [roles, setRoles] = useState([]);
+  const [loadingRoles, setLoadingRoles] = useState(false);
+  const [rolesError, setRolesError] = useState(null);
+  const [availablePermissions, setAvailablePermissions] = useState(null);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState(null);
+  const [savingRole, setSavingRole] = useState(false);
+  const [roleFormData, setRoleFormData] = useState({
+    name: '',
+    displayName: '',
+    description: '',
+    permissions: []
+  });
 
   const tabs = [
     { id: 'general', label: 'General', icon: Building2 },
     { id: 'users', label: 'Admin Users', icon: Users },
+    { id: 'roles', label: 'Roles & Permissions', icon: Lock, permission: PERMISSIONS.SETTINGS.ROLES_MANAGE },
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'billing', label: 'Billing Rates', icon: CreditCard },
     { id: 'integrations', label: 'Integrations', icon: Database },
   ];
+
+  // Filter tabs based on permissions
+  const visibleTabs = tabs.filter(tab => {
+    if (!tab.permission) return true;
+    if (isSuperAdmin) return true;
+    return false;
+  });
+
+  // Fetch permission matrix when roles tab is active
+  useEffect(() => {
+    if (activeTab === 'roles' && !permissionMatrix) {
+      fetchPermissionMatrix();
+    }
+  }, [activeTab]);
+
+  const fetchPermissionMatrix = async () => {
+    try {
+      setLoadingMatrix(true);
+      setMatrixError(null);
+      const response = await permissionsService.getPermissionMatrix();
+      if (response.success) {
+        setPermissionMatrix(response.data);
+      } else {
+        setMatrixError(response.error || 'Failed to load permission matrix');
+      }
+    } catch (err) {
+      setMatrixError(err.error || 'Failed to load permission matrix');
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  // Fetch roles from database
+  const fetchRoles = async () => {
+    try {
+      setLoadingRoles(true);
+      setRolesError(null);
+      const response = await rolesService.getRoles();
+      if (response.success) {
+        setRoles(response.data);
+      } else {
+        setRolesError(response.error || 'Failed to load roles');
+      }
+    } catch (err) {
+      setRolesError(err.error || 'Failed to load roles');
+    } finally {
+      setLoadingRoles(false);
+    }
+  };
+
+  // Fetch available permissions
+  const fetchAvailablePermissions = async () => {
+    try {
+      const response = await rolesService.getAvailablePermissions();
+      if (response.success) {
+        setAvailablePermissions(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load available permissions:', err);
+    }
+  };
+
+  // Fetch roles when roles tab is active
+  useEffect(() => {
+    if (activeTab === 'roles' && roles.length === 0) {
+      fetchRoles();
+      fetchAvailablePermissions();
+    }
+  }, [activeTab]);
+
+  // Open modal to create new role
+  const handleCreateRole = () => {
+    setSelectedRole(null);
+    setRoleFormData({
+      name: '',
+      displayName: '',
+      description: '',
+      permissions: []
+    });
+    setIsRoleModalOpen(true);
+  };
+
+  // Open modal to edit role
+  const handleEditRole = (role) => {
+    setSelectedRole(role);
+    setRoleFormData({
+      name: role.name,
+      displayName: role.displayName,
+      description: role.description || '',
+      permissions: role.permissions || []
+    });
+    setIsRoleModalOpen(true);
+  };
+
+  // Handle permission toggle
+  const handlePermissionToggle = (permission) => {
+    setRoleFormData(prev => ({
+      ...prev,
+      permissions: prev.permissions.includes(permission)
+        ? prev.permissions.filter(p => p !== permission)
+        : [...prev.permissions, permission]
+    }));
+  };
+
+  // Toggle all permissions in a category
+  const handleCategoryToggle = (categoryPermissions) => {
+    const allSelected = categoryPermissions.every(p => roleFormData.permissions.includes(p));
+    if (allSelected) {
+      setRoleFormData(prev => ({
+        ...prev,
+        permissions: prev.permissions.filter(p => !categoryPermissions.includes(p))
+      }));
+    } else {
+      setRoleFormData(prev => ({
+        ...prev,
+        permissions: [...new Set([...prev.permissions, ...categoryPermissions])]
+      }));
+    }
+  };
+
+  // Save role
+  const handleSaveRole = async () => {
+    try {
+      setSavingRole(true);
+      let response;
+      if (selectedRole) {
+        response = await rolesService.updateRole(selectedRole.id, {
+          displayName: roleFormData.displayName,
+          description: roleFormData.description,
+          permissions: roleFormData.permissions
+        });
+      } else {
+        response = await rolesService.createRole({
+          name: roleFormData.name,
+          displayName: roleFormData.displayName,
+          description: roleFormData.description,
+          permissions: roleFormData.permissions
+        });
+      }
+
+      if (response.success) {
+        setIsRoleModalOpen(false);
+        fetchRoles();
+        fetchPermissionMatrix();
+      } else {
+        alert(response.error || 'Failed to save role');
+      }
+    } catch (err) {
+      alert(err.error || 'Failed to save role');
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  // Delete role
+  const handleDeleteRole = async () => {
+    if (!roleToDelete) return;
+    try {
+      const response = await rolesService.deleteRole(roleToDelete.id);
+      if (response.success) {
+        setIsDeleteModalOpen(false);
+        setRoleToDelete(null);
+        fetchRoles();
+      } else {
+        alert(response.error || 'Failed to delete role');
+      }
+    } catch (err) {
+      alert(err.error || 'Failed to delete role');
+    }
+  };
 
   const adminUsers = [
     { name: 'Admin User', email: 'admin@helloteam.com', role: 'Super Admin', status: 'active', lastLogin: '2025-12-18 9:00 AM' },
@@ -55,7 +260,7 @@ const Settings = () => {
         <div className="lg:w-64 flex-shrink-0">
           <Card padding="sm">
             <nav className="space-y-1">
-              {tabs.map((tab) => (
+              {visibleTabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
@@ -172,6 +377,335 @@ const Settings = () => {
                 ))}
               </div>
             </Card>
+          )}
+
+          {activeTab === 'roles' && (
+            <div className="space-y-6">
+              {/* Role Management */}
+              <Card>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Role Management</h3>
+                    <p className="text-sm text-gray-500 mt-1">Create and manage roles with custom permissions</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchRoles}>
+                      Refresh
+                    </Button>
+                    <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateRole}>
+                      Create Role
+                    </Button>
+                  </div>
+                </div>
+
+                {loadingRoles ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-gray-500">Loading roles...</span>
+                  </div>
+                ) : rolesError ? (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+                    {rolesError}
+                  </div>
+                ) : roles.length > 0 ? (
+                  <div className="space-y-3">
+                    {roles.map((role) => (
+                      <div
+                        key={role.id}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                            <Shield className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-semibold text-gray-900">{role.displayName}</p>
+                              {role.isSystem && (
+                                <Badge variant="default" size="sm">System</Badge>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-500">{role.description}</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                              {role.permissions?.length || 0} permissions • {role.userCount || 0} users
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Edit}
+                            onClick={() => handleEditRole(role)}
+                          >
+                            Edit
+                          </Button>
+                          {!role.isSystem && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Trash2}
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setRoleToDelete(role);
+                                setIsDeleteModalOpen(true);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No roles found. Create your first role to get started.
+                  </div>
+                )}
+              </Card>
+
+              {/* Permission Matrix */}
+              <Card>
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">Role Permissions Matrix</h3>
+                    <p className="text-sm text-gray-500 mt-1">View permissions assigned to each role</p>
+                  </div>
+                  <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchPermissionMatrix}>
+                    Refresh
+                  </Button>
+                </div>
+
+                {loadingMatrix ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-gray-500">Loading permissions...</span>
+                  </div>
+                ) : matrixError ? (
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+                    {matrixError}
+                  </div>
+                ) : permissionMatrix ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white">Permission</th>
+                          {permissionMatrix.roles.map(role => (
+                            <th key={role} className="text-center py-3 px-3 font-semibold text-gray-700 min-w-[100px]">
+                              <Badge variant={role === 'SUPER_ADMIN' ? 'primary' : 'default'} size="sm">
+                                {role.replace('_', ' ')}
+                              </Badge>
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => (
+                          <>
+                            <tr key={category} className="bg-gray-50">
+                              <td colSpan={permissionMatrix.roles.length + 1} className="py-2 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wider">
+                                {category}
+                              </td>
+                            </tr>
+                            {permissions.map(permission => (
+                              <tr key={permission} className="border-b border-gray-100 hover:bg-gray-50">
+                                <td className="py-2 px-4 text-gray-700 sticky left-0 bg-white">
+                                  {PERMISSION_LABELS[permission] || permission}
+                                </td>
+                                {permissionMatrix.roles.map(role => {
+                                  const hasPermission = permissionMatrix.matrix[role]?.includes(permission);
+                                  return (
+                                    <td key={`${role}-${permission}`} className="text-center py-2 px-3">
+                                      {hasPermission ? (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-600 rounded-full">
+                                          <Check className="w-4 h-4" />
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-400 rounded-full">
+                                          <X className="w-4 h-4" />
+                                        </span>
+                                      )}
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            ))}
+                          </>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    No permission data available
+                  </div>
+                )}
+              </Card>
+            </div>
+          )}
+
+          {/* Role Edit/Create Modal */}
+          {isRoleModalOpen && (
+            <Modal
+              isOpen={isRoleModalOpen}
+              onClose={() => setIsRoleModalOpen(false)}
+              title={selectedRole ? `Edit Role: ${selectedRole.displayName}` : 'Create New Role'}
+              size="xl"
+            >
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {!selectedRole && (
+                    <div>
+                      <label className="label">Role Name (identifier)</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={roleFormData.name}
+                        onChange={(e) => setRoleFormData(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g., MANAGER"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">This will be converted to uppercase</p>
+                    </div>
+                  )}
+                  <div className={selectedRole ? 'md:col-span-2' : ''}>
+                    <label className="label">Display Name</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={roleFormData.displayName}
+                      onChange={(e) => setRoleFormData(prev => ({ ...prev, displayName: e.target.value }))}
+                      placeholder="e.g., Manager"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Description</label>
+                  <textarea
+                    className="input"
+                    rows={2}
+                    value={roleFormData.description}
+                    onChange={(e) => setRoleFormData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Brief description of this role's responsibilities"
+                  />
+                </div>
+
+                {/* Permissions */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <label className="label mb-0">Permissions</label>
+                    <span className="text-sm text-gray-500">
+                      {roleFormData.permissions.length} selected
+                    </span>
+                  </div>
+                  <div className="border rounded-xl max-h-96 overflow-y-auto">
+                    {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => {
+                      const allSelected = permissions.every(p => roleFormData.permissions.includes(p));
+                      const someSelected = permissions.some(p => roleFormData.permissions.includes(p));
+                      return (
+                        <div key={category} className="border-b last:border-b-0">
+                          <div
+                            className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
+                            onClick={() => handleCategoryToggle(permissions)}
+                          >
+                            <span className="font-medium text-gray-700">{category}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-gray-500">
+                                {permissions.filter(p => roleFormData.permissions.includes(p)).length}/{permissions.length}
+                              </span>
+                              <input
+                                type="checkbox"
+                                checked={allSelected}
+                                ref={el => el && (el.indeterminate = someSelected && !allSelected)}
+                                onChange={() => handleCategoryToggle(permissions)}
+                                className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                              />
+                            </div>
+                          </div>
+                          <div className="p-3 space-y-2">
+                            {permissions.map(permission => (
+                              <label
+                                key={permission}
+                                className="flex items-center gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={roleFormData.permissions.includes(permission)}
+                                  onChange={() => handlePermissionToggle(permission)}
+                                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                                />
+                                <span className="text-sm text-gray-700">
+                                  {PERMISSION_LABELS[permission] || permission}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsRoleModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveRole}
+                    disabled={savingRole || (!selectedRole && !roleFormData.name) || !roleFormData.displayName}
+                  >
+                    {savingRole ? 'Saving...' : selectedRole ? 'Update Role' : 'Create Role'}
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {isDeleteModalOpen && roleToDelete && (
+            <Modal
+              isOpen={isDeleteModalOpen}
+              onClose={() => {
+                setIsDeleteModalOpen(false);
+                setRoleToDelete(null);
+              }}
+              title="Delete Role"
+              size="sm"
+            >
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Delete "{roleToDelete.displayName}"?
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  This action cannot be undone. Users assigned to this role will need to be reassigned.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDeleteModalOpen(false);
+                      setRoleToDelete(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={handleDeleteRole}
+                  >
+                    Delete Role
+                  </Button>
+                </div>
+              </div>
+            </Modal>
           )}
 
           {activeTab === 'notifications' && (
