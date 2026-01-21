@@ -16,7 +16,7 @@ const DashboardLayout = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-primary-900 overflow-auto fixed inset-0">
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
         <div
@@ -42,20 +42,22 @@ const DashboardLayout = ({
       {/* Main Content */}
       <div className={`
         transition-all duration-300
-        lg:ml-64
+        lg:ml-64 lg:p-2
       `}>
-        <Header
-          title={title}
-          subtitle={subtitle}
-          user={user}
-          onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          showSearch={showSearch}
-          actions={headerActions}
-        />
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden min-h-[calc(100vh-1rem)]">
+          <Header
+            title={title}
+            subtitle={subtitle}
+            user={user}
+            onMenuClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            showSearch={showSearch}
+            actions={headerActions}
+          />
 
-        <main className="p-6">
-          <Outlet />
-        </main>
+          <main className="p-6">
+            <Outlet />
+          </main>
+        </div>
       </div>
     </div>
   );

@@ -2,3 +2,7 @@ export { default as AdminDashboard } from './Dashboard';
 export { default as Employees } from './Employees';
 export { default as Clients } from './Clients';
 export { default as AdminAnalytics } from './Analytics';
+export { default as AdminTimeRecords } from './TimeRecords';
+export { default as AdminApprovals } from './Approvals';
+export { default as Payroll } from './Payroll';
+export { default as AdminSettings } from './Settings';

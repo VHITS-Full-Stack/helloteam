@@ -11,7 +11,9 @@ import {
   EmployeeDashboard,
   TimeClock,
   Schedule,
-  LeaveRequests
+  LeaveRequests,
+  Support,
+  Profile
 } from './pages/employee';
 
 // Client Pages
@@ -19,7 +21,10 @@ import {
   ClientDashboard,
   Workforce,
   Approvals,
-  ClientAnalytics
+  ClientAnalytics,
+  ClientTimeRecords,
+  Billing,
+  ClientSettings
 } from './pages/client';
 
 // Admin Pages
@@ -27,7 +32,11 @@ import {
   AdminDashboard,
   Employees,
   Clients,
-  AdminAnalytics
+  AdminAnalytics,
+  AdminTimeRecords,
+  AdminApprovals,
+  Payroll,
+  AdminSettings
 } from './pages/admin';
 
 // Employee Layout Wrapper
@@ -108,8 +117,8 @@ function App() {
           <Route path="schedule" element={<Schedule />} />
           <Route path="time-history" element={<TimeClock />} />
           <Route path="leave" element={<LeaveRequests />} />
-          <Route path="support" element={<EmployeeDashboard />} />
-          <Route path="profile" element={<EmployeeDashboard />} />
+          <Route path="support" element={<Support />} />
+          <Route path="profile" element={<Profile />} />
         </Route>
 
         {/* Client Portal Routes */}
@@ -119,9 +128,9 @@ function App() {
           <Route path="workforce" element={<Workforce />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="analytics" element={<ClientAnalytics />} />
-          <Route path="time-records" element={<Approvals />} />
-          <Route path="billing" element={<ClientDashboard />} />
-          <Route path="settings" element={<ClientDashboard />} />
+          <Route path="time-records" element={<ClientTimeRecords />} />
+          <Route path="billing" element={<Billing />} />
+          <Route path="settings" element={<ClientSettings />} />
         </Route>
 
         {/* Admin Portal Routes */}
@@ -131,11 +140,11 @@ function App() {
           <Route path="employees" element={<Employees />} />
           <Route path="clients" element={<Clients />} />
           <Route path="analytics" element={<AdminAnalytics />} />
-          <Route path="time-records" element={<AdminDashboard />} />
-          <Route path="approvals" element={<AdminDashboard />} />
-          <Route path="payroll" element={<AdminDashboard />} />
+          <Route path="time-records" element={<AdminTimeRecords />} />
+          <Route path="approvals" element={<AdminApprovals />} />
+          <Route path="payroll" element={<Payroll />} />
           <Route path="reports" element={<AdminAnalytics />} />
-          <Route path="settings" element={<AdminDashboard />} />
+          <Route path="settings" element={<AdminSettings />} />
         </Route>
 
         {/* Default Redirect */}
