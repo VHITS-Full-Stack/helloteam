@@ -11,8 +11,6 @@ import {
   Key,
   Mail,
   Lock,
-  Check,
-  X,
   RefreshCw,
   Plus,
   Edit,
@@ -23,15 +21,11 @@ import { Card, Button, Badge, Modal } from '../../components/common';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionGate } from '../../components/auth';
 import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../config/permissions';
-import permissionsService from '../../services/permissions.service';
 import rolesService from '../../services/roles.service';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
   const { isSuperAdmin, isAdmin } = usePermissions();
-  const [permissionMatrix, setPermissionMatrix] = useState(null);
-  const [loadingMatrix, setLoadingMatrix] = useState(false);
-  const [matrixError, setMatrixError] = useState(null);
 
   // Role management state
   const [roles, setRoles] = useState([]);
@@ -67,39 +61,16 @@ const Settings = () => {
     return false;
   });
 
-  // Fetch permission matrix when roles tab is active
-  useEffect(() => {
-    if (activeTab === 'roles' && !permissionMatrix) {
-      fetchPermissionMatrix();
-    }
-  }, [activeTab]);
-
-  const fetchPermissionMatrix = async () => {
-    try {
-      setLoadingMatrix(true);
-      setMatrixError(null);
-      const response = await permissionsService.getPermissionMatrix();
-      if (response.success) {
-        setPermissionMatrix(response.data);
-      } else {
-        setMatrixError(response.error || 'Failed to load permission matrix');
-      }
-    } catch (err) {
-      setMatrixError(err.error || 'Failed to load permission matrix');
-    } finally {
-      setLoadingMatrix(false);
-    }
-  };
-
   // Fetch roles from database
   const fetchRoles = async () => {
     try {
       setLoadingRoles(true);
       setRolesError(null);
       const response = await rolesService.getRoles();
-      if (response.success) {
-        setRoles(response.data);
+      if (response.length) {
+        setRoles(response);
       } else {
+        console.log(response);
         setRolesError(response.error || 'Failed to load roles');
       }
     } catch (err) {
@@ -199,10 +170,9 @@ const Settings = () => {
         });
       }
 
-      if (response.success) {
+      if (response) {
         setIsRoleModalOpen(false);
         fetchRoles();
-        fetchPermissionMatrix();
       } else {
         alert(response.error || 'Failed to save role');
       }
@@ -461,85 +431,6 @@ const Settings = () => {
                 ) : (
                   <div className="text-center py-8 text-gray-500">
                     No roles found. Create your first role to get started.
-                  </div>
-                )}
-              </Card>
-
-              {/* Permission Matrix */}
-              <Card>
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">Role Permissions Matrix</h3>
-                    <p className="text-sm text-gray-500 mt-1">View permissions assigned to each role</p>
-                  </div>
-                  <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchPermissionMatrix}>
-                    Refresh
-                  </Button>
-                </div>
-
-                {loadingMatrix ? (
-                  <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    <span className="ml-3 text-gray-500">Loading permissions...</span>
-                  </div>
-                ) : matrixError ? (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
-                    {matrixError}
-                  </div>
-                ) : permissionMatrix ? (
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-3 px-4 font-semibold text-gray-700 sticky left-0 bg-white">Permission</th>
-                          {permissionMatrix.roles.map(role => (
-                            <th key={role} className="text-center py-3 px-3 font-semibold text-gray-700 min-w-[100px]">
-                              <Badge variant={role === 'SUPER_ADMIN' ? 'primary' : 'default'} size="sm">
-                                {role.replace('_', ' ')}
-                              </Badge>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(PERMISSION_CATEGORIES).map(([category, permissions]) => (
-                          <>
-                            <tr key={category} className="bg-gray-50">
-                              <td colSpan={permissionMatrix.roles.length + 1} className="py-2 px-4 font-semibold text-gray-600 text-xs uppercase tracking-wider">
-                                {category}
-                              </td>
-                            </tr>
-                            {permissions.map(permission => (
-                              <tr key={permission} className="border-b border-gray-100 hover:bg-gray-50">
-                                <td className="py-2 px-4 text-gray-700 sticky left-0 bg-white">
-                                  {PERMISSION_LABELS[permission] || permission}
-                                </td>
-                                {permissionMatrix.roles.map(role => {
-                                  const hasPermission = permissionMatrix.matrix[role]?.includes(permission);
-                                  return (
-                                    <td key={`${role}-${permission}`} className="text-center py-2 px-3">
-                                      {hasPermission ? (
-                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-green-100 text-green-600 rounded-full">
-                                          <Check className="w-4 h-4" />
-                                        </span>
-                                      ) : (
-                                        <span className="inline-flex items-center justify-center w-6 h-6 bg-gray-100 text-gray-400 rounded-full">
-                                          <X className="w-4 h-4" />
-                                        </span>
-                                      )}
-                                    </td>
-                                  );
-                                })}
-                              </tr>
-                            ))}
-                          </>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No permission data available
                   </div>
                 )}
               </Card>

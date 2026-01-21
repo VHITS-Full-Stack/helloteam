@@ -12,9 +12,10 @@ const permissionsCache = new Map<string, { permissions: string[]; timestamp: num
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Get user permissions from database
-async function getUserPermissions(userId: string): Promise<string[]> {
-  // If userId is undefined or empty, return empty permissions
-  if (!userId) {
+async function getUserPermissions(userId: string | undefined): Promise<string[]> {
+  // If userId is undefined, null, or empty, return empty permissions
+  if (!userId || userId === 'undefined' || userId.trim() === '') {
+    console.log('getUserPermissions called with invalid userId:', userId);
     return [];
   }
 
@@ -56,7 +57,7 @@ export function invalidatePermissionsCache(userId?: string) {
 }
 
 // Check if user has permission (database-driven with fallback to static)
-async function hasPermission(userId: string, role: string, permission: string): Promise<boolean> {
+async function hasPermission(userId: string | undefined, role: string, permission: string): Promise<boolean> {
   const dbPermissions = await getUserPermissions(userId);
 
   // If user has permissions in DB, use those
@@ -69,7 +70,7 @@ async function hasPermission(userId: string, role: string, permission: string): 
 }
 
 // Check if user has any of the permissions
-async function hasAnyPermission(userId: string, role: string, permissions: string[]): Promise<boolean> {
+async function hasAnyPermission(userId: string | undefined, role: string, permissions: string[]): Promise<boolean> {
   const dbPermissions = await getUserPermissions(userId);
 
   if (dbPermissions.length > 0) {
@@ -80,7 +81,7 @@ async function hasAnyPermission(userId: string, role: string, permissions: strin
 }
 
 // Check if user has all permissions
-async function hasAllPermissions(userId: string, role: string, permissions: string[]): Promise<boolean> {
+async function hasAllPermissions(userId: string | undefined, role: string, permissions: string[]): Promise<boolean> {
   const dbPermissions = await getUserPermissions(userId);
 
   if (dbPermissions.length > 0) {

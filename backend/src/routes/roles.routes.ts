@@ -26,11 +26,11 @@ router.get('/available-permissions', requirePermission(PERMISSIONS.SETTINGS.VIEW
 // CRUD operations for roles (require appropriate permissions)
 router.get('/', requirePermission(PERMISSIONS.SETTINGS.VIEW), getRoles);
 router.get('/:id', requirePermission(PERMISSIONS.SETTINGS.VIEW), getRoleById);
-router.post('/', requirePermission(PERMISSIONS.SETTINGS.MANAGE_ROLES), createRole);
-router.put('/:id', requirePermission(PERMISSIONS.SETTINGS.MANAGE_ROLES), updateRole);
-router.delete('/:id', requirePermission(PERMISSIONS.SETTINGS.MANAGE_ROLES), deleteRole);
+router.post('/', requirePermission(PERMISSIONS.SETTINGS.ROLES_MANAGE), createRole);
+router.put('/:id', requirePermission(PERMISSIONS.SETTINGS.ROLES_MANAGE), updateRole);
+router.delete('/:id', requirePermission(PERMISSIONS.SETTINGS.ROLES_MANAGE), deleteRole);
 
 // Assign role to user
-router.post('/assign', requirePermission(PERMISSIONS.SETTINGS.MANAGE_ROLES), assignRoleToUser);
+router.post('/assign', requirePermission(PERMISSIONS.SETTINGS.ROLES_MANAGE), assignRoleToUser);
 
 export default router;
