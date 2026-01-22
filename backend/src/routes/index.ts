@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from './auth.routes';
 import employeeRoutes from './employee.routes';
 import clientRoutes from './client.routes';
+import clientPortalRoutes from './clientPortal.routes';
 import permissionsRoutes from './permissions.routes';
 import rolesRoutes from './roles.routes';
 import usersRoutes from './users.routes';
@@ -24,6 +25,7 @@ router.get('/health', (req, res) => {
 router.use('/auth', authRoutes);
 router.use('/employees', employeeRoutes);
 router.use('/clients', clientRoutes);
+router.use('/client-portal', clientPortalRoutes);
 router.use('/permissions', permissionsRoutes);
 router.use('/roles', rolesRoutes);
 router.use('/users', usersRoutes);

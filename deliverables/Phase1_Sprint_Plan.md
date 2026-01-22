@@ -627,9 +627,10 @@ SUPPORT:
 
 ---
 
-## Sprint 4: Client Portal - Dashboard & Live Workforce
+## Sprint 4: Client Portal - Dashboard & Live Workforce ✅
 
 **Duration:** 2 weeks
+**Status:** COMPLETE
 
 ### Objectives
 - Build client dashboard with workforce overview
@@ -655,11 +656,56 @@ SUPPORT:
 | US-4.2.4 | As a client, I can filter workforce view | - Filter by status<br>- Search by employee name |
 
 ### Deliverables
-- [ ] Client dashboard
-- [ ] Employee overview cards
-- [ ] Live workforce grid/list
-- [ ] Real-time status updates
-- [ ] Action items summary
+- [x] Client dashboard
+- [x] Employee overview cards
+- [x] Live workforce grid/list
+- [x] Real-time status updates
+- [x] Action items summary
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Backend API Endpoints - Client Portal
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/client-portal/dashboard/stats` | Get dashboard statistics |
+| GET | `/api/client-portal/dashboard/weekly-hours` | Get weekly hours overview for chart |
+| GET | `/api/client-portal/dashboard/pending-approvals` | Get pending approvals list |
+| GET | `/api/client-portal/workforce` | Get all employees with live status |
+| GET | `/api/client-portal/workforce/active` | Get currently active employees |
+| POST | `/api/client-portal/approvals/time-record/:recordId/approve` | Approve a time record |
+| POST | `/api/client-portal/approvals/time-record/:recordId/reject` | Reject a time record |
+
+#### Files Created/Modified
+| File | Type | Description |
+|------|------|-------------|
+| `backend/src/controllers/clientPortal.controller.ts` | Created | Client portal API handlers |
+| `backend/src/routes/clientPortal.routes.ts` | Created | Client portal route definitions |
+| `frontend/src/services/clientPortal.service.js` | Created | Frontend API client |
+| `frontend/src/pages/client/Dashboard.jsx` | Updated | Full dashboard with API integration |
+| `frontend/src/pages/client/Workforce.jsx` | Updated | Live workforce monitoring |
+
+#### Key Features Implemented
+1. **Client Dashboard**
+   - Real-time statistics (total employees, active now, pending approvals, weekly hours, monthly billing)
+   - Active workforce display with clock-in time and duration
+   - Pending actions list with approve/reject functionality
+   - Weekly hours overview chart
+   - Auto-refresh every 30 seconds
+
+2. **Live Workforce Monitoring**
+   - Grid and list view options
+   - Real-time employee status (Working, On Break, Offline)
+   - Status filtering and search
+   - Summary statistics cards
+   - Employee detail modal
+   - Auto-refresh every 15 seconds
+
+3. **Approval Actions**
+   - Quick approve from dashboard
+   - Reject with reason modal
+   - Real-time status updates after actions
 
 ---
 
@@ -761,12 +807,12 @@ SUPPORT:
 | Sprint 1.7 | Admin User Management | 0.5 weeks | Admin Users CRUD, Settings Integration | ✅ Complete |
 | Sprint 2 | Employee Portal - Work Sessions | 2 weeks | Clock In/Out, Timer, Break Tracking | ✅ Complete |
 | Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | ✅ Complete |
-| Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | 🔲 Pending |
+| Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | ✅ Complete |
 | Sprint 5 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
 | Sprint 6 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
 
 **Total Phase 1 Duration: 14.5 weeks**
-**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 + 3 Complete (6/9 sprints)**
+**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 + 3 + 4 Complete (7/9 sprints)**
 
 ---
 
@@ -845,4 +891,4 @@ backend/
 *Document Created: January 2026*
 *Last Updated: January 23, 2026*
 *Project: Hello Team Workforce Hub Platform*
-*Version: 1.6 - Completed Sprint 3 (Employee Portal - Schedule & Time History)*
+*Version: 1.7 - Completed Sprint 4 (Client Portal - Dashboard & Live Workforce)*

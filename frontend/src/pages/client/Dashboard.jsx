@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Users,
   Clock,
@@ -6,32 +7,133 @@ import {
   CheckCircle,
   DollarSign,
   Activity,
-  Eye
+  Eye,
+  RefreshCw,
+  XCircle
 } from 'lucide-react';
-import { Card, StatCard, Badge, Button, Avatar } from '../../components/common';
+import { Card, StatCard, Badge, Button, Avatar, Modal } from '../../components/common';
+import clientPortalService from '../../services/clientPortal.service';
 
 const ClientDashboard = () => {
-  const stats = {
-    totalEmployees: 12,
-    activeNow: 8,
-    pendingApprovals: 5,
-    weeklyHours: 384,
-    monthlyBilling: '$24,500',
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [stats, setStats] = useState({
+    totalEmployees: 0,
+    activeNow: 0,
+    workingNow: 0,
+    onBreakNow: 0,
+    pendingApprovals: 0,
+    weeklyHours: 0,
+    monthlyBilling: 0,
+  });
+  const [activeEmployees, setActiveEmployees] = useState([]);
+  const [pendingItems, setPendingItems] = useState([]);
+  const [weeklyData, setWeeklyData] = useState([]);
+  const [error, setError] = useState(null);
+
+  // Action modals
+  const [rejectModal, setRejectModal] = useState({ show: false, item: null });
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchDashboardData = useCallback(async (showRefresh = false) => {
+    try {
+      if (showRefresh) setRefreshing(true);
+      else setLoading(true);
+      setError(null);
+
+      const [statsRes, activeRes, pendingRes, weeklyRes] = await Promise.allSettled([
+        clientPortalService.getDashboardStats(),
+        clientPortalService.getActiveEmployees(),
+        clientPortalService.getPendingApprovals(5),
+        clientPortalService.getWeeklyHoursOverview(),
+      ]);
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.success) {
+        setStats(statsRes.value.data);
+      }
+
+      if (activeRes.status === 'fulfilled' && activeRes.value.success) {
+        setActiveEmployees(activeRes.value.data || []);
+      }
+
+      if (pendingRes.status === 'fulfilled' && pendingRes.value.success) {
+        setPendingItems(pendingRes.value.data || []);
+      }
+
+      if (weeklyRes.status === 'fulfilled' && weeklyRes.value.success) {
+        setWeeklyData(weeklyRes.value.data || []);
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+
+    // Auto-refresh every 30 seconds for live data
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [fetchDashboardData]);
+
+  const handleApprove = async (item) => {
+    try {
+      setActionLoading(true);
+      if (item.type === 'time-entry' || item.type === 'overtime') {
+        await clientPortalService.approveTimeRecord(item.id);
+      }
+      // Refresh data after approval
+      fetchDashboardData(true);
+    } catch (err) {
+      console.error('Error approving:', err);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const activeEmployees = [
-    { id: 1, name: 'John Doe', role: 'Developer', status: 'working', duration: '4h 32m', productivity: 92 },
-    { id: 2, name: 'Jane Smith', role: 'Designer', status: 'working', duration: '3h 15m', productivity: 88 },
-    { id: 3, name: 'Mike Johnson', role: 'Developer', status: 'break', duration: '5h 10m', productivity: 95 },
-    { id: 4, name: 'Sarah Williams', role: 'QA Engineer', status: 'working', duration: '2h 45m', productivity: 90 },
-    { id: 5, name: 'David Brown', role: 'Developer', status: 'working', duration: '4h 00m', productivity: 85 },
-  ];
+  const handleReject = async () => {
+    try {
+      setActionLoading(true);
+      const item = rejectModal.item;
+      if (item.type === 'time-entry' || item.type === 'overtime') {
+        await clientPortalService.rejectTimeRecord(item.id, rejectReason);
+      }
+      setRejectModal({ show: false, item: null });
+      setRejectReason('');
+      // Refresh data after rejection
+      fetchDashboardData(true);
+    } catch (err) {
+      console.error('Error rejecting:', err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
-  const pendingItems = [
-    { id: 1, type: 'overtime', employee: 'John Doe', hours: 4, date: '2025-12-18' },
-    { id: 2, type: 'time-entry', employee: 'Jane Smith', hours: 8, date: '2025-12-17' },
-    { id: 3, type: 'leave', employee: 'Mike Johnson', days: 2, date: '2025-12-20 - 2025-12-21' },
-  ];
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -42,10 +144,29 @@ const ClientDashboard = () => {
           <p className="text-gray-500">Here's what's happening with your team today.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" icon={Eye}>View Reports</Button>
-          <Button variant="primary" icon={CheckCircle}>Approve All</Button>
+          <Button
+            variant="outline"
+            icon={RefreshCw}
+            onClick={() => fetchDashboardData(true)}
+            disabled={refreshing}
+            className={refreshing ? 'animate-spin' : ''}
+          >
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          <Button variant="outline" icon={Eye} onClick={() => navigate('/client/analytics')}>
+            View Reports
+          </Button>
+          <Button variant="primary" icon={CheckCircle} onClick={() => navigate('/client/approvals')}>
+            View Approvals
+          </Button>
         </div>
       </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -58,7 +179,7 @@ const ClientDashboard = () => {
           title="Active Now"
           value={stats.activeNow}
           icon={Activity}
-          description="Currently working"
+          description={`${stats.workingNow} working, ${stats.onBreakNow} on break`}
         />
         <StatCard
           title="Pending Approvals"
@@ -74,7 +195,7 @@ const ClientDashboard = () => {
         />
         <StatCard
           title="Monthly Billing"
-          value={stats.monthlyBilling}
+          value={formatCurrency(stats.monthlyBilling)}
           icon={DollarSign}
           description="Estimated"
         />
@@ -87,48 +208,61 @@ const ClientDashboard = () => {
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Active Workforce</h3>
-              <Button variant="ghost" size="sm">View All</Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/client/workforce')}>
+                View All
+              </Button>
             </div>
-            <div className="space-y-3">
-              {activeEmployees.map((employee) => (
-                <div
-                  key={employee.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <div className="flex items-center gap-4">
-                    <Avatar
-                      name={employee.name}
-                      status={employee.status === 'working' ? 'online' : employee.status === 'break' ? 'away' : 'offline'}
-                    />
-                    <div>
-                      <p className="font-medium text-gray-900">{employee.name}</p>
-                      <p className="text-sm text-gray-500">{employee.role}</p>
+            {activeEmployees.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>No employees are currently working</p>
+                <p className="text-sm mt-1">Active employees will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activeEmployees.slice(0, 5).map((employee) => (
+                  <div
+                    key={employee.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <Avatar
+                        name={employee.name}
+                        src={employee.profilePhoto}
+                        status={employee.status === 'working' ? 'online' : 'away'}
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900">{employee.name}</p>
+                        <p className="text-sm text-gray-500">{employee.role}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Started</p>
+                        <p className="font-semibold text-gray-900">
+                          {employee.clockInTime
+                            ? new Date(employee.clockInTime).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })
+                            : '-'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-gray-500">Duration</p>
+                        <p className="font-semibold text-gray-900">{employee.duration}</p>
+                      </div>
+                      <Badge
+                        variant={employee.status === 'working' ? 'success' : 'warning'}
+                        dot
+                      >
+                        {employee.status === 'working' ? 'Working' : 'On Break'}
+                      </Badge>
                     </div>
                   </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Today</p>
-                      <p className="font-semibold text-gray-900">{employee.duration}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Productivity</p>
-                      <p className={`font-semibold ${
-                        employee.productivity >= 90 ? 'text-green-600' :
-                        employee.productivity >= 80 ? 'text-yellow-600' : 'text-red-600'
-                      }`}>
-                        {employee.productivity}%
-                      </p>
-                    </div>
-                    <Badge
-                      variant={employee.status === 'working' ? 'success' : 'warning'}
-                      dot
-                    >
-                      {employee.status === 'working' ? 'Working' : 'On Break'}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </Card>
         </div>
 
@@ -136,39 +270,70 @@ const ClientDashboard = () => {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Pending Actions</h3>
-            <Badge variant="danger">{pendingItems.length}</Badge>
+            {pendingItems.length > 0 && (
+              <Badge variant="danger">{pendingItems.length}</Badge>
+            )}
           </div>
-          <div className="space-y-3">
-            {pendingItems.map((item) => (
-              <div
-                key={item.id}
-                className="p-4 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors cursor-pointer"
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <Badge
-                      variant={
-                        item.type === 'overtime' ? 'warning' :
-                        item.type === 'leave' ? 'info' : 'default'
-                      }
-                      size="sm"
-                    >
-                      {item.type === 'overtime' ? 'Overtime' :
-                       item.type === 'leave' ? 'Leave Request' : 'Time Entry'}
-                    </Badge>
+          {pendingItems.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
+              <p>All caught up!</p>
+              <p className="text-sm mt-1">No pending approvals</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pendingItems.map((item) => (
+                <div
+                  key={`${item.type}-${item.id}`}
+                  className="p-4 border border-gray-100 rounded-lg hover:border-primary-200 transition-colors"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <Badge
+                        variant={
+                          item.type === 'overtime' ? 'warning' :
+                          item.type === 'leave' ? 'info' : 'default'
+                        }
+                        size="sm"
+                      >
+                        {item.type === 'overtime' ? 'Overtime' :
+                         item.type === 'leave' ? 'Leave Request' : 'Time Entry'}
+                      </Badge>
+                    </div>
                   </div>
+                  <p className="font-medium text-gray-900">{item.employee}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {item.description}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {typeof item.date === 'string' ? item.date : new Date(item.date).toLocaleDateString()}
+                  </p>
+                  {item.type !== 'leave' && (
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        fullWidth
+                        onClick={() => handleApprove(item)}
+                        disabled={actionLoading}
+                      >
+                        Approve
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        fullWidth
+                        onClick={() => setRejectModal({ show: true, item })}
+                        disabled={actionLoading}
+                      >
+                        Decline
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <p className="font-medium text-gray-900">{item.employee}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {item.hours ? `${item.hours} hours` : `${item.days} days`} - {item.date}
-                </p>
-                <div className="flex gap-2 mt-3">
-                  <Button variant="primary" size="sm" fullWidth>Approve</Button>
-                  <Button variant="ghost" size="sm" fullWidth>Decline</Button>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
@@ -188,38 +353,94 @@ const ClientDashboard = () => {
           </div>
         </div>
         <div className="grid grid-cols-7 gap-4">
-          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
-            const approved = [64, 72, 68, 70, 0, 0, 0][index];
-            const pending = [0, 0, 8, 4, 72, 0, 0][index];
-            const total = approved + pending;
-            const maxHours = 96; // 12 employees * 8 hours
+          {(weeklyData.length > 0 ? weeklyData : [
+            { day: 'Sun', approved: 0, pending: 0, total: 0 },
+            { day: 'Mon', approved: 0, pending: 0, total: 0 },
+            { day: 'Tue', approved: 0, pending: 0, total: 0 },
+            { day: 'Wed', approved: 0, pending: 0, total: 0 },
+            { day: 'Thu', approved: 0, pending: 0, total: 0 },
+            { day: 'Fri', approved: 0, pending: 0, total: 0 },
+            { day: 'Sat', approved: 0, pending: 0, total: 0 },
+          ]).map((data) => {
+            const maxHours = Math.max(
+              ...weeklyData.map(d => d.total || 0),
+              stats.totalEmployees * 8 || 40
+            );
 
             return (
-              <div key={day} className="text-center">
-                <p className="text-sm text-gray-500 mb-2">{day}</p>
+              <div key={data.day} className="text-center">
+                <p className="text-sm text-gray-500 mb-2">{data.day}</p>
                 <div className="h-32 bg-gray-100 rounded-lg relative overflow-hidden">
-                  {total > 0 && (
+                  {data.total > 0 && (
                     <>
                       <div
                         className="absolute bottom-0 left-0 right-0 bg-primary transition-all"
-                        style={{ height: `${(approved / maxHours) * 100}%` }}
+                        style={{ height: `${Math.min((data.approved / maxHours) * 100, 100)}%` }}
                       />
                       <div
                         className="absolute left-0 right-0 bg-yellow-400 transition-all"
                         style={{
-                          bottom: `${(approved / maxHours) * 100}%`,
-                          height: `${(pending / maxHours) * 100}%`
+                          bottom: `${Math.min((data.approved / maxHours) * 100, 100)}%`,
+                          height: `${Math.min((data.pending / maxHours) * 100, 100)}%`
                         }}
                       />
                     </>
                   )}
                 </div>
-                <p className="text-sm font-medium text-gray-900 mt-2">{total}h</p>
+                <p className="text-sm font-medium text-gray-900 mt-2">{data.total}h</p>
               </div>
             );
           })}
         </div>
       </Card>
+
+      {/* Reject Modal */}
+      <Modal
+        isOpen={rejectModal.show}
+        onClose={() => {
+          setRejectModal({ show: false, item: null });
+          setRejectReason('');
+        }}
+        title="Reject Time Entry"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to reject this time entry from{' '}
+            <span className="font-semibold">{rejectModal.item?.employee}</span>?
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason (optional)
+            </label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+              rows={3}
+              placeholder="Enter rejection reason..."
+            />
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setRejectModal({ show: false, item: null });
+                setRejectReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              icon={XCircle}
+              onClick={handleReject}
+              disabled={actionLoading}
+            >
+              Reject
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };
