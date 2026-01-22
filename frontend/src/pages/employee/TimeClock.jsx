@@ -1,226 +1,613 @@
-import { useState, useEffect } from 'react';
-import { Clock, Play, Pause, Square, Coffee, AlertCircle } from 'lucide-react';
-import { Card, Button, Badge } from '../../components/common';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  Clock,
+  Play,
+  Pause,
+  Square,
+  Coffee,
+  CheckCircle,
+  AlertCircle,
+  Calendar,
+  TrendingUp,
+  History,
+  Timer,
+  Sun,
+  Sunrise,
+  Moon,
+} from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
+import workSessionService from '../../services/workSession.service';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [sessionState, setSessionState] = useState('idle'); // idle, working, break
-  const [workDuration, setWorkDuration] = useState(0);
-  const [breakDuration, setBreakDuration] = useState(0);
-  const [sessionStartTime, setSessionStartTime] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sessionData, setSessionData] = useState(null);
+  const [todaySummary, setTodaySummary] = useState(null);
+  const [weeklySummary, setWeeklySummary] = useState(null);
+  const [sessionHistory, setSessionHistory] = useState([]);
+  const [error, setError] = useState(null);
+  const [showClockOutModal, setShowClockOutModal] = useState(false);
+  const [clockOutNotes, setClockOutNotes] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
+  // Fetch current session and summaries
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const [sessionRes, todayRes, weeklyRes, historyRes] = await Promise.all([
+        workSessionService.getCurrentSession(),
+        workSessionService.getTodaySummary(),
+        workSessionService.getWeeklySummary(),
+        workSessionService.getSessionHistory({ limit: 5 }),
+      ]);
+
+      setSessionData(sessionRes);
+      setTodaySummary(todayRes.summary);
+      setWeeklySummary(weeklyRes.summary);
+      setSessionHistory(historyRes.sessions || []);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch work session data:', err);
+      setError('Failed to load work session data. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      if (sessionState === 'working') {
-        setWorkDuration(prev => prev + 1);
-      } else if (sessionState === 'break') {
-        setBreakDuration(prev => prev + 1);
-      }
     }, 1000);
     return () => clearInterval(timer);
-  }, [sessionState]);
+  }, []);
 
-  const formatDuration = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
+  // Format time display
+  const formatDuration = (minutes) => {
+    if (!minutes && minutes !== 0) return '--:--';
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  };
+
+  const formatDurationWithSeconds = (startTime) => {
+    if (!startTime) return '00:00:00';
+    const start = new Date(startTime);
+    const now = new Date();
+    const totalSeconds = Math.floor((now.getTime() - start.getTime()) / 1000);
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleClockIn = () => {
-    setSessionState('working');
-    setSessionStartTime(new Date());
-    setWorkDuration(0);
-    setBreakDuration(0);
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return { text: 'Good Morning', icon: Sunrise };
+    if (hour < 17) return { text: 'Good Afternoon', icon: Sun };
+    return { text: 'Good Evening', icon: Moon };
   };
 
-  const handleClockOut = () => {
-    setSessionState('idle');
-    // Here you would save the session data
-  };
+  const greeting = getGreeting();
 
-  const handleStartBreak = () => {
-    setSessionState('break');
-  };
-
-  const handleEndBreak = () => {
-    setSessionState('working');
-  };
-
-  const todaySchedule = {
-    scheduledStart: '9:00 AM',
-    scheduledEnd: '6:00 PM',
-    scheduledBreak: '1:00 PM - 2:00 PM',
-    totalScheduledHours: 8,
-  };
-
-  const getStatusInfo = () => {
-    switch (sessionState) {
-      case 'working':
-        return { label: 'Currently Working', color: 'success', icon: Play };
-      case 'break':
-        return { label: 'On Break', color: 'warning', icon: Coffee };
-      default:
-        return { label: 'Not Clocked In', color: 'default', icon: Clock };
+  // Handle clock in
+  const handleClockIn = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.clockIn();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
     }
+  };
+
+  // Handle clock out
+  const handleClockOut = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.clockOut(clockOutNotes || null);
+      setShowClockOutModal(false);
+      setClockOutNotes('');
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock out');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle start break
+  const handleStartBreak = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.startBreak();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start break');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle end break
+  const handleEndBreak = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.endBreak();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to end break');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Get status info
+  const getStatusInfo = () => {
+    if (!sessionData?.isWorking) {
+      return { status: 'Not Working', color: 'gray', icon: Square };
+    }
+    if (sessionData?.session?.status === 'ON_BREAK') {
+      return { status: 'On Break', color: 'yellow', icon: Coffee };
+    }
+    return { status: 'Working', color: 'green', icon: Play };
   };
 
   const statusInfo = getStatusInfo();
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Status Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Time Clock</h2>
-          <p className="text-gray-500">Manage your work sessions</p>
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <p className="text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            &times;
+          </button>
         </div>
-        <Badge variant={statusInfo.color} size="lg" dot>
-          {statusInfo.label}
-        </Badge>
-      </div>
+      )}
 
-      {/* Main Clock Card */}
-      <Card className={`
-        ${sessionState === 'working' ? 'bg-gradient-to-r from-green-500 to-green-600' : ''}
-        ${sessionState === 'break' ? 'bg-gradient-to-r from-yellow-500 to-yellow-600' : ''}
-        ${sessionState === 'idle' ? 'bg-gradient-to-r from-primary to-primary-dark' : ''}
-        text-white
-      `}>
-        <div className="text-center py-8">
-          {/* Current Time */}
-          <p className="text-white/80 text-sm font-medium uppercase tracking-wide">
-            Current Time
-          </p>
-          <p className="text-5xl md:text-6xl font-bold mt-2">
-            {currentTime.toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            })}
-          </p>
-          <p className="text-white/80 mt-2">
-            {currentTime.toLocaleDateString('en-US', {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-            })}
-          </p>
+      {/* Main Time Clock Card */}
+      <Card className="overflow-hidden">
+        <div className="bg-gradient-to-r from-primary via-primary-dark to-primary p-8 text-white">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
+            {/* Left: Greeting & Status */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 text-primary-100 mb-2">
+                <greeting.icon className="w-5 h-5" />
+                <span className="text-sm font-medium">{greeting.text}</span>
+              </div>
+              <h1 className="text-3xl font-bold font-heading mb-4">Time Clock</h1>
 
-          {/* Session Info */}
-          {sessionState !== 'idle' && (
-            <div className="mt-8 pt-8 border-t border-white/20">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                <div>
-                  <p className="text-white/80 text-sm">Session Started</p>
-                  <p className="text-2xl font-bold">
-                    {sessionStartTime?.toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+              {/* Current Status */}
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`w-3 h-3 rounded-full ${
+                  statusInfo.color === 'green' ? 'bg-green-400 animate-pulse' :
+                  statusInfo.color === 'yellow' ? 'bg-yellow-400 animate-pulse' :
+                  'bg-gray-400'
+                }`} />
+                <span className="text-lg font-medium">{statusInfo.status}</span>
+                {sessionData?.session?.status === 'ACTIVE' && (
+                  <Badge variant="success" size="sm">Active Session</Badge>
+                )}
+              </div>
+
+              {/* Schedule Info */}
+              {sessionData?.schedule && (
+                <div className="bg-white/10 rounded-lg p-3 inline-block">
+                  <p className="text-sm text-primary-100">Today's Schedule</p>
+                  <p className="text-lg font-semibold">
+                    {sessionData.schedule.startTime} - {sessionData.schedule.endTime}
                   </p>
                 </div>
-                <div>
-                  <p className="text-white/80 text-sm">Work Duration</p>
-                  <p className="text-2xl font-bold">{formatDuration(workDuration)}</p>
-                </div>
-                <div className="col-span-2 md:col-span-1">
-                  <p className="text-white/80 text-sm">Break Duration</p>
-                  <p className="text-2xl font-bold">{formatDuration(breakDuration)}</p>
-                </div>
-              </div>
+              )}
             </div>
-          )}
 
-          {/* Action Buttons */}
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            {sessionState === 'idle' && (
-              <Button
-                variant="secondary"
-                size="lg"
-                onClick={handleClockIn}
-                icon={Play}
-              >
-                Clock In
-              </Button>
-            )}
+            {/* Center: Clock Display */}
+            <div className="flex flex-col items-center">
+              <p className="text-primary-100 text-sm font-medium mb-1">Current Time</p>
+              <p className="text-5xl font-bold font-heading mb-2">
+                {currentTime.toLocaleTimeString('en-US', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: true,
+                })}
+              </p>
+              <p className="text-primary-200 text-sm">
+                {currentTime.toLocaleDateString('en-US', {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
 
-            {sessionState === 'working' && (
-              <>
-                <Button
-                  variant="accent"
-                  size="lg"
-                  onClick={handleStartBreak}
-                  icon={Coffee}
-                >
-                  Start Break
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={handleClockOut}
-                  icon={Square}
-                >
-                  Clock Out
-                </Button>
-              </>
-            )}
+            {/* Right: Action Buttons */}
+            <div className="flex flex-col items-center gap-4 min-w-[200px]">
+              {sessionData?.isWorking ? (
+                <>
+                  {/* Live Timer */}
+                  <div className="text-center bg-white/10 rounded-xl p-4 w-full">
+                    <p className="text-primary-100 text-xs mb-1">Session Duration</p>
+                    <p className="text-3xl font-bold font-mono">
+                      {formatDurationWithSeconds(sessionData.session?.startTime)}
+                    </p>
+                    {sessionData.session?.currentBreak && (
+                      <p className="text-yellow-300 text-sm mt-1">
+                        Break: {formatDurationWithSeconds(sessionData.session.currentBreak.startTime)}
+                      </p>
+                    )}
+                  </div>
 
-            {sessionState === 'break' && (
-              <>
+                  {/* Break Button */}
+                  {sessionData.session?.status === 'ON_BREAK' ? (
+                    <Button
+                      variant="warning"
+                      size="lg"
+                      onClick={handleEndBreak}
+                      loading={actionLoading}
+                      icon={Play}
+                      className="w-full"
+                    >
+                      End Break
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      onClick={handleStartBreak}
+                      loading={actionLoading}
+                      icon={Coffee}
+                      className="w-full"
+                    >
+                      Take Break
+                    </Button>
+                  )}
+
+                  {/* Clock Out Button */}
+                  <Button
+                    variant="danger"
+                    size="lg"
+                    onClick={() => setShowClockOutModal(true)}
+                    loading={actionLoading}
+                    icon={Square}
+                    className="w-full"
+                  >
+                    Clock Out
+                  </Button>
+                </>
+              ) : (
                 <Button
-                  variant="secondary"
+                  variant="success"
                   size="lg"
-                  onClick={handleEndBreak}
+                  onClick={handleClockIn}
+                  loading={actionLoading}
                   icon={Play}
+                  className="w-full py-6 text-xl"
                 >
-                  End Break
+                  Clock In
                 </Button>
-                <Button
-                  variant="danger"
-                  size="lg"
-                  onClick={handleClockOut}
-                  icon={Square}
-                >
-                  Clock Out
-                </Button>
-              </>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </Card>
 
-      {/* Schedule Info & Guidelines */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Today's Schedule */}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Today's Work */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Schedule</h3>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center py-3 border-b border-gray-100">
-              <span className="text-gray-500">Scheduled Start</span>
-              <span className="font-semibold text-gray-900">{todaySchedule.scheduledStart}</span>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-primary-100">
+                <Clock className="w-6 h-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Today's Work</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatDuration(todaySummary?.totalWorkMinutes)}
+                </p>
+                {todaySummary?.scheduledMinutes > 0 && (
+                  <p className="text-xs text-gray-400">
+                    of {formatDuration(todaySummary.scheduledMinutes)} scheduled
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex justify-between items-center py-3 border-b border-gray-100">
-              <span className="text-gray-500">Scheduled End</span>
-              <span className="font-semibold text-gray-900">{todaySchedule.scheduledEnd}</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b border-gray-100">
-              <span className="text-gray-500">Break Time</span>
-              <span className="font-semibold text-gray-900">{todaySchedule.scheduledBreak}</span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <span className="text-gray-500">Total Hours</span>
-              <span className="font-semibold text-gray-900">{todaySchedule.totalScheduledHours} hours</span>
-            </div>
-          </div>
+          </CardContent>
         </Card>
 
-        {/* Arrival Status */}
+        {/* Today's Breaks */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Session Guidelines</h3>
-          <div className="space-y-4">
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-yellow-100">
+                <Coffee className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Today's Breaks</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatDuration(todaySummary?.totalBreakMinutes)}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {todaySummary?.sessionsCount || 0} session(s)
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Weekly Hours */}
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-green-100">
+                <TrendingUp className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">This Week</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatDuration(weeklySummary?.totalWorkMinutes)}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {weeklySummary?.daysWorked || 0} days worked
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overtime */}
+        <Card>
+          <CardContent>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-purple-100">
+                <Timer className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Weekly Overtime</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatDuration(weeklySummary?.overtimeMinutes)}
+                </p>
+                {weeklySummary?.scheduledWeeklyMinutes > 0 && (
+                  <p className="text-xs text-gray-400">
+                    of {formatDuration(weeklySummary.scheduledWeeklyMinutes)} scheduled
+                  </p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Session Details & History */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Current Session Details */}
+        {sessionData?.isWorking && sessionData?.session && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-primary" />
+                Current Session
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Clock In Time</span>
+                  <span className="font-semibold">
+                    {new Date(sessionData.session.startTime).toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true,
+                    })}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Work Duration</span>
+                  <span className="font-semibold text-green-600">
+                    {formatDuration(sessionData.session.currentWorkMinutes)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                  <span className="text-gray-600">Break Time</span>
+                  <span className="font-semibold text-yellow-600">
+                    {formatDuration(sessionData.session.totalBreakMinutes)}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-gray-600">Status</span>
+                  <Badge variant={sessionData.session.status === 'ON_BREAK' ? 'warning' : 'success'}>
+                    {sessionData.session.status === 'ON_BREAK' ? 'On Break' : 'Working'}
+                  </Badge>
+                </div>
+
+                {/* Breaks List */}
+                {sessionData.session.breaks && sessionData.session.breaks.length > 0 && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-sm font-medium text-gray-700 mb-2">Breaks Today</p>
+                    <div className="space-y-2">
+                      {sessionData.session.breaks.map((brk, index) => (
+                        <div
+                          key={brk.id || index}
+                          className="flex justify-between items-center text-sm bg-gray-50 rounded-lg px-3 py-2"
+                        >
+                          <span className="text-gray-600">
+                            {new Date(brk.startTime).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })}
+                            {brk.endTime && (
+                              <> - {new Date(brk.endTime).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true,
+                              })}</>
+                            )}
+                          </span>
+                          <span className="font-medium">
+                            {brk.durationMinutes
+                              ? `${brk.durationMinutes} min`
+                              : 'In Progress'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Recent History */}
+        <Card className={sessionData?.isWorking ? '' : 'lg:col-span-2'}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Recent Sessions
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {sessionHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                <History className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>No session history yet</p>
+                <p className="text-sm">Your work sessions will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sessionHistory.map((session) => (
+                  <div
+                    key={session.id}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="p-2 rounded-lg bg-white">
+                        <Calendar className="w-5 h-5 text-gray-400" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">
+                          {new Date(session.startTime).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric',
+                          })}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(session.startTime).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true,
+                          })}
+                          {session.endTime && (
+                            <> - {new Date(session.endTime).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })}</>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">
+                        {formatDuration(session.workMinutes)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {session.totalBreakMinutes > 0 && `${session.totalBreakMinutes} min break`}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Weekly Breakdown */}
+      {weeklySummary?.dailyBreakdown && Object.keys(weeklySummary.dailyBreakdown).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="w-5 h-5 text-primary" />
+              This Week's Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, index) => {
+                const weekStart = new Date(weeklySummary.weekStart);
+                const dayDate = new Date(weekStart);
+                dayDate.setDate(weekStart.getDate() + index);
+                const dateKey = dayDate.toISOString().split('T')[0];
+                const dayData = weeklySummary.dailyBreakdown[dateKey];
+                const isToday = new Date().toDateString() === dayDate.toDateString();
+
+                return (
+                  <div
+                    key={day}
+                    className={`p-4 rounded-xl text-center ${
+                      isToday
+                        ? 'bg-primary text-white'
+                        : dayData
+                        ? 'bg-green-50 border border-green-100'
+                        : 'bg-gray-50'
+                    }`}
+                  >
+                    <p className={`text-sm font-medium ${isToday ? 'text-primary-100' : 'text-gray-500'}`}>
+                      {day}
+                    </p>
+                    <p className={`text-lg font-bold mt-1 ${isToday ? 'text-white' : 'text-gray-900'}`}>
+                      {dayDate.getDate()}
+                    </p>
+                    {dayData ? (
+                      <p className={`text-sm mt-2 ${isToday ? 'text-primary-100' : 'text-green-600'}`}>
+                        {formatDuration(dayData.workMinutes)}
+                      </p>
+                    ) : (
+                      <p className={`text-sm mt-2 ${isToday ? 'text-primary-200' : 'text-gray-400'}`}>
+                        --:--
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Session Guidelines */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Session Guidelines</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
               <AlertCircle className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -242,52 +629,84 @@ const TimeClock = () => {
             <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
               <Clock className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
               <div>
-                <p className="font-medium text-green-900">Additional Work</p>
+                <p className="font-medium text-green-900">Overtime Policy</p>
                 <p className="text-sm text-green-700">
                   Any overtime requires prior approval from your client.
                 </p>
               </div>
             </div>
           </div>
-        </Card>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Today's Activity Log */}
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Today's Activity Log</h3>
-        <div className="relative">
-          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
-          <div className="space-y-4">
-            {sessionStartTime && (
-              <div className="flex gap-4 relative">
-                <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center z-10">
-                  <Play className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1 pb-4">
-                  <p className="font-medium text-gray-900">Clocked In</p>
-                  <p className="text-sm text-gray-500">
-                    {sessionStartTime.toLocaleTimeString('en-US', {
+      {/* Clock Out Modal */}
+      <Modal
+        isOpen={showClockOutModal}
+        onClose={() => setShowClockOutModal(false)}
+        title="Clock Out"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div className="bg-gray-50 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Session Started</span>
+              <span className="font-semibold">
+                {sessionData?.session?.startTime
+                  ? new Date(sessionData.session.startTime).toLocaleTimeString('en-US', {
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}
-                  </p>
-                </div>
-              </div>
-            )}
-            {!sessionStartTime && (
-              <div className="flex gap-4 relative">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center z-10">
-                  <Clock className="w-4 h-4 text-gray-500" />
-                </div>
-                <div className="flex-1 pb-4">
-                  <p className="font-medium text-gray-500">Awaiting Clock In</p>
-                  <p className="text-sm text-gray-400">No activity recorded today</p>
-                </div>
-              </div>
-            )}
+                      hour12: true,
+                    })
+                  : '--:--'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-gray-600">Work Duration</span>
+              <span className="font-semibold text-green-600">
+                {formatDuration(sessionData?.session?.currentWorkMinutes)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600">Total Breaks</span>
+              <span className="font-semibold text-yellow-600">
+                {formatDuration(sessionData?.session?.totalBreakMinutes)}
+              </span>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Notes (Optional)
+            </label>
+            <textarea
+              value={clockOutNotes}
+              onChange={(e) => setClockOutNotes(e.target.value)}
+              placeholder="Add any notes about your work session..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="ghost"
+              onClick={() => setShowClockOutModal(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={handleClockOut}
+              loading={actionLoading}
+              icon={Square}
+              className="flex-1"
+            >
+              Clock Out
+            </Button>
           </div>
         </div>
-      </Card>
+      </Modal>
     </div>
   );
 };

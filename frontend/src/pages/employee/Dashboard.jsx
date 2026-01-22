@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Clock,
   Calendar,
@@ -21,6 +22,7 @@ import {
   ChevronRight,
   Play,
   Pause,
+  Square,
   RefreshCw,
   Wifi,
   Monitor,
@@ -30,12 +32,20 @@ import {
   Lightbulb
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
+import workSessionService from '../../services/workSession.service';
 
 const EmployeeDashboard = () => {
+  const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [isWorking, setIsWorking] = useState(false);
-  const [workDuration, setWorkDuration] = useState(0);
   const [quoteIndex, setQuoteIndex] = useState(0);
+
+  // Work session state
+  const [sessionData, setSessionData] = useState(null);
+  const [todaySummary, setTodaySummary] = useState(null);
+  const [weeklySummary, setWeeklySummary] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Motivational quotes
   const quotes = [
@@ -48,15 +58,37 @@ const EmployeeDashboard = () => {
     { text: "The secret of getting ahead is getting started.", author: "Mark Twain" }
   ];
 
+  // Fetch work session data
+  const fetchWorkSessionData = useCallback(async () => {
+    try {
+      const [sessionRes, todayRes, weeklyRes] = await Promise.all([
+        workSessionService.getCurrentSession(),
+        workSessionService.getTodaySummary(),
+        workSessionService.getWeeklySummary(),
+      ]);
+
+      setSessionData(sessionRes);
+      setTodaySummary(todayRes.summary);
+      setWeeklySummary(weeklyRes.summary);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch work session data:', err);
+      // Don't show error on dashboard, just use defaults
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchWorkSessionData();
+  }, [fetchWorkSessionData]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
-      if (isWorking) {
-        setWorkDuration(prev => prev + 1);
-      }
     }, 1000);
     return () => clearInterval(timer);
-  }, [isWorking]);
+  }, []);
 
   // Change quote every 30 seconds
   useEffect(() => {
@@ -73,6 +105,24 @@ const EmployeeDashboard = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const formatDuration = (minutes) => {
+    if (!minutes && minutes !== 0) return '0h 0m';
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.floor(minutes % 60);
+    return `${hrs}h ${mins}m`;
+  };
+
+  const formatDurationWithSeconds = (startTime) => {
+    if (!startTime) return '00:00:00';
+    const start = new Date(startTime);
+    const now = new Date();
+    const totalSeconds = Math.floor((now.getTime() - start.getTime()) / 1000);
+    const hrs = Math.floor(totalSeconds / 3600);
+    const mins = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const getGreeting = () => {
     const hour = currentTime.getHours();
     if (hour < 12) return { text: 'Good Morning', icon: Sunrise, emoji: '☀️' };
@@ -81,6 +131,58 @@ const EmployeeDashboard = () => {
   };
 
   const greeting = getGreeting();
+
+  // Handle clock in
+  const handleClockIn = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.clockIn();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle clock out
+  const handleClockOut = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.clockOut();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock out');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle start break
+  const handleStartBreak = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.startBreak();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to start break');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle end break
+  const handleEndBreak = async () => {
+    try {
+      setActionLoading(true);
+      await workSessionService.endBreak();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to end break');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Online colleagues
   const onlineColleagues = [
@@ -114,10 +216,10 @@ const EmployeeDashboard = () => {
     { id: 3, title: 'Q4 Goals Published', type: 'company', isNew: false }
   ];
 
-  // Weekly stats
+  // Weekly stats from API or defaults
   const weeklyStats = {
-    hoursWorked: 32,
-    hoursTarget: 40,
+    hoursWorked: Math.round((weeklySummary?.totalWorkMinutes || 0) / 60),
+    hoursTarget: Math.round((weeklySummary?.scheduledWeeklyMinutes || 2400) / 60),
     tasksCompleted: 24,
     meetingsAttended: 12,
     productivity: 94
@@ -148,8 +250,26 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // Determine work status
+  const isWorking = sessionData?.isWorking || false;
+  const isOnBreak = sessionData?.session?.status === 'ON_BREAK';
+
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          <p className="text-red-700">{error}</p>
+          <button
+            onClick={() => setError(null)}
+            className="ml-auto text-red-500 hover:text-red-700"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Welcome Banner with Quote */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-primary-dark to-primary p-6 text-white">
         {/* Decorative elements */}
@@ -197,21 +317,68 @@ const EmployeeDashboard = () => {
               </div>
 
               {isWorking && (
-                <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg">
-                  <p className="text-green-300 text-xs">Active Session</p>
-                  <p className="text-2xl font-bold text-white">{formatTime(workDuration)}</p>
+                <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg w-full">
+                  <p className="text-green-300 text-xs">
+                    {isOnBreak ? 'On Break' : 'Active Session'}
+                  </p>
+                  <p className="text-2xl font-bold text-white font-mono">
+                    {formatDurationWithSeconds(sessionData?.session?.startTime)}
+                  </p>
                 </div>
               )}
 
-              <Button
-                variant={isWorking ? 'accent' : 'secondary'}
-                size="lg"
-                onClick={() => setIsWorking(!isWorking)}
-                icon={isWorking ? Pause : Play}
-                className="w-full"
-              >
-                {isWorking ? 'Clock Out' : 'Clock In'}
-              </Button>
+              {isLoading ? (
+                <div className="w-full py-4 flex justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                </div>
+              ) : isWorking ? (
+                <div className="flex flex-col gap-2 w-full">
+                  {isOnBreak ? (
+                    <Button
+                      variant="warning"
+                      size="lg"
+                      onClick={handleEndBreak}
+                      loading={actionLoading}
+                      icon={Play}
+                      className="w-full"
+                    >
+                      End Break
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="md"
+                      onClick={handleStartBreak}
+                      loading={actionLoading}
+                      icon={Coffee}
+                      className="w-full"
+                    >
+                      Take Break
+                    </Button>
+                  )}
+                  <Button
+                    variant="accent"
+                    size="md"
+                    onClick={handleClockOut}
+                    loading={actionLoading}
+                    icon={Square}
+                    className="w-full"
+                  >
+                    Clock Out
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  onClick={handleClockIn}
+                  loading={actionLoading}
+                  icon={Play}
+                  className="w-full"
+                >
+                  Clock In
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -225,7 +392,11 @@ const EmployeeDashboard = () => {
           { icon: Video, label: 'Join Meeting', color: 'accent', link: '#' },
           { icon: MessageSquare, label: 'Messages', color: 'info', badge: 3, link: '#' }
         ].map((action) => (
-          <Card key={action.label} className="group cursor-pointer hover:shadow-lg transition-all">
+          <Card
+            key={action.label}
+            className="group cursor-pointer hover:shadow-lg transition-all"
+            onClick={() => action.link !== '#' && navigate(action.link)}
+          >
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-xl bg-${action.color}-100 group-hover:scale-110 transition-transform`}>
                 <action.icon className={`w-6 h-6 text-${action.color}`} />
@@ -257,7 +428,7 @@ const EmployeeDashboard = () => {
               <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary rounded-full"
-                  style={{ width: `${(weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100}%` }}
+                  style={{ width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%` }}
                 />
               </div>
             </Card>
@@ -499,11 +670,26 @@ const EmployeeDashboard = () => {
                 </div>
                 <h3 className="font-bold text-gray-900 mb-2">Take a Break!</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  You've been working for 2 hours. A short break can boost your productivity!
+                  {isWorking && !isOnBreak
+                    ? "You've been working hard. A short break can boost your productivity!"
+                    : "Remember to take regular breaks for better focus."
+                  }
                 </p>
-                <Button variant="success" size="sm" icon={Heart}>
-                  Start 5-min Break
-                </Button>
+                {isWorking && !isOnBreak ? (
+                  <Button
+                    variant="success"
+                    size="sm"
+                    icon={Coffee}
+                    onClick={handleStartBreak}
+                    loading={actionLoading}
+                  >
+                    Start 5-min Break
+                  </Button>
+                ) : (
+                  <Button variant="success" size="sm" icon={Heart}>
+                    Wellness Tips
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -534,55 +720,68 @@ const EmployeeDashboard = () => {
               <Calendar className="w-5 h-5 text-primary" />
               This Week's Schedule
             </CardTitle>
-            <Button variant="ghost" size="sm" icon={ChevronRight} iconPosition="right">
+            <Button
+              variant="ghost"
+              size="sm"
+              icon={ChevronRight}
+              iconPosition="right"
+              onClick={() => navigate('/employee/schedule')}
+            >
               View Full Schedule
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {[
-              { day: 'Mon', date: '16', hours: '9AM - 6PM', status: 'completed' },
-              { day: 'Tue', date: '17', hours: '9AM - 6PM', status: 'completed' },
-              { day: 'Wed', date: '18', hours: '9AM - 6PM', status: 'current' },
-              { day: 'Thu', date: '19', hours: '9AM - 6PM', status: 'upcoming' },
-              { day: 'Fri', date: '20', hours: '9AM - 5PM', status: 'upcoming' }
-            ].map((item) => (
-              <div
-                key={item.day}
-                className={`relative p-4 rounded-xl text-center transition-all ${
-                  item.status === 'current'
-                    ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105'
-                    : item.status === 'completed'
-                    ? 'bg-green-50 border border-green-100'
-                    : 'bg-gray-50 border border-gray-100'
-                }`}
-              >
-                {item.status === 'current' && (
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2">
-                    <Badge variant="accent" size="xs">Today</Badge>
+            {(() => {
+              const today = new Date();
+              const startOfWeek = new Date(today);
+              startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
+
+              return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+                const dayDate = new Date(startOfWeek);
+                dayDate.setDate(startOfWeek.getDate() + index);
+                const isToday = today.toDateString() === dayDate.toDateString();
+                const isPast = dayDate < new Date(today.setHours(0, 0, 0, 0));
+
+                return (
+                  <div
+                    key={day}
+                    className={`relative p-4 rounded-xl text-center transition-all ${
+                      isToday
+                        ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105'
+                        : isPast
+                        ? 'bg-green-50 border border-green-100'
+                        : 'bg-gray-50 border border-gray-100'
+                    }`}
+                  >
+                    {isToday && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <Badge variant="accent" size="xs">Today</Badge>
+                      </div>
+                    )}
+                    <p className={`text-sm font-medium ${
+                      isToday ? 'text-primary-100' : 'text-gray-500'
+                    }`}>
+                      {day}
+                    </p>
+                    <p className={`text-2xl font-bold mt-1 ${
+                      isToday ? 'text-white' : 'text-gray-900'
+                    }`}>
+                      {dayDate.getDate()}
+                    </p>
+                    <p className={`text-sm mt-2 ${
+                      isToday ? 'text-primary-100' : 'text-gray-600'
+                    }`}>
+                      9AM - 6PM
+                    </p>
+                    {isPast && !isToday && (
+                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
+                    )}
                   </div>
-                )}
-                <p className={`text-sm font-medium ${
-                  item.status === 'current' ? 'text-primary-100' : 'text-gray-500'
-                }`}>
-                  {item.day}
-                </p>
-                <p className={`text-2xl font-bold mt-1 ${
-                  item.status === 'current' ? 'text-white' : 'text-gray-900'
-                }`}>
-                  {item.date}
-                </p>
-                <p className={`text-sm mt-2 ${
-                  item.status === 'current' ? 'text-primary-100' : 'text-gray-600'
-                }`}>
-                  {item.hours}
-                </p>
-                {item.status === 'completed' && (
-                  <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
-                )}
-              </div>
-            ))}
+                );
+              });
+            })()}
           </div>
         </CardContent>
       </Card>

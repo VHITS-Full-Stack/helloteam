@@ -5,6 +5,7 @@ import clientRoutes from './client.routes';
 import permissionsRoutes from './permissions.routes';
 import rolesRoutes from './roles.routes';
 import usersRoutes from './users.routes';
+import workSessionRoutes from './workSession.routes';
 
 const router = Router();
 
@@ -24,9 +25,7 @@ router.use('/clients', clientRoutes);
 router.use('/permissions', permissionsRoutes);
 router.use('/roles', rolesRoutes);
 router.use('/users', usersRoutes);
-
-// Future routes will be added here:
-// router.use('/work-sessions', workSessionRoutes);
+router.use('/work-sessions', workSessionRoutes);
 // router.use('/time-records', timeRecordRoutes);
 // router.use('/schedules', scheduleRoutes);
 // router.use('/leave-requests', leaveRequestRoutes);
