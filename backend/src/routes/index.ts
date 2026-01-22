@@ -6,6 +6,8 @@ import permissionsRoutes from './permissions.routes';
 import rolesRoutes from './roles.routes';
 import usersRoutes from './users.routes';
 import workSessionRoutes from './workSession.routes';
+import scheduleRoutes from './schedule.routes';
+import timeRecordRoutes from './timeRecord.routes';
 
 const router = Router();
 
@@ -26,8 +28,8 @@ router.use('/permissions', permissionsRoutes);
 router.use('/roles', rolesRoutes);
 router.use('/users', usersRoutes);
 router.use('/work-sessions', workSessionRoutes);
-// router.use('/time-records', timeRecordRoutes);
-// router.use('/schedules', scheduleRoutes);
+router.use('/schedules', scheduleRoutes);
+router.use('/time-records', timeRecordRoutes);
 // router.use('/leave-requests', leaveRequestRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 

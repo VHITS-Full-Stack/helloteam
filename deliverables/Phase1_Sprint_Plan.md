@@ -534,9 +534,10 @@ SUPPORT:
 
 ---
 
-## Sprint 3: Employee Portal - Schedule & Time History
+## Sprint 3: Employee Portal - Schedule & Time History ✅
 
 **Duration:** 2 weeks
+**Status:** COMPLETE
 
 ### Objectives
 - Implement schedule visibility features
@@ -561,11 +562,68 @@ SUPPORT:
 | US-3.2.4 | As an employee, I can view a payroll summary | - Total hours per pay period<br>- Breakdown by approved/pending |
 
 ### Deliverables
-- [ ] Daily schedule view
-- [ ] Weekly schedule calendar
-- [ ] Schedule change notifications
-- [ ] Work history list
-- [ ] Time records summary
+- [x] Daily schedule view
+- [x] Weekly schedule calendar
+- [ ] Schedule change notifications (deferred to future sprint)
+- [x] Work history list
+- [x] Time records summary
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Backend API Endpoints - Schedule
+| Method | Endpoint | Required Role | Description |
+|--------|----------|---------------|-------------|
+| GET | `/api/schedules/my-schedule` | EMPLOYEE | Get employee's weekly schedule |
+| GET | `/api/schedules/today` | EMPLOYEE | Get today's schedule |
+| GET | `/api/schedules/employee/:employeeId` | ADMIN+ | Get employee's schedule (admin) |
+| POST | `/api/schedules/employee/:employeeId` | ADMIN+ | Create/update schedule entry |
+| PUT | `/api/schedules/employee/:employeeId/bulk` | ADMIN+ | Bulk update schedule (full week) |
+| DELETE | `/api/schedules/:scheduleId` | ADMIN+ | Delete schedule entry |
+
+#### Backend API Endpoints - Time Records
+| Method | Endpoint | Required Role | Description |
+|--------|----------|---------------|-------------|
+| GET | `/api/time-records/my-records` | EMPLOYEE | Get time records (paginated, filterable) |
+| GET | `/api/time-records/my-summary` | EMPLOYEE | Get time record summary (week/month/year) |
+| GET | `/api/time-records/my-payroll` | EMPLOYEE | Get payroll summary for a period |
+| GET | `/api/time-records/:recordId` | EMPLOYEE | Get single time record detail |
+
+#### Files Created/Modified
+| File | Type | Description |
+|------|------|-------------|
+| `backend/src/controllers/schedule.controller.ts` | Created | Schedule CRUD operations |
+| `backend/src/routes/schedule.routes.ts` | Created | Schedule API routes |
+| `backend/src/controllers/timeRecord.controller.ts` | Created | Time record queries and summaries |
+| `backend/src/routes/timeRecord.routes.ts` | Created | Time record API routes |
+| `frontend/src/services/schedule.service.js` | Created | Frontend schedule API client |
+| `frontend/src/services/timeRecord.service.js` | Created | Frontend time record API client |
+| `frontend/src/pages/employee/Schedule.jsx` | Updated | Full schedule view with API integration |
+| `frontend/src/pages/employee/TimeRecords.jsx` | Created | Time records page with filters and detail modal |
+
+#### Key Features Implemented
+1. **Schedule View**
+   - Weekly schedule overview with navigation
+   - Today's schedule highlight
+   - Working/Day Off status badges
+   - Total scheduled hours calculation
+   - Week navigation (previous/next)
+   - "Current Week" button to return to present
+
+2. **Time Records**
+   - Paginated time records list
+   - Filters by status (Pending, Approved, Rejected) and date range
+   - Period-based summary (week, month, year)
+   - Payroll summary with hours by client
+   - Record detail modal with work sessions
+   - Overtime and adjustment tracking
+
+3. **Summary Statistics**
+   - Total hours worked
+   - Approved vs pending hours
+   - Days worked count
+   - Net work minutes (excluding breaks)
 
 ---
 
@@ -702,13 +760,13 @@ SUPPORT:
 | Sprint 1.6 | Granular RBAC & Permissions | 1 week | Permissions System, Role Management, UI Access Control | ✅ Complete |
 | Sprint 1.7 | Admin User Management | 0.5 weeks | Admin Users CRUD, Settings Integration | ✅ Complete |
 | Sprint 2 | Employee Portal - Work Sessions | 2 weeks | Clock In/Out, Timer, Break Tracking | ✅ Complete |
-| Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | 🔲 Pending |
+| Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | ✅ Complete |
 | Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | 🔲 Pending |
 | Sprint 5 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
 | Sprint 6 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
 
 **Total Phase 1 Duration: 14.5 weeks**
-**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 Complete (5/9 sprints)**
+**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 + 3 Complete (6/9 sprints)**
 
 ---
 
@@ -785,6 +843,6 @@ backend/
 ---
 
 *Document Created: January 2026*
-*Last Updated: January 22, 2026*
+*Last Updated: January 23, 2026*
 *Project: Hello Team Workforce Hub Platform*
-*Version: 1.5 - Completed Sprint 2 (Employee Portal - Work Sessions)*
+*Version: 1.6 - Completed Sprint 3 (Employee Portal - Schedule & Time History)*

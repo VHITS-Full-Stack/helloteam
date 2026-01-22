@@ -17,6 +17,7 @@ import {
   EmployeeDashboard,
   TimeClock,
   Schedule,
+  TimeRecords,
   LeaveRequests,
   Support,
   Profile
@@ -124,7 +125,7 @@ const AppRoutes = () => {
         <Route path="dashboard" element={<EmployeeDashboard />} />
         <Route path="time-clock" element={<TimeClock />} />
         <Route path="schedule" element={<Schedule />} />
-        <Route path="time-history" element={<TimeClock />} />
+        <Route path="time-records" element={<TimeRecords />} />
         <Route path="leave" element={<LeaveRequests />} />
         <Route path="support" element={<Support />} />
         <Route path="profile" element={<Profile />} />
