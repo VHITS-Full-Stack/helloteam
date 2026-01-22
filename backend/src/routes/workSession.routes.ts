@@ -15,7 +15,7 @@ const router = Router();
 
 // All routes require authentication and EMPLOYEE role
 router.use(authenticate);
-router.use(authorizeRoles('EMPLOYEE'));
+router.use(authorizeRoles(['EMPLOYEE']));
 
 // Clock in/out
 router.post('/clock-in', clockIn);

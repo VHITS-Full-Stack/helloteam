@@ -34,17 +34,42 @@ const TimeClock = () => {
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      const [sessionRes, todayRes, weeklyRes, historyRes] = await Promise.all([
+      // Use Promise.allSettled to handle partial failures gracefully
+      const [sessionResult, todayResult, weeklyResult, historyResult] = await Promise.allSettled([
         workSessionService.getCurrentSession(),
         workSessionService.getTodaySummary(),
         workSessionService.getWeeklySummary(),
         workSessionService.getSessionHistory({ limit: 5 }),
       ]);
 
-      setSessionData(sessionRes);
-      setTodaySummary(todayRes.summary);
-      setWeeklySummary(weeklyRes.summary);
-      setSessionHistory(historyRes.sessions || []);
+      // Handle session data
+      if (sessionResult.status === 'fulfilled') {
+        setSessionData(sessionResult.value);
+      } else {
+        console.error('Failed to fetch current session:', sessionResult.reason);
+      }
+
+      // Handle today summary
+      if (todayResult.status === 'fulfilled' && todayResult.value?.summary) {
+        setTodaySummary(todayResult.value.summary);
+      } else if (todayResult.status === 'rejected') {
+        console.error('Failed to fetch today summary:', todayResult.reason);
+      }
+
+      // Handle weekly summary
+      if (weeklyResult.status === 'fulfilled' && weeklyResult.value?.summary) {
+        setWeeklySummary(weeklyResult.value.summary);
+      } else if (weeklyResult.status === 'rejected') {
+        console.error('Failed to fetch weekly summary:', weeklyResult.reason);
+      }
+
+      // Handle session history
+      if (historyResult.status === 'fulfilled') {
+        setSessionHistory(historyResult.value?.sessions || []);
+      } else {
+        console.error('Failed to fetch session history:', historyResult.reason);
+      }
+
       setError(null);
     } catch (err) {
       console.error('Failed to fetch work session data:', err);

@@ -6,7 +6,7 @@ import { WorkSessionStatus } from '@prisma/client';
 // Clock in - Start a new work session
 export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
       return;
@@ -106,8 +106,8 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 // Clock out - End current work session
 export const clockOut = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
-    const { notes } = req.body;
+    const userId = req.user?.userId;
+    const notes = req.body?.notes;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -250,7 +250,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
 // Start break
 export const startBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -310,7 +310,7 @@ export const startBreak = async (req: AuthenticatedRequest, res: Response): Prom
 // End break
 export const endBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -393,7 +393,7 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
 // Get current work session status
 export const getCurrentSession = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -507,7 +507,7 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
 // Get work session history
 export const getSessionHistory = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { startDate, endDate, page = '1', limit = '10' } = req.query;
 
     if (!userId) {
@@ -592,7 +592,7 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
 // Get today's work summary
 export const getTodaySummary = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });
@@ -711,7 +711,7 @@ export const getTodaySummary = async (req: AuthenticatedRequest, res: Response):
 // Get weekly summary
 export const getWeeklySummary = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });

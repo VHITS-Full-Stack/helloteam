@@ -3,32 +3,28 @@ import api from './api';
 const workSessionService = {
   // Clock in - Start a new work session
   async clockIn() {
-    const response = await api.post('/work-sessions/clock-in');
-    return response.data;
+    return await api.post('/work-sessions/clock-in');
   },
 
   // Clock out - End current work session
   async clockOut(notes = null) {
-    const response = await api.post('/work-sessions/clock-out', { notes });
-    return response.data;
+    return await api.post('/work-sessions/clock-out', { notes });
   },
 
   // Start break
   async startBreak() {
     const response = await api.post('/work-sessions/break/start');
-    return response.data;
+    return response;
   },
 
   // End break
   async endBreak() {
-    const response = await api.post('/work-sessions/break/end');
-    return response.data;
+    return await api.post('/work-sessions/break/end');
   },
 
   // Get current session status
   async getCurrentSession() {
-    const response = await api.get('/work-sessions/current');
-    return response.data;
+    return await api.get('/work-sessions/current');
   },
 
   // Get session history
@@ -41,20 +37,17 @@ const workSessionService = {
 
     const queryString = queryParams.toString();
     const url = queryString ? `/work-sessions/history?${queryString}` : '/work-sessions/history';
-    const response = await api.get(url);
-    return response.data;
+    return await api.get(url);
   },
 
   // Get today's summary
   async getTodaySummary() {
-    const response = await api.get('/work-sessions/today-summary');
-    return response.data;
+    return await api.get('/work-sessions/today-summary');
   },
 
   // Get weekly summary
   async getWeeklySummary() {
-    const response = await api.get('/work-sessions/weekly-summary');
-    return response.data;
+    return await api.get('/work-sessions/weekly-summary');
   },
 };
 

@@ -61,15 +61,35 @@ const EmployeeDashboard = () => {
   // Fetch work session data
   const fetchWorkSessionData = useCallback(async () => {
     try {
-      const [sessionRes, todayRes, weeklyRes] = await Promise.all([
+      // Use Promise.allSettled to handle partial failures gracefully
+      const [sessionResult, todayResult, weeklyResult] = await Promise.allSettled([
         workSessionService.getCurrentSession(),
         workSessionService.getTodaySummary(),
         workSessionService.getWeeklySummary(),
       ]);
+      console.log(sessionResult, todayResult, weeklyResult);
 
-      setSessionData(sessionRes);
-      setTodaySummary(todayRes.summary);
-      setWeeklySummary(weeklyRes.summary);
+      // Handle session data
+      if (sessionResult.status === 'fulfilled') {
+        setSessionData(sessionResult.value);
+      } else {
+        console.error('Failed to fetch current session:', sessionResult.reason);
+      }
+
+      // Handle today summary
+      if (todayResult.status === 'fulfilled' && todayResult.value?.summary) {
+        setTodaySummary(todayResult.value.summary);
+      } else if (todayResult.status === 'rejected') {
+        console.error('Failed to fetch today summary:', todayResult.reason);
+      }
+
+      // Handle weekly summary
+      if (weeklyResult.status === 'fulfilled' && weeklyResult.value?.summary) {
+        setWeeklySummary(weeklyResult.value.summary);
+      } else if (weeklyResult.status === 'rejected') {
+        console.error('Failed to fetch weekly summary:', weeklyResult.reason);
+      }
+
       setError(null);
     } catch (err) {
       console.error('Failed to fetch work session data:', err);

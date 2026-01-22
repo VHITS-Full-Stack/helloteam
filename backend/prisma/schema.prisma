@@ -309,6 +309,7 @@ model TimeRecord {
   employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
+  @@unique([employeeId, clientId, date])
   @@map("time_records")
 }
 
