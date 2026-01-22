@@ -5,7 +5,7 @@ import { AuthenticatedRequest } from '../types';
 // Get client's dashboard stats
 export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -57,7 +57,7 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
     const activeWorkSessions = await prisma.workSession.findMany({
       where: {
         employeeId: { in: employeeIds },
-        status: 'IN_PROGRESS',
+        status: 'ACTIVE',
       },
       include: {
         breaks: {
@@ -96,14 +96,14 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
         status: { in: ['APPROVED', 'PENDING'] },
       },
       select: {
-        regularMinutes: true,
+        totalMinutes: true,
         overtimeMinutes: true,
         status: true,
       },
     });
 
     const weeklyMinutes = weeklyTimeRecords.reduce((acc, tr) => {
-      return acc + (tr.regularMinutes || 0) + (tr.overtimeMinutes || 0);
+      return acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
     }, 0);
     const weeklyHours = Math.round(weeklyMinutes / 60);
 
@@ -118,13 +118,13 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
         status: { in: ['APPROVED', 'PENDING'] },
       },
       select: {
-        regularMinutes: true,
+        totalMinutes: true,
         overtimeMinutes: true,
       },
     });
 
     const monthlyMinutes = monthlyTimeRecords.reduce((acc, tr) => {
-      return acc + (tr.regularMinutes || 0) + (tr.overtimeMinutes || 0);
+      return acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
     }, 0);
 
     // Placeholder hourly rate - in production this would come from client policies
@@ -157,7 +157,7 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
 // Get client's workforce with live status
 export const getClientWorkforce = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { status: filterStatus, search } = req.query;
 
     // Get the client associated with this user
@@ -191,7 +191,6 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
             OR: [
               { firstName: { contains: search as string, mode: 'insensitive' } },
               { lastName: { contains: search as string, mode: 'insensitive' } },
-              { position: { contains: search as string, mode: 'insensitive' } },
             ],
           },
         } : {}),
@@ -205,16 +204,16 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
             workSessions: {
               where: {
                 OR: [
-                  { status: 'IN_PROGRESS' },
+                  { status: 'ACTIVE' },
                   {
-                    clockInTime: { gte: today },
+                    startTime: { gte: today },
                   },
                 ],
               },
               include: {
                 breaks: true,
               },
-              orderBy: { clockInTime: 'desc' },
+              orderBy: { startTime: 'desc' },
               take: 1,
             },
             timeRecords: {
@@ -223,7 +222,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
                 date: { gte: startOfWeek },
               },
               select: {
-                regularMinutes: true,
+                totalMinutes: true,
                 overtimeMinutes: true,
                 date: true,
               },
@@ -236,7 +235,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
     // Process employee data with live status
     const workforceData = assignedEmployees.map(ce => {
       const emp = ce.employee;
-      const activeSession = emp.workSessions.find(s => s.status === 'IN_PROGRESS');
+      const activeSession = emp.workSessions.find(s => s.status === 'ACTIVE');
       const todaySession = emp.workSessions[0];
 
       // Determine current status
@@ -259,9 +258,9 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
         todayMinutes = todaySession.totalWorkMinutes || 0;
         // If session is still in progress, calculate live duration
         if (activeSession) {
-          const clockInTime = new Date(activeSession.clockInTime);
+          const startTime = new Date(activeSession.startTime);
           const now = new Date();
-          const elapsedMinutes = Math.floor((now.getTime() - clockInTime.getTime()) / 60000);
+          const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / 60000);
           const breakMinutes = activeSession.breaks.reduce((acc: number, b: any) => {
             if (b.endTime) {
               return acc + Math.floor((new Date(b.endTime).getTime() - new Date(b.startTime).getTime()) / 60000);
@@ -275,8 +274,8 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
 
       // Calculate weekly hours
       const weeklyMinutes = emp.timeRecords.reduce((acc, tr) => {
-        return acc + (tr.regularMinutes || 0) + (tr.overtimeMinutes || 0);
-      }, 0) + (activeSession && new Date(activeSession.clockInTime) >= startOfWeek ? todayMinutes : 0);
+        return acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
+      }, 0) + (activeSession && new Date(activeSession.startTime) >= startOfWeek ? todayMinutes : 0);
 
       const formatDuration = (minutes: number) => {
         const hours = Math.floor(minutes / 60);
@@ -289,11 +288,11 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
         name: `${emp.firstName} ${emp.lastName}`,
         firstName: emp.firstName,
         lastName: emp.lastName,
-        role: emp.position || 'Employee',
+        role: 'Employee',
         email: emp.user.email,
         profilePhoto: emp.profilePhoto,
         status,
-        clockInTime: activeSession?.clockInTime || null,
+        startTime: activeSession?.startTime || null,
         todayHours: formatDuration(todayMinutes),
         todayMinutes,
         weeklyHours: formatDuration(weeklyMinutes),
@@ -339,7 +338,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
 // Get active employees (employees currently working or on break)
 export const getActiveEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -372,7 +371,7 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
     const activeSessions = await prisma.workSession.findMany({
       where: {
         employeeId: { in: employeeIds },
-        status: 'IN_PROGRESS',
+        status: 'ACTIVE',
       },
       include: {
         employee: {
@@ -380,7 +379,6 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
             id: true,
             firstName: true,
             lastName: true,
-            position: true,
             profilePhoto: true,
           },
         },
@@ -389,14 +387,14 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
           take: 1,
         },
       },
-      orderBy: { clockInTime: 'desc' },
+      orderBy: { startTime: 'desc' },
     });
 
     // Process active employees
     const activeEmployees = activeSessions.map(session => {
       const now = new Date();
-      const clockInTime = new Date(session.clockInTime);
-      const elapsedMinutes = Math.floor((now.getTime() - clockInTime.getTime()) / 60000);
+      const startTime = new Date(session.startTime);
+      const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / 60000);
 
       // Calculate total break time
       const breakMinutes = session.totalBreakMinutes || 0;
@@ -417,10 +415,10 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
       return {
         id: session.employee.id,
         name: `${session.employee.firstName} ${session.employee.lastName}`,
-        role: session.employee.position || 'Employee',
+        role: 'Employee',
         profilePhoto: session.employee.profilePhoto,
         status: currentBreak ? 'break' : 'working',
-        clockInTime: session.clockInTime,
+        startTime: session.startTime,
         duration: formatDuration(workMinutes),
         durationMinutes: workMinutes,
       };
@@ -442,7 +440,7 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
 // Get pending approvals for the client
 export const getPendingApprovals = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { limit = '10' } = req.query;
 
     // Get the client associated with this user
@@ -513,7 +511,7 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
     const approvals: any[] = [];
 
     pendingTimeRecords.forEach(tr => {
-      const totalHours = ((tr.regularMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
+      const totalHours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
       approvals.push({
         id: tr.id,
         type: tr.overtimeMinutes && tr.overtimeMinutes > 0 ? 'overtime' : 'time-entry',
@@ -563,7 +561,7 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
 // Approve a time record
 export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { recordId } = req.params;
 
     // Get the client associated with this user
@@ -623,7 +621,7 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
 // Reject a time record
 export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
     const { recordId } = req.params;
     const { reason } = req.body;
 
@@ -685,7 +683,7 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
 // Get weekly hours overview for chart
 export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -717,7 +715,7 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
       },
       select: {
         date: true,
-        regularMinutes: true,
+        totalMinutes: true,
         overtimeMinutes: true,
         status: true,
       },
@@ -740,7 +738,7 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
     timeRecords.forEach(tr => {
       const recordDate = new Date(tr.date);
       const dayIndex = recordDate.getDay();
-      const hours = ((tr.regularMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
+      const hours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
 
       if (tr.status === 'APPROVED') {
         dailyData[dayIndex].approved += hours;

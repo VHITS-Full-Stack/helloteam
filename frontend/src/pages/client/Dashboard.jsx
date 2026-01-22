@@ -240,8 +240,8 @@ const ClientDashboard = () => {
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Started</p>
                         <p className="font-semibold text-gray-900">
-                          {employee.clockInTime
-                            ? new Date(employee.clockInTime).toLocaleTimeString([], {
+                          {employee.startTime
+                            ? new Date(employee.startTime).toLocaleTimeString([], {
                                 hour: '2-digit',
                                 minute: '2-digit',
                               })
