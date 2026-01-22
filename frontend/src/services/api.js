@@ -45,8 +45,17 @@ class ApiService {
   }
 
   // GET request
-  get(endpoint) {
-    return this.request(endpoint, { method: 'GET' });
+  get(endpoint, options = {}) {
+    let url = endpoint;
+    if (options.params) {
+      // Filter out undefined and null values
+      const filteredParams = Object.fromEntries(
+        Object.entries(options.params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+      );
+      const queryParams = new URLSearchParams(filteredParams).toString();
+      url = queryParams ? `${endpoint}?${queryParams}` : endpoint;
+    }
+    return this.request(url, { method: 'GET' });
   }
 
   // POST request

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
   Filter,
@@ -30,6 +31,7 @@ import {
 import clientPortalService from '../../services/clientPortal.service';
 
 const Workforce = () => {
+  const navigate = useNavigate();
   const [viewMode, setViewMode] = useState('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -305,11 +307,11 @@ const Workforce = () => {
                   <span className="text-sm text-gray-500">Status</span>
                   {getStatusBadge(employee.status)}
                 </div>
-                {employee.status !== 'offline' && employee.clockInTime && (
+                {employee.status !== 'offline' && employee.startTime && (
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Clocked In</span>
                     <span className="font-medium text-gray-900">
-                      {new Date(employee.clockInTime).toLocaleTimeString([], {
+                      {new Date(employee.startTime).toLocaleTimeString([], {
                         hour: '2-digit',
                         minute: '2-digit',
                       })}
@@ -351,9 +353,10 @@ const Workforce = () => {
                   variant="ghost"
                   size="sm"
                   fullWidth
-                  icon={Calendar}
+                  icon={Clock}
+                  onClick={() => navigate(`/client/time-records?employee=${employee.id}`)}
                 >
-                  Schedule
+                  Time Records
                 </Button>
               </div>
             </Card>
@@ -391,8 +394,8 @@ const Workforce = () => {
                   </TableCell>
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
-                    {employee.status !== 'offline' && employee.clockInTime
-                      ? new Date(employee.clockInTime).toLocaleTimeString([], {
+                    {employee.status !== 'offline' && employee.startTime
+                      ? new Date(employee.startTime).toLocaleTimeString([], {
                           hour: '2-digit',
                           minute: '2-digit',
                         })
@@ -481,8 +484,8 @@ const Workforce = () => {
                   <div className="flex justify-between">
                     <span className="text-green-600">Clocked In</span>
                     <span className="font-medium text-green-800">
-                      {detailModal.employee.clockInTime
-                        ? new Date(detailModal.employee.clockInTime).toLocaleTimeString()
+                      {detailModal.employee.startTime
+                        ? new Date(detailModal.employee.startTime).toLocaleTimeString()
                         : '-'}
                     </span>
                   </div>
@@ -519,11 +522,27 @@ const Workforce = () => {
 
             {/* Actions */}
             <div className="flex gap-3 pt-4 border-t">
-              <Button variant="outline" fullWidth icon={Calendar}>
-                View Schedule
-              </Button>
-              <Button variant="outline" fullWidth icon={Clock}>
+              <Button
+                variant="outline"
+                fullWidth
+                icon={Clock}
+                onClick={() => {
+                  setDetailModal({ show: false, employee: null });
+                  navigate(`/client/time-records?employee=${detailModal.employee.id}`);
+                }}
+              >
                 Time Records
+              </Button>
+              <Button
+                variant="outline"
+                fullWidth
+                icon={Activity}
+                onClick={() => {
+                  setDetailModal({ show: false, employee: null });
+                  navigate('/client/analytics');
+                }}
+              >
+                Analytics
               </Button>
             </div>
           </div>

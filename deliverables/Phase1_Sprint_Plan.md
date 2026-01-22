@@ -2,7 +2,7 @@
 
 **Project:** Hello Team Workforce Hub Platform
 **Phase:** Phase 1 - Foundation Release (MVP - Operational Readiness)
-**Total Duration:** 12 weeks (6 sprints)
+**Total Duration:** 16.5 weeks (10 sprints)
 
 ---
 
@@ -709,7 +709,51 @@ SUPPORT:
 
 ---
 
-## Sprint 5: Admin Portal - Operations Dashboard
+## Sprint 5: Client Portal - Time Records & Approvals
+
+**Duration:** 2 weeks
+**Status:** IN PROGRESS
+
+### Objectives
+- Build time records management for clients
+- Implement full approval workflow
+- Add analytics and reporting features
+
+### User Stories
+
+#### 5.1 Time Records Management
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-5.1.1 | As a client, I can view all time records for my employees | - Time records list with filters<br>- Date range selection<br>- Status filters (Pending, Approved, Rejected) |
+| US-5.1.2 | As a client, I can view time record details | - Work session breakdown<br>- Break times displayed<br>- Notes and comments visible |
+| US-5.1.3 | As a client, I can export time records | - CSV/PDF export options<br>- Date range selection<br>- Filter-aware export |
+| US-5.1.4 | As a client, I can search time records | - Search by employee name<br>- Filter by status<br>- Sort by date/hours |
+
+#### 5.2 Approval Workflow
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-5.2.1 | As a client, I can view pending approvals | - List of pending time records<br>- Employee details visible<br>- Hours worked displayed |
+| US-5.2.2 | As a client, I can approve time records | - Single approve action<br>- Bulk approve option<br>- Confirmation feedback |
+| US-5.2.3 | As a client, I can reject time records | - Rejection with reason<br>- Reason required field<br>- Notification to employee |
+| US-5.2.4 | As a client, I can view approval history | - Approved/rejected records<br>- Action timestamps<br>- Reason for rejection |
+
+#### 5.3 Analytics & Billing
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-5.3.1 | As a client, I can view workforce analytics | - Hours by employee chart<br>- Trend analysis<br>- Comparison periods |
+| US-5.3.2 | As a client, I can view billing summary | - Total hours by period<br>- Cost breakdown<br>- Billing status |
+| US-5.3.3 | As a client, I can view attendance patterns | - Late arrivals tracking<br>- Overtime tracking<br>- Break time analysis |
+
+### Deliverables
+- [ ] Time Records page with filtering
+- [ ] Approvals page with bulk actions
+- [ ] Analytics dashboard
+- [ ] Billing summary view
+- [ ] Export functionality
+
+---
+
+## Sprint 6: Admin Portal - Operations Dashboard
 
 **Duration:** 2 weeks
 
@@ -719,30 +763,30 @@ SUPPORT:
 
 ### User Stories
 
-#### 5.1 Operations Dashboard
+#### 6.1 Operations Dashboard
 | ID | Story | Acceptance Criteria |
 |----|-------|---------------------|
-| US-5.1.1 | As an admin, I can see total active employees | - Real-time count<br>- Trend indicator |
-| US-5.1.2 | As an admin, I can see total active clients | - Real-time count<br>- Quick access to client list |
-| US-5.1.3 | As an admin, I can see employees currently working | - Live count of active sessions<br>- Drill-down to details |
-| US-5.1.4 | As an admin, I can see pending approvals | - Count of pending items<br>- Categorized by type |
-| US-5.1.5 | As an admin, I can see open support tickets | - Ticket count<br>- Priority indicators |
-| US-5.1.6 | As an admin, I can see alerts requiring attention | - Critical alerts highlighted<br>- Action links |
+| US-6.1.1 | As an admin, I can see total active employees | - Real-time count<br>- Trend indicator |
+| US-6.1.2 | As an admin, I can see total active clients | - Real-time count<br>- Quick access to client list |
+| US-6.1.3 | As an admin, I can see employees currently working | - Live count of active sessions<br>- Drill-down to details |
+| US-6.1.4 | As an admin, I can see pending approvals | - Count of pending items<br>- Categorized by type |
+| US-6.1.5 | As an admin, I can see open support tickets | - Ticket count<br>- Priority indicators |
+| US-6.1.6 | As an admin, I can see alerts requiring attention | - Critical alerts highlighted<br>- Action links |
 
-#### 5.2 Employee Administration
+#### 6.2 Employee Administration
 | ID | Story | Acceptance Criteria |
 |----|-------|---------------------|
-| US-5.2.1 | As an admin, I can view employee profiles | - Complete profile information<br>- Employment details |
-| US-5.2.2 | As an admin, I can assign employees to clients | - Client selection dropdown<br>- Multiple client assignment |
-| US-5.2.3 | As an admin, I can manage employee schedules | - Schedule creation/editing<br>- Shift assignment |
-| US-5.2.4 | As an admin, I can activate/deactivate employee access | - Toggle access status<br>- Immediate effect |
+| US-6.2.1 | As an admin, I can view employee profiles | - Complete profile information<br>- Employment details |
+| US-6.2.2 | As an admin, I can assign employees to clients | - Client selection dropdown<br>- Multiple client assignment |
+| US-6.2.3 | As an admin, I can manage employee schedules | - Schedule creation/editing<br>- Shift assignment |
+| US-6.2.4 | As an admin, I can activate/deactivate employee access | - Toggle access status<br>- Immediate effect |
 
-#### 5.3 Client Administration
+#### 6.3 Client Administration
 | ID | Story | Acceptance Criteria |
 |----|-------|---------------------|
-| US-5.3.1 | As an admin, I can create client accounts | - Client registration form<br>- Initial setup configuration |
-| US-5.3.2 | As an admin, I can assign employees to clients | - Employee selection interface<br>- Bulk assignment option |
-| US-5.3.3 | As an admin, I can configure basic client rules | - Work hour settings<br>- Notification preferences |
+| US-6.3.1 | As an admin, I can create client accounts | - Client registration form<br>- Initial setup configuration |
+| US-6.3.2 | As an admin, I can assign employees to clients | - Employee selection interface<br>- Bulk assignment option |
+| US-6.3.3 | As an admin, I can configure basic client rules | - Work hour settings<br>- Notification preferences |
 
 ### Deliverables
 - [ ] Operations dashboard
@@ -753,7 +797,7 @@ SUPPORT:
 
 ---
 
-## Sprint 6: Integration, Testing & Polish
+## Sprint 7: Integration, Testing & Polish
 
 **Duration:** 2 weeks
 
@@ -764,30 +808,30 @@ SUPPORT:
 
 ### Tasks
 
-#### 6.1 Backend Integration
+#### 7.1 Backend Integration
 | ID | Task | Acceptance Criteria |
 |----|------|---------------------|
-| T-6.1.1 | Connect authentication to API | - Login/logout working with backend<br>- Token management |
-| T-6.1.2 | Integrate employee portal APIs | - Clock in/out persisted<br>- Schedule data from backend |
-| T-6.1.3 | Integrate client portal APIs | - Real-time workforce data<br>- Dashboard metrics accurate |
-| T-6.1.4 | Integrate admin portal APIs | - CRUD operations functional<br>- Real-time dashboard data |
-| T-6.1.5 | Implement error handling | - User-friendly error messages<br>- Retry mechanisms |
-| T-6.1.6 | Add loading states | - Skeleton loaders<br>- Progress indicators |
+| T-7.1.1 | Connect authentication to API | - Login/logout working with backend<br>- Token management |
+| T-7.1.2 | Integrate employee portal APIs | - Clock in/out persisted<br>- Schedule data from backend |
+| T-7.1.3 | Integrate client portal APIs | - Real-time workforce data<br>- Dashboard metrics accurate |
+| T-7.1.4 | Integrate admin portal APIs | - CRUD operations functional<br>- Real-time dashboard data |
+| T-7.1.5 | Implement error handling | - User-friendly error messages<br>- Retry mechanisms |
+| T-7.1.6 | Add loading states | - Skeleton loaders<br>- Progress indicators |
 
-#### 6.2 Testing & QA
+#### 7.2 Testing & QA
 | ID | Task | Acceptance Criteria |
 |----|------|---------------------|
-| T-6.2.1 | Unit testing | - Component tests passing<br>- >80% coverage |
-| T-6.2.2 | Integration testing | - API integration tests<br>- User flow tests |
-| T-6.2.3 | Cross-browser testing | - Chrome, Firefox, Safari, Edge<br>- No critical issues |
-| T-6.2.4 | Security testing | - Authentication flows secure<br>- No unauthorized access |
+| T-7.2.1 | Unit testing | - Component tests passing<br>- >80% coverage |
+| T-7.2.2 | Integration testing | - API integration tests<br>- User flow tests |
+| T-7.2.3 | Cross-browser testing | - Chrome, Firefox, Safari, Edge<br>- No critical issues |
+| T-7.2.4 | Security testing | - Authentication flows secure<br>- No unauthorized access |
 
-#### 6.3 Bug Fixes & Polish
+#### 7.3 Bug Fixes & Polish
 | ID | Task | Acceptance Criteria |
 |----|------|---------------------|
-| T-6.3.1 | UI/UX refinements | - Consistent styling<br>- Improved usability |
-| T-6.3.2 | Performance optimization | - Fast page loads<br>- Optimized bundle size |
-| T-6.3.3 | Documentation | - Component documentation<br>- API integration guide |
+| T-7.3.1 | UI/UX refinements | - Consistent styling<br>- Improved usability |
+| T-7.3.2 | Performance optimization | - Fast page loads<br>- Optimized bundle size |
+| T-7.3.3 | Documentation | - Component documentation<br>- API integration guide |
 
 ### Deliverables
 - [ ] Fully integrated frontend
@@ -808,11 +852,12 @@ SUPPORT:
 | Sprint 2 | Employee Portal - Work Sessions | 2 weeks | Clock In/Out, Timer, Break Tracking | ✅ Complete |
 | Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | ✅ Complete |
 | Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | ✅ Complete |
-| Sprint 5 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
-| Sprint 6 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
+| Sprint 5 | Client Portal - Time Records & Approvals | 2 weeks | Time Records, Approvals, Analytics | 🔄 In Progress |
+| Sprint 6 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
+| Sprint 7 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
 
-**Total Phase 1 Duration: 14.5 weeks**
-**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 + 3 + 4 Complete (7/9 sprints)**
+**Total Phase 1 Duration: 16.5 weeks**
+**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 + 2 + 3 + 4 Complete (7/10 sprints)**
 
 ---
 
@@ -891,4 +936,4 @@ backend/
 *Document Created: January 2026*
 *Last Updated: January 23, 2026*
 *Project: Hello Team Workforce Hub Platform*
-*Version: 1.7 - Completed Sprint 4 (Client Portal - Dashboard & Live Workforce)*
+*Version: 1.8 - Added Sprint 5 (Client Portal - Time Records & Approvals)*

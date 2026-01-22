@@ -599,7 +599,7 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
       where: { id: recordId },
       data: {
         status: 'APPROVED',
-        approvedById: userId,
+        approvedBy: userId,
         approvedAt: new Date(),
       },
     });
@@ -661,8 +661,7 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       data: {
         status: 'REJECTED',
         rejectionReason: reason || 'Rejected by client',
-        approvedById: userId,
-        approvedAt: new Date(),
+        rejectedBy: userId,
       },
     });
 

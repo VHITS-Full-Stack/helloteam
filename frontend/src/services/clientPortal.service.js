@@ -4,43 +4,43 @@ const clientPortalService = {
   // Dashboard APIs
   getDashboardStats: async () => {
     const response = await api.get('/client-portal/dashboard/stats');
-    return response.data;
+    return response;
   },
 
   getWeeklyHoursOverview: async () => {
     const response = await api.get('/client-portal/dashboard/weekly-hours');
-    return response.data;
+    return response;
   },
 
   getPendingApprovals: async (limit = 10) => {
     const response = await api.get('/client-portal/dashboard/pending-approvals', {
       params: { limit },
     });
-    return response.data;
+    return response;
   },
 
   // Workforce APIs
   getWorkforce: async (params = {}) => {
     const response = await api.get('/client-portal/workforce', { params });
-    return response.data;
+    return response;
   },
 
   getActiveEmployees: async () => {
     const response = await api.get('/client-portal/workforce/active');
-    return response.data;
+    return response;
   },
 
   // Approval APIs
   approveTimeRecord: async (recordId) => {
     const response = await api.post(`/client-portal/approvals/time-record/${recordId}/approve`);
-    return response.data;
+    return response;
   },
 
   rejectTimeRecord: async (recordId, reason) => {
     const response = await api.post(`/client-portal/approvals/time-record/${recordId}/reject`, {
       reason,
     });
-    return response.data;
+    return response;
   },
 };
 
