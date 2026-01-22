@@ -301,6 +301,63 @@ SUPPORT:
 
 ---
 
+## Sprint 1.7: Admin User Management ✅
+
+**Duration:** 0.5 weeks
+**Status:** COMPLETE
+
+### Objectives
+- Implement CRUD operations for admin user management
+- Build admin user creation/editing modal in Settings page
+- Enable role assignment for admin users
+
+### User Stories
+
+#### 1.7.1 Admin User Management
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-1.7.1.1 | As a super admin, I can view all admin users | - Admin user list in Settings<br>- Display name, email, role, status, last login |
+| US-1.7.1.2 | As a super admin, I can create new admin users | - Admin creation modal with validation<br>- Role selection (SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE, SUPPORT)<br>- Optional dynamic role assignment |
+| US-1.7.1.3 | As a super admin, I can edit admin users | - Edit modal pre-populated with current data<br>- Update role, department, password<br>- Email change with uniqueness check |
+| US-1.7.1.4 | As a super admin, I can delete admin users | - Confirmation dialog before deletion<br>- Soft delete (deactivation)<br>- Cannot delete last super admin<br>- Cannot delete own account |
+
+### Deliverables
+- [x] Admin user controller (`backend/src/controllers/users.controller.ts`)
+- [x] Admin user routes (`backend/src/routes/users.routes.ts`)
+- [x] Frontend users service (`frontend/src/services/users.service.js`)
+- [x] Admin user management UI in Settings page
+- [x] Admin user create/edit modal
+- [x] Admin user delete confirmation modal
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Backend API Endpoints - Admin Users
+| Method | Endpoint | Required Permission | Description |
+|--------|----------|---------------------|-------------|
+| GET | `/api/users/admins` | settings.roles_manage | List all admin users |
+| GET | `/api/users/admins/stats` | settings.roles_manage | Admin user statistics |
+| GET | `/api/users/admins/:id` | settings.roles_manage | Get single admin user |
+| POST | `/api/users/admins` | settings.roles_manage | Create new admin user |
+| PUT | `/api/users/admins/:id` | settings.roles_manage | Update admin user |
+| DELETE | `/api/users/admins/:id` | settings.roles_manage | Delete (deactivate) admin user |
+| GET | `/api/users/admin-roles` | settings.roles_manage | Get available admin roles |
+
+#### Admin User Creation Flow
+1. Fill in first name, last name, email, password
+2. Select base role (SUPER_ADMIN, ADMIN, OPERATIONS, HR, FINANCE, SUPPORT)
+3. Optionally assign a dynamic role for granular permissions
+4. User and Admin records created in transaction
+
+#### Safety Features
+- Cannot delete the last super admin in the system
+- Cannot delete your own admin account
+- Soft delete by setting status to INACTIVE
+- Password hashing for new users and password updates
+
+---
+
 ### Implementation Summary
 
 #### Authentication System
@@ -585,14 +642,15 @@ SUPPORT:
 | Sprint 1 | Authentication & Core Infrastructure | 2 weeks | Login, RBAC, Components | ✅ Complete |
 | Sprint 1.5 | Employee & Client Management | 1 week | CRUD Operations, Detail Pages, Basic RBAC | ✅ Complete |
 | Sprint 1.6 | Granular RBAC & Permissions | 1 week | Permissions System, Role Management, UI Access Control | ✅ Complete |
+| Sprint 1.7 | Admin User Management | 0.5 weeks | Admin Users CRUD, Settings Integration | ✅ Complete |
 | Sprint 2 | Employee Portal - Work Sessions | 2 weeks | Clock In/Out, Timer | 🔲 Pending |
 | Sprint 3 | Employee Portal - Schedule & History | 2 weeks | Schedule, Time Records | 🔲 Pending |
 | Sprint 4 | Client Portal - Dashboard & Workforce | 2 weeks | Dashboard, Live View | 🔲 Pending |
 | Sprint 5 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | 🔲 Pending |
 | Sprint 6 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | 🔲 Pending |
 
-**Total Phase 1 Duration: 14 weeks**
-**Current Progress: Sprint 1 + 1.5 + 1.6 Complete (3/8 sprints)**
+**Total Phase 1 Duration: 14.5 weeks**
+**Current Progress: Sprint 1 + 1.5 + 1.6 + 1.7 Complete (4/9 sprints)**
 
 ---
 
@@ -669,6 +727,6 @@ backend/
 ---
 
 *Document Created: January 2026*
-*Last Updated: January 21, 2026*
+*Last Updated: January 22, 2026*
 *Project: Hello Team Workforce Hub Platform*
-*Version: 1.3 - Completed Sprint 1.6 (Granular RBAC & Permissions System)*
+*Version: 1.4 - Completed Sprint 1.7 (Admin User Management)*

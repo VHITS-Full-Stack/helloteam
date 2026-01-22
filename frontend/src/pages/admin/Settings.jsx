@@ -22,6 +22,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { PermissionGate } from '../../components/auth';
 import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../config/permissions';
 import rolesService from '../../services/roles.service';
+import usersService from '../../services/users.service';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -42,6 +43,25 @@ const Settings = () => {
     displayName: '',
     description: '',
     permissions: []
+  });
+
+  // Admin user management state
+  const [adminUsers, setAdminUsers] = useState([]);
+  const [loadingAdminUsers, setLoadingAdminUsers] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState(null);
+  const [selectedAdminUser, setSelectedAdminUser] = useState(null);
+  const [isAdminUserModalOpen, setIsAdminUserModalOpen] = useState(false);
+  const [isDeleteAdminUserModalOpen, setIsDeleteAdminUserModalOpen] = useState(false);
+  const [adminUserToDelete, setAdminUserToDelete] = useState(null);
+  const [savingAdminUser, setSavingAdminUser] = useState(false);
+  const [adminUserFormData, setAdminUserFormData] = useState({
+    email: '',
+    password: '',
+    firstName: '',
+    lastName: '',
+    department: '',
+    role: 'ADMIN',
+    roleId: ''
   });
 
   const tabs = [
@@ -200,11 +220,135 @@ const Settings = () => {
     }
   };
 
-  const adminUsers = [
-    { name: 'Admin User', email: 'admin@helloteam.com', role: 'Super Admin', status: 'active', lastLogin: '2025-12-18 9:00 AM' },
-    { name: 'Sarah Admin', email: 'sarah.admin@helloteam.com', role: 'Admin', status: 'active', lastLogin: '2025-12-18 8:30 AM' },
-    { name: 'Mike Support', email: 'mike.support@helloteam.com', role: 'Support', status: 'active', lastLogin: '2025-12-17 6:00 PM' },
-  ];
+  // Fetch admin users from database
+  const fetchAdminUsers = async () => {
+    try {
+      setLoadingAdminUsers(true);
+      setAdminUsersError(null);
+      const response = await usersService.getAdminUsers();
+      if (response.success) {
+        setAdminUsers(response.data.users);
+      } else {
+        setAdminUsersError(response.error || 'Failed to load admin users');
+      }
+    } catch (err) {
+      setAdminUsersError(err.message || 'Failed to load admin users');
+    } finally {
+      setLoadingAdminUsers(false);
+    }
+  };
+
+  // Fetch admin users when users tab is active
+  useEffect(() => {
+    if (activeTab === 'users' && adminUsers.length === 0) {
+      fetchAdminUsers();
+    }
+  }, [activeTab]);
+
+  // Open modal to create new admin user
+  const handleCreateAdminUser = () => {
+    setSelectedAdminUser(null);
+    setAdminUserFormData({
+      email: '',
+      password: '',
+      firstName: '',
+      lastName: '',
+      department: '',
+      role: 'ADMIN',
+      roleId: ''
+    });
+    setIsAdminUserModalOpen(true);
+  };
+
+  // Open modal to edit admin user
+  const handleEditAdminUser = (user) => {
+    setSelectedAdminUser(user);
+    setAdminUserFormData({
+      email: user.email,
+      password: '',
+      firstName: user.firstName,
+      lastName: user.lastName,
+      department: user.department || '',
+      role: user.role,
+      roleId: user.roleId || ''
+    });
+    setIsAdminUserModalOpen(true);
+  };
+
+  // Save admin user
+  const handleSaveAdminUser = async () => {
+    try {
+      setSavingAdminUser(true);
+      let response;
+      if (selectedAdminUser) {
+        const updateData = {
+          firstName: adminUserFormData.firstName,
+          lastName: adminUserFormData.lastName,
+          department: adminUserFormData.department,
+          role: adminUserFormData.role,
+          roleId: adminUserFormData.roleId || null
+        };
+        if (adminUserFormData.email !== selectedAdminUser.email) {
+          updateData.email = adminUserFormData.email;
+        }
+        if (adminUserFormData.password) {
+          updateData.password = adminUserFormData.password;
+        }
+        response = await usersService.updateAdminUser(selectedAdminUser.id, updateData);
+      } else {
+        response = await usersService.createAdminUser({
+          email: adminUserFormData.email,
+          password: adminUserFormData.password,
+          firstName: adminUserFormData.firstName,
+          lastName: adminUserFormData.lastName,
+          department: adminUserFormData.department,
+          role: adminUserFormData.role,
+          roleId: adminUserFormData.roleId || null
+        });
+      }
+
+      if (response.success) {
+        setIsAdminUserModalOpen(false);
+        fetchAdminUsers();
+      } else {
+        alert(response.error || 'Failed to save admin user');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to save admin user');
+    } finally {
+      setSavingAdminUser(false);
+    }
+  };
+
+  // Delete admin user
+  const handleDeleteAdminUser = async () => {
+    if (!adminUserToDelete) return;
+    try {
+      const response = await usersService.deleteAdminUser(adminUserToDelete.id);
+      if (response.success) {
+        setIsDeleteAdminUserModalOpen(false);
+        setAdminUserToDelete(null);
+        fetchAdminUsers();
+      } else {
+        alert(response.error || 'Failed to delete admin user');
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to delete admin user');
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Never';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   const billingRates = [
     { client: 'ABC Corporation', standardRate: 45.00, overtimeRate: 67.50, holidayRate: 90.00 },
@@ -310,42 +454,99 @@ const Settings = () => {
           {activeTab === 'users' && (
             <Card>
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900">Admin Users</h3>
-                <Button variant="primary" size="sm">
-                  Add Admin
-                </Button>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Admin Users</h3>
+                  <p className="text-sm text-gray-500 mt-1">Manage system administrators and their access</p>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchAdminUsers}>
+                    Refresh
+                  </Button>
+                  <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateAdminUser}>
+                    Add Admin
+                  </Button>
+                </div>
               </div>
-              <div className="space-y-3">
-                {adminUsers.map((user, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                        <span className="font-semibold text-primary">
-                          {user.name.charAt(0)}
-                        </span>
+
+              {loadingAdminUsers ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-gray-500">Loading admin users...</span>
+                </div>
+              ) : adminUsersError ? (
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-600">
+                  {adminUsersError}
+                </div>
+              ) : adminUsers.length > 0 ? (
+                <div className="space-y-3">
+                  {adminUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                          <span className="font-semibold text-primary">
+                            {user.firstName?.charAt(0) || user.email.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500">{user.email}</p>
+                          {user.department && (
+                            <p className="text-xs text-gray-400">{user.department}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{user.name}</p>
-                        <p className="text-sm text-gray-500">{user.email}</p>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <div className="flex items-center gap-2 justify-end">
+                            <Badge variant={user.role === 'SUPER_ADMIN' ? 'primary' : 'default'}>
+                              {user.role.replace('_', ' ')}
+                            </Badge>
+                            <Badge variant={user.status === 'ACTIVE' ? 'success' : 'warning'} size="sm">
+                              {user.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Last login: {formatDate(user.lastLoginAt)}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={Edit}
+                            onClick={() => handleEditAdminUser(user)}
+                          >
+                            Edit
+                          </Button>
+                          {user.role !== 'SUPER_ADMIN' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              icon={Trash2}
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => {
+                                setAdminUserToDelete(user);
+                                setIsDeleteAdminUserModalOpen(true);
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <Badge variant={user.role === 'Super Admin' ? 'primary' : 'default'}>
-                          {user.role}
-                        </Badge>
-                        <p className="text-xs text-gray-500 mt-1">Last: {user.lastLogin}</p>
-                      </div>
-                      <Button variant="ghost" size="sm">
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No admin users found.
+                </div>
+              )}
             </Card>
           )}
 
@@ -593,6 +794,176 @@ const Settings = () => {
                     onClick={handleDeleteRole}
                   >
                     Delete Role
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Admin User Create/Edit Modal */}
+          {isAdminUserModalOpen && (
+            <Modal
+              isOpen={isAdminUserModalOpen}
+              onClose={() => setIsAdminUserModalOpen(false)}
+              title={selectedAdminUser ? `Edit Admin: ${selectedAdminUser.firstName} ${selectedAdminUser.lastName}` : 'Add New Admin'}
+              size="lg"
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">First Name *</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={adminUserFormData.firstName}
+                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      placeholder="John"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Last Name *</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={adminUserFormData.lastName}
+                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      placeholder="Doe"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">Email *</label>
+                  <input
+                    type="email"
+                    className="input"
+                    value={adminUserFormData.email}
+                    onChange={(e) => setAdminUserFormData(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="john.doe@helloteam.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">
+                    {selectedAdminUser ? 'New Password (leave blank to keep current)' : 'Password *'}
+                  </label>
+                  <input
+                    type="password"
+                    className="input"
+                    value={adminUserFormData.password}
+                    onChange={(e) => setAdminUserFormData(prev => ({ ...prev, password: e.target.value }))}
+                    placeholder={selectedAdminUser ? '••••••••' : 'Enter password'}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Role *</label>
+                    <select
+                      className="input"
+                      value={adminUserFormData.role}
+                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, role: e.target.value }))}
+                    >
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                      <option value="ADMIN">Admin</option>
+                      <option value="OPERATIONS">Operations</option>
+                      <option value="HR">HR</option>
+                      <option value="FINANCE">Finance</option>
+                      <option value="SUPPORT">Support</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Department</label>
+                    <input
+                      type="text"
+                      className="input"
+                      value={adminUserFormData.department}
+                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, department: e.target.value }))}
+                      placeholder="e.g., IT, Human Resources"
+                    />
+                  </div>
+                </div>
+
+                {roles.length > 0 && (
+                  <div>
+                    <label className="label">Dynamic Role (Optional)</label>
+                    <select
+                      className="input"
+                      value={adminUserFormData.roleId}
+                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, roleId: e.target.value }))}
+                    >
+                      <option value="">-- Select Dynamic Role --</option>
+                      {roles.map(role => (
+                        <option key={role.id} value={role.id}>
+                          {role.displayName}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Dynamic roles provide granular permissions beyond the base role
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                  <Button variant="outline" onClick={() => setIsAdminUserModalOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={handleSaveAdminUser}
+                    disabled={
+                      savingAdminUser ||
+                      !adminUserFormData.firstName ||
+                      !adminUserFormData.lastName ||
+                      !adminUserFormData.email ||
+                      (!selectedAdminUser && !adminUserFormData.password)
+                    }
+                  >
+                    {savingAdminUser ? 'Saving...' : selectedAdminUser ? 'Update Admin' : 'Create Admin'}
+                  </Button>
+                </div>
+              </div>
+            </Modal>
+          )}
+
+          {/* Delete Admin User Confirmation Modal */}
+          {isDeleteAdminUserModalOpen && adminUserToDelete && (
+            <Modal
+              isOpen={isDeleteAdminUserModalOpen}
+              onClose={() => {
+                setIsDeleteAdminUserModalOpen(false);
+                setAdminUserToDelete(null);
+              }}
+              title="Delete Admin User"
+              size="sm"
+            >
+              <div className="text-center py-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Delete "{adminUserToDelete.firstName} {adminUserToDelete.lastName}"?
+                </h3>
+                <p className="text-gray-500 mb-6">
+                  This will deactivate the admin user account. They will no longer be able to access the system.
+                </p>
+                <div className="flex justify-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsDeleteAdminUserModalOpen(false);
+                      setAdminUserToDelete(null);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="primary"
+                    className="bg-red-600 hover:bg-red-700"
+                    onClick={handleDeleteAdminUser}
+                  >
+                    Delete Admin
                   </Button>
                 </div>
               </div>
