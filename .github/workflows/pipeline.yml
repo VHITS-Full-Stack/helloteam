@@ -12,6 +12,6 @@ jobs:
               uses: appleboy/ssh-action@v1.0.0
               with:
                   host: '13.232.55.215'
-                  username: 'ubuntu'
+                  username: 'root'
                   key: ${{ secrets.SSHKEY }}
                   script: sh /var/www/hello-team.sh
