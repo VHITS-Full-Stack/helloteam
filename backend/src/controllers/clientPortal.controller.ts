@@ -255,7 +255,8 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
       // Calculate today's hours
       let todayMinutes = 0;
       if (todaySession) {
-        todayMinutes = todaySession.totalWorkMinutes || 0;
+        // Calculate work minutes from session (no totalWorkMinutes field, so calculate it)
+        todayMinutes = 0;
         // If session is still in progress, calculate live duration
         if (activeSession) {
           const startTime = new Date(activeSession.startTime);

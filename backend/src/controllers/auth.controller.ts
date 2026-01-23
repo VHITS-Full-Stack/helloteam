@@ -266,6 +266,11 @@ export const forgotPassword = async (req: Request, res: Response): Promise<void>
 
     const user = await prisma.user.findUnique({
       where: { email },
+      include: {
+        employee: { select: { firstName: true } },
+        client: { select: { contactPerson: true } },
+        admin: { select: { firstName: true } },
+      },
     });
 
     // Always return success to prevent email enumeration
