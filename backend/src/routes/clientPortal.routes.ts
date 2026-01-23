@@ -7,6 +7,12 @@ import {
   approveTimeRecord,
   rejectTimeRecord,
   getWeeklyHoursOverview,
+  getClientTimeRecords,
+  getClientApprovals,
+  bulkApproveTimeRecords,
+  bulkRejectTimeRecords,
+  getClientAnalytics,
+  getClientBilling,
 } from '../controllers/clientPortal.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -40,13 +46,43 @@ router.get('/workforce', getClientWorkforce);
 router.get('/workforce/active', getActiveEmployees);
 
 // ============================================
+// TIME RECORDS ROUTES
+// ============================================
+
+// Get time records with filtering (weekly view)
+router.get('/time-records', getClientTimeRecords);
+
+// ============================================
 // APPROVAL ROUTES
 // ============================================
+
+// Get approvals list with filtering
+router.get('/approvals', getClientApprovals);
 
 // Approve a time record
 router.post('/approvals/time-record/:recordId/approve', approveTimeRecord);
 
 // Reject a time record
 router.post('/approvals/time-record/:recordId/reject', rejectTimeRecord);
+
+// Bulk approve time records
+router.post('/approvals/bulk-approve', bulkApproveTimeRecords);
+
+// Bulk reject time records
+router.post('/approvals/bulk-reject', bulkRejectTimeRecords);
+
+// ============================================
+// ANALYTICS ROUTES
+// ============================================
+
+// Get analytics data
+router.get('/analytics', getClientAnalytics);
+
+// ============================================
+// BILLING ROUTES
+// ============================================
+
+// Get billing summary
+router.get('/billing', getClientBilling);
 
 export default router;

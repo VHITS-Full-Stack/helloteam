@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import {
   Card,
   Button,
@@ -10,98 +10,100 @@ import {
   TableBody,
   TableRow,
   TableHeader,
-  TableCell
+  TableCell,
+  Modal
 } from '../../components/common';
+import clientPortalService from '../../services/clientPortal.service';
 
 const TimeRecords = () => {
-  const [selectedWeek, setSelectedWeek] = useState('Dec 16 - Dec 22, 2025');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [timeRecords, setTimeRecords] = useState([]);
+  const [summary, setSummary] = useState({
+    totalEmployees: 0,
+    totalHours: 0,
+    regularHours: 0,
+    overtimeHours: 0,
+    pendingCount: 0,
+  });
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState(null);
 
-  const timeRecords = [
-    {
-      id: 1,
-      employee: 'John Doe',
-      department: 'Engineering',
-      mon: 8,
-      tue: 8,
-      wed: 8,
-      thu: 8,
-      fri: 8,
-      sat: 0,
-      sun: 0,
-      total: 40,
-      overtime: 0,
-      status: 'approved',
-    },
-    {
-      id: 2,
-      employee: 'Jane Smith',
-      department: 'Engineering',
-      mon: 8,
-      tue: 9,
-      wed: 8,
-      thu: 8,
-      fri: 8,
-      sat: 3,
-      sun: 0,
-      total: 44,
-      overtime: 4,
-      status: 'pending',
-    },
-    {
-      id: 3,
-      employee: 'Mike Johnson',
-      department: 'Design',
-      mon: 8,
-      tue: 8,
-      wed: 0,
-      thu: 0,
-      fri: 8,
-      sat: 0,
-      sun: 0,
-      total: 24,
-      overtime: 0,
-      status: 'approved',
-      note: 'Leave: Wed-Thu',
-    },
-    {
-      id: 4,
-      employee: 'Sarah Williams',
-      department: 'Marketing',
-      mon: 8,
-      tue: 8,
-      wed: 8,
-      thu: 8,
-      fri: 8,
-      sat: 0,
-      sun: 0,
-      total: 40,
-      overtime: 0,
-      status: 'approved',
-    },
-    {
-      id: 5,
-      employee: 'David Brown',
-      department: 'Engineering',
-      mon: 8,
-      tue: 8,
-      wed: 8,
-      thu: 8,
-      fri: 8,
-      sat: 4,
-      sun: 0,
-      total: 44,
-      overtime: 4,
-      status: 'pending',
-    },
-  ];
+  // Get week start/end dates
+  const getWeekDates = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const start = new Date(d);
+    start.setDate(d.getDate() - day);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  };
 
-  const summary = {
-    totalEmployees: 5,
-    totalHours: 192,
-    regularHours: 184,
-    overtimeHours: 8,
-    pendingApprovals: 2,
+  const [currentWeek, setCurrentWeek] = useState(() => getWeekDates(new Date()));
+
+  const formatWeekDisplay = (start, end) => {
+    const options = { month: 'short', day: 'numeric' };
+    const startStr = start.toLocaleDateString('en-US', options);
+    const endStr = end.toLocaleDateString('en-US', { ...options, year: 'numeric' });
+    return `${startStr} - ${endStr}`;
+  };
+
+  const fetchTimeRecords = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await clientPortalService.getTimeRecords({
+        startDate: currentWeek.start.toISOString().split('T')[0],
+        endDate: currentWeek.end.toISOString().split('T')[0],
+        status: statusFilter !== 'all' ? statusFilter.toUpperCase() : undefined,
+        search: searchQuery || undefined,
+      });
+
+      if (response.success) {
+        setTimeRecords(response.data.records || []);
+        setSummary(response.data.summary || {
+          totalEmployees: 0,
+          totalHours: 0,
+          regularHours: 0,
+          overtimeHours: 0,
+          pendingCount: 0,
+        });
+        setDateRange(response.data.dateRange || { start: '', end: '' });
+      } else {
+        setError(response.error || 'Failed to load time records');
+      }
+    } catch (err) {
+      console.error('Error fetching time records:', err);
+      setError('Failed to load time records');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentWeek, statusFilter, searchQuery]);
+
+  useEffect(() => {
+    fetchTimeRecords();
+  }, [fetchTimeRecords]);
+
+  const handlePreviousWeek = () => {
+    const newStart = new Date(currentWeek.start);
+    newStart.setDate(newStart.getDate() - 7);
+    setCurrentWeek(getWeekDates(newStart));
+  };
+
+  const handleNextWeek = () => {
+    const newStart = new Date(currentWeek.start);
+    newStart.setDate(newStart.getDate() + 7);
+    setCurrentWeek(getWeekDates(newStart));
+  };
+
+  const handleCurrentWeek = () => {
+    setCurrentWeek(getWeekDates(new Date()));
   };
 
   const getStatusBadge = (status) => {
@@ -118,10 +120,49 @@ const TimeRecords = () => {
   };
 
   const getCellClass = (hours) => {
-    if (hours === 0) return 'text-gray-300';
+    if (!hours || hours === 0) return 'text-gray-300';
     if (hours > 8) return 'text-orange-600 font-medium';
     return 'text-gray-900';
   };
+
+  const handleExport = () => {
+    // Generate CSV data
+    const headers = ['Employee', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total', 'Overtime', 'Status'];
+    const rows = timeRecords.map(record => [
+      record.employee,
+      record.dailyHours?.mon || 0,
+      record.dailyHours?.tue || 0,
+      record.dailyHours?.wed || 0,
+      record.dailyHours?.thu || 0,
+      record.dailyHours?.fri || 0,
+      record.dailyHours?.sat || 0,
+      record.dailyHours?.sun || 0,
+      record.totalHours,
+      record.overtimeHours,
+      record.status,
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `time-records-${dateRange.start}-to-${dateRange.end}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
+  if (loading && timeRecords.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -132,14 +173,24 @@ const TimeRecords = () => {
           <p className="text-gray-500">View and manage employee time records</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" icon={Filter}>
+          <Button variant="outline" icon={Filter} onClick={() => setShowFilterModal(true)}>
             Filter
           </Button>
-          <Button variant="outline" icon={Download}>
+          <Button variant="outline" icon={Download} onClick={handleExport}>
             Export
           </Button>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+          <button onClick={fetchTimeRecords} className="ml-2 underline">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -161,7 +212,7 @@ const TimeRecords = () => {
         </Card>
         <Card padding="sm">
           <p className="text-sm text-gray-500">Pending</p>
-          <p className="text-2xl font-bold text-yellow-600">{summary.pendingApprovals}</p>
+          <p className="text-2xl font-bold text-yellow-600">{summary.pendingCount}</p>
         </Card>
       </div>
 
@@ -169,99 +220,136 @@ const TimeRecords = () => {
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              onClick={handlePreviousWeek}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
               <ChevronLeft className="w-5 h-5 text-gray-500" />
             </button>
             <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg">
               <Calendar className="w-5 h-5 text-gray-500" />
-              <span className="font-medium text-gray-900">{selectedWeek}</span>
-              <ChevronDown className="w-4 h-4 text-gray-500" />
+              <span className="font-medium text-gray-900">
+                {formatWeekDisplay(currentWeek.start, currentWeek.end)}
+              </span>
             </div>
-            <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+            <button
+              onClick={handleNextWeek}
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            >
               <ChevronRight className="w-5 h-5 text-gray-500" />
             </button>
+            <Button variant="ghost" size="sm" onClick={handleCurrentWeek}>
+              Today
+            </Button>
           </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search employees..."
-              className="input pl-10 w-full md:w-64"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+          <div className="flex items-center gap-3">
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="input py-2"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search employees..."
+                className="input pl-10 w-full md:w-64"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </Card>
 
       {/* Time Records Table */}
       <Card padding="none">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeader>Employee</TableHeader>
-                <TableHeader className="text-center">Mon</TableHeader>
-                <TableHeader className="text-center">Tue</TableHeader>
-                <TableHeader className="text-center">Wed</TableHeader>
-                <TableHeader className="text-center">Thu</TableHeader>
-                <TableHeader className="text-center">Fri</TableHeader>
-                <TableHeader className="text-center">Sat</TableHeader>
-                <TableHeader className="text-center">Sun</TableHeader>
-                <TableHeader className="text-center">Total</TableHeader>
-                <TableHeader className="text-center">OT</TableHeader>
-                <TableHeader>Status</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {timeRecords.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={record.employee} size="sm" />
-                      <div>
-                        <p className="font-medium text-gray-900">{record.employee}</p>
-                        <p className="text-xs text-gray-500">{record.department}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.mon)}`}>
-                    {record.mon > 0 ? record.mon : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.tue)}`}>
-                    {record.tue > 0 ? record.tue : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.wed)}`}>
-                    {record.wed > 0 ? record.wed : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.thu)}`}>
-                    {record.thu > 0 ? record.thu : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.fri)}`}>
-                    {record.fri > 0 ? record.fri : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.sat)}`}>
-                    {record.sat > 0 ? record.sat : '-'}
-                  </TableCell>
-                  <TableCell className={`text-center ${getCellClass(record.sun)}`}>
-                    {record.sun > 0 ? record.sun : '-'}
-                  </TableCell>
-                  <TableCell className="text-center font-semibold text-gray-900">
-                    {record.total}h
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {record.overtime > 0 ? (
-                      <span className="text-orange-600 font-medium">+{record.overtime}h</span>
-                    ) : (
-                      <span className="text-gray-300">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(record.status)}</TableCell>
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : timeRecords.length === 0 ? (
+          <div className="p-12 text-center">
+            <Clock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-1">No time records</h3>
+            <p className="text-gray-500">No time records found for this period.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Employee</TableHeader>
+                  <TableHeader className="text-center">Mon</TableHeader>
+                  <TableHeader className="text-center">Tue</TableHeader>
+                  <TableHeader className="text-center">Wed</TableHeader>
+                  <TableHeader className="text-center">Thu</TableHeader>
+                  <TableHeader className="text-center">Fri</TableHeader>
+                  <TableHeader className="text-center">Sat</TableHeader>
+                  <TableHeader className="text-center">Sun</TableHeader>
+                  <TableHeader className="text-center">Total</TableHeader>
+                  <TableHeader className="text-center">OT</TableHeader>
+                  <TableHeader>Status</TableHeader>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHead>
+              <TableBody>
+                {timeRecords.map((record) => (
+                  <TableRow
+                    key={record.id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => setSelectedRecord(record)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar name={record.employee} src={record.profilePhoto} size="sm" />
+                        <div>
+                          <p className="font-medium text-gray-900">{record.employee}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.mon)}`}>
+                      {record.dailyHours?.mon > 0 ? record.dailyHours.mon : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.tue)}`}>
+                      {record.dailyHours?.tue > 0 ? record.dailyHours.tue : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.wed)}`}>
+                      {record.dailyHours?.wed > 0 ? record.dailyHours.wed : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.thu)}`}>
+                      {record.dailyHours?.thu > 0 ? record.dailyHours.thu : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.fri)}`}>
+                      {record.dailyHours?.fri > 0 ? record.dailyHours.fri : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.sat)}`}>
+                      {record.dailyHours?.sat > 0 ? record.dailyHours.sat : '-'}
+                    </TableCell>
+                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.sun)}`}>
+                      {record.dailyHours?.sun > 0 ? record.dailyHours.sun : '-'}
+                    </TableCell>
+                    <TableCell className="text-center font-semibold text-gray-900">
+                      {record.totalHours}h
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {record.overtimeHours > 0 ? (
+                        <span className="text-orange-600 font-medium">+{record.overtimeHours}h</span>
+                      ) : (
+                        <span className="text-gray-300">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(record.status)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </Card>
 
       {/* Legend */}
@@ -279,6 +367,70 @@ const TimeRecords = () => {
           <span>Overtime</span>
         </div>
       </div>
+
+      {/* Record Detail Modal */}
+      <Modal
+        isOpen={!!selectedRecord}
+        onClose={() => setSelectedRecord(null)}
+        title="Time Record Details"
+        size="md"
+      >
+        {selectedRecord && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <Avatar name={selectedRecord.employee} src={selectedRecord.profilePhoto} size="lg" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">{selectedRecord.employee}</h3>
+                <p className="text-gray-500">
+                  Week of {formatWeekDisplay(currentWeek.start, currentWeek.end)}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p className="text-sm text-gray-500">Total Hours</p>
+                <p className="text-xl font-bold text-gray-900">{selectedRecord.totalHours}h</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Overtime</p>
+                <p className="text-xl font-bold text-orange-600">{selectedRecord.overtimeHours}h</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Regular Hours</p>
+                <p className="text-xl font-bold text-green-600">
+                  {selectedRecord.totalHours - selectedRecord.overtimeHours}h
+                </p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">Status</p>
+                <div className="mt-1">{getStatusBadge(selectedRecord.status)}</div>
+              </div>
+            </div>
+
+            {selectedRecord.records && selectedRecord.records.length > 0 && (
+              <div>
+                <h4 className="font-medium text-gray-900 mb-2">Daily Breakdown</h4>
+                <div className="space-y-2">
+                  {selectedRecord.records.map((rec, idx) => (
+                    <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
+                      <span className="text-gray-600">
+                        {new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </span>
+                      <div className="flex items-center gap-4">
+                        <span className="font-medium">
+                          {((rec.totalMinutes || 0) + (rec.overtimeMinutes || 0)) / 60}h
+                        </span>
+                        {getStatusBadge(rec.status.toLowerCase())}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

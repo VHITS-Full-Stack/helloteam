@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   CheckCircle,
   XCircle,
   Clock,
   AlertCircle,
   Filter,
-  ChevronDown
+  Loader2
 } from 'lucide-react';
 import {
   Card,
@@ -18,90 +18,57 @@ import {
   TableRow,
   TableHeader,
   TableCell,
-  Modal
+  Modal,
+  Input
 } from '../../components/common';
+import clientPortalService from '../../services/clientPortal.service';
 
 const Approvals = () => {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending');
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [approvals, setApprovals] = useState([]);
+  const [summary, setSummary] = useState({
+    pending: 0,
+    overtimePending: 0,
+    approvedThisWeek: 0,
+    rejectedThisWeek: 0,
+  });
+  const [selectedItems, setSelectedItems] = useState([]);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const approvalItems = {
-    pending: [
-      {
-        id: 1,
-        type: 'time-entry',
-        employee: 'John Doe',
-        description: 'Regular work hours',
-        date: '2025-12-18',
-        hours: 8,
-        submitted: '2025-12-18 6:05 PM',
-      },
-      {
-        id: 2,
-        type: 'overtime',
-        employee: 'Jane Smith',
-        description: 'Project deadline work',
-        date: '2025-12-17',
-        hours: 3,
-        submitted: '2025-12-17 9:30 PM',
-      },
-      {
-        id: 3,
-        type: 'leave',
-        employee: 'Mike Johnson',
-        description: 'Vacation leave',
-        date: '2025-12-25 - 2025-12-26',
-        days: 2,
-        submitted: '2025-12-15 10:00 AM',
-      },
-      {
-        id: 4,
-        type: 'adjustment',
-        employee: 'Sarah Williams',
-        description: 'Clock-out correction by Hello Team',
-        date: '2025-12-16',
-        hours: 0.5,
-        submitted: '2025-12-17 9:00 AM',
-        adjustedBy: 'Admin',
-      },
-    ],
-    approved: [
-      {
-        id: 5,
-        type: 'time-entry',
-        employee: 'David Brown',
-        description: 'Regular work hours',
-        date: '2025-12-16',
-        hours: 8,
-        submitted: '2025-12-16 6:00 PM',
-        approvedOn: '2025-12-17 9:00 AM',
-      },
-      {
-        id: 6,
-        type: 'overtime',
-        employee: 'Emily Davis',
-        description: 'Client meeting preparation',
-        date: '2025-12-15',
-        hours: 2,
-        submitted: '2025-12-15 8:00 PM',
-        approvedOn: '2025-12-16 10:00 AM',
-      },
-    ],
-    rejected: [
-      {
-        id: 7,
-        type: 'overtime',
-        employee: 'John Doe',
-        description: 'Unscheduled overtime',
-        date: '2025-12-14',
-        hours: 4,
-        submitted: '2025-12-14 10:00 PM',
-        rejectedOn: '2025-12-15 9:00 AM',
-        reason: 'Not pre-approved',
-      },
-    ],
-  };
+  const fetchApprovals = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await clientPortalService.getApprovals({ status: activeTab });
+      if (response.success) {
+        setApprovals(response.data.approvals || []);
+        setSummary(response.data.summary || {
+          pending: 0,
+          overtimePending: 0,
+          approvedThisWeek: 0,
+          rejectedThisWeek: 0,
+        });
+      } else {
+        setError(response.error || 'Failed to load approvals');
+      }
+    } catch (err) {
+      console.error('Error fetching approvals:', err);
+      setError('Failed to load approvals');
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchApprovals();
+    setSelectedItems([]);
+  }, [fetchApprovals]);
 
   const getTypeBadge = (type) => {
     switch (type) {
@@ -119,19 +86,116 @@ const Approvals = () => {
   };
 
   const tabs = [
-    { id: 'pending', label: 'Pending', count: approvalItems.pending.length },
-    { id: 'approved', label: 'Approved', count: approvalItems.approved.length },
-    { id: 'rejected', label: 'Rejected', count: approvalItems.rejected.length },
+    { id: 'pending', label: 'Pending', count: summary.pending },
+    { id: 'approved', label: 'Approved', count: summary.approvedThisWeek },
+    { id: 'rejected', label: 'Rejected', count: summary.rejectedThisWeek },
   ];
 
-  const handleApprove = (item) => {
+  const handleApprove = async (item) => {
     setSelectedItem(item);
     setShowApprovalModal(true);
   };
 
   const handleReject = (item) => {
     setSelectedItem(item);
-    // Show rejection modal
+    setRejectReason('');
+    setShowRejectModal(true);
+  };
+
+  const confirmApprove = async () => {
+    if (!selectedItem) return;
+    setActionLoading(true);
+    try {
+      const response = await clientPortalService.approveTimeRecord(selectedItem.id);
+      if (response.success) {
+        setShowApprovalModal(false);
+        setSelectedItem(null);
+        fetchApprovals();
+      } else {
+        alert(response.error || 'Failed to approve');
+      }
+    } catch (err) {
+      console.error('Approve error:', err);
+      alert('Failed to approve time record');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const confirmReject = async () => {
+    if (!selectedItem || !rejectReason.trim()) {
+      alert('Please provide a rejection reason');
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const response = await clientPortalService.rejectTimeRecord(selectedItem.id, rejectReason);
+      if (response.success) {
+        setShowRejectModal(false);
+        setSelectedItem(null);
+        setRejectReason('');
+        fetchApprovals();
+      } else {
+        alert(response.error || 'Failed to reject');
+      }
+    } catch (err) {
+      console.error('Reject error:', err);
+      alert('Failed to reject time record');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSelectItem = (id) => {
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAll = () => {
+    const pendingTimeEntries = approvals.filter(a => a.type !== 'leave');
+    if (selectedItems.length === pendingTimeEntries.length) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems(pendingTimeEntries.map(a => a.id));
+    }
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedItems.length === 0) return;
+    setActionLoading(true);
+    try {
+      const response = await clientPortalService.bulkApproveTimeRecords(selectedItems);
+      if (response.success) {
+        setSelectedItems([]);
+        fetchApprovals();
+      } else {
+        alert(response.error || 'Failed to bulk approve');
+      }
+    } catch (err) {
+      console.error('Bulk approve error:', err);
+      alert('Failed to bulk approve time records');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
   };
 
   return (
@@ -143,16 +207,40 @@ const Approvals = () => {
           <p className="text-gray-500">Review and approve time entries, overtime, and leave requests</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" icon={Filter}>
-            Filter
-          </Button>
-          {activeTab === 'pending' && approvalItems.pending.length > 0 && (
-            <Button variant="primary" icon={CheckCircle}>
-              Approve All ({approvalItems.pending.length})
+          {activeTab === 'pending' && selectedItems.length > 0 && (
+            <Button
+              variant="success"
+              icon={CheckCircle}
+              onClick={handleBulkApprove}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Approving...' : `Approve Selected (${selectedItems.length})`}
+            </Button>
+          )}
+          {activeTab === 'pending' && approvals.filter(a => a.type !== 'leave').length > 0 && selectedItems.length === 0 && (
+            <Button
+              variant="primary"
+              icon={CheckCircle}
+              onClick={() => {
+                const timeEntries = approvals.filter(a => a.type !== 'leave');
+                setSelectedItems(timeEntries.map(a => a.id));
+              }}
+            >
+              Select All ({approvals.filter(a => a.type !== 'leave').length})
             </Button>
           )}
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+          {error}
+          <button onClick={fetchApprovals} className="ml-2 underline">
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -162,7 +250,7 @@ const Approvals = () => {
               <Clock className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{approvalItems.pending.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.pending}</p>
               <p className="text-sm text-gray-500">Pending</p>
             </div>
           </div>
@@ -173,9 +261,7 @@ const Approvals = () => {
               <AlertCircle className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {approvalItems.pending.filter(i => i.type === 'overtime').length}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{summary.overtimePending}</p>
               <p className="text-sm text-gray-500">Overtime Requests</p>
             </div>
           </div>
@@ -186,7 +272,7 @@ const Approvals = () => {
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{approvalItems.approved.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.approvedThisWeek}</p>
               <p className="text-sm text-gray-500">Approved This Week</p>
             </div>
           </div>
@@ -197,7 +283,7 @@ const Approvals = () => {
               <XCircle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">{approvalItems.rejected.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.rejectedThisWeek}</p>
               <p className="text-sm text-gray-500">Rejected This Week</p>
             </div>
           </div>
@@ -236,10 +322,24 @@ const Approvals = () => {
 
       {/* Approval Items */}
       <Card padding="none">
-        {approvalItems[activeTab].length > 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : approvals.length > 0 ? (
           <Table>
             <TableHead>
               <TableRow>
+                {activeTab === 'pending' && (
+                  <TableHeader className="w-12">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.length === approvals.filter(a => a.type !== 'leave').length && approvals.filter(a => a.type !== 'leave').length > 0}
+                      onChange={handleSelectAll}
+                      className="rounded border-gray-300"
+                    />
+                  </TableHeader>
+                )}
                 <TableHeader>Employee</TableHeader>
                 <TableHeader>Type</TableHeader>
                 <TableHeader>Description</TableHeader>
@@ -252,11 +352,23 @@ const Approvals = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {approvalItems[activeTab].map((item) => (
-                <TableRow key={item.id}>
+              {approvals.map((item) => (
+                <TableRow key={`${item.type}-${item.id}`}>
+                  {activeTab === 'pending' && (
+                    <TableCell>
+                      {item.type !== 'leave' && (
+                        <input
+                          type="checkbox"
+                          checked={selectedItems.includes(item.id)}
+                          onChange={() => handleSelectItem(item.id)}
+                          className="rounded border-gray-300"
+                        />
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar name={item.employee} size="sm" />
+                      <Avatar name={item.employee} src={item.profilePhoto} size="sm" />
                       <span className="font-medium">{item.employee}</span>
                     </div>
                   </TableCell>
@@ -264,17 +376,17 @@ const Approvals = () => {
                   <TableCell>
                     <div>
                       <p className="text-gray-900">{item.description}</p>
-                      {item.adjustedBy && (
-                        <p className="text-xs text-gray-500">Adjusted by: {item.adjustedBy}</p>
+                      {item.reason && (
+                        <p className="text-xs text-gray-500 mt-1">Reason: {item.reason}</p>
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>{item.date}</TableCell>
+                  <TableCell>{typeof item.date === 'string' && item.date.includes(' to ') ? item.date : formatDate(item.date)}</TableCell>
                   <TableCell>
                     {item.hours !== undefined ? `${item.hours}h` : `${item.days} days`}
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-gray-500">{item.submitted}</span>
+                    <span className="text-sm text-gray-500">{formatDateTime(item.submittedAt)}</span>
                   </TableCell>
                   {activeTab === 'pending' && (
                     <TableCell>
@@ -284,6 +396,7 @@ const Approvals = () => {
                           size="sm"
                           icon={CheckCircle}
                           onClick={() => handleApprove(item)}
+                          disabled={actionLoading}
                         >
                           Approve
                         </Button>
@@ -292,6 +405,7 @@ const Approvals = () => {
                           size="sm"
                           icon={XCircle}
                           onClick={() => handleReject(item)}
+                          disabled={actionLoading}
                         >
                           Reject
                         </Button>
@@ -300,12 +414,12 @@ const Approvals = () => {
                   )}
                   {activeTab === 'approved' && (
                     <TableCell>
-                      <span className="text-sm text-green-600">{item.approvedOn}</span>
+                      <span className="text-sm text-green-600">{formatDateTime(item.approvedAt)}</span>
                     </TableCell>
                   )}
                   {activeTab === 'rejected' && (
                     <TableCell>
-                      <span className="text-sm text-red-600">{item.reason}</span>
+                      <span className="text-sm text-red-600">{item.rejectionReason || '-'}</span>
                     </TableCell>
                   )}
                 </TableRow>
@@ -335,11 +449,11 @@ const Approvals = () => {
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowApprovalModal(false)}>
+            <Button variant="ghost" onClick={() => setShowApprovalModal(false)} disabled={actionLoading}>
               Cancel
             </Button>
-            <Button variant="success" icon={CheckCircle} onClick={() => setShowApprovalModal(false)}>
-              Approve
+            <Button variant="success" icon={CheckCircle} onClick={confirmApprove} disabled={actionLoading}>
+              {actionLoading ? 'Approving...' : 'Approve'}
             </Button>
           </>
         }
@@ -356,7 +470,7 @@ const Approvals = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Date</span>
-                <span className="font-medium">{selectedItem.date}</span>
+                <span className="font-medium">{typeof selectedItem.date === 'string' ? selectedItem.date : formatDate(selectedItem.date)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Duration</span>
@@ -366,6 +480,54 @@ const Approvals = () => {
                     : `${selectedItem.days} days`}
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Reject Modal */}
+      <Modal
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        title="Reject Request"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowRejectModal(false)} disabled={actionLoading}>
+              Cancel
+            </Button>
+            <Button variant="danger" icon={XCircle} onClick={confirmReject} disabled={actionLoading || !rejectReason.trim()}>
+              {actionLoading ? 'Rejecting...' : 'Reject'}
+            </Button>
+          </>
+        }
+      >
+        {selectedItem && (
+          <div className="space-y-4">
+            <p className="text-gray-600">
+              Please provide a reason for rejecting this {selectedItem.type.replace('-', ' ')}.
+            </p>
+            <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Employee</span>
+                <span className="font-medium">{selectedItem.employee}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Date</span>
+                <span className="font-medium">{typeof selectedItem.date === 'string' ? selectedItem.date : formatDate(selectedItem.date)}</span>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rejection Reason <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                className="input w-full"
+                rows={3}
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Enter reason for rejection..."
+              />
             </div>
           </div>
         )}

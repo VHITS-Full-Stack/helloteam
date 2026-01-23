@@ -30,7 +30,18 @@ const clientPortalService = {
     return response;
   },
 
-  // Approval APIs
+  // Time Records APIs
+  getTimeRecords: async (params = {}) => {
+    const response = await api.get('/client-portal/time-records', { params });
+    return response;
+  },
+
+  // Approvals APIs
+  getApprovals: async (params = {}) => {
+    const response = await api.get('/client-portal/approvals', { params });
+    return response;
+  },
+
   approveTimeRecord: async (recordId) => {
     const response = await api.post(`/client-portal/approvals/time-record/${recordId}/approve`);
     return response;
@@ -40,6 +51,28 @@ const clientPortalService = {
     const response = await api.post(`/client-portal/approvals/time-record/${recordId}/reject`, {
       reason,
     });
+    return response;
+  },
+
+  bulkApproveTimeRecords: async (recordIds) => {
+    const response = await api.post('/client-portal/approvals/bulk-approve', { recordIds });
+    return response;
+  },
+
+  bulkRejectTimeRecords: async (recordIds, reason) => {
+    const response = await api.post('/client-portal/approvals/bulk-reject', { recordIds, reason });
+    return response;
+  },
+
+  // Analytics APIs
+  getAnalytics: async (params = {}) => {
+    const response = await api.get('/client-portal/analytics', { params });
+    return response;
+  },
+
+  // Billing APIs
+  getBilling: async () => {
+    const response = await api.get('/client-portal/billing');
     return response;
   },
 };
