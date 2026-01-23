@@ -118,7 +118,7 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
 // Get single client by ID
 export const getClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const client = await prisma.client.findUnique({
       where: { id },
@@ -293,7 +293,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
 // Update client
 export const updateClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       email,
       companyName,
@@ -438,7 +438,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
 // Delete client (soft delete by setting status to INACTIVE)
 export const deleteClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const client = await prisma.client.findUnique({
       where: { id },
@@ -480,7 +480,7 @@ export const deleteClient = async (req: AuthenticatedRequest, res: Response): Pr
 // Get client's employees
 export const getClientEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const employees = await prisma.clientEmployee.findMany({
       where: {
@@ -520,7 +520,7 @@ export const getClientEmployees = async (req: AuthenticatedRequest, res: Respons
 // Assign multiple employees to client
 export const assignEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { employeeIds } = req.body;
 
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
@@ -586,7 +586,8 @@ export const assignEmployees = async (req: AuthenticatedRequest, res: Response):
 // Remove employee from client
 export const removeEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id, employeeId } = req.params;
+    const id = req.params.id as string;
+    const employeeId = req.params.employeeId as string;
 
     await prisma.clientEmployee.updateMany({
       where: {

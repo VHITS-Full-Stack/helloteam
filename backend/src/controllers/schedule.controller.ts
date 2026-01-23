@@ -165,7 +165,7 @@ function calculateMinutes(startTime: string, endTime: string): number {
 // Get all schedules for an employee (Admin view)
 export const getEmployeeSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { employeeId } = req.params;
+    const employeeId = req.params.employeeId as string;
 
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -208,7 +208,7 @@ export const getEmployeeSchedule = async (req: AuthenticatedRequest, res: Respon
 // Create or update schedule for an employee
 export const upsertSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { employeeId } = req.params;
+    const employeeId = req.params.employeeId as string;
     const { dayOfWeek, startTime, endTime, effectiveFrom } = req.body;
 
     // Validate employee exists
@@ -282,7 +282,7 @@ export const upsertSchedule = async (req: AuthenticatedRequest, res: Response): 
 // Bulk update schedule for an employee (set full week)
 export const bulkUpdateSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { employeeId } = req.params;
+    const employeeId = req.params.employeeId as string;
     const { schedules, effectiveFrom } = req.body;
 
     // Validate employee exists
@@ -347,7 +347,7 @@ export const bulkUpdateSchedule = async (req: AuthenticatedRequest, res: Respons
 // Delete (deactivate) a schedule
 export const deleteSchedule = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { scheduleId } = req.params;
+    const scheduleId = req.params.scheduleId as string;
 
     const schedule = await prisma.schedule.findUnique({
       where: { id: scheduleId },

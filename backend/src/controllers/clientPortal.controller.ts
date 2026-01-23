@@ -158,7 +158,8 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
 export const getClientWorkforce = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { status: filterStatus, search } = req.query;
+    const filterStatus = req.query.status as string | undefined;
+    const search = req.query.search as string | undefined;
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -189,8 +190,8 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
         ...(search ? {
           employee: {
             OR: [
-              { firstName: { contains: search as string, mode: 'insensitive' } },
-              { lastName: { contains: search as string, mode: 'insensitive' } },
+              { firstName: { contains: search, mode: 'insensitive' } },
+              { lastName: { contains: search, mode: 'insensitive' } },
             ],
           },
         } : {}),
@@ -442,7 +443,7 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
 export const getPendingApprovals = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { limit = '10' } = req.query;
+    const limit = (req.query.limit as string) || '10';
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -563,7 +564,7 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
 export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { recordId } = req.params;
+    const recordId = req.params.recordId as string;
 
     // Get the client associated with this user
     const client = await prisma.client.findUnique({
@@ -623,7 +624,7 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
 export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { recordId } = req.params;
+    const recordId = req.params.recordId as string;
     const { reason } = req.body;
 
     // Get the client associated with this user
@@ -661,8 +662,6 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       where: { id: recordId },
       data: {
         status: 'REJECTED',
-        rejectionReason: reason || 'Rejected by client',
-        rejectedBy: userId,
       },
     });
 
@@ -776,7 +775,12 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
 export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { startDate, endDate, status, search, page = '1', limit = '50' } = req.query;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
+    const status = req.query.status as string | undefined;
+    const search = req.query.search as string | undefined;
+    const page = (req.query.page as string) || '1';
+    const limit = (req.query.limit as string) || '50';
 
     const client = await prisma.client.findUnique({
       where: { userId },
@@ -830,8 +834,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     if (search) {
       whereClause.employee = {
         OR: [
-          { firstName: { contains: search as string, mode: 'insensitive' } },
-          { lastName: { contains: search as string, mode: 'insensitive' } },
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
         ],
       };
     }
@@ -893,7 +897,6 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         totalMinutes: record.totalMinutes,
         overtimeMinutes: record.overtimeMinutes,
         status: record.status,
-        notes: record.notes,
       });
 
       if (record.overtimeMinutes && record.overtimeMinutes > 0) {
@@ -948,7 +951,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 export const getClientApprovals = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { status = 'pending', type, page = '1', limit = '20' } = req.query;
+    const status = (req.query.status as string) || 'pending';
+    const type = req.query.type as string | undefined;
+    const page = (req.query.page as string) || '1';
+    const limit = (req.query.limit as string) || '20';
 
     const client = await prisma.client.findUnique({
       where: { userId },
@@ -978,7 +984,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       approved: 'APPROVED',
       rejected: 'REJECTED',
     };
-    const dbStatus = statusMap[status as string] || 'PENDING';
+    const dbStatus = statusMap[status] || 'PENDING';
 
     // Get time records based on filter
     const timeRecordWhere: any = { clientId, status: dbStatus };
@@ -1049,7 +1055,6 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         status: tr.status.toLowerCase(),
         submittedAt: tr.createdAt,
         approvedAt: tr.approvedAt,
-        rejectionReason: tr.rejectionReason,
       });
     });
 
@@ -1218,8 +1223,6 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
       where: { id: { in: recordIds }, clientId: client.id },
       data: {
         status: 'REJECTED',
-        rejectionReason: reason || 'Bulk rejected by client',
-        rejectedBy: userId,
       },
     });
 
@@ -1242,7 +1245,7 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
 export const getClientAnalytics = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { period = 'month' } = req.query;
+    const period = (req.query.period as string) || 'month';
 
     const client = await prisma.client.findUnique({
       where: { userId },

@@ -313,7 +313,7 @@ export const getMyPayrollSummary = async (req: AuthenticatedRequest, res: Respon
 export const getTimeRecordDetail = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { recordId } = req.params;
+    const recordId = req.params.recordId as string;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });

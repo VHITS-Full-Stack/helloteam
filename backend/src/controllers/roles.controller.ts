@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { AuthenticatedRequest } from '../middleware/auth.middleware';
-import { ALL_PERMISSIONS, PERMISSION_CATEGORIES } from '../config/permissions';
+import { AuthenticatedRequest } from '../types';
+import { ALL_PERMISSIONS, getPermissionsByCategory } from '../config/permissions';
 
 const prisma = new PrismaClient();
 
@@ -52,7 +52,7 @@ export const getRoles = async (req: AuthenticatedRequest, res: Response): Promis
 // Get a single role by ID
 export const getRoleById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const role = await prisma.role.findUnique({
       where: { id },
@@ -128,7 +128,7 @@ export const createRole = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     // Validate permissions
-    const invalidPermissions = permissions.filter((p: string) => !ALL_PERMISSIONS.includes(p));
+    const invalidPermissions = permissions.filter((p: string) => !(ALL_PERMISSIONS as readonly string[]).includes(p));
     if (invalidPermissions.length > 0) {
       res.status(400).json({
         success: false,
@@ -184,7 +184,7 @@ export const createRole = async (req: AuthenticatedRequest, res: Response): Prom
 // Update a role
 export const updateRole = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { displayName, description, permissions, isActive } = req.body;
 
     // Check if role exists
@@ -211,7 +211,7 @@ export const updateRole = async (req: AuthenticatedRequest, res: Response): Prom
 
     // Validate permissions if provided
     if (permissions) {
-      const invalidPermissions = permissions.filter((p: string) => !ALL_PERMISSIONS.includes(p));
+      const invalidPermissions = permissions.filter((p: string) => !(ALL_PERMISSIONS as readonly string[]).includes(p));
       if (invalidPermissions.length > 0) {
         res.status(400).json({
           success: false,
@@ -296,7 +296,7 @@ export const updateRole = async (req: AuthenticatedRequest, res: Response): Prom
 // Delete a role
 export const deleteRole = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     // Check if role exists
     const existingRole = await prisma.role.findUnique({
@@ -359,7 +359,7 @@ export const getAvailablePermissions = async (req: AuthenticatedRequest, res: Re
       success: true,
       data: {
         permissions: ALL_PERMISSIONS,
-        categories: PERMISSION_CATEGORIES,
+        categories: getPermissionsByCategory(),
       },
     });
   } catch (error) {
@@ -374,7 +374,7 @@ export const getAvailablePermissions = async (req: AuthenticatedRequest, res: Re
 // Get permissions for a specific user (from their role)
 export const getUserPermissions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user?.userId;
 
     if (!userId) {
       res.status(401).json({

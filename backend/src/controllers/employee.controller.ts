@@ -104,7 +104,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
 // Get single employee by ID
 export const getEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -265,7 +265,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
 // Update employee
 export const updateEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       email,
       firstName,
@@ -371,7 +371,7 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
 // Delete employee (soft delete by setting status to INACTIVE)
 export const deleteEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const employee = await prisma.employee.findUnique({
       where: { id },
@@ -413,7 +413,7 @@ export const deleteEmployee = async (req: AuthenticatedRequest, res: Response): 
 // Assign employee to client
 export const assignToClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { clientId } = req.body;
 
     if (!clientId) {
@@ -489,7 +489,7 @@ export const assignToClient = async (req: AuthenticatedRequest, res: Response): 
 // Remove employee from client
 export const removeFromClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { clientId } = req.body;
 
     if (!clientId) {

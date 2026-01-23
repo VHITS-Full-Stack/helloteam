@@ -128,7 +128,7 @@ router.get('/check/:permission', (req: AuthenticatedRequest, res: Response) => {
     }
 
     const permissions = getRolePermissions(userRole);
-    const hasPermission = permissions.includes(permission);
+    const hasPermission = permissions.includes(permission as string);
 
     res.json({
       success: true,

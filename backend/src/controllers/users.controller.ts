@@ -103,7 +103,7 @@ export const getAdminUsers = async (req: AuthenticatedRequest, res: Response): P
 // Get single admin user by ID
 export const getAdminUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -283,7 +283,7 @@ export const createAdminUser = async (req: AuthenticatedRequest, res: Response):
 // Update admin user
 export const updateAdminUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const {
       email,
       firstName,
@@ -423,7 +423,7 @@ export const updateAdminUser = async (req: AuthenticatedRequest, res: Response):
 // Delete admin user (soft delete by setting status to INACTIVE)
 export const deleteAdminUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const currentUserId = req.user?.userId;
 
     // Prevent self-deletion
