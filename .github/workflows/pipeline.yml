@@ -2,7 +2,7 @@ name: reactcicd
  
 on:
     push:
-        branches: [viteDevelopment]
+        branches: [main]
  
 jobs:
     deploy:
