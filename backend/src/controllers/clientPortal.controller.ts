@@ -1421,8 +1421,10 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
       select: {
         id: true,
         companyName: true,
-        billingEmail: true,
-        billingAddress: true,
+        address: true,
+        user: {
+          select: { email: true },
+        },
       },
     });
 
@@ -1530,8 +1532,8 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         invoices,
         billingInfo: {
           companyName: client.companyName,
-          billingEmail: client.billingEmail,
-          billingAddress: client.billingAddress,
+          billingEmail: client.user?.email || null,
+          billingAddress: client.address || null,
         },
       },
     });
