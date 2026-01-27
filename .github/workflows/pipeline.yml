@@ -1,4 +1,4 @@
-name: reactcicddddd
+name: reactcicd
  
 on:
     push:
@@ -13,6 +13,6 @@ jobs:
               with:
                   host: '13.232.55.215'
                   username: 'ubuntu'
-                  key: ${{ secrets.SSHKEY }}
+                  key: ${{ secrets.SSKEY }}
                   script: | 
                    bash /home/ubuntu/hello-team.sh
