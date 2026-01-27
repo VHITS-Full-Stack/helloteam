@@ -14,4 +14,5 @@ jobs:
                   host: '13.232.55.215'
                   username: 'ubuntu'
                   key: ${{ secrets.SSHKEY }}
-                  script: sh /home/ubuntu/hello-team.sh
+                  script: | 
+                   bash /home/ubuntu/hello-team.sh
