@@ -35,11 +35,21 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'An error occurred');
+        // Create an error with the message from the API
+        const error = new Error(data.error || data.message || 'An error occurred');
+        error.status = response.status;
+        error.data = data;
+        throw error;
       }
 
       return data;
     } catch (error) {
+      // Handle network errors or JSON parse errors
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        const networkError = new Error('Unable to connect to server. Please check your connection.');
+        networkError.isNetworkError = true;
+        throw networkError;
+      }
       throw error;
     }
   }
@@ -85,6 +95,41 @@ class ApiService {
   // DELETE request
   delete(endpoint) {
     return this.request(endpoint, { method: 'DELETE' });
+  }
+
+  // Upload file (FormData)
+  async uploadFile(endpoint, file, fieldName = 'photo') {
+    const url = `${this.baseUrl}${endpoint}`;
+    const token = this.getToken();
+    const formData = new FormData();
+    formData.append(fieldName, file);
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        const error = new Error(data.error || data.message || 'Upload failed');
+        error.status = response.status;
+        error.data = data;
+        throw error;
+      }
+
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        const networkError = new Error('Unable to connect to server. Please check your connection.');
+        networkError.isNetworkError = true;
+        throw networkError;
+      }
+      throw error;
+    }
   }
 }
 

@@ -32,12 +32,21 @@ const Login = () => {
     }
   }, [isAuthenticated, user, navigate]);
 
-  // Clear errors when typing
+  // Clear errors when typing (only when user modifies input, not on mount)
+  const [hasInteracted, setHasInteracted] = useState(false);
+
   useEffect(() => {
-    setError('');
-    setValidationErrors({});
-    clearError();
-  }, [formData.email, formData.password, clearError]);
+    if (hasInteracted) {
+      setError('');
+      setValidationErrors({});
+      clearError();
+    }
+  }, [formData.email, formData.password]);
+
+  const handleInputChange = (field, value) => {
+    setHasInteracted(true);
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   const validateForm = () => {
     const errors = {};
@@ -60,6 +69,7 @@ const Login = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setHasInteracted(false); // Reset so errors clear on next typing
 
     if (!validateForm()) {
       return;
@@ -142,7 +152,7 @@ const Login = () => {
                 placeholder="Enter your email"
                 icon={Mail}
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) => handleInputChange('email', e.target.value)}
                 error={validationErrors.email}
                 required
               />
@@ -155,7 +165,7 @@ const Login = () => {
                 placeholder="Enter your password"
                 icon={Lock}
                 value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                onChange={(e) => handleInputChange('password', e.target.value)}
                 error={validationErrors.password}
                 required
               />

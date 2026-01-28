@@ -19,7 +19,7 @@ const Input = forwardRef(({
       )}
       <div className="relative">
         {Icon && iconPosition === 'left' && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
             <Icon className="h-5 w-5 text-gray-400" />
           </div>
         )}
@@ -33,14 +33,16 @@ const Input = forwardRef(({
               ? 'border-red-300 focus:ring-red-500'
               : 'border-gray-300 focus:ring-primary'
             }
-            ${Icon && iconPosition === 'left' ? 'pl-10' : ''}
-            ${Icon && iconPosition === 'right' ? 'pr-10' : ''}
             ${className}
           `}
+          style={{
+            ...(Icon && iconPosition === 'left' ? { paddingLeft: '2.5rem' } : {}),
+            ...(Icon && iconPosition === 'right' ? { paddingRight: '2.5rem' } : {}),
+          }}
           {...props}
         />
         {Icon && iconPosition === 'right' && (
-          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none z-10">
             <Icon className="h-5 w-5 text-gray-400" />
           </div>
         )}

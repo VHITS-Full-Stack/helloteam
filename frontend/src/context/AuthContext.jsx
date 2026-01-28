@@ -159,7 +159,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (email, password, rememberMe = false) => {
     try {
       setError(null);
-      setLoading(true);
+      // Don't set loading here - let the Login component handle its own loading state
+      // This prevents the loading screen from showing during login attempts
 
       const response = await authService.login(email, password);
 
@@ -186,15 +187,14 @@ export const AuthProvider = ({ children }) => {
 
         return { success: true };
       } else {
-        setError(response.error);
-        return { success: false, error: response.error };
+        const errorMsg = response.error || 'Login failed. Please try again.';
+        setError(errorMsg);
+        return { success: false, error: errorMsg };
       }
     } catch (err) {
       const errorMessage = err.message || 'Login failed';
       setError(errorMessage);
       return { success: false, error: errorMessage };
-    } finally {
-      setLoading(false);
     }
   };
 

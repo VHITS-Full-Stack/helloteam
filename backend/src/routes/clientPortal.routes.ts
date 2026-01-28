@@ -13,6 +13,8 @@ import {
   bulkRejectTimeRecords,
   getClientAnalytics,
   getClientBilling,
+  getClientSettings,
+  updateClientSettings,
 } from '../controllers/clientPortal.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -84,5 +86,15 @@ router.get('/analytics', getClientAnalytics);
 
 // Get billing summary
 router.get('/billing', getClientBilling);
+
+// ============================================
+// SETTINGS ROUTES
+// ============================================
+
+// Get client settings
+router.get('/settings', getClientSettings);
+
+// Update client settings (policies)
+router.put('/settings', updateClientSettings);
 
 export default router;

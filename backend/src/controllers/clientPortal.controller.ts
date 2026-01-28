@@ -1,6 +1,15 @@
 import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
+import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+
+// Helper to refresh presigned URL for profile photo
+const refreshProfilePhotoUrl = async (profilePhoto: string | null): Promise<string | null> => {
+  if (!profilePhoto) return null;
+  const key = getKeyFromUrl(profilePhoto);
+  if (!key) return profilePhoto;
+  return await getPresignedUrl(key) || profilePhoto;
+};
 
 // Get client's dashboard stats
 export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -234,7 +243,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Process employee data with live status
-    const workforceData = assignedEmployees.map(ce => {
+    const workforceData = await Promise.all(assignedEmployees.map(async (ce) => {
       const emp = ce.employee;
       const activeSession = emp.workSessions.find(s => s.status === 'ACTIVE');
       const todaySession = emp.workSessions[0];
@@ -285,6 +294,9 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
         return `${hours}h ${mins.toString().padStart(2, '0')}m`;
       };
 
+      // Refresh presigned URL for profile photo
+      const profilePhoto = await refreshProfilePhotoUrl(emp.profilePhoto);
+
       return {
         id: emp.id,
         name: `${emp.firstName} ${emp.lastName}`,
@@ -292,7 +304,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
         lastName: emp.lastName,
         role: 'Employee',
         email: emp.user.email,
-        profilePhoto: emp.profilePhoto,
+        profilePhoto,
         status,
         startTime: activeSession?.startTime || null,
         todayHours: formatDuration(todayMinutes),
@@ -305,7 +317,7 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
           breakType: currentBreak.breakType,
         } : null,
       };
-    });
+    }));
 
     // Apply status filter if provided
     let filteredWorkforce = workforceData;
@@ -393,7 +405,7 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Process active employees
-    const activeEmployees = activeSessions.map(session => {
+    const activeEmployees = await Promise.all(activeSessions.map(async (session) => {
       const now = new Date();
       const startTime = new Date(session.startTime);
       const elapsedMinutes = Math.floor((now.getTime() - startTime.getTime()) / 60000);
@@ -414,17 +426,20 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
         return `${hours}h ${mins.toString().padStart(2, '0')}m`;
       };
 
+      // Refresh presigned URL for profile photo
+      const profilePhoto = await refreshProfilePhotoUrl(session.employee.profilePhoto);
+
       return {
         id: session.employee.id,
         name: `${session.employee.firstName} ${session.employee.lastName}`,
         role: 'Employee',
-        profilePhoto: session.employee.profilePhoto,
+        profilePhoto,
         status: currentBreak ? 'break' : 'working',
         startTime: session.startTime,
         duration: formatDuration(workMinutes),
         durationMinutes: workMinutes,
       };
-    });
+    }));
 
     res.json({
       success: true,
@@ -907,13 +922,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       }
     });
 
-    // Convert to array and calculate totals
-    const employeeWeeklyData = Array.from(employeeRecordsMap.values()).map(emp => ({
-      ...emp,
-      totalHours: Math.round((emp.totalMinutes / 60) * 10) / 10,
-      overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
-      status: emp.hasPendingRecord ? 'pending' : 'approved',
-    }));
+    // Convert to array and calculate totals (refresh presigned URLs)
+    const employeeWeeklyData = await Promise.all(
+      Array.from(employeeRecordsMap.values()).map(async emp => ({
+        ...emp,
+        profilePhoto: await refreshProfilePhotoUrl(emp.profilePhoto),
+        totalHours: Math.round((emp.totalMinutes / 60) * 10) / 10,
+        overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
+        status: emp.hasPendingRecord ? 'pending' : 'approved',
+      }))
+    );
 
     // Calculate summary
     const summary = {
@@ -1036,17 +1054,19 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       ]);
     }
 
-    // Format approvals
+    // Format approvals (refresh presigned URLs for profile photos)
     const approvals: any[] = [];
 
-    timeRecords.forEach(tr => {
+    // Process time records with presigned URL refresh
+    await Promise.all(timeRecords.map(async tr => {
       const totalHours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
       const isOvertime = (tr.overtimeMinutes || 0) > 0;
+      const profilePhoto = await refreshProfilePhotoUrl(tr.employee.profilePhoto);
       approvals.push({
         id: tr.id,
         type: isOvertime ? 'overtime' : 'time-entry',
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
-        profilePhoto: tr.employee.profilePhoto,
+        profilePhoto,
         description: isOvertime
           ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10}h overtime`
           : `${Math.round(totalHours * 10) / 10}h regular work`,
@@ -1056,17 +1076,19 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         submittedAt: tr.createdAt,
         approvedAt: tr.approvedAt,
       });
-    });
+    }));
 
-    leaveRequests.forEach(lr => {
+    // Process leave requests with presigned URL refresh
+    await Promise.all(leaveRequests.map(async lr => {
       const startDate = new Date(lr.startDate);
       const endDate = new Date(lr.endDate);
       const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+      const profilePhoto = await refreshProfilePhotoUrl(lr.employee.profilePhoto);
       approvals.push({
         id: lr.id,
         type: 'leave',
         employee: `${lr.employee.firstName} ${lr.employee.lastName}`,
-        profilePhoto: lr.employee.profilePhoto,
+        profilePhoto,
         description: `${lr.leaveType} - ${days} day(s)`,
         date: `${lr.startDate.toISOString().split('T')[0]} to ${lr.endDate.toISOString().split('T')[0]}`,
         days,
@@ -1074,7 +1096,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         status: lr.status.toLowerCase(),
         submittedAt: lr.createdAt,
       });
-    });
+    }));
 
     // Sort by submittedAt
     approvals.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
@@ -1360,7 +1382,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
       if (tr.status === 'APPROVED') emp.approvedHours += hours;
     });
 
-    const topPerformers = Array.from(employeeHoursMap.values())
+    const topPerformersRaw = Array.from(employeeHoursMap.values())
       .map(e => ({
         ...e,
         hours: Math.round(e.hours * 10) / 10,
@@ -1368,6 +1390,14 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
       }))
       .sort((a, b) => b.hours - a.hours)
       .slice(0, 5);
+
+    // Refresh presigned URLs for top performers
+    const topPerformers = await Promise.all(
+      topPerformersRaw.map(async e => ({
+        ...e,
+        profilePhoto: await refreshProfilePhotoUrl(e.profilePhoto),
+      }))
+    );
 
     // Weekly activity breakdown
     const weeklyActivity: { day: string; hours: number; target: number }[] = [];
@@ -1407,6 +1437,261 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
   } catch (error) {
     console.error('Get client analytics error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch analytics' });
+  }
+};
+
+// ============================================
+// SETTINGS ENDPOINTS
+// ============================================
+
+// Get client settings (company info + policies + assigned employees)
+export const getClientSettings = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            status: true,
+            createdAt: true,
+            lastLoginAt: true,
+          },
+        },
+        clientPolicies: true,
+        employees: {
+          where: { isActive: true },
+          include: {
+            employee: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                profilePhoto: true,
+                user: {
+                  select: {
+                    email: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Format assigned employees (refresh presigned URLs)
+    const assignedEmployees = await Promise.all(client.employees.map(async ce => ({
+      id: ce.employee.id,
+      name: `${ce.employee.firstName} ${ce.employee.lastName}`,
+      firstName: ce.employee.firstName,
+      lastName: ce.employee.lastName,
+      email: ce.employee.user.email,
+      status: ce.employee.user.status,
+      profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+      assignedAt: ce.assignedAt,
+    })));
+
+    res.json({
+      success: true,
+      data: {
+        company: {
+          id: client.id,
+          companyName: client.companyName,
+          contactPerson: client.contactPerson,
+          phone: client.phone,
+          address: client.address,
+          timezone: client.timezone,
+          email: client.user.email,
+          status: client.user.status,
+          createdAt: client.createdAt,
+          lastLoginAt: client.user.lastLoginAt,
+        },
+        policies: client.clientPolicies ? {
+          allowPaidLeave: client.clientPolicies.allowPaidLeave,
+          paidLeaveType: client.clientPolicies.paidLeaveType,
+          annualPaidLeaveDays: client.clientPolicies.annualPaidLeaveDays,
+          allowUnpaidLeave: client.clientPolicies.allowUnpaidLeave,
+          requireTwoWeeksNotice: client.clientPolicies.requireTwoWeeksNotice,
+          allowOvertime: client.clientPolicies.allowOvertime,
+          overtimeRequiresApproval: client.clientPolicies.overtimeRequiresApproval,
+        } : {
+          allowPaidLeave: false,
+          paidLeaveType: null,
+          annualPaidLeaveDays: 0,
+          allowUnpaidLeave: true,
+          requireTwoWeeksNotice: true,
+          allowOvertime: true,
+          overtimeRequiresApproval: true,
+        },
+        notifications: client.clientPolicies ? {
+          timeEntrySubmissions: client.clientPolicies.notifyTimeEntrySubmissions,
+          overtimeAlerts: client.clientPolicies.notifyOvertimeAlerts,
+          leaveRequests: client.clientPolicies.notifyLeaveRequests,
+          weeklySummary: client.clientPolicies.notifyWeeklySummary,
+          invoiceNotifications: client.clientPolicies.notifyInvoice,
+        } : {
+          timeEntrySubmissions: true,
+          overtimeAlerts: true,
+          leaveRequests: true,
+          weeklySummary: false,
+          invoiceNotifications: true,
+        },
+        preferences: client.clientPolicies ? {
+          dateFormat: client.clientPolicies.dateFormat,
+          timeFormat: client.clientPolicies.timeFormat,
+          workWeekStart: client.clientPolicies.workWeekStart,
+          overtimeThreshold: client.clientPolicies.overtimeThreshold,
+        } : {
+          dateFormat: 'MM/DD/YYYY',
+          timeFormat: '12-hour',
+          workWeekStart: 'Sunday',
+          overtimeThreshold: 40,
+        },
+        assignedEmployees,
+        employeeCount: assignedEmployees.length,
+      },
+    });
+  } catch (error) {
+    console.error('Get client settings error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch settings' });
+  }
+};
+
+// Update client settings (policies, notifications, preferences)
+export const updateClientSettings = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const {
+      // Policy fields
+      allowPaidLeave,
+      paidLeaveType,
+      annualPaidLeaveDays,
+      allowUnpaidLeave,
+      requireTwoWeeksNotice,
+      allowOvertime,
+      overtimeRequiresApproval,
+      // Notification fields
+      notifications,
+      // Preference fields
+      preferences,
+    } = req.body;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      include: { clientPolicies: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Build update data object
+    const updateData: any = {};
+
+    // Policy fields
+    if (allowPaidLeave !== undefined) updateData.allowPaidLeave = allowPaidLeave;
+    if (paidLeaveType !== undefined) updateData.paidLeaveType = paidLeaveType;
+    if (annualPaidLeaveDays !== undefined) updateData.annualPaidLeaveDays = annualPaidLeaveDays;
+    if (allowUnpaidLeave !== undefined) updateData.allowUnpaidLeave = allowUnpaidLeave;
+    if (requireTwoWeeksNotice !== undefined) updateData.requireTwoWeeksNotice = requireTwoWeeksNotice;
+    if (allowOvertime !== undefined) updateData.allowOvertime = allowOvertime;
+    if (overtimeRequiresApproval !== undefined) updateData.overtimeRequiresApproval = overtimeRequiresApproval;
+
+    // Notification fields
+    if (notifications) {
+      if (notifications.timeEntrySubmissions !== undefined) updateData.notifyTimeEntrySubmissions = notifications.timeEntrySubmissions;
+      if (notifications.overtimeAlerts !== undefined) updateData.notifyOvertimeAlerts = notifications.overtimeAlerts;
+      if (notifications.leaveRequests !== undefined) updateData.notifyLeaveRequests = notifications.leaveRequests;
+      if (notifications.weeklySummary !== undefined) updateData.notifyWeeklySummary = notifications.weeklySummary;
+      if (notifications.invoiceNotifications !== undefined) updateData.notifyInvoice = notifications.invoiceNotifications;
+    }
+
+    // Preference fields
+    if (preferences) {
+      if (preferences.dateFormat !== undefined) updateData.dateFormat = preferences.dateFormat;
+      if (preferences.timeFormat !== undefined) updateData.timeFormat = preferences.timeFormat;
+      if (preferences.workWeekStart !== undefined) updateData.workWeekStart = preferences.workWeekStart;
+      if (preferences.overtimeThreshold !== undefined) updateData.overtimeThreshold = preferences.overtimeThreshold;
+    }
+
+    // Update or create policies
+    if (client.clientPolicies) {
+      await prisma.clientPolicy.update({
+        where: { clientId: client.id },
+        data: updateData,
+      });
+    } else {
+      await prisma.clientPolicy.create({
+        data: {
+          clientId: client.id,
+          allowPaidLeave: allowPaidLeave ?? false,
+          paidLeaveType,
+          annualPaidLeaveDays: annualPaidLeaveDays ?? 0,
+          allowUnpaidLeave: allowUnpaidLeave ?? true,
+          requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
+          allowOvertime: allowOvertime ?? true,
+          overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+          notifyTimeEntrySubmissions: notifications?.timeEntrySubmissions ?? true,
+          notifyOvertimeAlerts: notifications?.overtimeAlerts ?? true,
+          notifyLeaveRequests: notifications?.leaveRequests ?? true,
+          notifyWeeklySummary: notifications?.weeklySummary ?? false,
+          notifyInvoice: notifications?.invoiceNotifications ?? true,
+          dateFormat: preferences?.dateFormat ?? 'MM/DD/YYYY',
+          timeFormat: preferences?.timeFormat ?? '12-hour',
+          workWeekStart: preferences?.workWeekStart ?? 'Sunday',
+          overtimeThreshold: preferences?.overtimeThreshold ?? 40,
+        },
+      });
+    }
+
+    // Fetch updated data
+    const updatedClient = await prisma.client.findUnique({
+      where: { userId },
+      include: { clientPolicies: true },
+    });
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully',
+      data: {
+        policies: updatedClient?.clientPolicies ? {
+          allowPaidLeave: updatedClient.clientPolicies.allowPaidLeave,
+          paidLeaveType: updatedClient.clientPolicies.paidLeaveType,
+          annualPaidLeaveDays: updatedClient.clientPolicies.annualPaidLeaveDays,
+          allowUnpaidLeave: updatedClient.clientPolicies.allowUnpaidLeave,
+          requireTwoWeeksNotice: updatedClient.clientPolicies.requireTwoWeeksNotice,
+          allowOvertime: updatedClient.clientPolicies.allowOvertime,
+          overtimeRequiresApproval: updatedClient.clientPolicies.overtimeRequiresApproval,
+        } : null,
+        notifications: updatedClient?.clientPolicies ? {
+          timeEntrySubmissions: updatedClient.clientPolicies.notifyTimeEntrySubmissions,
+          overtimeAlerts: updatedClient.clientPolicies.notifyOvertimeAlerts,
+          leaveRequests: updatedClient.clientPolicies.notifyLeaveRequests,
+          weeklySummary: updatedClient.clientPolicies.notifyWeeklySummary,
+          invoiceNotifications: updatedClient.clientPolicies.notifyInvoice,
+        } : null,
+        preferences: updatedClient?.clientPolicies ? {
+          dateFormat: updatedClient.clientPolicies.dateFormat,
+          timeFormat: updatedClient.clientPolicies.timeFormat,
+          workWeekStart: updatedClient.clientPolicies.workWeekStart,
+          overtimeThreshold: updatedClient.clientPolicies.overtimeThreshold,
+        } : null,
+      },
+    });
+  } catch (error) {
+    console.error('Update client settings error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update settings' });
   }
 };
 

@@ -46,6 +46,7 @@ const Sidebar = ({
     { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing' },
+    { to: '/client/profile', icon: User, label: 'Profile' },
     { to: '/client/settings', icon: Settings, label: 'Settings' },
   ];
 
@@ -212,11 +213,21 @@ const Sidebar = ({
         {/* User Info */}
         <div className={`p-4 ${collapsed ? 'px-2' : ''}`}>
           <div className={`flex items-center ${collapsed ? 'justify-center' : 'gap-3'}`}>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary shadow-lg">
-              <span className="font-bold text-primary-900">
-                {user?.name?.charAt(0) || 'U'}
-              </span>
-            </div>
+            {user?.avatar ? (
+              <div className="w-10 h-10 rounded-full flex-shrink-0 overflow-hidden ring-2 ring-secondary shadow-lg">
+                <img
+                  src={user.avatar}
+                  alt={user?.name || 'User'}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-secondary shadow-lg">
+                <span className="font-bold text-primary-900">
+                  {user?.name?.charAt(0) || 'U'}
+                </span>
+              </div>
+            )}
             {!collapsed && (
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-white truncate">

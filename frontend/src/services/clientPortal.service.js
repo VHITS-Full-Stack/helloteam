@@ -75,6 +75,17 @@ const clientPortalService = {
     const response = await api.get('/client-portal/billing');
     return response;
   },
+
+  // Settings APIs
+  getSettings: async () => {
+    const response = await api.get('/client-portal/settings');
+    return response;
+  },
+
+  updateSettings: async (settingsData) => {
+    const response = await api.put('/client-portal/settings', settingsData);
+    return response;
+  },
 };
 
 export default clientPortalService;

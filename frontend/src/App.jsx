@@ -31,7 +31,8 @@ import {
   ClientAnalytics,
   ClientTimeRecords,
   Billing,
-  ClientSettings
+  ClientSettings,
+  ClientProfile
 } from './pages/client';
 
 // Admin Pages
@@ -54,7 +55,8 @@ const EmployeeLayout = () => {
   const displayUser = {
     name: user?.employee ? `${user.employee.firstName} ${user.employee.lastName}` : user?.email || 'Employee',
     email: user?.email || '',
-    role: 'Employee'
+    role: 'Employee',
+    avatar: user?.employee?.profilePhoto || null
   };
 
   return (
@@ -75,7 +77,8 @@ const ClientLayout = () => {
   const displayUser = {
     name: user?.client?.companyName || user?.email || 'Client',
     email: user?.email || '',
-    role: 'Client Admin'
+    role: 'Client Admin',
+    avatar: user?.client?.logoUrl || null
   };
 
   return (
@@ -141,6 +144,7 @@ const AppRoutes = () => {
         <Route path="time-records" element={<ClientTimeRecords />} />
         <Route path="billing" element={<Billing />} />
         <Route path="settings" element={<ClientSettings />} />
+        <Route path="profile" element={<ClientProfile />} />
       </Route>
 
       {/* Admin Portal Routes */}

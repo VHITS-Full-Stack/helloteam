@@ -254,11 +254,12 @@ const TimeRecords = () => {
               <option value="rejected">Rejected</option>
             </select>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
               <input
                 type="text"
                 placeholder="Search employees..."
-                className="input pl-10 w-full md:w-64"
+                className="input w-full md:w-64"
+                style={{ paddingLeft: '2.5rem' }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />

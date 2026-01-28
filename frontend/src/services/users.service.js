@@ -13,43 +13,43 @@ const usersService = {
     const queryString = queryParams.toString();
     const url = queryString ? `/users/admins?${queryString}` : '/users/admins';
     const response = await api.get(url);
-    return response.data;
+    return response;
   },
 
   // Get a single admin user by ID
   async getAdminUser(id) {
     const response = await api.get(`/users/admins/${id}`);
-    return response.data;
+    return response;
   },
 
   // Create a new admin user
   async createAdminUser(userData) {
     const response = await api.post('/users/admins', userData);
-    return response.data;
+    return response;
   },
 
   // Update an admin user
   async updateAdminUser(id, userData) {
     const response = await api.put(`/users/admins/${id}`, userData);
-    return response.data;
+    return response;
   },
 
   // Delete an admin user (soft delete)
   async deleteAdminUser(id) {
     const response = await api.delete(`/users/admins/${id}`);
-    return response.data;
+    return response;
   },
 
   // Get admin user statistics
   async getAdminUserStats() {
     const response = await api.get('/users/admins/stats');
-    return response.data;
+    return response;
   },
 
   // Get available admin roles for dropdown
   async getAdminRoles() {
     const response = await api.get('/users/admin-roles');
-    return response.data;
+    return response;
   },
 };
 

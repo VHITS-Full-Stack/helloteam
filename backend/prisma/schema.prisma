@@ -161,6 +161,13 @@ model Employee {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
+  // Notification preferences
+  notifyScheduleChanges   Boolean   @default(true)
+  notifyShiftReminders    Boolean   @default(true)
+  notifyLeaveApprovals    Boolean   @default(true)
+  notifyPushMessages      Boolean   @default(false)
+  notifyWeeklySummary     Boolean   @default(true)
+
   // Relations
   user              User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   clientAssignments ClientEmployee[]
@@ -186,6 +193,7 @@ model Client {
   phone             String?
   address           String?
   timezone          String      @default("UTC")
+  logoUrl           String?     // Company logo/profile photo
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
@@ -223,6 +231,20 @@ model ClientPolicy {
   requireTwoWeeksNotice   Boolean   @default(true)
   allowOvertime           Boolean   @default(true)
   overtimeRequiresApproval Boolean  @default(true)
+
+  // Notification preferences
+  notifyTimeEntrySubmissions  Boolean   @default(true)
+  notifyOvertimeAlerts        Boolean   @default(true)
+  notifyLeaveRequests         Boolean   @default(true)
+  notifyWeeklySummary         Boolean   @default(false)
+  notifyInvoice               Boolean   @default(true)
+
+  // System preferences
+  dateFormat              String    @default("MM/DD/YYYY")
+  timeFormat              String    @default("12-hour")
+  workWeekStart           String    @default("Sunday")
+  overtimeThreshold       Int       @default(40)
+
   createdAt               DateTime  @default(now())
   updatedAt               DateTime  @updatedAt
 
@@ -240,6 +262,7 @@ model Admin {
   userId      String    @unique
   firstName   String
   lastName    String
+  phone       String?
   department  String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

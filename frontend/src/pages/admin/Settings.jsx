@@ -4,12 +4,8 @@ import {
   Users,
   Bell,
   Shield,
-  Globe,
   CreditCard,
-  Database,
   Save,
-  Key,
-  Mail,
   Lock,
   RefreshCw,
   Plus,
@@ -71,7 +67,6 @@ const Settings = () => {
     { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'billing', label: 'Billing Rates', icon: CreditCard },
-    { id: 'integrations', label: 'Integrations', icon: Database },
   ];
 
   // Filter tabs based on permissions
@@ -462,9 +457,11 @@ const Settings = () => {
                   <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchAdminUsers}>
                     Refresh
                   </Button>
-                  <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateAdminUser}>
-                    Add Admin
-                  </Button>
+                  {isSuperAdmin && (
+                    <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateAdminUser}>
+                      Add Admin
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -514,30 +511,32 @@ const Settings = () => {
                             Last login: {formatDate(user.lastLoginAt)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={Edit}
-                            onClick={() => handleEditAdminUser(user)}
-                          >
-                            Edit
-                          </Button>
-                          {user.role !== 'SUPER_ADMIN' && (
+                        {isSuperAdmin && (
+                          <div className="flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              icon={Trash2}
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                              onClick={() => {
-                                setAdminUserToDelete(user);
-                                setIsDeleteAdminUserModalOpen(true);
-                              }}
+                              icon={Edit}
+                              onClick={() => handleEditAdminUser(user)}
                             >
-                              Delete
+                              Edit
                             </Button>
-                          )}
-                        </div>
+                            {user.role !== 'SUPER_ADMIN' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={Trash2}
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                onClick={() => {
+                                  setAdminUserToDelete(user);
+                                  setIsDeleteAdminUserModalOpen(true);
+                                }}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1095,44 +1094,6 @@ const Settings = () => {
             </Card>
           )}
 
-          {activeTab === 'integrations' && (
-            <Card>
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">Integrations</h3>
-              <div className="space-y-4">
-                {[
-                  { name: 'Slack', description: 'Send notifications to Slack channels', connected: true },
-                  { name: 'QuickBooks', description: 'Sync payroll data with QuickBooks', connected: true },
-                  { name: 'Google Calendar', description: 'Sync schedules with Google Calendar', connected: false },
-                  { name: 'Zapier', description: 'Connect with 5000+ apps via Zapier', connected: false },
-                ].map((integration, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                        <Database className="w-6 h-6 text-gray-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{integration.name}</p>
-                        <p className="text-sm text-gray-500">{integration.description}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {integration.connected ? (
-                        <>
-                          <Badge variant="success">Connected</Badge>
-                          <Button variant="ghost" size="sm">Configure</Button>
-                        </>
-                      ) : (
-                        <Button variant="outline" size="sm">Connect</Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-          )}
         </div>
       </div>
     </div>

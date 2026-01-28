@@ -5,6 +5,7 @@ import { hashPassword, comparePassword, generateToken } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { config } from '../config';
 import { sendPasswordResetEmail } from '../services/email.service';
+import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 
 export const login = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -211,6 +212,34 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
     }
 
     const { password: _, ...userWithoutPassword } = user;
+
+    // Refresh presigned URL for employee profile photo
+    if (userWithoutPassword.employee?.profilePhoto) {
+      const key = getKeyFromUrl(userWithoutPassword.employee.profilePhoto);
+      if (key) {
+        const freshUrl = await getPresignedUrl(key);
+        if (freshUrl) {
+          userWithoutPassword.employee = {
+            ...userWithoutPassword.employee,
+            profilePhoto: freshUrl,
+          };
+        }
+      }
+    }
+
+    // Refresh presigned URL for client logo
+    if (userWithoutPassword.client?.logoUrl) {
+      const key = getKeyFromUrl(userWithoutPassword.client.logoUrl);
+      if (key) {
+        const freshUrl = await getPresignedUrl(key);
+        if (freshUrl) {
+          userWithoutPassword.client = {
+            ...userWithoutPassword.client,
+            logoUrl: freshUrl,
+          };
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -456,6 +485,129 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response): 
     res.status(500).json({
       success: false,
       error: 'An error occurred while changing your password',
+    });
+  }
+};
+
+// Update user profile (for authenticated users)
+export const updateProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: {
+        employee: true,
+        client: true,
+        admin: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    const {
+      // Employee fields
+      firstName,
+      lastName,
+      phone,
+      address,
+      emergencyContact,
+      // Employee notification preferences
+      notifications,
+      // Client fields
+      companyName,
+      contactPerson,
+      timezone,
+    } = req.body;
+
+    // Update based on user role
+    if (user.role === 'EMPLOYEE' && user.employee) {
+      const updateData: any = {};
+
+      // Profile fields
+      if (firstName) updateData.firstName = firstName;
+      if (lastName) updateData.lastName = lastName;
+      if (phone !== undefined) updateData.phone = phone;
+      if (address !== undefined) updateData.address = address;
+      if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
+
+      // Notification preferences
+      if (notifications) {
+        if (notifications.scheduleChanges !== undefined) updateData.notifyScheduleChanges = notifications.scheduleChanges;
+        if (notifications.shiftReminders !== undefined) updateData.notifyShiftReminders = notifications.shiftReminders;
+        if (notifications.leaveApprovals !== undefined) updateData.notifyLeaveApprovals = notifications.leaveApprovals;
+        if (notifications.pushMessages !== undefined) updateData.notifyPushMessages = notifications.pushMessages;
+        if (notifications.weeklySummary !== undefined) updateData.notifyWeeklySummary = notifications.weeklySummary;
+      }
+
+      await prisma.employee.update({
+        where: { id: user.employee.id },
+        data: updateData,
+      });
+    } else if (user.role === 'CLIENT' && user.client) {
+      await prisma.client.update({
+        where: { id: user.client.id },
+        data: {
+          ...(companyName && { companyName }),
+          ...(contactPerson && { contactPerson }),
+          ...(phone !== undefined && { phone }),
+          ...(address !== undefined && { address }),
+          ...(timezone && { timezone }),
+        },
+      });
+    } else if (['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE', 'SUPPORT'].includes(user.role) && user.admin) {
+      await prisma.admin.update({
+        where: { id: user.admin.id },
+        data: {
+          ...(firstName && { firstName }),
+          ...(lastName && { lastName }),
+          ...(phone !== undefined && { phone }),
+        },
+      });
+    }
+
+    // Fetch updated user data
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: {
+        employee: true,
+        client: true,
+        admin: true,
+      },
+    });
+
+    if (!updatedUser) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found after update',
+      });
+      return;
+    }
+
+    const { password: _, ...userWithoutPassword } = updatedUser;
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: userWithoutPassword,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while updating profile',
     });
   }
 };

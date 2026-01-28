@@ -1,16 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
-import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Trash2 } from 'lucide-react';
-import { Card, Button, Badge, Avatar } from '../../components/common';
+import { Building2, User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Clock, Loader2, Trash2 } from 'lucide-react';
+import { Card, Button, Badge } from '../../components/common';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
-  const [activeTab, setActiveTab] = useState('personal');
+  const [activeTab, setActiveTab] = useState('company');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
 
   // Profile data from API
@@ -18,11 +18,11 @@ const Profile = () => {
 
   // Form data for editing
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    companyName: '',
+    contactPerson: '',
     phone: '',
     address: '',
-    emergencyContact: '',
+    timezone: 'America/New_York',
   });
 
   // Password change form
@@ -35,15 +35,14 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Notification preferences
+  // Notification preferences (local state for now)
   const [notifications, setNotifications] = useState({
-    scheduleChanges: true,
-    shiftReminders: true,
-    leaveApprovals: true,
-    pushMessages: false,
-    weeklySummary: true,
+    timeEntrySubmissions: true,
+    overtimeAlerts: true,
+    leaveRequests: true,
+    weeklySummary: false,
+    invoiceNotifications: true,
   });
-  const [savingNotification, setSavingNotification] = useState(null);
 
   useEffect(() => {
     fetchProfile();
@@ -56,22 +55,14 @@ const Profile = () => {
       if (response.success && response.data) {
         setProfile(response.data);
         // Initialize form data with profile data
-        if (response.data.employee) {
-          const emp = response.data.employee;
+        if (response.data.client) {
+          const client = response.data.client;
           setFormData({
-            firstName: emp.firstName || '',
-            lastName: emp.lastName || '',
-            phone: emp.phone || '',
-            address: emp.address || '',
-            emergencyContact: emp.emergencyContact || '',
-          });
-          // Initialize notification preferences from API
-          setNotifications({
-            scheduleChanges: emp.notifyScheduleChanges ?? true,
-            shiftReminders: emp.notifyShiftReminders ?? true,
-            leaveApprovals: emp.notifyLeaveApprovals ?? true,
-            pushMessages: emp.notifyPushMessages ?? false,
-            weeklySummary: emp.notifyWeeklySummary ?? true,
+            companyName: client.companyName || '',
+            contactPerson: client.contactPerson || '',
+            phone: client.phone || '',
+            address: client.address || '',
+            timezone: client.timezone || 'America/New_York',
           });
         }
       }
@@ -150,79 +141,43 @@ const Profile = () => {
     }
   };
 
-  const handleNotificationToggle = async (key) => {
-    const newValue = !notifications[key];
-    setNotifications(prev => ({ ...prev, [key]: newValue }));
-    setSavingNotification(key);
-
-    try {
-      const response = await authService.updateProfile({
-        notifications: { [key]: newValue }
-      });
-      if (!response.success) {
-        // Revert on failure
-        setNotifications(prev => ({ ...prev, [key]: !newValue }));
-        setError(response.error || 'Failed to update notification setting');
-        setTimeout(() => setError(''), 3000);
-      }
-    } catch (err) {
-      // Revert on error
-      setNotifications(prev => ({ ...prev, [key]: !newValue }));
-      setError(err.error || err.message || 'Failed to update notification setting');
-      setTimeout(() => setError(''), 3000);
-    } finally {
-      setSavingNotification(null);
-    }
+  const handleNotificationToggle = (key) => {
+    setNotifications(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handlePhotoSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handlePhotoUpload = async (e) => {
+  const handleLogoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type)) {
-      setError('Invalid file type. Please upload JPEG, PNG, WebP, or GIF.');
-      setTimeout(() => setError(''), 3000);
+      setError('Invalid file type. Allowed types: JPEG, PNG, WebP, GIF');
       return;
     }
 
-    // Validate file size (5MB max)
+    // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('File too large. Maximum size is 5MB.');
-      setTimeout(() => setError(''), 3000);
+      setError('File too large. Maximum size is 5MB');
       return;
     }
 
     try {
-      setUploadingPhoto(true);
+      setUploadingLogo(true);
       setError('');
-      const response = await authService.uploadProfilePhoto(file);
-
+      const response = await authService.uploadClientLogo(file);
       if (response.success) {
-        setSuccess('Profile photo updated successfully');
-        // Update local profile state with new photo URL
-        setProfile(prev => ({
-          ...prev,
-          employee: {
-            ...prev.employee,
-            profilePhoto: response.data.profilePhoto,
-          },
-        }));
+        setSuccess('Company logo uploaded successfully');
+        // Refresh profile to get new logo URL
+        fetchProfile();
         setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError(response.error || 'Failed to upload photo');
-        setTimeout(() => setError(''), 3000);
+        setError(response.error || 'Failed to upload logo');
       }
     } catch (err) {
-      setError(err.message || 'Failed to upload photo');
-      setTimeout(() => setError(''), 3000);
+      setError(err.error || err.message || 'Failed to upload logo');
     } finally {
-      setUploadingPhoto(false);
+      setUploadingLogo(false);
       // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -230,43 +185,45 @@ const Profile = () => {
     }
   };
 
-  const handlePhotoDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete your profile photo?')) {
+  const handleDeleteLogo = async () => {
+    if (!window.confirm('Are you sure you want to delete the company logo?')) {
       return;
     }
 
     try {
-      setUploadingPhoto(true);
-      const response = await authService.deleteProfilePhoto();
-
+      setUploadingLogo(true);
+      setError('');
+      const response = await authService.deleteClientLogo();
       if (response.success) {
-        setSuccess('Profile photo deleted successfully');
-        // Update local profile state
-        setProfile(prev => ({
-          ...prev,
-          employee: {
-            ...prev.employee,
-            profilePhoto: null,
-          },
-        }));
+        setSuccess('Company logo deleted successfully');
+        // Refresh profile
+        fetchProfile();
         setTimeout(() => setSuccess(''), 3000);
       } else {
-        setError(response.error || 'Failed to delete photo');
-        setTimeout(() => setError(''), 3000);
+        setError(response.error || 'Failed to delete logo');
       }
     } catch (err) {
-      setError(err.message || 'Failed to delete photo');
-      setTimeout(() => setError(''), 3000);
+      setError(err.error || err.message || 'Failed to delete logo');
     } finally {
-      setUploadingPhoto(false);
+      setUploadingLogo(false);
     }
   };
 
   const tabs = [
-    { id: 'personal', label: 'Personal Info' },
-    { id: 'employment', label: 'Employment' },
+    { id: 'company', label: 'Company Info' },
+    { id: 'account', label: 'Account' },
     { id: 'notifications', label: 'Notifications' },
     { id: 'security', label: 'Security' },
+  ];
+
+  const timezones = [
+    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+    { value: 'America/Chicago', label: 'Central Time (CT)' },
+    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+    { value: 'UTC', label: 'UTC' },
   ];
 
   if (loading) {
@@ -277,17 +234,15 @@ const Profile = () => {
     );
   }
 
-  const employee = profile?.employee;
+  const client = profile?.client;
   const user = profile;
-  const fullName = employee ? `${employee.firstName} ${employee.lastName}` : 'Unknown';
-  const activeClient = employee?.clientAssignments?.find(a => a.isActive)?.client;
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div>
         <h2 className="text-2xl font-bold text-gray-900">Profile</h2>
-        <p className="text-gray-500">Manage your personal information and preferences</p>
+        <p className="text-gray-500">Manage your company profile and account settings</p>
       </div>
 
       {/* Error/Success Messages */}
@@ -308,70 +263,61 @@ const Profile = () => {
       <Card>
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="relative">
-            {/* Hidden file input */}
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handlePhotoUpload}
-              accept="image/jpeg,image/png,image/webp,image/gif"
-              className="hidden"
-            />
-
-            {/* Profile Photo or Avatar */}
-            {employee?.profilePhoto ? (
-              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
+            {client?.logoUrl ? (
+              <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-primary-200">
                 <img
-                  src={employee.profilePhoto}
-                  alt={fullName}
+                  src={client.logoUrl}
+                  alt={client?.companyName || 'Company'}
                   className="w-full h-full object-cover"
                 />
               </div>
             ) : (
-              <Avatar name={fullName} size="xl" />
+              <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
+                <Building2 className="w-10 h-10 text-primary" />
+              </div>
             )}
-
-            {/* Upload/Change button */}
-            <button
-              onClick={handlePhotoSelect}
-              disabled={uploadingPhoto}
-              className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-              title={employee?.profilePhoto ? 'Change photo' : 'Upload photo'}
-            >
-              {uploadingPhoto ? (
+            {uploadingLogo ? (
+              <div className="absolute bottom-0 right-0 p-2 bg-gray-400 text-white rounded-full shadow-lg">
                 <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
-
-            {/* Delete button (only show if photo exists) */}
-            {employee?.profilePhoto && (
+              </div>
+            ) : (
               <button
-                onClick={handlePhotoDelete}
-                disabled={uploadingPhoto}
-                className="absolute bottom-0 left-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
-                title="Delete photo"
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+            )}
+            {client?.logoUrl && !uploadingLogo && (
+              <button
+                onClick={handleDeleteLogo}
+                className="absolute bottom-0 left-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
             )}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleLogoUpload}
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+            />
           </div>
           <div className="text-center md:text-left flex-1">
-            <h3 className="text-2xl font-bold text-gray-900">{fullName}</h3>
+            <h3 className="text-2xl font-bold text-gray-900">{client?.companyName || 'Company'}</h3>
             <p className="text-gray-500">{user?.email}</p>
             <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mt-3">
-              {activeClient && (
-                <Badge variant="primary">{activeClient.companyName}</Badge>
-              )}
               <Badge variant={user?.status === 'ACTIVE' ? 'success' : 'warning'}>
                 {user?.status || 'Unknown'}
               </Badge>
-              <span className="text-sm text-gray-500">
-                ID: {employee?.id?.slice(0, 8) || 'N/A'}
+              <span className="text-sm text-gray-500 flex items-center gap-1">
+                <Globe className="w-4 h-4" />
+                {client?.timezone || 'UTC'}
               </span>
             </div>
           </div>
-          {activeTab === 'personal' && (
+          {activeTab === 'company' && (
             <Button
               variant="primary"
               icon={Save}
@@ -406,50 +352,39 @@ const Profile = () => {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'personal' && (
+      {activeTab === 'company' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">First Name</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                    <input
-                      type="text"
-                      name="firstName"
-                      className="input"
-                      style={{ paddingLeft: '2.5rem' }}
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Last Name</label>
+              <div>
+                <label className="label">Company Name</label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                   <input
                     type="text"
-                    name="lastName"
+                    name="companyName"
                     className="input"
-                    value={formData.lastName}
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={formData.companyName}
                     onChange={handleInputChange}
                   />
                 </div>
               </div>
               <div>
-                <label className="label">Email Address</label>
+                <label className="label">Contact Person</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
                   <input
-                    type="email"
-                    className="input bg-gray-50"
+                    type="text"
+                    name="contactPerson"
+                    className="input"
                     style={{ paddingLeft: '2.5rem' }}
-                    value={user?.email || ''}
-                    disabled
+                    value={formData.contactPerson}
+                    onChange={handleInputChange}
+                    placeholder="Primary contact name"
                   />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Contact admin to change email</p>
               </div>
               <div>
                 <label className="label">Phone Number</label>
@@ -467,7 +402,7 @@ const Profile = () => {
                 </div>
               </div>
               <div>
-                <label className="label">Address</label>
+                <label className="label">Business Address</label>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-400 z-10" />
                   <textarea
@@ -476,7 +411,7 @@ const Profile = () => {
                     style={{ paddingLeft: '2.5rem' }}
                     value={formData.address}
                     onChange={handleInputChange}
-                    placeholder="Enter your address"
+                    placeholder="Enter business address"
                   />
                 </div>
               </div>
@@ -484,19 +419,38 @@ const Profile = () => {
           </Card>
 
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Emergency Contact</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Timezone Settings</h3>
             <div className="space-y-4">
               <div>
-                <label className="label">Emergency Contact Information</label>
-                <textarea
-                  name="emergencyContact"
-                  className="input min-h-[120px] resize-none"
-                  placeholder="Enter emergency contact details (name, relationship, phone number)"
-                  value={formData.emergencyContact}
-                  onChange={handleInputChange}
-                />
+                <label className="label">Timezone</label>
+                <div className="relative">
+                  <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+                  <select
+                    name="timezone"
+                    className="input"
+                    style={{ paddingLeft: '2.5rem' }}
+                    value={formData.timezone}
+                    onChange={handleInputChange}
+                  >
+                    {timezones.map((tz) => (
+                      <option key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  Include name, relationship, and phone number
+                  This timezone will be used for all time tracking and reporting
+                </p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500">Current local time</p>
+                <p className="font-medium text-gray-900 mt-1">
+                  {new Date().toLocaleString('en-US', {
+                    timeZone: formData.timezone,
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                  })}
                 </p>
               </div>
             </div>
@@ -504,10 +458,10 @@ const Profile = () => {
         </div>
       )}
 
-      {activeTab === 'employment' && (
+      {activeTab === 'account' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Employment Details</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Details</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-3">
@@ -519,49 +473,25 @@ const Profile = () => {
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-gray-400" />
-                  <span className="text-gray-600">Role</span>
+                  <span className="text-gray-600">Account Type</span>
                 </div>
                 <span className="font-medium text-gray-900">{user?.role || 'N/A'}</span>
               </div>
               <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                  <span className="text-gray-600">Hire Date</span>
-                </div>
-                <span className="font-medium text-gray-900">
-                  {employee?.hireDate
-                    ? new Date(employee.hireDate).toLocaleDateString()
-                    : 'N/A'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
                   <Shield className="w-5 h-5 text-gray-400" />
-                  <span className="text-gray-600">Employee ID</span>
+                  <span className="text-gray-600">Client ID</span>
                 </div>
                 <span className="font-medium text-gray-900 text-sm">
-                  {employee?.id || 'N/A'}
+                  {client?.id || 'N/A'}
                 </span>
               </div>
             </div>
           </Card>
 
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Assignment</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Activity</h3>
             <div className="space-y-4">
-              {activeClient ? (
-                <div className="p-4 bg-primary-50 rounded-xl">
-                  <p className="text-sm text-primary-600 font-medium">Current Client</p>
-                  <p className="text-xl font-bold text-gray-900 mt-1">{activeClient.companyName}</p>
-                  {activeClient.contactPerson && (
-                    <p className="text-sm text-gray-500 mt-1">Contact: {activeClient.contactPerson}</p>
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 bg-gray-50 rounded-xl">
-                  <p className="text-sm text-gray-500">No active client assignment</p>
-                </div>
-              )}
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-sm text-gray-500">Account Created</p>
                 <p className="font-medium text-gray-900 mt-1">
@@ -578,6 +508,14 @@ const Profile = () => {
                     : 'N/A'}
                 </p>
               </div>
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500">Account Status</p>
+                <div className="mt-1">
+                  <Badge variant={user?.status === 'ACTIVE' ? 'success' : 'warning'}>
+                    {user?.status || 'Unknown'}
+                  </Badge>
+                </div>
+              </div>
             </div>
           </Card>
         </div>
@@ -588,22 +526,25 @@ const Profile = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Notification Preferences</h3>
           <div className="space-y-4">
             {[
-              { key: 'scheduleChanges', label: 'Email notifications for schedule changes', enabled: notifications.scheduleChanges },
-              { key: 'shiftReminders', label: 'SMS alerts for shift reminders', enabled: notifications.shiftReminders },
-              { key: 'leaveApprovals', label: 'Email notifications for leave approvals', enabled: notifications.leaveApprovals },
-              { key: 'pushMessages', label: 'Push notifications for messages', enabled: notifications.pushMessages },
-              { key: 'weeklySummary', label: 'Weekly summary email', enabled: notifications.weeklySummary },
+              { key: 'timeEntrySubmissions', label: 'New time entry submissions', description: 'Get notified when employees submit time entries' },
+              { key: 'overtimeAlerts', label: 'Overtime alerts', description: 'Get alerted when overtime is recorded' },
+              { key: 'leaveRequests', label: 'Leave request notifications', description: 'Get notified of new leave requests' },
+              { key: 'weeklySummary', label: 'Weekly summary reports', description: 'Receive weekly workforce summary' },
+              { key: 'invoiceNotifications', label: 'Invoice notifications', description: 'Get notified when new invoices are generated' },
             ].map((pref) => (
               <div key={pref.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <Bell className="w-5 h-5 text-gray-400" />
-                  <span className="text-gray-700">{pref.label}</span>
+                <div>
+                  <div className="flex items-center gap-3">
+                    <Bell className="w-5 h-5 text-gray-400" />
+                    <span className="font-medium text-gray-900">{pref.label}</span>
+                  </div>
+                  <p className="text-sm text-gray-500 ml-8 mt-1">{pref.description}</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
                     type="checkbox"
                     className="sr-only peer"
-                    checked={pref.enabled}
+                    checked={notifications[pref.key]}
                     onChange={() => handleNotificationToggle(pref.key)}
                   />
                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -714,7 +655,7 @@ const Profile = () => {
             </Button>
 
             <div className="mt-6 pt-6 border-t border-gray-200">
-              <h4 className="font-medium text-gray-900 mb-3">Account Activity</h4>
+              <h4 className="font-medium text-gray-900 mb-3">Security Status</h4>
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-500">Last login</span>
