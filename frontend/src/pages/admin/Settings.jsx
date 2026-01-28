@@ -346,6 +346,18 @@ const Settings = () => {
     });
   };
 
+  // General settings state
+  const [generalSettings, setGeneralSettings] = useState({
+    companyName: 'Hello Team',
+    defaultTimezone: 'America/New_York',
+    dateFormat: 'MM/DD/YYYY',
+    workWeekStart: 'Sunday',
+    overtimeThreshold: 40,
+    payrollPeriod: 'Bi-weekly',
+  });
+  const [loadingGeneralSettings, setLoadingGeneralSettings] = useState(false);
+  const [savingGeneralSettings, setSavingGeneralSettings] = useState(false);
+
   // Notification settings state
   const [notificationSettings, setNotificationSettings] = useState({
     newEmployeeRegistrations: true,
@@ -370,6 +382,36 @@ const Settings = () => {
   });
   const [loadingSecuritySettings, setLoadingSecuritySettings] = useState(false);
   const [savingSecuritySettings, setSavingSecuritySettings] = useState(false);
+
+  // Fetch general settings
+  const fetchGeneralSettings = async () => {
+    try {
+      setLoadingGeneralSettings(true);
+      const response = await settingsService.getGeneralSettings();
+      if (response.success) {
+        setGeneralSettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load general settings:', err);
+    } finally {
+      setLoadingGeneralSettings(false);
+    }
+  };
+
+  // Save general settings
+  const saveGeneralSettings = async () => {
+    try {
+      setSavingGeneralSettings(true);
+      const response = await settingsService.updateGeneralSettings(generalSettings);
+      if (response.success) {
+        setGeneralSettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to save general settings:', err);
+    } finally {
+      setSavingGeneralSettings(false);
+    }
+  };
 
   // Fetch notification settings
   const fetchNotificationSettings = async () => {
@@ -433,12 +475,19 @@ const Settings = () => {
 
   // Fetch settings when tab is active
   useEffect(() => {
-    if (activeTab === 'notifications') {
+    if (activeTab === 'general') {
+      fetchGeneralSettings();
+    } else if (activeTab === 'notifications') {
       fetchNotificationSettings();
     } else if (activeTab === 'security') {
       fetchSecuritySettings();
     }
   }, [activeTab]);
+
+  // Fetch general settings on initial load
+  useEffect(() => {
+    fetchGeneralSettings();
+  }, []);
 
   // Notification setting labels
   const notificationLabels = {
@@ -465,10 +514,7 @@ const Settings = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Settings</h2>
           <p className="text-gray-500">Manage system configuration and preferences</p>
-        </div>
-        <Button variant="primary" icon={Save}>
-          Save Changes
-        </Button>
+        </div>   
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">
@@ -500,56 +546,129 @@ const Settings = () => {
         <div className="flex-1">
           {activeTab === 'general' && (
             <Card>
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">General Settings</h3>
-              <div className="space-y-4">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <label className="label">Company Name</label>
-                  <input type="text" className="input" defaultValue="Hello Team" />
+                  <h3 className="text-lg font-semibold text-gray-900">General Settings</h3>
+                  <p className="text-sm text-gray-500 mt-1">Configure system-wide settings</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Default Timezone</label>
-                    <select className="input">
-                      <option>America/New_York (ET)</option>
-                      <option>America/Chicago (CT)</option>
-                      <option>America/Denver (MT)</option>
-                      <option>America/Los_Angeles (PT)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Date Format</label>
-                    <select className="input">
-                      <option>MM/DD/YYYY</option>
-                      <option>DD/MM/YYYY</option>
-                      <option>YYYY-MM-DD</option>
-                    </select>
-                  </div>
+                {isSuperAdmin && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Save}
+                    onClick={saveGeneralSettings}
+                    disabled={savingGeneralSettings}
+                  >
+                    {savingGeneralSettings ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                )}
+              </div>
+              {loadingGeneralSettings ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-gray-500">Loading settings...</span>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ) : (
+                <div className="space-y-4">
                   <div>
-                    <label className="label">Work Week Start</label>
-                    <select className="input">
-                      <option>Sunday</option>
-                      <option>Monday</option>
-                    </select>
+                    <label className="label">Company Name</label>
+                    <input
+                      type="text"
+                      className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                      value={generalSettings.companyName}
+                      disabled={!isSuperAdmin}
+                      onChange={(e) => setGeneralSettings(prev => ({
+                        ...prev,
+                        companyName: e.target.value
+                      }))}
+                    />
                   </div>
-                  <div>
-                    <label className="label">Default Overtime Threshold</label>
-                    <div className="flex items-center gap-2">
-                      <input type="number" className="input w-24" defaultValue={40} />
-                      <span className="text-gray-500">hours/week</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Default Timezone</label>
+                      <select
+                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                        value={generalSettings.defaultTimezone}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => setGeneralSettings(prev => ({
+                          ...prev,
+                          defaultTimezone: e.target.value
+                        }))}
+                      >
+                        <option value="America/New_York">America/New_York (ET)</option>
+                        <option value="America/Chicago">America/Chicago (CT)</option>
+                        <option value="America/Denver">America/Denver (MT)</option>
+                        <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Date Format</label>
+                      <select
+                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                        value={generalSettings.dateFormat}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => setGeneralSettings(prev => ({
+                          ...prev,
+                          dateFormat: e.target.value
+                        }))}
+                      >
+                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                      </select>
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Work Week Start</label>
+                      <select
+                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                        value={generalSettings.workWeekStart}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => setGeneralSettings(prev => ({
+                          ...prev,
+                          workWeekStart: e.target.value
+                        }))}
+                      >
+                        <option value="Sunday">Sunday</option>
+                        <option value="Monday">Monday</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label">Default Overtime Threshold</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                          value={generalSettings.overtimeThreshold}
+                          disabled={!isSuperAdmin}
+                          onChange={(e) => setGeneralSettings(prev => ({
+                            ...prev,
+                            overtimeThreshold: parseInt(e.target.value) || 0
+                          }))}
+                        />
+                        <span className="text-gray-500">hours/week</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label">Payroll Periods</label>
+                    <select
+                      className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                      value={generalSettings.payrollPeriod}
+                      disabled={!isSuperAdmin}
+                      onChange={(e) => setGeneralSettings(prev => ({
+                        ...prev,
+                        payrollPeriod: e.target.value
+                      }))}
+                    >
+                      <option value="Bi-weekly">Bi-weekly (1st-15th, 16th-End)</option>
+                      <option value="Weekly">Weekly</option>
+                      <option value="Monthly">Monthly</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="label">Payroll Periods</label>
-                  <select className="input">
-                    <option>Bi-weekly (1st-15th, 16th-End)</option>
-                    <option>Weekly</option>
-                    <option>Monthly</option>
-                  </select>
-                </div>
-              </div>
+              )}
             </Card>
           )}
 
