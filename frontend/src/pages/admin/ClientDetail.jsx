@@ -433,7 +433,7 @@ const ClientDetail = () => {
                 {clientEmployees.map((employee) => (
                   <div key={employee.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-3">
-                      <Avatar name={`${employee.firstName} ${employee.lastName}`} size="sm" />
+                      <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="sm" />
                       <div>
                         <p className="font-medium text-gray-900">{employee.firstName} {employee.lastName}</p>
                         <p className="text-sm text-gray-500">{employee.user?.email}</p>
@@ -639,7 +639,7 @@ const ClientDetail = () => {
               {getUnassignedEmployees().map((employee) => (
                 <div key={employee.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
                   <div className="flex items-center gap-3">
-                    <Avatar name={`${employee.firstName} ${employee.lastName}`} size="sm" />
+                    <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="sm" />
                     <div>
                       <p className="font-medium text-gray-900">{employee.firstName} {employee.lastName}</p>
                       <p className="text-sm text-gray-500">{employee.user?.email}</p>

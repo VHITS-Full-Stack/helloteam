@@ -398,7 +398,7 @@ const Employees = () => {
                 <TableRow key={employee.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
-                      <Avatar name={`${employee.firstName} ${employee.lastName}`} size="md" />
+                      <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="md" />
                       <div>
                         <p className="font-medium text-gray-900">
                           {employee.firstName} {employee.lastName}
