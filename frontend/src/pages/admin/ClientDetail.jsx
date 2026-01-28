@@ -267,9 +267,13 @@ const ClientDetail = () => {
             Back
           </Button>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-primary-100 rounded-xl flex items-center justify-center">
-              <Building className="w-8 h-8 text-primary" />
-            </div>
+            {client.logoUrl ? (
+              <Avatar src={client.logoUrl} name={client.companyName} size="xl" />
+            ) : (
+              <div className="w-16 h-16 bg-primary-100 rounded-xl flex items-center justify-center">
+                <Building className="w-8 h-8 text-primary" />
+              </div>
+            )}
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{client.companyName}</h2>
               <p className="text-gray-500">{client.contactPerson}</p>

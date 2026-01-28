@@ -109,8 +109,12 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
           }))
         );
 
+        // Refresh presigned URL for client logo
+        const freshLogoUrl = await refreshProfilePhotoUrl(client.logoUrl);
+
         return {
           ...client,
+          logoUrl: freshLogoUrl,
           employees: employeesWithFreshUrls,
           employeeCount: client._count.employees,
           activeEmployeeCount: activeEmployees,
@@ -195,8 +199,12 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
       }))
     );
 
+    // Refresh presigned URL for client logo
+    const freshLogoUrl = await refreshProfilePhotoUrl(client.logoUrl);
+
     const clientWithFreshUrls = {
       ...client,
+      logoUrl: freshLogoUrl,
       employees: employeesWithFreshUrls,
     };
 

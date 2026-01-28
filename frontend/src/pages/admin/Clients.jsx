@@ -18,7 +18,8 @@ import {
   Button,
   Badge,
   Input,
-  Modal
+  Modal,
+  Avatar
 } from '../../components/common';
 import clientService from '../../services/client.service';
 
@@ -379,9 +380,13 @@ const Clients = () => {
             <Card key={client.id} className="hover:border-primary-200 border border-transparent">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-                    <Building className="w-6 h-6 text-primary" />
-                  </div>
+                  {client.logoUrl ? (
+                    <Avatar src={client.logoUrl} name={client.companyName} size="lg" />
+                  ) : (
+                    <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
+                      <Building className="w-6 h-6 text-primary" />
+                    </div>
+                  )}
                   <div>
                     <h3 className="font-semibold text-gray-900">{client.companyName}</h3>
                     <p className="text-sm text-gray-500">{client.contactPerson}</p>
