@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -26,6 +26,7 @@ import clientService from '../../services/client.service';
 const Clients = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
+  const isInitialMount = useRef(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -106,8 +107,12 @@ const Clients = () => {
     fetchStats();
   }, [fetchClients]);
 
-  // Debounce search
+  // Debounce search - skip initial mount since fetchClients is already called
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
         fetchClients();

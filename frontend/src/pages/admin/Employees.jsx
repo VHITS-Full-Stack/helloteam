@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus,
   Search,
@@ -33,6 +33,7 @@ import clientService from '../../services/client.service';
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const isInitialMount = useRef(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -117,8 +118,12 @@ const Employees = () => {
     fetchClients();
   }, [fetchEmployees]);
 
-  // Debounce search
+  // Debounce search - skip initial mount since fetchEmployees is already called
   useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
         fetchEmployees();
