@@ -2,6 +2,16 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
+import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+
+// Helper function to refresh presigned URL for profile photos
+const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
+  if (!photoUrl) return null;
+  const key = getKeyFromUrl(photoUrl);
+  if (!key) return photoUrl;
+  const freshUrl = await getPresignedUrl(key);
+  return freshUrl || photoUrl;
+};
 
 // Get all clients with pagination and filters
 export const getClients = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -81,18 +91,32 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
       prisma.client.count({ where }),
     ]);
 
-    // Transform data to include employee counts
-    const clientsWithStats = clients.map((client) => {
-      const activeEmployees = client.employees.filter(
-        (ce) => ce.employee.user.status === 'ACTIVE'
-      ).length;
+    // Transform data to include employee counts and refresh presigned URLs
+    const clientsWithStats = await Promise.all(
+      clients.map(async (client) => {
+        const activeEmployees = client.employees.filter(
+          (ce) => ce.employee.user.status === 'ACTIVE'
+        ).length;
 
-      return {
-        ...client,
-        employeeCount: client._count.employees,
-        activeEmployeeCount: activeEmployees,
-      };
-    });
+        // Refresh presigned URLs for employee profile photos
+        const employeesWithFreshUrls = await Promise.all(
+          client.employees.map(async (ce) => ({
+            ...ce,
+            employee: {
+              ...ce.employee,
+              profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+            },
+          }))
+        );
+
+        return {
+          ...client,
+          employees: employeesWithFreshUrls,
+          employeeCount: client._count.employees,
+          activeEmployeeCount: activeEmployees,
+        };
+      })
+    );
 
     res.json({
       success: true,
@@ -160,9 +184,25 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
       return;
     }
 
+    // Refresh presigned URLs for employee profile photos
+    const employeesWithFreshUrls = await Promise.all(
+      client.employees.map(async (ce) => ({
+        ...ce,
+        employee: {
+          ...ce.employee,
+          profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+        },
+      }))
+    );
+
+    const clientWithFreshUrls = {
+      ...client,
+      employees: employeesWithFreshUrls,
+    };
+
     res.json({
       success: true,
-      data: client,
+      data: clientWithFreshUrls,
     });
   } catch (error) {
     console.error('Get client error:', error);
@@ -504,9 +544,17 @@ export const getClientEmployees = async (req: AuthenticatedRequest, res: Respons
       },
     });
 
+    // Refresh presigned URLs for employee profile photos
+    const employeesWithFreshUrls = await Promise.all(
+      employees.map(async (ce) => ({
+        ...ce.employee,
+        profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+      }))
+    );
+
     res.json({
       success: true,
-      data: employees.map((ce) => ce.employee),
+      data: employeesWithFreshUrls,
     });
   } catch (error) {
     console.error('Get client employees error:', error);

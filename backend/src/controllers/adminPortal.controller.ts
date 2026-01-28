@@ -2,6 +2,16 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { LeaveStatus, ApprovalStatus } from '@prisma/client';
+import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+
+// Helper function to refresh presigned URL for profile photos
+const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
+  if (!photoUrl) return null;
+  const key = getKeyFromUrl(photoUrl);
+  if (!key) return photoUrl;
+  const freshUrl = await getPresignedUrl(key);
+  return freshUrl || photoUrl;
+};
 
 // ============================================
 // DASHBOARD ENDPOINTS
@@ -496,25 +506,27 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       prisma.timeRecord.count({ where }),
     ]);
 
-    // Format records
-    const formattedRecords = timeRecords.map(record => ({
-      id: record.id,
-      employee: `${record.employee.firstName} ${record.employee.lastName}`,
-      employeeId: record.employee.id,
-      profilePhoto: record.employee.profilePhoto,
-      client: record.client?.companyName || 'N/A',
-      clientId: record.clientId,
-      date: record.date.toISOString().split('T')[0],
-      clockIn: record.actualStart ? new Date(record.actualStart).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-      clockOut: record.actualEnd ? new Date(record.actualEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-      hours: Math.round(((record.totalMinutes || 0) + (record.overtimeMinutes || 0)) / 60 * 100) / 100,
-      regularHours: Math.round((record.totalMinutes || 0) / 60 * 100) / 100,
-      overtimeHours: Math.round((record.overtimeMinutes || 0) / 60 * 100) / 100,
-      breaks: record.breakMinutes ? Math.round(record.breakMinutes / 60 * 100) / 100 : 0,
-      status: record.status.toLowerCase(),
-      notes: record.adjustmentNotes,
-      approvedAt: record.approvedAt,
-    }));
+    // Format records with presigned URLs refreshed
+    const formattedRecords = await Promise.all(
+      timeRecords.map(async (record) => ({
+        id: record.id,
+        employee: `${record.employee.firstName} ${record.employee.lastName}`,
+        employeeId: record.employee.id,
+        profilePhoto: await refreshProfilePhotoUrl(record.employee.profilePhoto),
+        client: record.client?.companyName || 'N/A',
+        clientId: record.clientId,
+        date: record.date.toISOString().split('T')[0],
+        clockIn: record.actualStart ? new Date(record.actualStart).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+        clockOut: record.actualEnd ? new Date(record.actualEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+        hours: Math.round(((record.totalMinutes || 0) + (record.overtimeMinutes || 0)) / 60 * 100) / 100,
+        regularHours: Math.round((record.totalMinutes || 0) / 60 * 100) / 100,
+        overtimeHours: Math.round((record.overtimeMinutes || 0) / 60 * 100) / 100,
+        breaks: record.breakMinutes ? Math.round(record.breakMinutes / 60 * 100) / 100 : 0,
+        status: record.status.toLowerCase(),
+        notes: record.adjustmentNotes,
+        approvedAt: record.approvedAt,
+      }))
+    );
 
     // Get summary stats
     const [totalRecords, pendingCount, adjustedCount, flaggedCount] = await Promise.all([
@@ -675,51 +687,59 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       }) : [],
     ]);
 
-    // Format approvals
+    // Format approvals with presigned URLs refreshed
     const approvals: any[] = [];
 
-    (timeRecords as any[]).forEach(tr => {
-      const isAdjustment = !!tr.adjustmentNotes;
-      const isOvertime = (tr.overtimeMinutes || 0) > 0;
-      approvals.push({
-        id: tr.id,
-        type: isAdjustment ? 'time-adjustment' : isOvertime ? 'overtime' : 'timesheet',
-        employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
-        profilePhoto: tr.employee.profilePhoto,
-        client: tr.client?.companyName || 'N/A',
-        description: isAdjustment
-          ? 'Clock-out time correction'
-          : isOvertime
-            ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10}h overtime`
-            : `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours total`,
-        date: tr.date.toISOString().split('T')[0],
-        details: tr.adjustmentNotes || `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours`,
-        submitted: tr.createdAt,
-        submittedBy: isAdjustment ? 'System' : 'Employee',
-        clientApproved: tr.approvedBy ? true : status === 'approved' ? true : undefined,
-        status: tr.status.toLowerCase(),
-      });
-    });
+    // Process time records
+    const timeRecordApprovals = await Promise.all(
+      (timeRecords as any[]).map(async (tr) => {
+        const isAdjustment = !!tr.adjustmentNotes;
+        const isOvertime = (tr.overtimeMinutes || 0) > 0;
+        return {
+          id: tr.id,
+          type: isAdjustment ? 'time-adjustment' : isOvertime ? 'overtime' : 'timesheet',
+          employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
+          profilePhoto: await refreshProfilePhotoUrl(tr.employee.profilePhoto),
+          client: tr.client?.companyName || 'N/A',
+          description: isAdjustment
+            ? 'Clock-out time correction'
+            : isOvertime
+              ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10}h overtime`
+              : `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours total`,
+          date: tr.date.toISOString().split('T')[0],
+          details: tr.adjustmentNotes || `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours`,
+          submitted: tr.createdAt,
+          submittedBy: isAdjustment ? 'System' : 'Employee',
+          clientApproved: tr.approvedBy ? true : status === 'approved' ? true : undefined,
+          status: tr.status.toLowerCase(),
+        };
+      })
+    );
+    approvals.push(...timeRecordApprovals);
 
-    (leaveRequests as any[]).forEach(lr => {
-      const startDate = new Date(lr.startDate);
-      const endDate = new Date(lr.endDate);
-      const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    // Process leave requests
+    const leaveApprovals = await Promise.all(
+      (leaveRequests as any[]).map(async (lr) => {
+        const startDate = new Date(lr.startDate);
+        const endDate = new Date(lr.endDate);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
-      approvals.push({
-        id: lr.id,
-        type: 'leave',
-        employee: `${lr.employee.firstName} ${lr.employee.lastName}`,
-        profilePhoto: lr.employee.profilePhoto,
-        client: 'N/A',
-        description: `${lr.leaveType} Leave Request`,
-        date: `${lr.startDate.toISOString().split('T')[0]} - ${lr.endDate.toISOString().split('T')[0]}`,
-        details: `${days} day${days > 1 ? 's' : ''} - ${lr.reason || 'No reason provided'}`,
-        submitted: lr.createdAt,
-        submittedBy: 'Employee',
-        status: lr.status.toLowerCase(),
-      });
-    });
+        return {
+          id: lr.id,
+          type: 'leave',
+          employee: `${lr.employee.firstName} ${lr.employee.lastName}`,
+          profilePhoto: await refreshProfilePhotoUrl(lr.employee.profilePhoto),
+          client: 'N/A',
+          description: `${lr.leaveType} Leave Request`,
+          date: `${lr.startDate.toISOString().split('T')[0]} - ${lr.endDate.toISOString().split('T')[0]}`,
+          details: `${days} day${days > 1 ? 's' : ''} - ${lr.reason || 'No reason provided'}`,
+          submitted: lr.createdAt,
+          submittedBy: 'Employee',
+          status: lr.status.toLowerCase(),
+        };
+      })
+    );
+    approvals.push(...leaveApprovals);
 
     // Sort by submitted date
     approvals.sort((a, b) => new Date(b.submitted).getTime() - new Date(a.submitted).getTime());

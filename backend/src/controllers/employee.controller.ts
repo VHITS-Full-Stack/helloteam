@@ -2,6 +2,16 @@ import { Request, Response } from 'express';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
+import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+
+// Helper function to refresh presigned URL for profile photos
+const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
+  if (!photoUrl) return null;
+  const key = getKeyFromUrl(photoUrl);
+  if (!key) return photoUrl;
+  const freshUrl = await getPresignedUrl(key);
+  return freshUrl || photoUrl;
+};
 
 // Get all employees with pagination and filters
 export const getEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -80,10 +90,18 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
       prisma.employee.count({ where }),
     ]);
 
+    // Refresh presigned URLs for profile photos
+    const employeesWithFreshUrls = await Promise.all(
+      employees.map(async (employee) => ({
+        ...employee,
+        profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+      }))
+    );
+
     res.json({
       success: true,
       data: {
-        employees,
+        employees: employeesWithFreshUrls,
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -148,9 +166,15 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
+    // Refresh presigned URL for profile photo
+    const employeeWithFreshUrl = {
+      ...employee,
+      profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+    };
+
     res.json({
       success: true,
-      data: employee,
+      data: employeeWithFreshUrl,
     });
   } catch (error) {
     console.error('Get employee error:', error);

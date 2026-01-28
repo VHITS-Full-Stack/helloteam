@@ -100,6 +100,12 @@ const Sidebar = ({
       label: 'Settings',
       permission: PERMISSIONS.SETTINGS.VIEW
     },
+    {
+      to: '/admin/profile',
+      icon: User,
+      label: 'Profile',
+      permission: null // All admins can access their profile
+    },
   ];
 
   // Filter admin links based on permissions

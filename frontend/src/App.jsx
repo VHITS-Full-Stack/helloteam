@@ -45,7 +45,8 @@ import {
   AdminTimeRecords,
   AdminApprovals,
   Payroll,
-  AdminSettings
+  AdminSettings,
+  AdminProfile
 } from './pages/admin';
 
 // Employee Layout Wrapper with Auth
@@ -160,6 +161,7 @@ const AppRoutes = () => {
         <Route path="payroll" element={<Payroll />} />
         <Route path="reports" element={<AdminAnalytics />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="profile" element={<AdminProfile />} />
       </Route>
 
       {/* Default Redirect */}
