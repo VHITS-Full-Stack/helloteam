@@ -4,13 +4,13 @@ import {
   updateSettingsByCategory,
   getAllSettings,
 } from '../controllers/settings.controller';
-import { authenticate, authorize } from '../middleware/auth.middleware';
+import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
 // All routes require authentication and admin role
 router.use(authenticate);
-router.use(authorize(['SUPER_ADMIN', 'ADMIN']));
+router.use(authorizeRoles(['SUPER_ADMIN', 'ADMIN']));
 
 // Get all settings
 router.get('/', getAllSettings);
