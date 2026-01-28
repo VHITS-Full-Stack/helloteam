@@ -55,9 +55,9 @@ const Approvals = () => {
       }
 
       const response = await adminPortalService.getApprovals(params);
-      if (response.data?.success) {
-        setApprovalItems(response.data.data.approvals);
-        setStats(response.data.data.stats);
+      if (response?.success) {
+        setApprovalItems(response.data.approvals);
+        setStats(response.data.stats);
       }
     } catch (error) {
       console.error('Failed to fetch approvals:', error);
@@ -112,7 +112,7 @@ const Approvals = () => {
       } else {
         response = await adminPortalService.approveTimeRecord(selectedItem.id);
       }
-      if (response.data?.success) {
+      if (response?.success) {
         setShowApprovalModal(false);
         fetchApprovals();
       }
@@ -133,7 +133,7 @@ const Approvals = () => {
       } else {
         response = await adminPortalService.rejectTimeRecord(selectedItem.id, rejectionReason);
       }
-      if (response.data?.success) {
+      if (response?.success) {
         setShowRejectModal(false);
         setRejectionReason('');
         fetchApprovals();
@@ -157,7 +157,7 @@ const Approvals = () => {
 
       if (timeRecordIds.length > 0) {
         const response = await adminPortalService.bulkApproveTimeRecords(timeRecordIds);
-        if (response.data?.success) {
+        if (response?.success) {
           setSelectedItems([]);
           fetchApprovals();
         }

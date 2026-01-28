@@ -57,10 +57,10 @@ const TimeRecords = () => {
     const fetchClients = async () => {
       try {
         const response = await clientService.getClients({ limit: 100 });
-        if (response.data?.success) {
+        if (response?.success) {
           setClients([
             { id: 'all', name: 'All Clients' },
-            ...response.data.data.clients.map(c => ({
+            ...response.data.clients.map(c => ({
               id: c.id,
               name: c.companyName,
             })),
@@ -88,9 +88,9 @@ const TimeRecords = () => {
       if (endDate) params.endDate = endDate;
 
       const response = await adminPortalService.getTimeRecords(params);
-      if (response.data?.success) {
-        setTimeRecords(response.data.data.records);
-        setStats(response.data.data.stats);
+      if (response?.success) {
+        setTimeRecords(response.data.records);
+        setStats(response.data.stats);
       }
     } catch (error) {
       console.error('Failed to fetch time records:', error);
@@ -137,7 +137,7 @@ const TimeRecords = () => {
     setSaving(true);
     try {
       const response = await adminPortalService.adjustTimeRecord(selectedRecord.id, adjustmentData);
-      if (response.data?.success) {
+      if (response?.success) {
         setShowAdjustment(false);
         fetchTimeRecords();
       }

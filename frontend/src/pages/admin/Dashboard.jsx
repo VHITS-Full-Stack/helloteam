@@ -48,20 +48,20 @@ const AdminDashboard = () => {
         adminPortalService.getPayrollReadiness(),
       ]);
 
-      if (statsRes.data?.success) {
-        setStats(statsRes.data.data);
+      if (statsRes?.success) {
+        setStats(statsRes.data);
       }
-      if (activityRes.data?.success) {
-        setRecentActivity(activityRes.data.data);
+      if (activityRes?.success) {
+        setRecentActivity(activityRes.data);
       }
-      if (actionsRes.data?.success) {
-        setPendingActions(actionsRes.data.data);
+      if (actionsRes?.success) {
+        setPendingActions(actionsRes.data);
       }
-      if (clientsRes.data?.success) {
-        setClientOverview(clientsRes.data.data);
+      if (clientsRes?.success) {
+        setClientOverview(clientsRes.data);
       }
-      if (payrollRes.data?.success) {
-        setPayrollReadiness(payrollRes.data.data);
+      if (payrollRes?.success) {
+        setPayrollReadiness(payrollRes.data);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
