@@ -19,6 +19,7 @@ import { PermissionGate } from '../../components/auth';
 import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../config/permissions';
 import rolesService from '../../services/roles.service';
 import usersService from '../../services/users.service';
+import settingsService from '../../services/settings.service';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -343,6 +344,112 @@ const Settings = () => {
       minute: '2-digit',
       hour12: true
     });
+  };
+
+  // Notification settings state
+  const [notificationSettings, setNotificationSettings] = useState({
+    newEmployeeRegistrations: true,
+    newClientSignups: true,
+    overtimeAlerts: true,
+    missedClockOuts: true,
+    payrollProcessingReminders: true,
+    systemHealthAlerts: true,
+    dailySummaryReports: false,
+    weeklyAnalyticsDigest: true,
+  });
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [savingNotifications, setSavingNotifications] = useState(false);
+
+  // Security settings state
+  const [securitySettings, setSecuritySettings] = useState({
+    minPasswordLength: 8,
+    requireSpecialChars: true,
+    passwordExpiryDays: 90,
+    sessionTimeoutMinutes: 30,
+    enforce2FAForAdmins: true,
+  });
+  const [loadingSecuritySettings, setLoadingSecuritySettings] = useState(false);
+  const [savingSecuritySettings, setSavingSecuritySettings] = useState(false);
+
+  // Fetch notification settings
+  const fetchNotificationSettings = async () => {
+    try {
+      setLoadingNotifications(true);
+      const response = await settingsService.getNotificationSettings();
+      if (response.success) {
+        setNotificationSettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load notification settings:', err);
+    } finally {
+      setLoadingNotifications(false);
+    }
+  };
+
+  // Save notification settings
+  const saveNotificationSettings = async () => {
+    try {
+      setSavingNotifications(true);
+      const response = await settingsService.updateNotificationSettings(notificationSettings);
+      if (response.success) {
+        setNotificationSettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to save notification settings:', err);
+    } finally {
+      setSavingNotifications(false);
+    }
+  };
+
+  // Fetch security settings
+  const fetchSecuritySettings = async () => {
+    try {
+      setLoadingSecuritySettings(true);
+      const response = await settingsService.getSecuritySettings();
+      if (response.success) {
+        setSecuritySettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load security settings:', err);
+    } finally {
+      setLoadingSecuritySettings(false);
+    }
+  };
+
+  // Save security settings
+  const saveSecuritySettings = async () => {
+    try {
+      setSavingSecuritySettings(true);
+      const response = await settingsService.updateSecuritySettings(securitySettings);
+      if (response.success) {
+        setSecuritySettings(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to save security settings:', err);
+    } finally {
+      setSavingSecuritySettings(false);
+    }
+  };
+
+  // Fetch settings when tab is active
+  useEffect(() => {
+    if (activeTab === 'notifications') {
+      fetchNotificationSettings();
+    } else if (activeTab === 'security') {
+      fetchSecuritySettings();
+    }
+  }, [activeTab]);
+
+  // Notification setting labels
+  const notificationLabels = {
+    newEmployeeRegistrations: 'New employee registrations',
+    newClientSignups: 'New client signups',
+    overtimeAlerts: 'Overtime alerts',
+    missedClockOuts: 'Missed clock-outs',
+    payrollProcessingReminders: 'Payroll processing reminders',
+    systemHealthAlerts: 'System health alerts',
+    dailySummaryReports: 'Daily summary reports',
+    weeklyAnalyticsDigest: 'Weekly analytics digest',
   };
 
   const billingRates = [
@@ -971,89 +1078,171 @@ const Settings = () => {
 
           {activeTab === 'notifications' && (
             <Card>
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">System Notifications</h3>
-              <div className="space-y-4">
-                {[
-                  { label: 'New employee registrations', enabled: true },
-                  { label: 'New client signups', enabled: true },
-                  { label: 'Overtime alerts', enabled: true },
-                  { label: 'Missed clock-outs', enabled: true },
-                  { label: 'Payroll processing reminders', enabled: true },
-                  { label: 'System health alerts', enabled: true },
-                  { label: 'Daily summary reports', enabled: false },
-                  { label: 'Weekly analytics digest', enabled: true },
-                ].map((setting, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3">
-                      <Bell className="w-5 h-5 text-gray-400" />
-                      <span className="text-gray-700">{setting.label}</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked={setting.enabled} />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">System Notifications</h3>
+                  <p className="text-sm text-gray-500 mt-1">Configure which notifications to receive</p>
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={Save}
+                  onClick={saveNotificationSettings}
+                  disabled={savingNotifications}
+                >
+                  {savingNotifications ? 'Saving...' : 'Save Changes'}
+                </Button>
               </div>
+              {loadingNotifications ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <span className="ml-3 text-gray-500">Loading settings...</span>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(notificationSettings).map(([key, enabled]) => (
+                    <div
+                      key={key}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Bell className="w-5 h-5 text-gray-400" />
+                        <span className="text-gray-700">{notificationLabels[key] || key}</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={enabled}
+                          onChange={(e) => setNotificationSettings(prev => ({
+                            ...prev,
+                            [key]: e.target.checked
+                          }))}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           )}
 
           {activeTab === 'security' && (
             <div className="space-y-6">
-              <Card>
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Password Policy</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <span className="text-gray-700">Minimum password length</span>
-                    <select className="input w-24">
-                      <option>8</option>
-                      <option>10</option>
-                      <option>12</option>
-                    </select>
+              {loadingSecuritySettings ? (
+                <Card>
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-gray-500">Loading security settings...</span>
                   </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <span className="text-gray-700">Require special characters</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <span className="text-gray-700">Password expiry (days)</span>
-                    <select className="input w-24">
-                      <option>30</option>
-                      <option>60</option>
-                      <option>90</option>
-                      <option>Never</option>
-                    </select>
-                  </div>
-                </div>
-              </Card>
+                </Card>
+              ) : (
+                <>
+                  <Card>
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">Password Policy</h3>
+                        <p className="text-sm text-gray-500 mt-1">Configure password requirements</p>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        icon={Save}
+                        onClick={saveSecuritySettings}
+                        disabled={savingSecuritySettings}
+                      >
+                        {savingSecuritySettings ? 'Saving...' : 'Save Changes'}
+                      </Button>
+                    </div>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <span className="text-gray-700">Minimum password length</span>
+                        <select
+                          className="input w-24"
+                          value={securitySettings.minPasswordLength}
+                          onChange={(e) => setSecuritySettings(prev => ({
+                            ...prev,
+                            minPasswordLength: parseInt(e.target.value)
+                          }))}
+                        >
+                          <option value={8}>8</option>
+                          <option value={10}>10</option>
+                          <option value={12}>12</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <span className="text-gray-700">Require special characters</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={securitySettings.requireSpecialChars}
+                            onChange={(e) => setSecuritySettings(prev => ({
+                              ...prev,
+                              requireSpecialChars: e.target.checked
+                            }))}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <span className="text-gray-700">Password expiry (days)</span>
+                        <select
+                          className="input w-24"
+                          value={securitySettings.passwordExpiryDays}
+                          onChange={(e) => setSecuritySettings(prev => ({
+                            ...prev,
+                            passwordExpiryDays: parseInt(e.target.value)
+                          }))}
+                        >
+                          <option value={30}>30</option>
+                          <option value={60}>60</option>
+                          <option value={90}>90</option>
+                          <option value={0}>Never</option>
+                        </select>
+                      </div>
+                    </div>
+                  </Card>
 
-              <Card>
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Session Settings</h3>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <span className="text-gray-700">Session timeout (minutes)</span>
-                    <select className="input w-24">
-                      <option>15</option>
-                      <option>30</option>
-                      <option>60</option>
-                      <option>120</option>
-                    </select>
-                  </div>
-                  <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                    <span className="text-gray-700">Enforce 2FA for admins</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" className="sr-only peer" defaultChecked />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                  </div>
-                </div>
-              </Card>
+                  <Card>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-6">Session Settings</h3>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <span className="text-gray-700">Session timeout (minutes)</span>
+                        <select
+                          className="input w-24"
+                          value={securitySettings.sessionTimeoutMinutes}
+                          onChange={(e) => setSecuritySettings(prev => ({
+                            ...prev,
+                            sessionTimeoutMinutes: parseInt(e.target.value)
+                          }))}
+                        >
+                          <option value={15}>15</option>
+                          <option value={30}>30</option>
+                          <option value={60}>60</option>
+                          <option value={120}>120</option>
+                        </select>
+                      </div>
+                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                        <span className="text-gray-700">Enforce 2FA for admins</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={securitySettings.enforce2FAForAdmins}
+                            onChange={(e) => setSecuritySettings(prev => ({
+                              ...prev,
+                              enforce2FAForAdmins: e.target.checked
+                            }))}
+                          />
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </Card>
+                </>
+              )}
             </div>
           )}
 

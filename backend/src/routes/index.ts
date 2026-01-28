@@ -11,6 +11,7 @@ import workSessionRoutes from './workSession.routes';
 import scheduleRoutes from './schedule.routes';
 import timeRecordRoutes from './timeRecord.routes';
 import uploadRoutes from './upload.routes';
+import settingsRoutes from './settings.routes';
 
 const router = Router();
 
@@ -36,6 +37,7 @@ router.use('/work-sessions', workSessionRoutes);
 router.use('/schedules', scheduleRoutes);
 router.use('/time-records', timeRecordRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/settings', settingsRoutes);
 // router.use('/leave-requests', leaveRequestRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 

@@ -480,3 +480,19 @@ model Notification {
 
   @@map("notifications")
 }
+
+// ============================================
+// SYSTEM SETTINGS
+// ============================================
+
+model SystemSettings {
+  id        String   @id @default(uuid())
+  category  String   // 'general', 'notifications', 'security', 'billing'
+  key       String
+  value     String   // JSON string for complex values
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, key])
+  @@map("system_settings")
+}
