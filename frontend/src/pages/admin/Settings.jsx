@@ -1083,15 +1083,17 @@ const Settings = () => {
                   <h3 className="text-lg font-semibold text-gray-900">System Notifications</h3>
                   <p className="text-sm text-gray-500 mt-1">Configure which notifications to receive</p>
                 </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Save}
-                  onClick={saveNotificationSettings}
-                  disabled={savingNotifications}
-                >
-                  {savingNotifications ? 'Saving...' : 'Save Changes'}
-                </Button>
+                {isSuperAdmin && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Save}
+                    onClick={saveNotificationSettings}
+                    disabled={savingNotifications}
+                  >
+                    {savingNotifications ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                )}
               </div>
               {loadingNotifications ? (
                 <div className="flex items-center justify-center py-12">
@@ -1109,11 +1111,12 @@ const Settings = () => {
                         <Bell className="w-5 h-5 text-gray-400" />
                         <span className="text-gray-700">{notificationLabels[key] || key}</span>
                       </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
+                      <label className={`relative inline-flex items-center ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
                         <input
                           type="checkbox"
                           className="sr-only peer"
                           checked={enabled}
+                          disabled={!isSuperAdmin}
                           onChange={(e) => setNotificationSettings(prev => ({
                             ...prev,
                             [key]: e.target.checked
@@ -1145,22 +1148,25 @@ const Settings = () => {
                         <h3 className="text-lg font-semibold text-gray-900">Password Policy</h3>
                         <p className="text-sm text-gray-500 mt-1">Configure password requirements</p>
                       </div>
-                      <Button
-                        variant="primary"
-                        size="sm"
-                        icon={Save}
-                        onClick={saveSecuritySettings}
-                        disabled={savingSecuritySettings}
-                      >
-                        {savingSecuritySettings ? 'Saving...' : 'Save Changes'}
-                      </Button>
+                      {isSuperAdmin && (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={Save}
+                          onClick={saveSecuritySettings}
+                          disabled={savingSecuritySettings}
+                        >
+                          {savingSecuritySettings ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                      )}
                     </div>
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Minimum password length</span>
                         <select
-                          className="input w-24"
+                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
                           value={securitySettings.minPasswordLength}
+                          disabled={!isSuperAdmin}
                           onChange={(e) => setSecuritySettings(prev => ({
                             ...prev,
                             minPasswordLength: parseInt(e.target.value)
@@ -1173,11 +1179,12 @@ const Settings = () => {
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Require special characters</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
+                        <label className={`relative inline-flex items-center ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
                           <input
                             type="checkbox"
                             className="sr-only peer"
                             checked={securitySettings.requireSpecialChars}
+                            disabled={!isSuperAdmin}
                             onChange={(e) => setSecuritySettings(prev => ({
                               ...prev,
                               requireSpecialChars: e.target.checked
@@ -1189,8 +1196,9 @@ const Settings = () => {
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Password expiry (days)</span>
                         <select
-                          className="input w-24"
+                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
                           value={securitySettings.passwordExpiryDays}
+                          disabled={!isSuperAdmin}
                           onChange={(e) => setSecuritySettings(prev => ({
                             ...prev,
                             passwordExpiryDays: parseInt(e.target.value)
@@ -1211,8 +1219,9 @@ const Settings = () => {
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Session timeout (minutes)</span>
                         <select
-                          className="input w-24"
+                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
                           value={securitySettings.sessionTimeoutMinutes}
+                          disabled={!isSuperAdmin}
                           onChange={(e) => setSecuritySettings(prev => ({
                             ...prev,
                             sessionTimeoutMinutes: parseInt(e.target.value)
@@ -1226,11 +1235,12 @@ const Settings = () => {
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Enforce 2FA for admins</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
+                        <label className={`relative inline-flex items-center ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
                           <input
                             type="checkbox"
                             className="sr-only peer"
                             checked={securitySettings.enforce2FAForAdmins}
+                            disabled={!isSuperAdmin}
                             onChange={(e) => setSecuritySettings(prev => ({
                               ...prev,
                               enforce2FAForAdmins: e.target.checked
