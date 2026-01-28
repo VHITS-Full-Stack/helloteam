@@ -814,13 +814,16 @@ SUPPORT:
 
 ---
 
-## Sprint 6: Admin Portal - Operations Dashboard
+## Sprint 6: Admin Portal - Operations Dashboard ✅
 
 **Duration:** 2 weeks
+**Status:** COMPLETE
 
 ### Objectives
 - Build operations dashboard with system-wide overview
 - Implement employee and client administration
+- Add time records and approvals management
+- Build admin profile management
 
 ### User Stories
 
@@ -849,12 +852,100 @@ SUPPORT:
 | US-6.3.2 | As an admin, I can assign employees to clients | - Employee selection interface<br>- Bulk assignment option |
 | US-6.3.3 | As an admin, I can configure basic client rules | - Work hour settings<br>- Notification preferences |
 
+#### 6.4 Time Records & Approvals (Admin)
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-6.4.1 | As an admin, I can view all time records | - Time records across all clients<br>- Filtering by employee, client, status, date |
+| US-6.4.2 | As an admin, I can approve/reject time records | - Bulk and single approval<br>- Rejection with reason |
+| US-6.4.3 | As an admin, I can view leave requests | - Leave requests from all employees<br>- Approve/reject functionality |
+
+#### 6.5 Admin Profile Management
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-6.5.1 | As an admin, I can view my profile | - Profile information display<br>- Account details |
+| US-6.5.2 | As an admin, I can edit my profile | - Edit first name, last name, phone<br>- Real-time validation |
+| US-6.5.3 | As an admin, I can change my password | - Current password verification<br>- New password validation |
+
 ### Deliverables
-- [ ] Operations dashboard
-- [ ] Employee management interface
-- [ ] Client management interface
-- [ ] Assignment management
-- [ ] System alerts display
+- [x] Operations dashboard with real API data
+- [x] Employee management interface with profile photos
+- [x] Client management interface with logos
+- [x] Assignment management
+- [x] Time records page with filtering and approval
+- [x] Approvals page with time records and leave requests
+- [x] Admin profile page with edit and password change
+- [x] S3 presigned URL refresh for images
+- [x] Bug fixes (double API calls, profile photos display)
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Backend API Endpoints - Admin Portal
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin-portal/dashboard/stats` | Dashboard statistics |
+| GET | `/api/admin-portal/time-records` | All time records with filters |
+| GET | `/api/admin-portal/approvals` | Pending approvals (time records + leave) |
+| POST | `/api/admin-portal/approvals/time-record/:id/approve` | Approve time record |
+| POST | `/api/admin-portal/approvals/time-record/:id/reject` | Reject time record |
+| POST | `/api/admin-portal/approvals/leave/:id/approve` | Approve leave request |
+| POST | `/api/admin-portal/approvals/leave/:id/reject` | Reject leave request |
+| PUT | `/api/auth/profile` | Update admin profile |
+| PUT | `/api/auth/change-password` | Change password |
+
+#### Files Created/Modified
+| File | Type | Description |
+|------|------|-------------|
+| `backend/src/controllers/adminPortal.controller.ts` | Updated | Dashboard, time records, approvals with presigned URL refresh |
+| `backend/src/controllers/auth.controller.ts` | Updated | Admin profile update with phone field |
+| `backend/src/controllers/employee.controller.ts` | Updated | Presigned URL refresh for profile photos |
+| `backend/src/controllers/client.controller.ts` | Updated | Presigned URL refresh for logos and employee photos |
+| `frontend/src/pages/admin/Dashboard.jsx` | Updated | Real API integration |
+| `frontend/src/pages/admin/TimeRecords.jsx` | Updated | Time records with filtering |
+| `frontend/src/pages/admin/Approvals.jsx` | Updated | Approvals with bulk actions |
+| `frontend/src/pages/admin/Employees.jsx` | Updated | Profile photo display, fixed double API call |
+| `frontend/src/pages/admin/Clients.jsx` | Updated | Logo display, fixed double API call |
+| `frontend/src/pages/admin/ClientDetail.jsx` | Updated | Logo and employee photo display |
+| `frontend/src/pages/admin/Profile.jsx` | Created | Admin profile management |
+| `frontend/src/pages/admin/Settings.jsx` | Updated | Client settings integration |
+| `prisma/schema.prisma` | Updated | Added phone field to Admin model |
+
+#### Key Features Implemented
+1. **Admin Dashboard**
+   - Real-time statistics from API
+   - Active employees count
+   - Pending approvals count
+   - Weekly hours overview
+
+2. **Time Records Management**
+   - View all time records across clients
+   - Filter by employee, client, status, date range
+   - Approve/reject individual records
+   - Detailed time record view
+
+3. **Approvals Management**
+   - Combined view of time records and leave requests
+   - Tabbed interface (Pending, Approved, Rejected)
+   - Bulk approval functionality
+   - Rejection with reason
+
+4. **Admin Profile**
+   - View profile information
+   - Edit profile (first name, last name, phone)
+   - Change password with current password verification
+   - Real-time validation
+
+5. **Image Handling**
+   - S3 presigned URL refresh for all images
+   - Employee profile photos in lists
+   - Client logos in client list and detail pages
+   - Automatic URL refresh on API calls
+
+6. **Bug Fixes**
+   - Fixed double API calls on page load
+   - Fixed profile photos not displaying
+   - Fixed client logos not displaying
 
 ---
 
