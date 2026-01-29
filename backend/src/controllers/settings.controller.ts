@@ -35,7 +35,7 @@ const DEFAULT_SETTINGS = {
 // Get settings by category
 export const getSettingsByCategory = async (req: Request, res: Response) => {
   try {
-    const { category } = req.params;
+    const category = req.params.category as string;
 
     if (!['notifications', 'security', 'general', 'billing'].includes(category)) {
       return res.status(400).json({
@@ -79,7 +79,7 @@ export const getSettingsByCategory = async (req: Request, res: Response) => {
 // Update settings by category
 export const updateSettingsByCategory = async (req: Request, res: Response) => {
   try {
-    const { category } = req.params;
+    const category = req.params.category as string;
     const settings = req.body;
 
     if (!['notifications', 'security', 'general', 'billing'].includes(category)) {
