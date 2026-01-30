@@ -43,7 +43,7 @@ const Profile = () => {
     pushMessages: false,
     weeklySummary: true,
   });
-  const [savingNotification, setSavingNotification] = useState(null);
+  const [, setSavingNotification] = useState(null);
 
   useEffect(() => {
     fetchProfile();

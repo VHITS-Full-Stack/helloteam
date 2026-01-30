@@ -23,13 +23,13 @@ import settingsService from '../../services/settings.service';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
-  const { isSuperAdmin, isAdmin } = usePermissions();
+  const { isSuperAdmin } = usePermissions();
 
   // Role management state
   const [roles, setRoles] = useState([]);
   const [loadingRoles, setLoadingRoles] = useState(false);
   const [rolesError, setRolesError] = useState(null);
-  const [availablePermissions, setAvailablePermissions] = useState(null);
+  const [, setAvailablePermissions] = useState(null);
   const [selectedRole, setSelectedRole] = useState(null);
   const [isRoleModalOpen, setIsRoleModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);

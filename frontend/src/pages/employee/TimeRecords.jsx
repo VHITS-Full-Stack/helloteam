@@ -31,7 +31,7 @@ const TimeRecords = () => {
     endDate: '',
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [, setSelectedRecord] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [recordDetail, setRecordDetail] = useState(null);

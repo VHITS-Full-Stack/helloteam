@@ -27,7 +27,7 @@ const Sidebar = ({
   onLogout
 }) => {
   const [collapsed, setCollapsed] = useState(false);
-  const { hasPermission, hasAnyPermission, loading: permissionsLoading } = usePermissions();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
 
   const employeeLinks = [
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },

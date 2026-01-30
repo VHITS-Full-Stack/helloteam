@@ -12,7 +12,6 @@ const DashboardLayout = ({
   headerActions,
   showSearch = true,
 }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (

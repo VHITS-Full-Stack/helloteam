@@ -29,7 +29,7 @@ const TimeRecords = () => {
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [, setShowFilterModal] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
 
   // Get week start/end dates

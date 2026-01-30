@@ -41,7 +41,7 @@ const EmployeeDashboard = () => {
 
   // Work session state
   const [sessionData, setSessionData] = useState(null);
-  const [todaySummary, setTodaySummary] = useState(null);
+  const [, setTodaySummary] = useState(null);
   const [weeklySummary, setWeeklySummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -117,20 +117,6 @@ const EmployeeDashboard = () => {
     }, 30000);
     return () => clearInterval(quoteTimer);
   }, []);
-
-  const formatTime = (seconds) => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const formatDuration = (minutes) => {
-    if (!minutes && minutes !== 0) return '0h 0m';
-    const hrs = Math.floor(minutes / 60);
-    const mins = Math.floor(minutes % 60);
-    return `${hrs}h ${mins}m`;
-  };
 
   const formatDurationWithSeconds = (startTime) => {
     if (!startTime) return '00:00:00';

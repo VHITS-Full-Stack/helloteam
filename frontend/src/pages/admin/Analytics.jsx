@@ -210,7 +210,7 @@ const Analytics = () => {
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-2 h-64">
-              {monthlyData.map((data, index) => (
+              {monthlyData.map((data) => (
                 <div key={data.month} className="flex-1 flex flex-col items-center gap-2">
                   <div className="w-full flex flex-col items-center">
                     <span className="text-xs text-gray-500 mb-1">{(data.hours / 1000).toFixed(1)}k</span>

@@ -60,7 +60,7 @@ class ApiService {
     if (options.params) {
       // Filter out undefined and null values
       const filteredParams = Object.fromEntries(
-        Object.entries(options.params).filter(([_, v]) => v !== undefined && v !== null && v !== '')
+        Object.entries(options.params).filter(([, v]) => v !== undefined && v !== null && v !== '')
       );
       const queryParams = new URLSearchParams(filteredParams).toString();
       url = queryParams ? `${endpoint}?${queryParams}` : endpoint;

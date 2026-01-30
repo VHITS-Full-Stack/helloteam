@@ -45,14 +45,6 @@ const Analytics = () => {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'away': return 'bg-yellow-500';
-      default: return 'bg-gray-400';
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">

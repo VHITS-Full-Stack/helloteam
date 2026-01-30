@@ -110,7 +110,7 @@ export const AuthProvider = ({ children }) => {
                 setLoading(false);
                 return;
               }
-            } catch (e) {
+            } catch {
               // Token invalid, clear it
               localStorage.removeItem('token');
               localStorage.removeItem('rememberMe');
