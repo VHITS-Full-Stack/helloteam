@@ -29,10 +29,14 @@ import {
   Headphones,
   Star,
   Quote,
-  Lightbulb
+  Lightbulb,
+  ClockIcon,
+  X
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
+import overtimeService from '../../services/overtime.service';
+import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
@@ -47,6 +51,21 @@ const EmployeeDashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Overtime request modal state
+  const [showOvertimeModal, setShowOvertimeModal] = useState(false);
+  const [overtimeForm, setOvertimeForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    requestedHours: '',
+    reason: ''
+  });
+  const [overtimeLoading, setOvertimeLoading] = useState(false);
+  const [overtimeError, setOvertimeError] = useState('');
+  const [overtimeSuccess, setOvertimeSuccess] = useState('');
+
+  // My overtime requests state
+  const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
+  const [overtimeRequestsLoading, setOvertimeRequestsLoading] = useState(false);
+
   // Motivational quotes
   const quotes = [
     { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
@@ -57,6 +76,21 @@ const EmployeeDashboard = () => {
     { text: "Your talent determines what you can do. Your motivation determines how much you're willing to do.", author: "Lou Holtz" },
     { text: "The secret of getting ahead is getting started.", author: "Mark Twain" }
   ];
+
+  // Fetch overtime requests
+  const fetchOvertimeRequests = useCallback(async () => {
+    try {
+      setOvertimeRequestsLoading(true);
+      const response = await overtimeService.getOvertimeRequests({ limit: 5 });
+      if (response.success) {
+        setMyOvertimeRequests(response.data.requests || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch overtime requests:', err);
+    } finally {
+      setOvertimeRequestsLoading(false);
+    }
+  }, []);
 
   // Fetch work session data
   const fetchWorkSessionData = useCallback(async () => {
@@ -101,7 +135,8 @@ const EmployeeDashboard = () => {
 
   useEffect(() => {
     fetchWorkSessionData();
-  }, [fetchWorkSessionData]);
+    fetchOvertimeRequests();
+  }, [fetchWorkSessionData, fetchOvertimeRequests]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -143,6 +178,7 @@ const EmployeeDashboard = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockIn();
+      playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to clock in');
@@ -156,6 +192,7 @@ const EmployeeDashboard = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockOut();
+      playClockOutSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to clock out');
@@ -169,6 +206,7 @@ const EmployeeDashboard = () => {
     try {
       setActionLoading(true);
       await workSessionService.startBreak();
+      playBreakStartSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to start break');
@@ -182,11 +220,49 @@ const EmployeeDashboard = () => {
     try {
       setActionLoading(true);
       await workSessionService.endBreak();
+      playBreakEndSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to end break');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  // Handle overtime request submission
+  const handleOvertimeSubmit = async (e) => {
+    e.preventDefault();
+    setOvertimeError('');
+    setOvertimeSuccess('');
+
+    if (!overtimeForm.date || !overtimeForm.requestedHours || !overtimeForm.reason) {
+      setOvertimeError('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setOvertimeLoading(true);
+      await overtimeService.createOvertimeRequest({
+        date: overtimeForm.date,
+        requestedHours: parseFloat(overtimeForm.requestedHours),
+        reason: overtimeForm.reason
+      });
+      setOvertimeSuccess('Overtime request submitted successfully!');
+      setOvertimeForm({
+        date: new Date().toISOString().split('T')[0],
+        requestedHours: '',
+        reason: ''
+      });
+      // Refresh the list
+      fetchOvertimeRequests();
+      setTimeout(() => {
+        setShowOvertimeModal(false);
+        setOvertimeSuccess('');
+      }, 2000);
+    } catch (err) {
+      setOvertimeError(err.error || err.message || 'Failed to submit overtime request');
+    } finally {
+      setOvertimeLoading(false);
     }
   };
 
@@ -391,17 +467,24 @@ const EmployeeDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
           { icon: Clock, label: 'Time Clock', color: 'primary', link: '/employee/time-clock' },
           { icon: Calendar, label: 'Schedule', color: 'secondary', link: '/employee/schedule' },
+          { icon: TrendingUp, label: 'Overtime', color: 'warning', link: '#', action: 'overtime' },
           { icon: Video, label: 'Join Meeting', color: 'accent', link: '#' },
           { icon: MessageSquare, label: 'Messages', color: 'info', badge: 3, link: '#' }
         ].map((action) => (
           <Card
             key={action.label}
             className="group cursor-pointer hover:shadow-lg transition-all"
-            onClick={() => action.link !== '#' && navigate(action.link)}
+            onClick={() => {
+              if (action.action === 'overtime') {
+                setShowOvertimeModal(true);
+              } else if (action.link !== '#') {
+                navigate(action.link);
+              }
+            }}
           >
             <div className="flex items-center gap-4">
               <div className={`p-3 rounded-xl bg-${action.color}-100 group-hover:scale-110 transition-transform`}>
@@ -525,6 +608,98 @@ const EmployeeDashboard = () => {
                   />
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* My Overtime Requests */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-orange-500" />
+                  My Overtime Requests
+                </CardTitle>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={Sparkles}
+                  onClick={() => setShowOvertimeModal(true)}
+                >
+                  New Request
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {overtimeRequestsLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : myOvertimeRequests.length === 0 ? (
+                <div className="text-center py-8">
+                  <TrendingUp className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-gray-500 mb-4">No overtime requests yet</p>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowOvertimeModal(true)}
+                  >
+                    Request Overtime
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myOvertimeRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl"
+                    >
+                      <div className="text-center min-w-[60px]">
+                        <p className="text-lg font-bold text-gray-900">
+                          {new Date(request.date).toLocaleDateString('en-US', { day: 'numeric' })}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {new Date(request.date).toLocaleDateString('en-US', { month: 'short' })}
+                        </p>
+                      </div>
+                      <div className="w-px h-12 bg-gray-200" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-semibold text-gray-900">
+                            {Math.round(request.requestedMinutes / 60 * 10) / 10} hours
+                          </p>
+                          <Badge
+                            variant={
+                              request.status === 'APPROVED' ? 'success' :
+                              request.status === 'REJECTED' ? 'danger' : 'warning'
+                            }
+                            size="xs"
+                          >
+                            {request.status}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">{request.reason}</p>
+                        {request.status === 'APPROVED' && request.approver && (
+                          <p className="text-xs text-green-600 mt-1">
+                            Approved by {request.approver.name}
+                          </p>
+                        )}
+                        {request.status === 'REJECTED' && (
+                          <>
+                            {request.rejecter && (
+                              <p className="text-xs text-red-500 mt-1">
+                                Rejected by {request.rejecter.name}
+                              </p>
+                            )}
+                            {request.rejectionReason && (
+                              <p className="text-xs text-red-400">Reason: {request.rejectionReason}</p>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -791,6 +966,116 @@ const EmployeeDashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Overtime Request Modal */}
+      {showOvertimeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-orange-100">
+                  <TrendingUp className="w-6 h-6 text-orange-600" />
+                </div>
+                <h2 className="text-xl font-bold text-gray-900">Request Overtime</h2>
+              </div>
+              <button
+                onClick={() => {
+                  setShowOvertimeModal(false);
+                  setOvertimeError('');
+                  setOvertimeSuccess('');
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4">
+              {overtimeError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <p className="text-red-700 text-sm">{overtimeError}</p>
+                </div>
+              )}
+
+              {overtimeSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <p className="text-green-700 text-sm">{overtimeSuccess}</p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={overtimeForm.date}
+                  onChange={(e) => setOvertimeForm({ ...overtimeForm, date: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Requested Hours
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.5"
+                  max="8"
+                  placeholder="e.g., 2"
+                  value={overtimeForm.requestedHours}
+                  onChange={(e) => setOvertimeForm({ ...overtimeForm, requestedHours: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Maximum 8 hours per request</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason for Overtime
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Please explain why overtime is needed..."
+                  value={overtimeForm.reason}
+                  onChange={(e) => setOvertimeForm({ ...overtimeForm, reason: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowOvertimeModal(false);
+                    setOvertimeError('');
+                    setOvertimeSuccess('');
+                  }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={overtimeLoading}
+                  className="flex-1"
+                >
+                  Submit Request
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

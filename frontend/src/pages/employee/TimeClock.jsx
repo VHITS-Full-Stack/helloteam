@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
+import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -125,6 +126,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockIn();
+      playClockInSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to clock in');
@@ -138,6 +140,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockOut(clockOutNotes || null);
+      playClockOutSound();
       setShowClockOutModal(false);
       setClockOutNotes('');
       await fetchData();
@@ -153,6 +156,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.startBreak();
+      playBreakStartSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to start break');
@@ -166,6 +170,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.endBreak();
+      playBreakEndSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to end break');

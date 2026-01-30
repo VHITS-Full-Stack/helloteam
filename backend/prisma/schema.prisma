@@ -455,12 +455,15 @@ model AuditLog {
   entityId    String?
   oldValues   Json?
   newValues   Json?
+  notes       String?   // Mandatory notes for certain actions
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime  @default(now())
 
   user        User?     @relation(fields: [userId], references: [id])
 
+  @@index([entityType, entityId])
+  @@index([userId, createdAt])
   @@map("audit_logs")
 }
 
@@ -468,17 +471,101 @@ model AuditLog {
 // NOTIFICATIONS
 // ============================================
 
+enum NotificationType {
+  APPROVAL_REQUIRED
+  APPROVAL_RECEIVED
+  TIME_APPROVED
+  TIME_REJECTED
+  LEAVE_REQUEST
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  OVERTIME_REQUEST
+  OVERTIME_APPROVED
+  OVERTIME_REJECTED
+  PAYROLL_REMINDER
+  SCHEDULE_CHANGE
+  SYSTEM_ALERT
+}
+
 model Notification {
-  id          String    @id @default(uuid())
+  id          String           @id @default(uuid())
   userId      String
   title       String
   message     String
-  type        String
-  isRead      Boolean   @default(false)
+  type        NotificationType
+  data        Json?            // Additional data (e.g., recordId, employeeId)
+  actionUrl   String?          // URL to navigate to when clicked
+  isRead      Boolean          @default(false)
   readAt      DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
 
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ============================================
+// OVERTIME REQUESTS
+// ============================================
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model OvertimeRequest {
+  id              String          @id @default(uuid())
+  employeeId      String
+  clientId        String
+  date            DateTime        @db.Date
+  requestedMinutes Int
+  reason          String
+  status          OvertimeStatus  @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([clientId, status])
+  @@index([employeeId, date])
+  @@map("overtime_requests")
+}
+
+// ============================================
+// PAYROLL PERIODS
+// ============================================
+
+enum PayrollStatus {
+  OPEN
+  PENDING_APPROVAL
+  LOCKED
+  FINALIZED
+}
+
+model PayrollPeriod {
+  id              String          @id @default(uuid())
+  clientId        String
+  periodStart     DateTime        @db.Date
+  periodEnd       DateTime        @db.Date
+  cutoffDate      DateTime
+  status          PayrollStatus   @default(OPEN)
+  totalHours      Decimal?        @db.Decimal(10, 2)
+  totalOvertimeHours Decimal?     @db.Decimal(10, 2)
+  approvedHours   Decimal?        @db.Decimal(10, 2)
+  pendingHours    Decimal?        @db.Decimal(10, 2)
+  finalizedAt     DateTime?
+  finalizedBy     String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([clientId, periodStart, periodEnd])
+  @@index([clientId, status])
+  @@map("payroll_periods")
 }
 
 // ============================================

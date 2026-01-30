@@ -12,6 +12,9 @@ import scheduleRoutes from './schedule.routes';
 import timeRecordRoutes from './timeRecord.routes';
 import uploadRoutes from './upload.routes';
 import settingsRoutes from './settings.routes';
+import notificationRoutes from './notification.routes';
+import overtimeRoutes from './overtime.routes';
+import payrollRoutes from './payroll.routes';
 
 const router = Router();
 
@@ -38,6 +41,9 @@ router.use('/schedules', scheduleRoutes);
 router.use('/time-records', timeRecordRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/settings', settingsRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/overtime-requests', overtimeRoutes);
+router.use('/payroll-periods', payrollRoutes);
 // router.use('/leave-requests', leaveRequestRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 
