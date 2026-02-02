@@ -11,6 +11,61 @@ const refreshProfilePhotoUrl = async (profilePhoto: string | null): Promise<stri
   return await getPresignedUrl(key) || profilePhoto;
 };
 
+// Helper function to create session log for time record approvals
+const createClientApprovalLog = async (
+  timeRecordId: string,
+  approverId: string,
+  action: 'APPROVED' | 'REJECTED',
+  approverName?: string,
+  reason?: string
+) => {
+  try {
+    // Get the time record details
+    const timeRecord = await prisma.timeRecord.findUnique({
+      where: { id: timeRecordId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    if (!timeRecord) return;
+
+    // Find work sessions for this employee on this date
+    const recordDate = new Date(timeRecord.date);
+    const startOfDay = new Date(recordDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(recordDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const sessions = await prisma.workSession.findMany({
+      where: {
+        employeeId: timeRecord.employeeId,
+        startTime: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    // Create a log for each session on that date
+    const message = action === 'APPROVED'
+      ? `.: Time entry approved by client: ${approverName || 'Client'}`
+      : `.: Time entry rejected by client: ${approverName || 'Client'}${reason ? `. Reason: ${reason}` : ''}`;
+
+    for (const session of sessions) {
+      await prisma.sessionLog.create({
+        data: {
+          workSessionId: session.id,
+          userId: approverId,
+          userName: approverName || 'Client',
+          action: action === 'APPROVED' ? 'CLIENT_APPROVED' : 'CLIENT_REJECTED',
+          message,
+          metadata: { timeRecordId, reason },
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create client approval log:', error);
+  }
+};
+
 // Get client's dashboard stats
 export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -611,6 +666,13 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
+    // Get client name for log
+    const clientFull = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { companyName: true, contactPerson: true },
+    });
+    const approverName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
+
     // Update the time record
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
@@ -620,6 +682,9 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
         approvedAt: new Date(),
       },
     });
+
+    // Create approval log
+    await createClientApprovalLog(recordId, userId!, 'APPROVED', approverName);
 
     res.json({
       success: true,
@@ -672,6 +737,13 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    // Get client name for log
+    const clientFull = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { companyName: true, contactPerson: true },
+    });
+    const rejecterName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
+
     // Update the time record
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
@@ -679,6 +751,9 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
         status: 'REJECTED',
       },
     });
+
+    // Create rejection log
+    await createClientApprovalLog(recordId, userId!, 'REJECTED', rejecterName, reason);
 
     res.json({
       success: true,

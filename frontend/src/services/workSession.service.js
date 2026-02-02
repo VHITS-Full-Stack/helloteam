@@ -49,6 +49,21 @@ const workSessionService = {
   async getWeeklySummary() {
     return await api.get('/work-sessions/weekly-summary');
   },
+
+  // Update session notes (auto-save)
+  async updateNotes(notes) {
+    return await api.patch('/work-sessions/notes', { notes });
+  },
+
+  // Add manual time entry
+  async addManualEntry(data) {
+    return await api.post('/work-sessions/manual-entry', data);
+  },
+
+  // Get session logs
+  async getSessionLogs(sessionId) {
+    return await api.get(`/work-sessions/${sessionId}/logs`);
+  },
 };
 
 export default workSessionService;

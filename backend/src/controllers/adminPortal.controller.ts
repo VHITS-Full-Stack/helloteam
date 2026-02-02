@@ -13,6 +13,62 @@ const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Prom
   return freshUrl || photoUrl;
 };
 
+// Helper function to create session log for time record approvals
+const createApprovalLog = async (
+  timeRecordId: string,
+  approverId: string,
+  action: 'APPROVED' | 'REJECTED',
+  approverName?: string,
+  reason?: string
+) => {
+  try {
+    // Get the time record details
+    const timeRecord = await prisma.timeRecord.findUnique({
+      where: { id: timeRecordId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    if (!timeRecord) return;
+
+    // Find work sessions for this employee on this date
+    const recordDate = new Date(timeRecord.date);
+    const startOfDay = new Date(recordDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(recordDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const sessions = await prisma.workSession.findMany({
+      where: {
+        employeeId: timeRecord.employeeId,
+        startTime: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    // Create a log for each session on that date
+    const employeeName = `${timeRecord.employee.firstName} ${timeRecord.employee.lastName}`;
+    const message = action === 'APPROVED'
+      ? `.: Time entry approved by ${approverName || 'Admin'}`
+      : `.: Time entry rejected by ${approverName || 'Admin'}${reason ? `. Reason: ${reason}` : ''}`;
+
+    for (const session of sessions) {
+      await prisma.sessionLog.create({
+        data: {
+          workSessionId: session.id,
+          userId: approverId,
+          userName: approverName || 'Admin',
+          action: action === 'APPROVED' ? 'TIME_APPROVED' : 'TIME_REJECTED',
+          message,
+          metadata: { timeRecordId, reason },
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create approval log:', error);
+  }
+};
+
 // ============================================
 // DASHBOARD ENDPOINTS
 // ============================================
@@ -810,6 +866,13 @@ export const finalApproveTimeRecord = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
+    // Get admin details for log
+    const admin = await prisma.admin.findFirst({
+      where: { userId: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    const approverName = admin ? `${admin.firstName} ${admin.lastName}` : 'Admin';
+
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
       data: {
@@ -818,6 +881,9 @@ export const finalApproveTimeRecord = async (req: AuthenticatedRequest, res: Res
         approvedAt: new Date(),
       },
     });
+
+    // Create approval log
+    await createApprovalLog(recordId, adminId!, 'APPROVED', approverName);
 
     res.json({
       success: true,
@@ -848,6 +914,15 @@ export const finalRejectTimeRecord = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
+    const adminId = req.user?.userId;
+
+    // Get admin details for log
+    const admin = await prisma.admin.findFirst({
+      where: { userId: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    const rejecterName = admin ? `${admin.firstName} ${admin.lastName}` : 'Admin';
+
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
       data: {
@@ -855,6 +930,9 @@ export const finalRejectTimeRecord = async (req: AuthenticatedRequest, res: Resp
         adjustmentNotes: reason || record.adjustmentNotes,
       },
     });
+
+    // Create rejection log
+    await createApprovalLog(recordId, adminId!, 'REJECTED', rejecterName, reason);
 
     res.json({
       success: true,

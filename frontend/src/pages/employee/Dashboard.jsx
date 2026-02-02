@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Clock,
@@ -31,7 +31,10 @@ import {
   Quote,
   Lightbulb,
   ClockIcon,
-  X
+  X,
+  StickyNote,
+  Loader2,
+  Check
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
@@ -66,6 +69,12 @@ const EmployeeDashboard = () => {
   const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
   const [overtimeRequestsLoading, setOvertimeRequestsLoading] = useState(false);
 
+  // Activity notes state
+  const [activityNotes, setActivityNotes] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
+  const [notesLastSaved, setNotesLastSaved] = useState(null);
+  const notesTimeoutRef = useRef(null);
+
   // Motivational quotes
   const quotes = [
     { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
@@ -90,6 +99,55 @@ const EmployeeDashboard = () => {
     } finally {
       setOvertimeRequestsLoading(false);
     }
+  }, []);
+
+  // Save activity notes
+  const saveNotes = useCallback(async (notesText) => {
+    if (!sessionData?.session) return;
+
+    setNotesSaving(true);
+    try {
+      const response = await workSessionService.updateNotes(notesText);
+      if (response.success) {
+        setNotesLastSaved(new Date());
+      }
+    } catch (error) {
+      console.error('Failed to save notes:', error);
+    } finally {
+      setNotesSaving(false);
+    }
+  }, [sessionData?.session]);
+
+  // Handle notes change with debounced auto-save
+  const handleNotesChange = (e) => {
+    const newNotes = e.target.value;
+    setActivityNotes(newNotes);
+
+    // Clear existing timeout
+    if (notesTimeoutRef.current) {
+      clearTimeout(notesTimeoutRef.current);
+    }
+
+    // Set new timeout for auto-save (1.5 seconds after typing stops)
+    notesTimeoutRef.current = setTimeout(() => {
+      saveNotes(newNotes);
+    }, 1500);
+  };
+
+  // Load notes from session when session data changes
+  useEffect(() => {
+    if (sessionData?.session?.notes !== undefined) {
+      setActivityNotes(sessionData.session.notes || '');
+    }
+  }, [sessionData?.session?.id]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (notesTimeoutRef.current) {
+        clearTimeout(notesTimeoutRef.current);
+      }
+    };
   }, []);
 
   // Fetch work session data
@@ -384,82 +442,116 @@ const EmployeeDashboard = () => {
             </div>
 
             {/* Clock In Section */}
-            <div className="flex flex-col items-center gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <div className="text-center">
-                <p className="text-primary-100 text-sm font-medium">Current Time</p>
-                <p className="text-4xl font-bold mt-1 font-heading">
-                  {currentTime.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </p>
-                <p className="text-primary-200 text-xs mt-1">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-                </p>
-              </div>
-
-              {isWorking && (
-                <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg w-full">
-                  <p className="text-green-300 text-xs">
-                    {isOnBreak ? 'On Break' : 'Active Session'}
+            <div className={`flex gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 ${isWorking ? 'flex-row' : 'flex-col items-center'}`}>
+              {/* Time & Buttons */}
+              <div className="flex flex-col items-center gap-4">
+                <div className="text-center">
+                  <p className="text-primary-100 text-sm font-medium">Current Time</p>
+                  <p className="text-4xl font-bold mt-1 font-heading">
+                    {currentTime.toLocaleTimeString('en-US', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
                   </p>
-                  <p className="text-2xl font-bold text-white font-mono">
-                    {formatDurationWithSeconds(sessionData?.session?.startTime)}
+                  <p className="text-primary-200 text-xs mt-1">
+                    {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                   </p>
                 </div>
-              )}
 
-              {isLoading ? (
-                <div className="w-full py-4 flex justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                </div>
-              ) : isWorking ? (
-                <div className="flex flex-col gap-2 w-full">
-                  {isOnBreak ? (
+                {isWorking && (
+                  <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg w-full">
+                    <p className="text-green-300 text-xs">
+                      {isOnBreak ? 'On Break' : 'Active Session'}
+                    </p>
+                    <p className="text-2xl font-bold text-white font-mono">
+                      {formatDurationWithSeconds(sessionData?.session?.startTime)}
+                    </p>
+                  </div>
+                )}
+
+                {isLoading ? (
+                  <div className="w-full py-4 flex justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  </div>
+                ) : isWorking ? (
+                  <div className="flex flex-col gap-2 w-full">
+                    {isOnBreak ? (
+                      <Button
+                        variant="warning"
+                        size="lg"
+                        onClick={handleEndBreak}
+                        loading={actionLoading}
+                        icon={Play}
+                        className="w-full"
+                      >
+                        End Break
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={handleStartBreak}
+                        loading={actionLoading}
+                        icon={Coffee}
+                        className="w-full"
+                      >
+                        Take Break
+                      </Button>
+                    )}
                     <Button
-                      variant="warning"
-                      size="lg"
-                      onClick={handleEndBreak}
+                      variant="accent"
+                      size="sm"
+                      onClick={handleClockOut}
                       loading={actionLoading}
-                      icon={Play}
+                      icon={Square}
                       className="w-full"
                     >
-                      End Break
+                      Clock Out
                     </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="md"
-                      onClick={handleStartBreak}
-                      loading={actionLoading}
-                      icon={Coffee}
-                      className="w-full"
-                    >
-                      Take Break
-                    </Button>
-                  )}
+                  </div>
+                ) : (
                   <Button
-                    variant="accent"
-                    size="md"
-                    onClick={handleClockOut}
+                    variant="secondary"
+                    size="lg"
+                    onClick={handleClockIn}
                     loading={actionLoading}
-                    icon={Square}
+                    icon={Play}
                     className="w-full"
                   >
-                    Clock Out
+                    Clock In
                   </Button>
+                )}
+              </div>
+
+              {/* Activity Notes - shown on the side when working */}
+              {isWorking && (
+                <div className="flex-1 pl-4 border-l border-white/20 min-w-[200px]">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-primary-100 text-sm">
+                      <StickyNote className="w-4 h-4" />
+                      <span>Activity Notes</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-primary-200">
+                      {notesSaving ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>Saving...</span>
+                        </>
+                      ) : notesLastSaved ? (
+                        <>
+                          <Check className="w-3 h-3 text-green-300" />
+                          <span>Saved</span>
+                        </>
+                      ) : null}
+                    </div>
+                  </div>
+                  <textarea
+                    value={activityNotes}
+                    onChange={handleNotesChange}
+                    placeholder="What are you working on?"
+                    className="w-full h-28 p-3 text-sm bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 resize-none focus:ring-2 focus:ring-white/30 focus:border-transparent"
+                  />
                 </div>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="lg"
-                  onClick={handleClockIn}
-                  loading={actionLoading}
-                  icon={Play}
-                  className="w-full"
-                >
-                  Clock In
-                </Button>
               )}
             </div>
           </div>

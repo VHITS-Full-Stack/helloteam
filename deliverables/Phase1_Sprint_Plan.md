@@ -1025,6 +1025,110 @@ SUPPORT:
 
 ---
 
+## Sprint 8: Employee Portal - Time Entries & Session Logs ✅
+
+**Duration:** 1 week
+**Status:** COMPLETE
+
+### Objectives
+- Build comprehensive Time Entries page for employees
+- Implement session activity logs with audit trail
+- Add approval logging for time records
+
+### User Stories
+
+#### 8.1 Time Entries Page
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-8.1.1 | As an employee, I can view time entries with tabs | - Timesheets, Manual Time Card, Time Slider tabs<br>- Tab-based navigation |
+| US-8.1.2 | As an employee, I can toggle Week/Day view | - Week view shows 7 days<br>- Day view shows single day<br>- Quick toggle button |
+| US-8.1.3 | As an employee, I can navigate dates | - Previous/Next navigation<br>- Current Week/Today button<br>- Date range display |
+| US-8.1.4 | As an employee, I can view grouped entries by date | - Sessions grouped by date<br>- Collapsible date sections<br>- Entry count per date |
+| US-8.1.5 | As an employee, I can view entry details | - Time in/out, Duration, Location<br>- Break time, Notes<br>- Status badge |
+
+#### 8.2 Session Logs & Audit Trail
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-8.2.1 | System logs clock in/out events | - Log timestamp, user, action<br>- IP address tracking<br>- Change detection |
+| US-8.2.2 | System logs break events | - Break start/end logging<br>- Duration calculation |
+| US-8.2.3 | System logs notes updates | - Notes change tracking<br>- IP address on update |
+| US-8.2.4 | As an employee, I can view session logs | - "Timesheet History" modal<br>- Time, User, Log Message columns<br>- Chronological order |
+
+#### 8.3 Approval Logging
+| ID | Story | Acceptance Criteria |
+|----|-------|---------------------|
+| US-8.3.1 | System logs client approvals | - Client approval/rejection logged<br>- Approver name captured<br>- Rejection reason included |
+| US-8.3.2 | System logs admin approvals | - Admin final approval logged<br>- Approver name captured<br>- Rejection reason included |
+
+### Deliverables
+- [x] Time Entries page with tabs (`frontend/src/pages/employee/TimeRecords.jsx`)
+- [x] Week/Day toggle with date navigation
+- [x] Collapsible date sections
+- [x] SessionLog database model (`backend/prisma/schema.prisma`)
+- [x] Session logging helper functions
+- [x] Clock in/out logging (`backend/src/controllers/workSession.controller.ts`)
+- [x] Break start/end logging
+- [x] Notes update logging
+- [x] Session logs API endpoint (`/work-sessions/:sessionId/logs`)
+- [x] Client approval logging (`backend/src/controllers/clientPortal.controller.ts`)
+- [x] Admin approval logging (`backend/src/controllers/adminPortal.controller.ts`)
+- [x] Timesheet History modal in frontend
+- [x] Bug fixes (Week/Day toggle, Actions button, collapsible sections)
+
+### Completion Status: **COMPLETE**
+
+### Implementation Summary
+
+#### Database Schema Changes
+```prisma
+model SessionLog {
+  id              String      @id @default(uuid())
+  workSessionId   String
+  userId          String?
+  userName        String?
+  action          String      // CLOCK_IN, CLOCK_OUT, BREAK_START, etc.
+  message         String
+  ipAddress       String?
+  metadata        Json?
+  createdAt       DateTime    @default(now())
+  workSession     WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+  @@index([workSessionId, createdAt])
+  @@map("session_logs")
+}
+```
+
+#### Backend API Endpoints - Session Logs
+| Method | Endpoint | Required Role | Description |
+|--------|----------|---------------|-------------|
+| GET | `/api/work-sessions/:sessionId/logs` | EMPLOYEE | Get session activity logs |
+
+#### Session Log Actions
+- `CLOCK_IN` - Employee started work session
+- `CLOCK_OUT` - Employee ended work session
+- `BREAK_START` - Employee started break
+- `BREAK_END` - Employee ended break
+- `NOTES_UPDATE` - Employee updated session notes
+- `APPROVED` - Time record approved (client or admin)
+- `REJECTED` - Time record rejected with reason
+
+#### Files Modified
+| File | Changes |
+|------|---------|
+| `backend/prisma/schema.prisma` | Added SessionLog model, ipAddress to WorkSession |
+| `backend/src/controllers/workSession.controller.ts` | Added logging helpers, IP detection, getSessionLogs endpoint |
+| `backend/src/controllers/clientPortal.controller.ts` | Added createClientApprovalLog, logging on approve/reject |
+| `backend/src/controllers/adminPortal.controller.ts` | Added createApprovalLog, logging on approve/reject |
+| `backend/src/routes/workSession.routes.ts` | Added session logs route |
+| `frontend/src/services/workSession.service.js` | Added getSessionLogs method |
+| `frontend/src/pages/employee/TimeRecords.jsx` | Complete rewrite with tabs, Week/Day toggle, collapsible sections, logs modal |
+
+#### Bug Fixes
+- Week/Day toggle not switching views - Fixed state management
+- Actions button arrow showing below text - Fixed with `inline-flex items-center gap-1`
+- Collapsible sections not working - Added Set-based state tracking and toggle function
+
+---
+
 ## Summary
 
 | Sprint | Focus Area | Duration | Key Deliverables | Status |
@@ -1039,9 +1143,10 @@ SUPPORT:
 | Sprint 5 | Client Portal - Time Records & Approvals | 2 weeks | Time Records, Approvals, Analytics, Billing | ✅ Complete |
 | Sprint 6 | Admin Portal - Operations Dashboard | 2 weeks | Admin Dashboard, Management | ✅ Complete |
 | Sprint 7 | Integration, Testing & Polish | 2 weeks | Full Integration, QA | ✅ Complete |
+| Sprint 8 | Employee Portal - Time Entries & Session Logs | 1 week | Time Entries Page, Session Logs, Audit Trail | ✅ Complete |
 
-**Total Phase 1 Duration: 16.5 weeks**
-**Current Progress: All 10 Sprints Complete - PHASE 1 COMPLETE! 🎉**
+**Total Phase 1 Duration: 17.5 weeks**
+**Current Progress: All 11 Sprints Complete - PHASE 1 COMPLETE! 🎉**
 
 ---
 

@@ -8,6 +8,9 @@ import {
   getSessionHistory,
   getTodaySummary,
   getWeeklySummary,
+  updateSessionNotes,
+  addManualEntry,
+  getSessionLogs,
 } from '../controllers/workSession.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -28,9 +31,18 @@ router.post('/break/end', endBreak);
 // Current session
 router.get('/current', getCurrentSession);
 
+// Update session notes
+router.patch('/notes', updateSessionNotes);
+
+// Manual time entry
+router.post('/manual-entry', addManualEntry);
+
 // History and summaries
 router.get('/history', getSessionHistory);
 router.get('/today-summary', getTodaySummary);
 router.get('/weekly-summary', getWeeklySummary);
+
+// Session logs
+router.get('/:sessionId/logs', getSessionLogs);
 
 export default router;
