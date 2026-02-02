@@ -48,7 +48,8 @@ import {
   AdminSettings,
   AdminProfile,
   TimeAdjustments,
-  AuditLog
+  AuditLog,
+  LeavePolicy
 } from './pages/admin';
 
 // Employee Layout Wrapper with Auth
@@ -164,6 +165,7 @@ const AppRoutes = () => {
         <Route path="reports" element={<AdminAnalytics />} />
         <Route path="time-adjustments" element={<TimeAdjustments />} />
         <Route path="audit-log" element={<AuditLog />} />
+        <Route path="leave-policy" element={<LeavePolicy />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="profile" element={<AdminProfile />} />
       </Route>
