@@ -1182,7 +1182,7 @@ export const updateSessionNotes = async (req: AuthenticatedRequest, res: Respons
 export const getSessionLogs = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { sessionId } = req.params;
+    const sessionId = req.params.sessionId as string;
 
     if (!userId) {
       res.status(401).json({ success: false, message: 'Unauthorized' });

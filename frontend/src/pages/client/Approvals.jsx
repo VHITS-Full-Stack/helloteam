@@ -178,6 +178,8 @@ const Approvals = () => {
       let response;
       if (activeType === 'overtime') {
         response = await overtimeService.approveOvertimeRequest(selectedItem.id);
+      } else if (selectedItem.type === 'leave') {
+        response = await clientPortalService.approveLeaveRequest(selectedItem.id);
       } else {
         response = await clientPortalService.approveTimeRecord(selectedItem.id);
       }
@@ -211,6 +213,8 @@ const Approvals = () => {
       let response;
       if (activeType === 'overtime') {
         response = await overtimeService.rejectOvertimeRequest(selectedItem.id, rejectReason);
+      } else if (selectedItem.type === 'leave') {
+        response = await clientPortalService.rejectLeaveRequest(selectedItem.id, rejectReason);
       } else {
         response = await clientPortalService.rejectTimeRecord(selectedItem.id, rejectReason);
       }
@@ -283,7 +287,25 @@ const Approvals = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
+    // Handle date range strings like "2026-02-03 to 2026-02-05"
+    if (typeof dateStr === 'string' && dateStr.includes(' to ')) {
+      const [startStr, endStr] = dateStr.split(' to ');
+      const formatSingleDate = (str) => {
+        const [year, month, day] = str.trim().split('-').map(Number);
+        const d = new Date(year, month - 1, day);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      };
+      const startFormatted = formatSingleDate(startStr);
+      const endFormatted = formatSingleDate(endStr);
+      // If same date, just show once
+      if (startStr.trim() === endStr.trim()) {
+        return startFormatted;
+      }
+      return `${startFormatted} - ${endFormatted}`;
+    }
     const date = new Date(dateStr);
+    // Check for Invalid Date
+    if (isNaN(date.getTime())) return '-';
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
@@ -588,7 +610,7 @@ const Approvals = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{typeof item.date === 'string' && item.date.includes(' to ') ? item.date : formatDate(item.date)}</TableCell>
+                    <TableCell>{formatDate(item.date)}</TableCell>
                     <TableCell>
                       {item.hours !== undefined ? `${item.hours}h` : `${item.days} days`}
                     </TableCell>

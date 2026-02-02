@@ -64,6 +64,18 @@ const clientPortalService = {
     return response;
   },
 
+  approveLeaveRequest: async (requestId) => {
+    const response = await api.post(`/client-portal/approvals/leave/${requestId}/approve`);
+    return response;
+  },
+
+  rejectLeaveRequest: async (requestId, reason) => {
+    const response = await api.post(`/client-portal/approvals/leave/${requestId}/reject`, {
+      reason,
+    });
+    return response;
+  },
+
   // Analytics APIs
   getAnalytics: async (params = {}) => {
     const response = await api.get('/client-portal/analytics', { params });

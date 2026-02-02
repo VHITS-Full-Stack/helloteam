@@ -15,6 +15,8 @@ import {
   getClientBilling,
   getClientSettings,
   updateClientSettings,
+  approveLeaveRequest,
+  rejectLeaveRequest,
 } from '../controllers/clientPortal.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -72,6 +74,12 @@ router.post('/approvals/bulk-approve', bulkApproveTimeRecords);
 
 // Bulk reject time records
 router.post('/approvals/bulk-reject', bulkRejectTimeRecords);
+
+// Approve a leave request
+router.post('/approvals/leave/:requestId/approve', approveLeaveRequest);
+
+// Reject a leave request
+router.post('/approvals/leave/:requestId/reject', rejectLeaveRequest);
 
 // ============================================
 // ANALYTICS ROUTES

@@ -49,6 +49,13 @@ enum LeaveType {
   UNPAID
 }
 
+enum PaidLeaveEntitlementType {
+  NONE          // No paid leave
+  FIXED         // Fixed annual allocation
+  ACCRUED       // Accrued over time
+  MILESTONE     // Milestone-based eligibility
+}
+
 enum LeaveStatus {
   PENDING
   APPROVED_BY_CLIENT
@@ -224,9 +231,17 @@ model ClientEmployee {
 model ClientPolicy {
   id                      String    @id @default(uuid())
   clientId                String    @unique
+
+  // Leave policy settings
   allowPaidLeave          Boolean   @default(false)
-  paidLeaveType           String?   // 'fixed', 'accrued', 'milestone'
+  paidLeaveEntitlementType PaidLeaveEntitlementType @default(NONE)
   annualPaidLeaveDays     Int       @default(0)
+  accrualRatePerMonth     Decimal?  @db.Decimal(5, 2)  // For ACCRUED type
+  milestoneYearsRequired  Int?      // For MILESTONE type
+  milestoneBonusDays      Int?      // Extra days after milestone
+  maxCarryoverDays        Int       @default(0)       // Max days to carry to next year
+  carryoverExpiryMonths   Int?      // Months until carryover expires
+
   allowUnpaidLeave        Boolean   @default(true)
   requireTwoWeeksNotice   Boolean   @default(true)
   allowOvertime           Boolean   @default(true)
@@ -377,8 +392,52 @@ model Schedule {
 }
 
 // ============================================
-// LEAVE REQUESTS
+// LEAVE BALANCES & REQUESTS
 // ============================================
+
+model LeaveBalance {
+  id                  String    @id @default(uuid())
+  employeeId          String
+  clientId            String
+  year                Int       // Year the balance applies to
+
+  // Paid leave tracking
+  paidLeaveEntitled   Decimal   @default(0) @db.Decimal(5, 2)  // Total entitled days
+  paidLeaveUsed       Decimal   @default(0) @db.Decimal(5, 2)  // Days used
+  paidLeaveCarryover  Decimal   @default(0) @db.Decimal(5, 2)  // Carried from previous year
+  paidLeavePending    Decimal   @default(0) @db.Decimal(5, 2)  // Pending approval
+
+  // Unpaid leave tracking
+  unpaidLeaveTaken    Decimal   @default(0) @db.Decimal(5, 2)  // Unpaid days taken
+  unpaidLeavePending  Decimal   @default(0) @db.Decimal(5, 2)  // Pending approval
+
+  // Accrual tracking (for ACCRUED type)
+  lastAccrualDate     DateTime?
+  accruedToDate       Decimal   @default(0) @db.Decimal(5, 2)  // Total accrued so far
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([employeeId, clientId, year])
+  @@index([employeeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveBalanceAdjustment {
+  id            String    @id @default(uuid())
+  employeeId    String
+  clientId      String
+  year          Int
+  adjustmentType String   // 'ADD', 'DEDUCT', 'CARRYOVER', 'ACCRUAL', 'RESET'
+  days          Decimal   @db.Decimal(5, 2)
+  reason        String
+  adjustedBy    String    // Admin who made the adjustment
+  adjustedByName String?
+  createdAt     DateTime  @default(now())
+
+  @@index([employeeId, year])
+  @@map("leave_balance_adjustments")
+}
 
 model LeaveRequest {
   id              String        @id @default(uuid())
