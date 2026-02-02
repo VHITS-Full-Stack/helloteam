@@ -133,6 +133,7 @@ model User {
   admin             Admin?
   sessions          Session[]
   auditLogs         AuditLog[]
+  adjustmentsMade   TimeAdjustment[] @relation("AdjustmentsMade")
   dynamicRole       Role?       @relation(fields: [roleId], references: [id])
 
   @@map("users")
@@ -365,9 +366,88 @@ model TimeRecord {
 
   employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  adjustments     TimeAdjustment[]
 
   @@unique([employeeId, clientId, date])
   @@map("time_records")
+}
+
+// Time Adjustment History (detailed tracking)
+model TimeAdjustment {
+  id                String    @id @default(uuid())
+  timeRecordId      String
+  adjustedBy        String
+  adjustedAt        DateTime  @default(now())
+  reason            String    // Mandatory justification
+
+  // What was changed
+  fieldChanged      String    // e.g., "totalMinutes", "actualStart", "actualEnd"
+  oldValue          String?   // Original value (as string for flexibility)
+  newValue          String    // New value
+
+  // For time changes specifically
+  oldTotalMinutes   Int?
+  newTotalMinutes   Int?
+  minutesDifference Int?      // Positive = added, Negative = removed
+
+  // Re-approval tracking
+  requiresReapproval  Boolean   @default(true)
+  clientReapprovedBy  String?
+  clientReapprovedAt  DateTime?
+
+  createdAt         DateTime  @default(now())
+
+  timeRecord        TimeRecord @relation(fields: [timeRecordId], references: [id], onDelete: Cascade)
+  adjuster          User       @relation("AdjustmentsMade", fields: [adjustedBy], references: [id])
+
+  @@index([timeRecordId])
+  @@index([adjustedBy])
+  @@index([adjustedAt])
+  @@map("time_adjustments")
+}
+
+// ============================================
+// AUDIT LOG (General System Audit Trail)
+// ============================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  LOGOUT
+  EXPORT
+  ADJUSTMENT
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String
+  action      AuditAction
+  entityType  String      // e.g., "TimeRecord", "LeaveRequest", "Employee"
+  entityId    String?     // ID of the affected entity
+  description String      // Human-readable description
+
+  // Change tracking
+  oldValues   Json?       // Previous state (for updates)
+  newValues   Json?       // New state (for creates/updates)
+
+  // Context
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?       // Additional context-specific data
+
+  createdAt   DateTime    @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ============================================
@@ -519,30 +599,6 @@ model WellbeingCheckin {
 
   @@unique([employeeId, date])
   @@map("wellbeing_checkins")
-}
-
-// ============================================
-// AUDIT LOGS
-// ============================================
-
-model AuditLog {
-  id          String    @id @default(uuid())
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String?
-  oldValues   Json?
-  newValues   Json?
-  notes       String?   // Mandatory notes for certain actions
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime  @default(now())
-
-  user        User?     @relation(fields: [userId], references: [id])
-
-  @@index([entityType, entityId])
-  @@index([userId, createdAt])
-  @@map("audit_logs")
 }
 
 // ============================================
