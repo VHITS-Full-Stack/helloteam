@@ -148,16 +148,36 @@ const TimeAdjustments = () => {
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
+    // Handle YYYY-MM-DD format to avoid timezone issues
+    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+      const date = new Date(year, month - 1, day);
+      return date.toLocaleDateString('en-US', {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
   };
 
   const formatDateTime = (dateStr) => {
     if (!dateStr) return '-';
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) return '-';
     return date.toLocaleString('en-US', {
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
