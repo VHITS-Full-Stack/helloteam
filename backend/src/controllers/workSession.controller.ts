@@ -1,7 +1,43 @@
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { AuthenticatedRequest } from '../types';
 import prisma from '../config/database';
 import { WorkSessionStatus } from '@prisma/client';
+
+// Helper function to get client IP address
+const getClientIp = (req: Request): string => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket?.remoteAddress || req.ip || 'Unknown';
+};
+
+// Helper function to create a session log
+const createSessionLog = async (
+  workSessionId: string,
+  userId: string | null,
+  userName: string | null,
+  action: string,
+  message: string,
+  ipAddress?: string,
+  metadata?: Record<string, any>
+) => {
+  try {
+    await prisma.sessionLog.create({
+      data: {
+        workSessionId,
+        userId,
+        userName,
+        action,
+        message,
+        ipAddress,
+        metadata: metadata || null,
+      },
+    });
+  } catch (error) {
+    console.error('Failed to create session log:', error);
+  }
+};
 
 // Clock in - Start a new work session
 export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -55,17 +91,45 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       },
     });
 
+    // Get client IP
+    const clientIp = getClientIp(req);
+
+    // Get user email for logging
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
     // Create new work session
     const workSession = await prisma.workSession.create({
       data: {
         employeeId: employee.id,
         startTime: new Date(),
         status: 'ACTIVE',
+        ipAddress: clientIp,
       },
       include: {
         breaks: true,
       },
     });
+
+    // Get client assignment for log
+    const clientAssignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId: employee.id, isActive: true },
+      include: { client: { select: { companyName: true } } },
+    });
+
+    // Create session log for clock in
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    await createSessionLog(
+      workSession.id,
+      userId,
+      employeeName,
+      'CLOCK_IN',
+      `.: Clocked in user: ${user?.email || 'Unknown'}. Customer: ${clientAssignment?.client?.companyName || '-'}`,
+      clientIp,
+      { email: user?.email, customer: clientAssignment?.client?.companyName }
+    );
 
     // Calculate arrival status if schedule exists
     let arrivalStatus = 'No Schedule';
@@ -233,6 +297,47 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       });
     }
 
+    // Get client IP and check for IP change
+    const clientIp = getClientIp(req);
+    const clockInIp = activeSession.ipAddress;
+
+    // Get user email for logging
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+
+    // Log IP change if different
+    if (clockInIp && clientIp !== clockInIp) {
+      await createSessionLog(
+        activeSession.id,
+        userId,
+        employeeName,
+        'IP_CHANGED',
+        `.: IP address changed. Clocked in from ${clockInIp}, clocking out from ${clientIp}`,
+        clientIp,
+        { clockInIp, clockOutIp: clientIp }
+      );
+    }
+
+    // Format shift total
+    const hours = Math.floor(totalWorkMinutes / 60);
+    const minutes = totalWorkMinutes % 60;
+    const shiftTotal = `${hours}:${minutes.toString().padStart(2, '0')}`;
+
+    // Create session log for clock out
+    await createSessionLog(
+      activeSession.id,
+      userId,
+      employeeName,
+      'CLOCK_OUT',
+      `.: Clocked out user: ${user?.email || 'Unknown'}. Shift total ${shiftTotal}`,
+      clientIp,
+      { email: user?.email, totalWorkMinutes, shiftTotal }
+    );
+
     res.json({
       success: true,
       message: 'Clocked out successfully',
@@ -295,6 +400,17 @@ export const startBreak = async (req: AuthenticatedRequest, res: Response): Prom
       where: { id: activeSession.id },
       data: { status: 'ON_BREAK' },
     });
+
+    // Create session log for break start
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    await createSessionLog(
+      activeSession.id,
+      userId,
+      employeeName,
+      'BREAK_START',
+      `.: Break started`,
+      getClientIp(req)
+    );
 
     res.status(201).json({
       success: true,
@@ -378,6 +494,18 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
       where: { id: activeSession.id },
       data: { status: 'ACTIVE' },
     });
+
+    // Create session log for break end
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    await createSessionLog(
+      activeSession.id,
+      userId,
+      employeeName,
+      'BREAK_END',
+      `.: Break ended. Duration: ${durationMinutes} minutes`,
+      getClientIp(req),
+      { durationMinutes }
+    );
 
     res.json({
       success: true,
@@ -539,7 +667,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
 
     const whereClause: any = {
       employeeId: employee.id,
-      status: 'COMPLETED',
+      // Include completed, active, and on-break sessions
+      status: { in: ['COMPLETED', 'ACTIVE', 'ON_BREAK'] },
     };
 
     if (Object.keys(dateFilter).length > 0) {
@@ -559,6 +688,22 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       prisma.workSession.count({ where: whereClause }),
     ]);
 
+    // Get client info for the employee
+    const clientAssignment = await prisma.clientEmployee.findFirst({
+      where: {
+        employeeId: employee.id,
+        isActive: true,
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            companyName: true,
+          },
+        },
+      },
+    });
+
     // Calculate work minutes for each session
     const sessionsWithStats = sessions.map(session => {
       const totalMinutes = session.endTime
@@ -570,6 +715,7 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         ...session,
         totalMinutes,
         workMinutes,
+        client: clientAssignment?.client || null,
       };
     });
 
@@ -831,5 +977,265 @@ export const getWeeklySummary = async (req: AuthenticatedRequest, res: Response)
   } catch (error) {
     console.error('Get weekly summary error:', error);
     res.status(500).json({ success: false, message: 'Failed to get weekly summary' });
+  }
+};
+
+// Add manual time entry
+export const addManualEntry = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { date, startTime, endTime, notes } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    if (!date || !startTime || !endTime) {
+      res.status(400).json({ success: false, message: 'Date, start time, and end time are required' });
+      return;
+    }
+
+    // Get employee record
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    // Parse the date and times
+    const entryDate = new Date(date);
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+
+    const sessionStartTime = new Date(entryDate);
+    sessionStartTime.setHours(startHour, startMinute, 0, 0);
+
+    const sessionEndTime = new Date(entryDate);
+    sessionEndTime.setHours(endHour, endMinute, 0, 0);
+
+    // Handle overnight shifts (end time before start time means next day)
+    if (sessionEndTime <= sessionStartTime) {
+      sessionEndTime.setDate(sessionEndTime.getDate() + 1);
+    }
+
+    // Calculate duration in minutes
+    const totalMinutes = Math.round(
+      (sessionEndTime.getTime() - sessionStartTime.getTime()) / 60000
+    );
+
+    // Check for overlapping sessions
+    const existingSession = await prisma.workSession.findFirst({
+      where: {
+        employeeId: employee.id,
+        OR: [
+          {
+            startTime: { lte: sessionEndTime },
+            endTime: { gte: sessionStartTime },
+          },
+          {
+            startTime: { gte: sessionStartTime, lte: sessionEndTime },
+          },
+        ],
+      },
+    });
+
+    if (existingSession) {
+      res.status(400).json({
+        success: false,
+        message: 'A time entry already exists that overlaps with this time period',
+      });
+      return;
+    }
+
+    // Create the manual work session
+    const workSession = await prisma.workSession.create({
+      data: {
+        employeeId: employee.id,
+        startTime: sessionStartTime,
+        endTime: sessionEndTime,
+        status: 'COMPLETED',
+        notes: notes || null,
+        totalBreakMinutes: 0,
+      },
+    });
+
+    // Get employee's client assignment
+    const clientAssignment = await prisma.clientEmployee.findFirst({
+      where: {
+        employeeId: employee.id,
+        isActive: true,
+      },
+    });
+
+    // Create time record if client is assigned
+    if (clientAssignment) {
+      const recordDate = new Date(entryDate);
+      recordDate.setHours(0, 0, 0, 0);
+
+      await prisma.timeRecord.upsert({
+        where: {
+          employeeId_clientId_date: {
+            employeeId: employee.id,
+            clientId: clientAssignment.clientId,
+            date: recordDate,
+          },
+        },
+        create: {
+          employeeId: employee.id,
+          clientId: clientAssignment.clientId,
+          date: recordDate,
+          actualStart: sessionStartTime,
+          actualEnd: sessionEndTime,
+          totalMinutes,
+          breakMinutes: 0,
+          status: 'PENDING',
+        },
+        update: {
+          actualEnd: sessionEndTime,
+          totalMinutes: { increment: totalMinutes },
+        },
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Manual time entry added successfully',
+      session: {
+        ...workSession,
+        workMinutes: totalMinutes,
+        client: clientAssignment?.clientId ? { id: clientAssignment.clientId } : null,
+      },
+    });
+  } catch (error) {
+    console.error('Add manual entry error:', error);
+    res.status(500).json({ success: false, message: 'Failed to add manual time entry' });
+  }
+};
+
+// Update notes for current session
+export const updateSessionNotes = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { notes } = req.body;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    // Get employee record
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    // Find active session
+    const activeSession = await prisma.workSession.findFirst({
+      where: {
+        employeeId: employee.id,
+        status: { in: ['ACTIVE', 'ON_BREAK'] },
+      },
+    });
+
+    if (!activeSession) {
+      res.status(404).json({ success: false, message: 'No active session found' });
+      return;
+    }
+
+    // Update notes
+    const updatedSession = await prisma.workSession.update({
+      where: { id: activeSession.id },
+      data: { notes: notes || null },
+    });
+
+    // Create session log for notes update
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    await createSessionLog(
+      activeSession.id,
+      userId,
+      employeeName,
+      'NOTES_UPDATED',
+      `.: Timesheet notes added`,
+      getClientIp(req)
+    );
+
+    res.json({
+      success: true,
+      message: 'Notes updated successfully',
+      session: updatedSession,
+    });
+  } catch (error) {
+    console.error('Update session notes error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update notes' });
+  }
+};
+
+// Get session logs
+export const getSessionLogs = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const sessionId = req.params.sessionId as string;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    // Get employee record
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    // Verify the session belongs to this employee
+    const session = await prisma.workSession.findFirst({
+      where: {
+        id: sessionId,
+        employeeId: employee.id,
+      },
+      include: {
+        employee: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+    });
+
+    if (!session) {
+      res.status(404).json({ success: false, message: 'Session not found' });
+      return;
+    }
+
+    // Get logs for the session
+    const logs = await prisma.sessionLog.findMany({
+      where: { workSessionId: sessionId },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const employeeName = `${session.employee.firstName} ${session.employee.lastName}`;
+
+    res.json({
+      success: true,
+      sessionId,
+      employeeName,
+      logs,
+    });
+  } catch (error) {
+    console.error('Get session logs error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get session logs' });
   }
 };

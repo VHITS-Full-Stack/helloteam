@@ -234,7 +234,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       timezone,
       // Policy fields
       allowPaidLeave,
-      paidLeaveType,
+      paidLeaveEntitlementType,
       annualPaidLeaveDays,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
@@ -296,7 +296,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         data: {
           clientId: client.id,
           allowPaidLeave: allowPaidLeave ?? false,
-          paidLeaveType,
+          paidLeaveEntitlementType,
           annualPaidLeaveDays: annualPaidLeaveDays ?? 0,
           allowUnpaidLeave: allowUnpaidLeave ?? true,
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
@@ -352,7 +352,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       status,
       // Policy fields
       allowPaidLeave,
-      paidLeaveType,
+      paidLeaveEntitlementType,
       annualPaidLeaveDays,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
@@ -420,7 +420,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
           where: { clientId: id },
           data: {
             ...(allowPaidLeave !== undefined && { allowPaidLeave }),
-            ...(paidLeaveType !== undefined && { paidLeaveType }),
+            ...(paidLeaveEntitlementType !== undefined && { paidLeaveEntitlementType }),
             ...(annualPaidLeaveDays !== undefined && { annualPaidLeaveDays }),
             ...(allowUnpaidLeave !== undefined && { allowUnpaidLeave }),
             ...(requireTwoWeeksNotice !== undefined && { requireTwoWeeksNotice }),
@@ -433,7 +433,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
           data: {
             clientId: id,
             allowPaidLeave: allowPaidLeave ?? false,
-            paidLeaveType,
+            paidLeaveEntitlementType,
             annualPaidLeaveDays: annualPaidLeaveDays ?? 0,
             allowUnpaidLeave: allowUnpaidLeave ?? true,
             requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,

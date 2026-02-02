@@ -8,3 +8,5 @@ export { default as AdminApprovals } from './Approvals';
 export { default as Payroll } from './Payroll';
 export { default as AdminSettings } from './Settings';
 export { default as AdminProfile } from './Profile';
+export { default as TimeAdjustments } from './TimeAdjustments';
+export { default as AuditLog } from './AuditLog';

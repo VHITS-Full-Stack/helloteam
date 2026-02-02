@@ -1,6 +1,7 @@
-import { Bell, Search, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { Bell, Search, Menu, X, Check, Trash2 } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { Avatar } from '../common';
+import notificationService from '../../services/notification.service';
 
 const Header = ({
   title,
@@ -13,23 +14,126 @@ const Header = ({
 }) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
 
-  const notifications = [
-    { id: 1, title: 'New approval request', message: 'John Doe requested leave', time: '5 min ago', unread: true, type: 'approval' },
-    { id: 2, title: 'Time entry approved', message: 'Your time for Monday was approved', time: '1 hour ago', unread: true, type: 'success' },
-    { id: 3, title: 'Schedule updated', message: 'Your schedule for next week has been updated', time: '2 hours ago', unread: false, type: 'info' },
-  ];
+  const fetchNotifications = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await notificationService.getNotifications({ limit: 10 });
+      if (response.success) {
+        setNotifications(response.data.notifications || []);
+        setUnreadCount(response.data.unreadCount || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch notifications:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const unreadCount = notifications.filter(n => n.unread).length;
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const response = await notificationService.getUnreadCount();
+      if (response.success) {
+        setUnreadCount(response.data.count || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchUnreadCount();
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
+
+  useEffect(() => {
+    if (showNotifications) {
+      fetchNotifications();
+    }
+  }, [showNotifications, fetchNotifications]);
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      const response = await notificationService.markAsRead(id);
+      if (response.success) {
+        setNotifications(prev =>
+          prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      const response = await notificationService.markAllAsRead();
+      if (response.success) {
+        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setUnreadCount(0);
+      }
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
+  };
+
+  const handleDeleteNotification = async (id) => {
+    try {
+      const response = await notificationService.deleteNotification(id);
+      if (response.success) {
+        const notification = notifications.find(n => n.id === id);
+        setNotifications(prev => prev.filter(n => n.id !== id));
+        if (notification && !notification.isRead) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+    }
+  };
 
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'approval': return 'bg-accent';
-      case 'success': return 'bg-success';
-      case 'warning': return 'bg-warning';
-      case 'error': return 'bg-danger';
-      default: return 'bg-info';
+      case 'APPROVAL_REQUIRED':
+      case 'OVERTIME_REQUEST':
+        return 'bg-accent';
+      case 'TIME_APPROVED':
+      case 'LEAVE_APPROVED':
+      case 'OVERTIME_APPROVED':
+        return 'bg-success';
+      case 'TIME_REJECTED':
+      case 'LEAVE_REJECTED':
+      case 'OVERTIME_REJECTED':
+        return 'bg-danger';
+      case 'PAYROLL_REMINDER':
+        return 'bg-warning';
+      case 'SCHEDULE_CHANGE':
+      case 'SYSTEM_ALERT':
+        return 'bg-info';
+      default:
+        return 'bg-primary';
     }
+  };
+
+  const formatTime = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Just now';
+    if (minutes < 60) return `${minutes} min ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    return date.toLocaleDateString();
   };
 
   const getPortalAccent = () => {
@@ -105,7 +209,7 @@ const Header = ({
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-danger text-white text-xs font-semibold rounded-full flex items-center justify-center animate-pulse-soft">
-                {unreadCount}
+                {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
           </button>
@@ -123,48 +227,96 @@ const Header = ({
                     <h3 className="font-bold text-gray-900">Notifications</h3>
                     <p className="text-xs text-gray-500">{unreadCount} unread messages</p>
                   </div>
-                  <button
-                    onClick={() => setShowNotifications(false)}
-                    className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Mark all as read"
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="max-h-96 overflow-y-auto">
-                  {notifications.map((notification) => (
-                    <div
-                      key={notification.id}
-                      className={`
-                        px-5 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50
-                        transition-colors duration-200
-                        ${notification.unread ? 'bg-primary-50/20' : ''}
-                      `}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className={`
-                          w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0
-                          ${notification.unread ? getNotificationColor(notification.type) : 'bg-gray-200'}
-                        `} />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-gray-900">
-                            {notification.title}
-                          </p>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            {notification.message}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-1.5">
-                            {notification.time}
-                          </p>
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500 text-sm">No notifications yet</p>
+                    </div>
+                  ) : (
+                    notifications.map((notification) => (
+                      <div
+                        key={notification.id}
+                        className={`
+                          px-5 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50
+                          transition-colors duration-200 group
+                          ${!notification.isRead ? 'bg-primary-50/20' : ''}
+                        `}
+                        onClick={() => {
+                          if (!notification.isRead) {
+                            handleMarkAsRead(notification.id);
+                          }
+                          if (notification.actionUrl) {
+                            window.location.href = notification.actionUrl;
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`
+                            w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0
+                            ${!notification.isRead ? getNotificationColor(notification.type) : 'bg-gray-200'}
+                          `} />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-sm text-gray-900">
+                              {notification.title}
+                            </p>
+                            <p className="text-sm text-gray-500 mt-0.5">
+                              {notification.message}
+                            </p>
+                            <p className="text-xs text-gray-400 mt-1.5">
+                              {formatTime(notification.createdAt)}
+                            </p>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteNotification(notification.id);
+                            }}
+                            className="p-1 text-gray-300 hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Delete notification"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
-                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
-                  <button className="text-sm text-primary font-semibold hover:text-primary-dark transition-colors w-full text-center py-1">
-                    View all notifications
-                  </button>
-                </div>
+                {notifications.length > 0 && (
+                  <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+                    <button
+                      onClick={() => {
+                        setShowNotifications(false);
+                        window.location.href = '/notifications';
+                      }}
+                      className="text-sm text-primary font-semibold hover:text-primary-dark transition-colors w-full text-center py-1"
+                    >
+                      View all notifications
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           )}

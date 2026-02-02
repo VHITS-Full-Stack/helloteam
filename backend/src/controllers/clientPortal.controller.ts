@@ -11,6 +11,61 @@ const refreshProfilePhotoUrl = async (profilePhoto: string | null): Promise<stri
   return await getPresignedUrl(key) || profilePhoto;
 };
 
+// Helper function to create session log for time record approvals
+const createClientApprovalLog = async (
+  timeRecordId: string,
+  approverId: string,
+  action: 'APPROVED' | 'REJECTED',
+  approverName?: string,
+  reason?: string
+) => {
+  try {
+    // Get the time record details
+    const timeRecord = await prisma.timeRecord.findUnique({
+      where: { id: timeRecordId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true } },
+      },
+    });
+
+    if (!timeRecord) return;
+
+    // Find work sessions for this employee on this date
+    const recordDate = new Date(timeRecord.date);
+    const startOfDay = new Date(recordDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(recordDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const sessions = await prisma.workSession.findMany({
+      where: {
+        employeeId: timeRecord.employeeId,
+        startTime: { gte: startOfDay, lte: endOfDay },
+      },
+    });
+
+    // Create a log for each session on that date
+    const message = action === 'APPROVED'
+      ? `.: Time entry approved by client: ${approverName || 'Client'}`
+      : `.: Time entry rejected by client: ${approverName || 'Client'}${reason ? `. Reason: ${reason}` : ''}`;
+
+    for (const session of sessions) {
+      await prisma.sessionLog.create({
+        data: {
+          workSessionId: session.id,
+          userId: approverId,
+          userName: approverName || 'Client',
+          action: action === 'APPROVED' ? 'CLIENT_APPROVED' : 'CLIENT_REJECTED',
+          message,
+          metadata: { timeRecordId, reason },
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Failed to create client approval log:', error);
+  }
+};
+
 // Get client's dashboard stats
 export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -611,6 +666,13 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
+    // Get client name for log
+    const clientFull = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { companyName: true, contactPerson: true },
+    });
+    const approverName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
+
     // Update the time record
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
@@ -620,6 +682,9 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
         approvedAt: new Date(),
       },
     });
+
+    // Create approval log
+    await createClientApprovalLog(recordId, userId!, 'APPROVED', approverName);
 
     res.json({
       success: true,
@@ -672,6 +737,13 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    // Get client name for log
+    const clientFull = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { companyName: true, contactPerson: true },
+    });
+    const rejecterName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
+
     // Update the time record
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
@@ -679,6 +751,9 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
         status: 'REJECTED',
       },
     });
+
+    // Create rejection log
+    await createClientApprovalLog(recordId, userId!, 'REJECTED', rejecterName, reason);
 
     res.json({
       success: true,
@@ -1518,7 +1593,7 @@ export const getClientSettings = async (req: AuthenticatedRequest, res: Response
         },
         policies: client.clientPolicies ? {
           allowPaidLeave: client.clientPolicies.allowPaidLeave,
-          paidLeaveType: client.clientPolicies.paidLeaveType,
+          paidLeaveEntitlementType: client.clientPolicies.paidLeaveEntitlementType,
           annualPaidLeaveDays: client.clientPolicies.annualPaidLeaveDays,
           allowUnpaidLeave: client.clientPolicies.allowUnpaidLeave,
           requireTwoWeeksNotice: client.clientPolicies.requireTwoWeeksNotice,
@@ -1526,7 +1601,7 @@ export const getClientSettings = async (req: AuthenticatedRequest, res: Response
           overtimeRequiresApproval: client.clientPolicies.overtimeRequiresApproval,
         } : {
           allowPaidLeave: false,
-          paidLeaveType: null,
+          paidLeaveEntitlementType: null,
           annualPaidLeaveDays: 0,
           allowUnpaidLeave: true,
           requireTwoWeeksNotice: true,
@@ -1574,7 +1649,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
     const {
       // Policy fields
       allowPaidLeave,
-      paidLeaveType,
+      paidLeaveEntitlementType,
       annualPaidLeaveDays,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
@@ -1601,7 +1676,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
 
     // Policy fields
     if (allowPaidLeave !== undefined) updateData.allowPaidLeave = allowPaidLeave;
-    if (paidLeaveType !== undefined) updateData.paidLeaveType = paidLeaveType;
+    if (paidLeaveEntitlementType !== undefined) updateData.paidLeaveEntitlementType = paidLeaveEntitlementType;
     if (annualPaidLeaveDays !== undefined) updateData.annualPaidLeaveDays = annualPaidLeaveDays;
     if (allowUnpaidLeave !== undefined) updateData.allowUnpaidLeave = allowUnpaidLeave;
     if (requireTwoWeeksNotice !== undefined) updateData.requireTwoWeeksNotice = requireTwoWeeksNotice;
@@ -1636,7 +1711,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
         data: {
           clientId: client.id,
           allowPaidLeave: allowPaidLeave ?? false,
-          paidLeaveType,
+          paidLeaveEntitlementType,
           annualPaidLeaveDays: annualPaidLeaveDays ?? 0,
           allowUnpaidLeave: allowUnpaidLeave ?? true,
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
@@ -1667,7 +1742,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
       data: {
         policies: updatedClient?.clientPolicies ? {
           allowPaidLeave: updatedClient.clientPolicies.allowPaidLeave,
-          paidLeaveType: updatedClient.clientPolicies.paidLeaveType,
+          paidLeaveEntitlementType: updatedClient.clientPolicies.paidLeaveEntitlementType,
           annualPaidLeaveDays: updatedClient.clientPolicies.annualPaidLeaveDays,
           allowUnpaidLeave: updatedClient.clientPolicies.allowUnpaidLeave,
           requireTwoWeeksNotice: updatedClient.clientPolicies.requireTwoWeeksNotice,
@@ -1828,5 +1903,122 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
   } catch (error) {
     console.error('Get client billing error:', error);
     res.status(500).json({ success: false, error: 'Failed to fetch billing data' });
+  }
+};
+
+// ============================================
+// LEAVE APPROVAL ENDPOINTS
+// ============================================
+
+// Approve leave request (client approval)
+export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const requestId = req.params.requestId as string;
+    const userId = req.user?.userId;
+
+    // Get the client
+    const client = await prisma.client.findUnique({
+      where: { userId },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Get the leave request and verify it belongs to this client
+    const request = await prisma.leaveRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      res.status(404).json({ success: false, error: 'Leave request not found' });
+      return;
+    }
+
+    // Verify the leave request is for this client
+    if (request.clientId !== client.id) {
+      res.status(403).json({ success: false, error: 'Not authorized to approve this request' });
+      return;
+    }
+
+    // Update leave request with client approval
+    const updated = await prisma.leaveRequest.update({
+      where: { id: requestId },
+      data: {
+        clientApprovedBy: userId,
+        clientApprovedAt: new Date(),
+        status: 'APPROVED',
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Leave request approved',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Approve leave request error:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve leave request' });
+  }
+};
+
+// Reject leave request (client rejection)
+export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const requestId = req.params.requestId as string;
+    const { reason } = req.body;
+    const userId = req.user?.userId;
+
+    if (!reason || !reason.trim()) {
+      res.status(400).json({ success: false, error: 'Rejection reason is required' });
+      return;
+    }
+
+    // Get the client
+    const client = await prisma.client.findUnique({
+      where: { userId },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Get the leave request and verify it belongs to this client
+    const request = await prisma.leaveRequest.findUnique({
+      where: { id: requestId },
+    });
+
+    if (!request) {
+      res.status(404).json({ success: false, error: 'Leave request not found' });
+      return;
+    }
+
+    // Verify the leave request is for this client
+    if (request.clientId !== client.id) {
+      res.status(403).json({ success: false, error: 'Not authorized to reject this request' });
+      return;
+    }
+
+    // Update leave request as rejected
+    const updated = await prisma.leaveRequest.update({
+      where: { id: requestId },
+      data: {
+        status: 'REJECTED',
+        rejectedBy: userId,
+        rejectedAt: new Date(),
+        rejectionReason: reason,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Leave request rejected',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Reject leave request error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reject leave request' });
   }
 };

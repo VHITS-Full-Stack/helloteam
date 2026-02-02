@@ -24,10 +24,10 @@ This phase introduces approval workflows and payroll validation. Building on the
 
 ---
 
-## Sprint 8: Client Portal - Time Approvals & Notifications
+## Sprint 8: Client Portal - Time Approvals & Notifications ✅
 
 **Duration:** 2 weeks
-**Status:** Pending
+**Status:** COMPLETE
 
 ### Objectives
 - Enable clients to review and approve/reject time entries
@@ -37,48 +37,61 @@ This phase introduces approval workflows and payroll validation. Building on the
 ### Tasks
 
 #### 8.1 Time Entry Review System
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-8.1.1 | Create time entry review page | - Daily/weekly view toggle<br>- Filter by employee, status, date |
-| T-8.1.2 | Implement bulk selection | - Select all/none<br>- Select by employee |
-| T-8.1.3 | Add approve/reject actions | - Single and bulk actions<br>- Confirmation dialogs |
-| T-8.1.4 | Build modification form | - Edit start/end times<br>- Mandatory justification field<br>- Original vs modified comparison |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-8.1.1 | Create time entry review page | - Daily/weekly view toggle<br>- Filter by employee, status, date | ✅ |
+| T-8.1.2 | Implement bulk selection | - Select all/none<br>- Select by employee | ✅ |
+| T-8.1.3 | Add approve/reject actions | - Single and bulk actions<br>- Confirmation dialogs | ✅ |
+| T-8.1.4 | Build modification form | - Edit start/end times<br>- Mandatory justification field<br>- Original vs modified comparison | ✅ |
 
 #### 8.2 Overtime Management
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-8.2.1 | Create overtime requests list | - Pending requests highlighted<br>- Sort by date/employee |
-| T-8.2.2 | Implement overtime approval flow | - Approve with optional notes<br>- Reject with mandatory reason |
-| T-8.2.3 | Add overtime summary dashboard | - Weekly overtime by employee<br>- Cost projections |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-8.2.1 | Create overtime requests list | - Pending requests highlighted<br>- Sort by date/employee | ✅ |
+| T-8.2.2 | Implement overtime approval flow | - Approve with optional notes<br>- Reject with mandatory reason | ✅ |
+| T-8.2.3 | Add overtime summary dashboard | - Weekly overtime by employee<br>- Cost projections | ✅ |
 
-#### 8.3 Notifications & Alerts
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-8.3.1 | Create notification center | - Bell icon with count badge<br>- Dropdown notification list |
-| T-8.3.2 | Implement alert persistence | - Alerts remain until actioned<br>- Mark as read functionality |
-| T-8.3.3 | Add payroll deadline reminders | - Countdown to payroll cutoff<br>- Warning for unapproved hours |
-| T-8.3.4 | Build email notification service | - Pending approval emails<br>- Daily digest option |
+#### 8.3 Notifications & Alerts (Partial - Deferred)
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-8.3.1 | Create notification center | - Bell icon with count badge<br>- Dropdown notification list | Deferred |
+| T-8.3.2 | Implement alert persistence | - Alerts remain until actioned<br>- Mark as read functionality | Deferred |
+| T-8.3.3 | Add payroll deadline reminders | - Countdown to payroll cutoff<br>- Warning for unapproved hours | Deferred |
+| T-8.3.4 | Build email notification service | - Pending approval emails<br>- Daily digest option | Deferred |
 
 #### 8.4 Backend API Development
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-8.4.1 | Time approval endpoints | - GET/PUT for approvals<br>- Bulk approval endpoint |
-| T-8.4.2 | Overtime management endpoints | - CRUD for overtime requests<br>- Approval/rejection endpoints |
-| T-8.4.3 | Notification endpoints | - GET notifications<br>- Mark read/unread |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-8.4.1 | Time approval endpoints | - GET/PUT for approvals<br>- Bulk approval endpoint | ✅ |
+| T-8.4.2 | Overtime management endpoints | - CRUD for overtime requests<br>- Approval/rejection endpoints | ✅ |
+| T-8.4.3 | Notification endpoints | - GET notifications<br>- Mark read/unread | Deferred |
+
+#### 8.5 Additional Features Completed
+| Feature | Description |
+|---------|-------------|
+| Time Entries Page | Employee portal with tabs (Timesheets, Manual Time Card, Time Slider) |
+| Week/Day Toggle | Switch between weekly and daily views with date navigation |
+| Collapsible Sections | Group entries by date with collapse/expand functionality |
+| Session Logs | Comprehensive audit trail with Timesheet History modal |
+| Approval Logging | Client and admin approval actions logged with timestamps |
+| Sound Effects | Audio feedback for clock in/out actions |
+| Floating Notes | Quick notes feature in time clock section |
 
 ### Deliverables
-- [ ] Time entry review and approval UI
-- [ ] Overtime management system
-- [ ] Notification center
-- [ ] Email notification integration
-- [ ] API endpoints for all features
+- [x] Time entry review and approval UI
+- [x] Overtime management system
+- [ ] Notification center (Deferred to future sprint)
+- [ ] Email notification integration (Deferred to future sprint)
+- [x] API endpoints for core features
+- [x] Session logs and audit trail
+- [x] Time Entries page with tabs and views
 
 ---
 
-## Sprint 9: Employee Portal - Leave & Availability
+## Sprint 9: Employee Portal - Leave & Availability ✅
 
 **Duration:** 2 weeks
-**Status:** Pending
+**Status:** COMPLETE (Leave System - Availability Deferred)
 
 ### Objectives
 - Build leave request submission system
@@ -89,54 +102,65 @@ This phase introduces approval workflows and payroll validation. Building on the
 ### Tasks
 
 #### 9.1 Leave Request System
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-9.1.1 | Create leave request form | - Date range selector<br>- Leave type dropdown<br>- Reason field |
-| T-9.1.2 | Implement leave type options | - Based on client policy<br>- Paid/unpaid indication |
-| T-9.1.3 | Add short notice warning | - Flag requests < 2 weeks<br>- Advisory message display |
-| T-9.1.4 | Build request history view | - Status tracking<br>- Filter by status/date |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-9.1.1 | Create leave request form | - Date range selector<br>- Leave type dropdown<br>- Reason field | ✅ |
+| T-9.1.2 | Implement leave type options | - Based on client policy<br>- Paid/unpaid indication | ✅ |
+| T-9.1.3 | Add short notice warning | - Flag requests < 2 weeks<br>- Advisory message display | ✅ |
+| T-9.1.4 | Build request history view | - Status tracking<br>- Filter by status/date | ✅ |
 
 #### 9.2 Leave Balance Management
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-9.2.1 | Display leave balances | - By leave type<br>- Used vs remaining |
-| T-9.2.2 | Implement balance validation | - Prevent over-request<br>- Warning for low balance |
-| T-9.2.3 | Add accrual tracking | - Show accrual schedule<br>- Projected balance |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-9.2.1 | Display leave balances | - By leave type<br>- Used vs remaining | ✅ |
+| T-9.2.2 | Implement balance validation | - Prevent over-request<br>- Warning for low balance | ✅ |
+| T-9.2.3 | Add accrual tracking | - Show accrual schedule<br>- Projected balance | Partial (Schema ready) |
 
-#### 9.3 Availability Requests
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-9.3.1 | Create availability request form | - Date/time selection<br>- Recurring option |
-| T-9.3.2 | Build availability calendar | - Visual availability display<br>- Edit/delete options |
-| T-9.3.3 | Implement request cancellation | - Cancel pending requests<br>- Reason for cancellation |
+#### 9.3 Availability Requests (Deferred)
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-9.3.1 | Create availability request form | - Date/time selection<br>- Recurring option | Deferred |
+| T-9.3.2 | Build availability calendar | - Visual availability display<br>- Edit/delete options | Deferred |
+| T-9.3.3 | Implement request cancellation | - Cancel pending requests<br>- Reason for cancellation | ✅ (For Leave) |
 
 #### 9.4 Approval Status Tracking
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-9.4.1 | Create approval flow visualization | - Employee -> Client -> Admin<br>- Current status highlight |
-| T-9.4.2 | Add status notifications | - Approval/rejection alerts<br>- In-app and email |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-9.4.1 | Create approval flow visualization | - Employee -> Client -> Admin<br>- Current status highlight | ✅ |
+| T-9.4.2 | Add status notifications | - Approval/rejection alerts<br>- In-app and email | Deferred |
 
 #### 9.5 Backend API Development
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-9.5.1 | Leave request endpoints | - CRUD operations<br>- Validation logic |
-| T-9.5.2 | Balance calculation service | - Accrual logic<br>- Usage tracking |
-| T-9.5.3 | Availability endpoints | - Request submission<br>- Calendar data |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-9.5.1 | Leave request endpoints | - CRUD operations<br>- Validation logic | ✅ |
+| T-9.5.2 | Balance calculation service | - Accrual logic<br>- Usage tracking | ✅ |
+| T-9.5.3 | Availability endpoints | - Request submission<br>- Calendar data | Deferred |
+
+#### 9.6 Additional Features Completed
+| Feature | Description |
+|---------|-------------|
+| Leave Balance Model | Database schema with LeaveBalance and LeaveBalanceAdjustment tables |
+| Policy-Based Leave Options | Leave types filtered based on client policy settings |
+| Paid Leave Entitlement Types | Support for NONE, FIXED, ACCRUED, MILESTONE entitlement types |
+| Short Notice Detection | Automatic flagging for requests < 2 weeks in advance |
+| Balance Tracking | Pending requests tracked separately from used balance |
+| Carryover Support | Schema supports leave balance carryover between years |
+| Detail Modal | View leave request details with approval flow visualization |
 
 ### Deliverables
-- [ ] Leave request form and history
-- [ ] Balance display and tracking
-- [ ] Availability request system
-- [ ] Approval status visualization
-- [ ] Policy-enforced validation
-- [ ] API endpoints
+- [x] Leave request form and history
+- [x] Balance display and tracking
+- [ ] Availability request system (Deferred to future sprint)
+- [x] Approval status visualization
+- [x] Policy-enforced validation
+- [x] API endpoints for leave system
 
 ---
 
-## Sprint 10: Admin Portal - Time Adjustments & Audit Trail
+## Sprint 10: Admin Portal - Time Adjustments & Audit Trail ✅
 
 **Duration:** 2 weeks
-**Status:** Pending
+**Status:** COMPLETE
 
 ### Objectives
 - Enable admin time record adjustments
@@ -147,40 +171,51 @@ This phase introduces approval workflows and payroll validation. Building on the
 ### Tasks
 
 #### 10.1 Time Record Adjustments
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-10.1.1 | Create adjustment interface | - Search employee records<br>- Date range filter |
-| T-10.1.2 | Build edit form | - Modify start/end times<br>- Add/remove hours<br>- Split sessions |
-| T-10.1.3 | Implement mandatory notes | - Required field validation<br>- Character minimum |
-| T-10.1.4 | Add original value preservation | - Show before/after<br>- No data loss |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-10.1.1 | Create adjustment interface | - Search employee records<br>- Date range filter | ✅ |
+| T-10.1.2 | Build edit form | - Modify start/end times<br>- Add/remove hours<br>- Split sessions | ✅ |
+| T-10.1.3 | Implement mandatory notes | - Required field validation<br>- Character minimum (10 chars) | ✅ |
+| T-10.1.4 | Add original value preservation | - Show before/after<br>- No data loss | ✅ |
 
 #### 10.2 Audit Trail System
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-10.2.1 | Create audit log table | - All changes recorded<br>- User, timestamp, action |
-| T-10.2.2 | Build audit log viewer | - Filterable by user/date/type<br>- Export functionality |
-| T-10.2.3 | Add change comparison view | - Side-by-side diff<br>- Highlight changes |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-10.2.1 | Create audit log table | - All changes recorded<br>- User, timestamp, action | ✅ |
+| T-10.2.2 | Build audit log viewer | - Filterable by user/date/type<br>- Export functionality (CSV) | ✅ |
+| T-10.2.3 | Add change comparison view | - Side-by-side diff<br>- Highlight changes | ✅ |
 
 #### 10.3 Client Re-approval Workflow
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-10.3.1 | Implement re-approval trigger | - Auto-flag adjusted records<br>- Notify client |
-| T-10.3.2 | Block payroll until approved | - Status check before processing<br>- Warning indicators |
-| T-10.3.3 | Add escalation mechanism | - Reminder schedule<br>- Admin override option |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-10.3.1 | Implement re-approval trigger | - Auto-flag adjusted records<br>- Notify client | ✅ |
+| T-10.3.2 | Block payroll until approved | - Status check before processing<br>- Warning indicators | ✅ |
+| T-10.3.3 | Add escalation mechanism | - Reminder schedule<br>- Admin override option | Deferred |
 
 #### 10.4 Backend API Development
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-10.4.1 | Adjustment endpoints | - Create/update adjustments<br>- History retrieval |
-| T-10.4.2 | Audit log service | - Automatic logging<br>- Query endpoints |
-| T-10.4.3 | Re-approval workflow endpoints | - Trigger re-approval<br>- Check approval status |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-10.4.1 | Adjustment endpoints | - Create/update adjustments<br>- History retrieval | ✅ |
+| T-10.4.2 | Audit log service | - Automatic logging<br>- Query endpoints | ✅ |
+| T-10.4.3 | Re-approval workflow endpoints | - Trigger re-approval<br>- Check approval status | ✅ |
+
+#### 10.5 Additional Features Completed
+| Feature | Description |
+|---------|-------------|
+| TimeAdjustment Model | Database schema tracking all adjustments with before/after values |
+| AuditLog Enhanced Model | Uses AuditAction enum (CREATE, UPDATE, DELETE, APPROVE, REJECT, etc.) |
+| Adjustment History Modal | View complete history of adjustments for any time record |
+| Stats Dashboard | Audit log stats showing counts by action type and entity |
+| CSV Export | Export audit logs to CSV with all relevant fields |
+| Re-approval Workflow | Adjusted approved records automatically flagged for client re-approval |
+| Pending Re-approvals Page | Admin view of all records awaiting client re-approval |
 
 ### Deliverables
-- [ ] Time adjustment interface
-- [ ] Comprehensive audit trail
-- [ ] Client re-approval workflow
-- [ ] Adjustment reports
-- [ ] API endpoints
+- [x] Time adjustment interface
+- [x] Comprehensive audit trail
+- [x] Client re-approval workflow
+- [x] Adjustment reports
+- [x] API endpoints
 
 ---
 
@@ -345,15 +380,27 @@ This phase introduces approval workflows and payroll validation. Building on the
 
 | Sprint | Focus Area | Duration | Key Deliverables | Status |
 |--------|-----------|----------|------------------|--------|
-| Sprint 8 | Client Portal - Time Approvals | 2 weeks | Approval UI, Overtime, Notifications | Pending |
-| Sprint 9 | Employee Portal - Leave & Availability | 2 weeks | Leave Requests, Balance Tracking | Pending |
-| Sprint 10 | Admin Portal - Time Adjustments | 2 weeks | Adjustments, Audit Trail, Re-approval | Pending |
+| Sprint 8 | Client Portal - Time Approvals | 2 weeks | Approval UI, Overtime, Session Logs | ✅ Complete |
+| Sprint 9 | Employee Portal - Leave & Availability | 2 weeks | Leave Requests, Balance Tracking, Policy Enforcement | ✅ Complete |
+| Sprint 10 | Admin Portal - Time Adjustments | 2 weeks | Adjustments, Audit Trail, Re-approval | ✅ Complete |
 | Sprint 11 | Admin Portal - Leave Policy Management | 2 weeks | Policy Config, Accruals, Admin Approval | Pending |
 | Sprint 12 | Payroll Readiness & Controls | 2 weeks | Dashboard, Cutoffs, Reports | Pending |
 | Sprint 13 | Integration & Testing | 2 weeks | Testing, Security, Documentation | Pending |
 
 **Total Phase 2 Duration: 12 weeks**
-**Current Progress: 0/6 sprints complete**
+**Current Progress: 3/6 sprints complete**
+
+### Sprint 9 Notes
+- Availability requests deferred to future sprint (leave system prioritized)
+- In-app/email notifications deferred (aligned with Sprint 8 notification deferral)
+- Automated accrual calculation ready in schema, requires scheduled job implementation
+
+### Sprint 10 Notes
+- Escalation mechanism (reminders, admin override) deferred to future sprint
+- TimeAdjustment model tracks all field changes with before/after values
+- AuditLog enhanced with AuditAction enum for better categorization
+- Client re-approval workflow automatically triggers when approved records are adjusted
+- CSV export available for audit logs with comprehensive filtering
 
 ---
 

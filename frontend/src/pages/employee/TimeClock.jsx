@@ -14,9 +14,12 @@ import {
   Sun,
   Sunrise,
   Moon,
+  Building2,
+  StickyNote,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
+import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -125,6 +128,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockIn();
+      playClockInSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to clock in');
@@ -138,6 +142,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.clockOut(clockOutNotes || null);
+      playClockOutSound();
       setShowClockOutModal(false);
       setClockOutNotes('');
       await fetchData();
@@ -153,6 +158,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.startBreak();
+      playBreakStartSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to start break');
@@ -166,6 +172,7 @@ const TimeClock = () => {
     try {
       setActionLoading(true);
       await workSessionService.endBreak();
+      playBreakEndSound();
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to end break');
@@ -523,50 +530,85 @@ const TimeClock = () => {
                 <p className="text-sm">Your work sessions will appear here</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {sessionHistory.map((session) => (
-                  <div
-                    key={session.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="p-2 rounded-lg bg-white">
-                        <Calendar className="w-5 h-5 text-gray-400" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          {new Date(session.startTime).toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {new Date(session.startTime).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            hour12: true,
-                          })}
-                          {session.endTime && (
-                            <> - {new Date(session.endTime).toLocaleTimeString('en-US', {
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Time</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+                      <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Break</th>
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {sessionHistory.map((session) => (
+                      <tr key={session.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-gray-900">
+                            {new Date(session.startTime).toLocaleDateString('en-US', {
+                              weekday: 'short',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="text-sm text-gray-600">
+                            {new Date(session.startTime).toLocaleTimeString('en-US', {
                               hour: '2-digit',
                               minute: '2-digit',
                               hour12: true,
-                            })}</>
+                            })}
+                            {session.endTime && (
+                              <span className="text-gray-400"> - </span>
+                            )}
+                            {session.endTime && new Date(session.endTime).toLocaleTimeString('en-US', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              hour12: true,
+                            })}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          {session.client ? (
+                            <div className="flex items-center gap-1.5">
+                              <Building2 className="w-4 h-4 text-primary" />
+                              <span className="text-sm text-gray-700">{session.client.companyName}</span>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
                           )}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        {formatDuration(session.workMinutes)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {session.totalBreakMinutes > 0 && `${session.totalBreakMinutes} min break`}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <span className="font-semibold text-green-600">
+                            {formatDuration(session.workMinutes)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          {session.totalBreakMinutes > 0 ? (
+                            <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
+                              <Coffee className="w-3.5 h-3.5" />
+                              {session.totalBreakMinutes}m
+                            </span>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          {session.notes ? (
+                            <p className="text-sm text-gray-600 max-w-xs truncate" title={session.notes}>
+                              {session.notes}
+                            </p>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>

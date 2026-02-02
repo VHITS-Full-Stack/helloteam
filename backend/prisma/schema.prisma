@@ -49,6 +49,13 @@ enum LeaveType {
   UNPAID
 }
 
+enum PaidLeaveEntitlementType {
+  NONE          // No paid leave
+  FIXED         // Fixed annual allocation
+  ACCRUED       // Accrued over time
+  MILESTONE     // Milestone-based eligibility
+}
+
 enum LeaveStatus {
   PENDING
   APPROVED_BY_CLIENT
@@ -126,6 +133,7 @@ model User {
   admin             Admin?
   sessions          Session[]
   auditLogs         AuditLog[]
+  adjustmentsMade   TimeAdjustment[] @relation("AdjustmentsMade")
   dynamicRole       Role?       @relation(fields: [roleId], references: [id])
 
   @@map("users")
@@ -224,9 +232,17 @@ model ClientEmployee {
 model ClientPolicy {
   id                      String    @id @default(uuid())
   clientId                String    @unique
+
+  // Leave policy settings
   allowPaidLeave          Boolean   @default(false)
-  paidLeaveType           String?   // 'fixed', 'accrued', 'milestone'
+  paidLeaveEntitlementType PaidLeaveEntitlementType @default(NONE)
   annualPaidLeaveDays     Int       @default(0)
+  accrualRatePerMonth     Decimal?  @db.Decimal(5, 2)  // For ACCRUED type
+  milestoneYearsRequired  Int?      // For MILESTONE type
+  milestoneBonusDays      Int?      // Extra days after milestone
+  maxCarryoverDays        Int       @default(0)       // Max days to carry to next year
+  carryoverExpiryMonths   Int?      // Months until carryover expires
+
   allowUnpaidLeave        Boolean   @default(true)
   requireTwoWeeksNotice   Boolean   @default(true)
   allowOvertime           Boolean   @default(true)
@@ -285,13 +301,32 @@ model WorkSession {
   status        WorkSessionStatus @default(ACTIVE)
   totalBreakMinutes Int           @default(0)
   notes         String?
+  ipAddress     String?           // IP address at clock in
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
   employee      Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   breaks        Break[]
+  logs          SessionLog[]
 
   @@map("work_sessions")
+}
+
+model SessionLog {
+  id              String      @id @default(uuid())
+  workSessionId   String
+  userId          String?     // Who performed the action
+  userName        String?     // Name of user for display
+  action          String      // CLOCK_IN, CLOCK_OUT, BREAK_START, BREAK_END, NOTES_UPDATED, IP_CHANGED, etc.
+  message         String      // Human-readable log message
+  ipAddress       String?
+  metadata        Json?       // Additional data
+  createdAt       DateTime    @default(now())
+
+  workSession     WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
+
+  @@index([workSessionId, createdAt])
+  @@map("session_logs")
 }
 
 model Break {
@@ -331,9 +366,88 @@ model TimeRecord {
 
   employee        Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client          Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  adjustments     TimeAdjustment[]
 
   @@unique([employeeId, clientId, date])
   @@map("time_records")
+}
+
+// Time Adjustment History (detailed tracking)
+model TimeAdjustment {
+  id                String    @id @default(uuid())
+  timeRecordId      String
+  adjustedBy        String
+  adjustedAt        DateTime  @default(now())
+  reason            String    // Mandatory justification
+
+  // What was changed
+  fieldChanged      String    // e.g., "totalMinutes", "actualStart", "actualEnd"
+  oldValue          String?   // Original value (as string for flexibility)
+  newValue          String    // New value
+
+  // For time changes specifically
+  oldTotalMinutes   Int?
+  newTotalMinutes   Int?
+  minutesDifference Int?      // Positive = added, Negative = removed
+
+  // Re-approval tracking
+  requiresReapproval  Boolean   @default(true)
+  clientReapprovedBy  String?
+  clientReapprovedAt  DateTime?
+
+  createdAt         DateTime  @default(now())
+
+  timeRecord        TimeRecord @relation(fields: [timeRecordId], references: [id], onDelete: Cascade)
+  adjuster          User       @relation("AdjustmentsMade", fields: [adjustedBy], references: [id])
+
+  @@index([timeRecordId])
+  @@index([adjustedBy])
+  @@index([adjustedAt])
+  @@map("time_adjustments")
+}
+
+// ============================================
+// AUDIT LOG (General System Audit Trail)
+// ============================================
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  LOGIN
+  LOGOUT
+  EXPORT
+  ADJUSTMENT
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  userId      String
+  action      AuditAction
+  entityType  String      // e.g., "TimeRecord", "LeaveRequest", "Employee"
+  entityId    String?     // ID of the affected entity
+  description String      // Human-readable description
+
+  // Change tracking
+  oldValues   Json?       // Previous state (for updates)
+  newValues   Json?       // New state (for creates/updates)
+
+  // Context
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?       // Additional context-specific data
+
+  createdAt   DateTime    @default(now())
+
+  user        User        @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
 }
 
 // ============================================
@@ -358,8 +472,52 @@ model Schedule {
 }
 
 // ============================================
-// LEAVE REQUESTS
+// LEAVE BALANCES & REQUESTS
 // ============================================
+
+model LeaveBalance {
+  id                  String    @id @default(uuid())
+  employeeId          String
+  clientId            String
+  year                Int       // Year the balance applies to
+
+  // Paid leave tracking
+  paidLeaveEntitled   Decimal   @default(0) @db.Decimal(5, 2)  // Total entitled days
+  paidLeaveUsed       Decimal   @default(0) @db.Decimal(5, 2)  // Days used
+  paidLeaveCarryover  Decimal   @default(0) @db.Decimal(5, 2)  // Carried from previous year
+  paidLeavePending    Decimal   @default(0) @db.Decimal(5, 2)  // Pending approval
+
+  // Unpaid leave tracking
+  unpaidLeaveTaken    Decimal   @default(0) @db.Decimal(5, 2)  // Unpaid days taken
+  unpaidLeavePending  Decimal   @default(0) @db.Decimal(5, 2)  // Pending approval
+
+  // Accrual tracking (for ACCRUED type)
+  lastAccrualDate     DateTime?
+  accruedToDate       Decimal   @default(0) @db.Decimal(5, 2)  // Total accrued so far
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@unique([employeeId, clientId, year])
+  @@index([employeeId, year])
+  @@map("leave_balances")
+}
+
+model LeaveBalanceAdjustment {
+  id            String    @id @default(uuid())
+  employeeId    String
+  clientId      String
+  year          Int
+  adjustmentType String   // 'ADD', 'DEDUCT', 'CARRYOVER', 'ACCRUAL', 'RESET'
+  days          Decimal   @db.Decimal(5, 2)
+  reason        String
+  adjustedBy    String    // Admin who made the adjustment
+  adjustedByName String?
+  createdAt     DateTime  @default(now())
+
+  @@index([employeeId, year])
+  @@map("leave_balance_adjustments")
+}
 
 model LeaveRequest {
   id              String        @id @default(uuid())
@@ -444,41 +602,104 @@ model WellbeingCheckin {
 }
 
 // ============================================
-// AUDIT LOGS
-// ============================================
-
-model AuditLog {
-  id          String    @id @default(uuid())
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String?
-  oldValues   Json?
-  newValues   Json?
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime  @default(now())
-
-  user        User?     @relation(fields: [userId], references: [id])
-
-  @@map("audit_logs")
-}
-
-// ============================================
 // NOTIFICATIONS
 // ============================================
 
+enum NotificationType {
+  APPROVAL_REQUIRED
+  APPROVAL_RECEIVED
+  TIME_APPROVED
+  TIME_REJECTED
+  LEAVE_REQUEST
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  OVERTIME_REQUEST
+  OVERTIME_APPROVED
+  OVERTIME_REJECTED
+  PAYROLL_REMINDER
+  SCHEDULE_CHANGE
+  SYSTEM_ALERT
+}
+
 model Notification {
-  id          String    @id @default(uuid())
+  id          String           @id @default(uuid())
   userId      String
   title       String
   message     String
-  type        String
-  isRead      Boolean   @default(false)
+  type        NotificationType
+  data        Json?            // Additional data (e.g., recordId, employeeId)
+  actionUrl   String?          // URL to navigate to when clicked
+  isRead      Boolean          @default(false)
   readAt      DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
 
+  @@index([userId, isRead])
+  @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ============================================
+// OVERTIME REQUESTS
+// ============================================
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model OvertimeRequest {
+  id              String          @id @default(uuid())
+  employeeId      String
+  clientId        String
+  date            DateTime        @db.Date
+  requestedMinutes Int
+  reason          String
+  status          OvertimeStatus  @default(PENDING)
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([clientId, status])
+  @@index([employeeId, date])
+  @@map("overtime_requests")
+}
+
+// ============================================
+// PAYROLL PERIODS
+// ============================================
+
+enum PayrollStatus {
+  OPEN
+  PENDING_APPROVAL
+  LOCKED
+  FINALIZED
+}
+
+model PayrollPeriod {
+  id              String          @id @default(uuid())
+  clientId        String
+  periodStart     DateTime        @db.Date
+  periodEnd       DateTime        @db.Date
+  cutoffDate      DateTime
+  status          PayrollStatus   @default(OPEN)
+  totalHours      Decimal?        @db.Decimal(10, 2)
+  totalOvertimeHours Decimal?     @db.Decimal(10, 2)
+  approvedHours   Decimal?        @db.Decimal(10, 2)
+  pendingHours    Decimal?        @db.Decimal(10, 2)
+  finalizedAt     DateTime?
+  finalizedBy     String?
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([clientId, periodStart, periodEnd])
+  @@index([clientId, status])
+  @@map("payroll_periods")
 }
 
 // ============================================
