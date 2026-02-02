@@ -11,3 +11,5 @@ export { default as AdminProfile } from './Profile';
 export { default as TimeAdjustments } from './TimeAdjustments';
 export { default as AuditLog } from './AuditLog';
 export { default as LeavePolicy } from './LeavePolicy';
+export { default as ScheduleManagement } from './ScheduleManagement';
+export { default as EmployeeDetail } from './EmployeeDetail';

@@ -3,6 +3,7 @@ import {
   LayoutDashboard,
   Clock,
   Calendar,
+  CalendarDays,
   FileText,
   MessageSquare,
   User,
@@ -81,6 +82,12 @@ const Sidebar = ({
       icon: Clock,
       label: 'Time Records',
       permission: PERMISSIONS.TIME_RECORDS.VIEW
+    },
+    {
+      to: '/admin/schedules',
+      icon: CalendarDays,
+      label: 'Schedules',
+      permission: PERMISSIONS.SCHEDULES.VIEW
     },
     {
       to: '/admin/approvals',
