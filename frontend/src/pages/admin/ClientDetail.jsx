@@ -16,7 +16,8 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
-  Settings
+  Settings,
+  DollarSign
 } from 'lucide-react';
 import {
   Card,
@@ -43,6 +44,12 @@ const ClientDetail = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showRateModal, setShowRateModal] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [rateFormData, setRateFormData] = useState({
+    hourlyRate: '',
+    overtimeRate: '',
+  });
 
   const [formData, setFormData] = useState({
     email: '',
@@ -59,6 +66,9 @@ const ClientDetail = () => {
     requireTwoWeeksNotice: true,
     allowOvertime: true,
     overtimeRequiresApproval: true,
+    defaultHourlyRate: 0,
+    defaultOvertimeRate: 0,
+    currency: 'USD',
   });
 
   // Fetch client details
@@ -84,6 +94,9 @@ const ClientDetail = () => {
           requireTwoWeeksNotice: response.data.clientPolicies?.requireTwoWeeksNotice ?? true,
           allowOvertime: response.data.clientPolicies?.allowOvertime ?? true,
           overtimeRequiresApproval: response.data.clientPolicies?.overtimeRequiresApproval ?? true,
+          defaultHourlyRate: response.data.clientPolicies?.defaultHourlyRate || 0,
+          defaultOvertimeRate: response.data.clientPolicies?.defaultOvertimeRate || 0,
+          currency: response.data.clientPolicies?.currency || 'USD',
         });
       }
     } catch (err) {
@@ -144,6 +157,9 @@ const ClientDetail = () => {
         requireTwoWeeksNotice: formData.requireTwoWeeksNotice,
         allowOvertime: formData.allowOvertime,
         overtimeRequiresApproval: formData.overtimeRequiresApproval,
+        defaultHourlyRate: parseFloat(formData.defaultHourlyRate) || 0,
+        defaultOvertimeRate: parseFloat(formData.defaultOvertimeRate) || 0,
+        currency: formData.currency,
       });
 
       if (response.success) {
@@ -211,6 +227,56 @@ const ClientDetail = () => {
       }
     } catch (err) {
       setError(err.error || err.message || 'Failed to remove employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOpenRateModal = async (employee) => {
+    setSelectedEmployee(employee);
+    setError('');
+    try {
+      const response = await clientService.getEmployeeRate(id, employee.id);
+      if (response.success) {
+        setRateFormData({
+          hourlyRate: response.data.hourlyRate !== null ? response.data.hourlyRate : '',
+          overtimeRate: response.data.overtimeRate !== null ? response.data.overtimeRate : '',
+          defaultHourlyRate: response.data.defaultHourlyRate,
+          defaultOvertimeRate: response.data.defaultOvertimeRate,
+        });
+      }
+    } catch (err) {
+      setRateFormData({
+        hourlyRate: '',
+        overtimeRate: '',
+        defaultHourlyRate: Number(client.clientPolicies?.defaultHourlyRate || 0),
+        defaultOvertimeRate: Number(client.clientPolicies?.defaultOvertimeRate || 0),
+      });
+    }
+    setShowRateModal(true);
+  };
+
+  const handleUpdateEmployeeRate = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const response = await clientService.updateEmployeeRate(id, selectedEmployee.id, {
+        hourlyRate: rateFormData.hourlyRate,
+        overtimeRate: rateFormData.overtimeRate,
+      });
+
+      if (response.success) {
+        setShowRateModal(false);
+        setSelectedEmployee(null);
+        setRateFormData({ hourlyRate: '', overtimeRate: '' });
+        setError('');
+      } else {
+        setError(response.error || 'Failed to update employee rate');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to update employee rate');
     } finally {
       setSubmitting(false);
     }
@@ -412,6 +478,59 @@ const ClientDetail = () => {
               </div>
             </div>
           </Card>
+
+          {/* Billing Rates */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Billing Rates</h3>
+              <DollarSign className="w-5 h-5 text-gray-400" />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <DollarSign className="w-4 h-4 text-green-600" />
+                  <span className="text-sm text-gray-600">Default Hourly Rate</span>
+                </div>
+                <p className="text-2xl font-bold text-green-700">
+                  ${Number(client.clientPolicies?.defaultHourlyRate || 0).toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Per hour</p>
+              </div>
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="w-4 h-4 text-orange-600" />
+                  <span className="text-sm text-gray-600">Overtime Rate</span>
+                </div>
+                <p className="text-2xl font-bold text-orange-700">
+                  ${Number(client.clientPolicies?.defaultOvertimeRate || 0).toFixed(2)}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {Number(client.clientPolicies?.defaultOvertimeRate || 0) === 0
+                    ? 'Uses 1.5x hourly rate'
+                    : 'Per overtime hour'}
+                </p>
+              </div>
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm text-gray-600">Currency</span>
+                </div>
+                <p className="text-2xl font-bold text-blue-700">
+                  {client.clientPolicies?.currency || 'USD'}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">Billing currency</p>
+              </div>
+            </div>
+            {Number(client.clientPolicies?.defaultHourlyRate || 0) === 0 && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-600" />
+                  <p className="text-sm text-yellow-700">
+                    No billing rates configured. Click Edit to set up rates for payroll calculations.
+                  </p>
+                </div>
+              </div>
+            )}
+          </Card>
         </div>
 
         {/* Assigned Employees */}
@@ -445,6 +564,14 @@ const ClientDetail = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       {getStatusBadge(employee.user?.status)}
+                      <button
+                        onClick={() => handleOpenRateModal(employee)}
+                        className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors"
+                        disabled={submitting}
+                        title="Set custom rate"
+                      >
+                        <DollarSign className="w-4 h-4" />
+                      </button>
                       <button
                         onClick={() => handleRemoveEmployee(employee.id)}
                         className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
@@ -576,6 +703,51 @@ const ClientDetail = () => {
             </div>
           </div>
 
+          <div className="pt-4 border-t border-gray-100">
+            <h4 className="font-medium text-gray-900 mb-4">Billing Rates</h4>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={formData.defaultHourlyRate}
+                  onChange={(e) => setFormData({ ...formData, defaultHourlyRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  value={formData.defaultOvertimeRate}
+                  onChange={(e) => setFormData({ ...formData, defaultOvertimeRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <p className="text-xs text-gray-500 mt-1">Leave as 0 to use 1.5x hourly rate</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                <select
+                  value={formData.currency}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="CAD">CAD</option>
+                  <option value="AUD">AUD</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600">{error}</p>
@@ -675,6 +847,80 @@ const ClientDetail = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Employee Rate Modal */}
+      <Modal
+        isOpen={showRateModal}
+        onClose={() => { setShowRateModal(false); setSelectedEmployee(null); setError(''); }}
+        title="Set Employee Rate"
+        size="sm"
+      >
+        {selectedEmployee && (
+          <form onSubmit={handleUpdateEmployeeRate} className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Avatar src={selectedEmployee.profilePhoto} name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} size="sm" />
+              <div>
+                <p className="font-medium text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
+                <p className="text-sm text-gray-500">{selectedEmployee.user?.email}</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
+              <p className="text-sm text-blue-600">
+                Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
+                Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-500">
+              Set custom rates for this employee. Leave blank to use the client default rates.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Use default"
+                  value={rateFormData.hourlyRate}
+                  onChange={(e) => setRateFormData({ ...rateFormData, hourlyRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Use default"
+                  value={rateFormData.overtimeRate}
+                  onChange={(e) => setRateFormData({ ...rateFormData, overtimeRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="ghost" type="button" onClick={() => { setShowRateModal(false); setSelectedEmployee(null); setError(''); }}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" loading={submitting}>
+                Save Rate
+              </Button>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

@@ -96,6 +96,26 @@ const clientService = {
       throw { error: error.message || 'Failed to fetch client statistics' };
     }
   },
+
+  // Get employee rate for a client
+  getEmployeeRate: async (clientId, employeeId) => {
+    try {
+      const response = await api.get(`/clients/${clientId}/employees/${employeeId}/rate`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to fetch employee rate' };
+    }
+  },
+
+  // Update employee rate for a client
+  updateEmployeeRate: async (clientId, employeeId, rateData) => {
+    try {
+      const response = await api.put(`/clients/${clientId}/employees/${employeeId}/rate`, rateData);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to update employee rate' };
+    }
+  },
 };
 
 export default clientService;

@@ -8,6 +8,8 @@ import {
   getClientEmployees,
   assignEmployees,
   removeEmployee,
+  updateEmployeeRate,
+  getEmployeeRate,
   getClientStats,
 } from '../controllers/client.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
@@ -32,5 +34,9 @@ router.delete('/:id', requirePermission(PERMISSIONS.CLIENTS.DELETE), deleteClien
 router.get('/:id/employees', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getClientEmployees);
 router.post('/:id/employees', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), assignEmployees);
 router.delete('/:id/employees/:employeeId', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), removeEmployee);
+
+// Employee rate management
+router.get('/:id/employees/:employeeId/rate', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getEmployeeRate);
+router.put('/:id/employees/:employeeId/rate', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), updateEmployeeRate);
 
 export default router;

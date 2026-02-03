@@ -358,6 +358,10 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       requireTwoWeeksNotice,
       allowOvertime,
       overtimeRequiresApproval,
+      // Rate fields
+      defaultHourlyRate,
+      defaultOvertimeRate,
+      currency,
     } = req.body;
 
     // Check if client exists
@@ -426,6 +430,9 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(requireTwoWeeksNotice !== undefined && { requireTwoWeeksNotice }),
             ...(allowOvertime !== undefined && { allowOvertime }),
             ...(overtimeRequiresApproval !== undefined && { overtimeRequiresApproval }),
+            ...(defaultHourlyRate !== undefined && { defaultHourlyRate: parseFloat(defaultHourlyRate) || 0 }),
+            ...(defaultOvertimeRate !== undefined && { defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0 }),
+            ...(currency !== undefined && { currency }),
           },
         });
       } else {
@@ -439,6 +446,9 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
             allowOvertime: allowOvertime ?? true,
             overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+            defaultHourlyRate: parseFloat(defaultHourlyRate) || 0,
+            defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0,
+            currency: currency ?? 'USD',
           },
         });
       }
@@ -662,6 +672,123 @@ export const removeEmployee = async (req: AuthenticatedRequest, res: Response): 
     res.status(500).json({
       success: false,
       error: 'Failed to remove employee',
+    });
+  }
+};
+
+// Update employee rate for a client
+export const updateEmployeeRate = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string; // client ID
+    const employeeId = req.params.employeeId as string;
+    const { hourlyRate, overtimeRate } = req.body;
+
+    // Find the client-employee assignment
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: {
+        clientId: id,
+        employeeId,
+        isActive: true,
+      },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({
+        success: false,
+        error: 'Employee assignment not found',
+      });
+      return;
+    }
+
+    // Update the rate
+    await prisma.clientEmployee.update({
+      where: { id: assignment.id },
+      data: {
+        hourlyRate: hourlyRate !== undefined && hourlyRate !== '' ? parseFloat(hourlyRate) : null,
+        overtimeRate: overtimeRate !== undefined && overtimeRate !== '' ? parseFloat(overtimeRate) : null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee rate updated successfully',
+    });
+  } catch (error) {
+    console.error('Update employee rate error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update employee rate',
+    });
+  }
+};
+
+// Get employee rate for a client
+export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string; // client ID
+    const employeeId = req.params.employeeId as string;
+
+    // Find the client-employee assignment
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: {
+        clientId: id,
+        employeeId,
+        isActive: true,
+      },
+      include: {
+        employee: {
+          include: {
+            user: {
+              select: { email: true },
+            },
+          },
+        },
+        client: {
+          include: {
+            clientPolicies: true,
+          },
+        },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({
+        success: false,
+        error: 'Employee assignment not found',
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        employeeId: assignment.employeeId,
+        employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`,
+        employeeEmail: assignment.employee.user?.email,
+        hourlyRate: assignment.hourlyRate ? Number(assignment.hourlyRate) : null,
+        overtimeRate: assignment.overtimeRate ? Number(assignment.overtimeRate) : null,
+        defaultHourlyRate: assignment.client.clientPolicies?.defaultHourlyRate
+          ? Number(assignment.client.clientPolicies.defaultHourlyRate)
+          : 0,
+        defaultOvertimeRate: assignment.client.clientPolicies?.defaultOvertimeRate
+          ? Number(assignment.client.clientPolicies.defaultOvertimeRate)
+          : 0,
+      },
+    });
+  } catch (error) {
+    console.error('Get employee rate error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get employee rate',
     });
   }
 };

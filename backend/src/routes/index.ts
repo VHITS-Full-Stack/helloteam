@@ -46,7 +46,7 @@ router.use('/upload', uploadRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/overtime-requests', overtimeRoutes);
-router.use('/payroll-periods', payrollRoutes);
+router.use('/payroll', payrollRoutes);
 router.use('/leave', leaveRoutes);
 router.use('/time-adjustments', timeAdjustmentRoutes);
 router.use('/leave-policy', leavePolicyRoutes);
