@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   DollarSign,
   Download,
@@ -7,8 +7,19 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
+  AlertTriangle,
   FileText,
-  Send
+  Send,
+  Lock,
+  Unlock,
+  Building2,
+  Filter,
+  RefreshCw,
+  Loader2,
+  ChevronRight,
+  TrendingUp,
+  FileDown,
+  Eye,
 } from 'lucide-react';
 import {
   Card,
@@ -23,80 +34,159 @@ import {
   TableHeader,
   TableCell
 } from '../../components/common';
+import payrollService from '../../services/payroll.service';
 
 const Payroll = () => {
-  const [selectedPeriod, setSelectedPeriod] = useState('Dec 1-15, 2025');
-  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
-  const payrollSummary = {
-    totalEmployees: 45,
-    totalHours: 3520,
-    regularHours: 3360,
-    overtimeHours: 160,
-    grossPay: 172480.00,
-    status: 'pending',
+  // Period selection
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+  const [selectedClient, setSelectedClient] = useState('');
+
+  // Dashboard data
+  const [dashboardData, setDashboardData] = useState(null);
+  const [employeeSummary, setEmployeeSummary] = useState(null);
+  const [unapprovedRecords, setUnapprovedRecords] = useState([]);
+  const [disputedRecords, setDisputedRecords] = useState([]);
+  const [periods, setPeriods] = useState([]);
+
+  // Modals
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [showLockModal, setShowLockModal] = useState(false);
+  const [showUnlockModal, setShowUnlockModal] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState(null);
+  const [unlockReason, setUnlockReason] = useState('');
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Set default period to current biweekly
+  useEffect(() => {
+    const today = new Date();
+    const dayOfMonth = today.getDate();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+
+    if (dayOfMonth <= 15) {
+      setPeriodStart(new Date(year, month, 1).toISOString().split('T')[0]);
+      setPeriodEnd(new Date(year, month, 15).toISOString().split('T')[0]);
+    } else {
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      setPeriodStart(new Date(year, month, 16).toISOString().split('T')[0]);
+      setPeriodEnd(new Date(year, month, lastDay).toISOString().split('T')[0]);
+    }
+  }, []);
+
+  // Fetch all data
+  const fetchData = useCallback(async () => {
+    if (!periodStart || !periodEnd) return;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const [dashboardRes, employeeSummaryRes, periodsRes] = await Promise.all([
+        payrollService.getDashboard(periodStart, periodEnd),
+        payrollService.getEmployeeSummary(periodStart, periodEnd, selectedClient || undefined),
+        payrollService.getPeriods({ limit: 10 }),
+      ]);
+
+      if (dashboardRes.success) {
+        setDashboardData(dashboardRes.data);
+      }
+
+      if (employeeSummaryRes.success) {
+        setEmployeeSummary(employeeSummaryRes.data);
+      }
+
+      if (periodsRes.success) {
+        setPeriods(periodsRes.data?.periods || []);
+      }
+    } catch (err) {
+      console.error('Error fetching payroll data:', err);
+      setError(err.message || 'Failed to load payroll data');
+    } finally {
+      setLoading(false);
+    }
+  }, [periodStart, periodEnd, selectedClient]);
+
+  // Fetch unapproved records when tab changes
+  const fetchUnapproved = useCallback(async () => {
+    if (!periodStart || !periodEnd) return;
+
+    try {
+      const response = await payrollService.getUnapprovedRecords({
+        periodStart,
+        periodEnd,
+        clientId: selectedClient || undefined,
+      });
+
+      if (response.success) {
+        setUnapprovedRecords(response.data?.records || []);
+      }
+    } catch (err) {
+      console.error('Error fetching unapproved records:', err);
+    }
+  }, [periodStart, periodEnd, selectedClient]);
+
+  // Fetch disputed records
+  const fetchDisputed = useCallback(async () => {
+    try {
+      const response = await payrollService.getDisputedRecords({
+        clientId: selectedClient || undefined,
+      });
+
+      if (response.success) {
+        setDisputedRecords(response.data?.records || []);
+      }
+    } catch (err) {
+      console.error('Error fetching disputed records:', err);
+    }
+  }, [selectedClient]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    if (activeTab === 'unapproved') {
+      fetchUnapproved();
+    } else if (activeTab === 'disputed') {
+      fetchDisputed();
+    }
+  }, [activeTab, fetchUnapproved, fetchDisputed]);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '-';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
   };
 
-  const employeePayroll = [
-    {
-      id: 1,
-      employee: 'John Doe',
-      client: 'ABC Corporation',
-      regularHours: 80,
-      overtimeHours: 4,
-      rate: 45.00,
-      grossPay: 3870.00,
-      status: 'ready',
-    },
-    {
-      id: 2,
-      employee: 'Jane Smith',
-      client: 'ABC Corporation',
-      regularHours: 80,
-      overtimeHours: 8,
-      rate: 50.00,
-      grossPay: 4600.00,
-      status: 'ready',
-    },
-    {
-      id: 3,
-      employee: 'Mike Johnson',
-      client: 'XYZ Industries',
-      regularHours: 64,
-      overtimeHours: 0,
-      rate: 42.00,
-      grossPay: 2688.00,
-      status: 'pending',
-      note: 'Leave hours pending approval',
-    },
-    {
-      id: 4,
-      employee: 'Sarah Williams',
-      client: 'Tech Solutions',
-      regularHours: 80,
-      overtimeHours: 0,
-      rate: 48.00,
-      grossPay: 3840.00,
-      status: 'ready',
-    },
-    {
-      id: 5,
-      employee: 'David Brown',
-      client: 'ABC Corporation',
-      regularHours: 80,
-      overtimeHours: 12,
-      rate: 52.00,
-      grossPay: 5096.00,
-      status: 'flagged',
-      note: 'Overtime exceeds limit',
-    },
-  ];
+  const formatPeriodLabel = (start, end) => {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const month = startDate.toLocaleDateString('en-US', { month: 'short' });
+    return `${month} ${startDate.getDate()}-${endDate.getDate()}, ${startDate.getFullYear()}`;
+  };
 
-  const payrollHistory = [
-    { period: 'Nov 16-30, 2025', employees: 45, gross: 168420.00, status: 'processed', paidOn: '2025-12-05' },
-    { period: 'Nov 1-15, 2025', employees: 44, gross: 165200.00, status: 'processed', paidOn: '2025-11-20' },
-    { period: 'Oct 16-31, 2025', employees: 43, gross: 162800.00, status: 'processed', paidOn: '2025-11-05' },
-  ];
+  const getReadinessBadge = (readiness) => {
+    switch (readiness) {
+      case 'ready':
+        return <Badge variant="success">Ready</Badge>;
+      case 'warning':
+        return <Badge variant="warning">Warning</Badge>;
+      case 'critical':
+        return <Badge variant="danger">Critical</Badge>;
+      default:
+        return <Badge variant="default">{readiness}</Badge>;
+    }
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -106,12 +196,125 @@ const Payroll = () => {
         return <Badge variant="warning">Pending</Badge>;
       case 'flagged':
         return <Badge variant="danger">Flagged</Badge>;
-      case 'processed':
-        return <Badge variant="primary">Processed</Badge>;
+      case 'OPEN':
+        return <Badge variant="default">Open</Badge>;
+      case 'LOCKED':
+        return <Badge variant="warning">Locked</Badge>;
+      case 'FINALIZED':
+        return <Badge variant="success">Finalized</Badge>;
+      case 'APPROVED':
+        return <Badge variant="success">Approved</Badge>;
+      case 'PENDING':
+        return <Badge variant="warning">Pending</Badge>;
+      case 'REJECTED':
+        return <Badge variant="danger">Rejected</Badge>;
       default:
         return <Badge variant="default">{status}</Badge>;
     }
   };
+
+  const handleExport = async (format) => {
+    try {
+      setActionLoading(true);
+      if (format === 'csv') {
+        await payrollService.downloadCsv(periodStart, periodEnd, selectedClient || undefined);
+      } else {
+        const response = await payrollService.exportData(periodStart, periodEnd, selectedClient || undefined, format);
+        if (response.success) {
+          // Download JSON as file
+          const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `payroll-${periodStart}-${periodEnd}.json`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        }
+      }
+      setShowExportModal(false);
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Failed to export data');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLockPeriod = async () => {
+    if (!selectedPeriod) return;
+
+    try {
+      setActionLoading(true);
+      const response = await payrollService.lockPeriod(selectedPeriod.id);
+      if (response.success) {
+        setShowLockModal(false);
+        setSelectedPeriod(null);
+        fetchData();
+      } else {
+        setError(response.error || 'Failed to lock period');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to lock period');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUnlockPeriod = async () => {
+    if (!selectedPeriod || !unlockReason.trim()) return;
+
+    try {
+      setActionLoading(true);
+      const response = await payrollService.unlockPeriod(selectedPeriod.id, unlockReason);
+      if (response.success) {
+        setShowUnlockModal(false);
+        setSelectedPeriod(null);
+        setUnlockReason('');
+        fetchData();
+      } else {
+        setError(response.error || 'Failed to unlock period');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to unlock period');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleFinalizePeriod = async () => {
+    if (!selectedPeriod) return;
+
+    try {
+      setActionLoading(true);
+      const response = await payrollService.finalizePeriod(selectedPeriod.id);
+      if (response.success) {
+        setShowProcessModal(false);
+        setSelectedPeriod(null);
+        fetchData();
+      } else {
+        setError(response.error || 'Failed to finalize period');
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to finalize period');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading && !dashboardData) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const summary = dashboardData?.summary || {};
+  const clients = dashboardData?.clients || [];
+  const employees = employeeSummary?.employees || [];
+  const totals = employeeSummary?.totals || {};
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -122,7 +325,10 @@ const Payroll = () => {
           <p className="text-gray-500">Process and manage employee payroll</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" icon={Download}>
+          <Button variant="ghost" icon={RefreshCw} onClick={fetchData} disabled={loading}>
+            Refresh
+          </Button>
+          <Button variant="outline" icon={Download} onClick={() => setShowExportModal(true)}>
             Export
           </Button>
           <Button variant="primary" icon={Send} onClick={() => setShowProcessModal(true)}>
@@ -131,6 +337,15 @@ const Payroll = () => {
         </div>
       </div>
 
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+          <AlertCircle className="w-5 h-5 flex-shrink-0" />
+          <span>{error}</span>
+          <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">&times;</button>
+        </div>
+      )}
+
       {/* Period Selector */}
       <Card className="bg-gradient-to-r from-primary-600 to-primary-800 text-white">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -138,39 +353,45 @@ const Payroll = () => {
             <p className="text-primary-200 text-sm">Payroll Period</p>
             <div className="flex items-center gap-3 mt-2">
               <Calendar className="w-5 h-5" />
-              <select
-                className="bg-white/10 border border-white/20 rounded-lg px-4 py-2 text-white font-medium"
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value)}
-              >
-                <option value="Dec 1-15, 2025">Dec 1-15, 2025</option>
-                <option value="Nov 16-30, 2025">Nov 16-30, 2025</option>
-                <option value="Nov 1-15, 2025">Nov 1-15, 2025</option>
-              </select>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white font-medium"
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                />
+                <span>to</span>
+                <input
+                  type="date"
+                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white font-medium"
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                />
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <div>
               <p className="text-primary-200 text-sm">Employees</p>
-              <p className="text-2xl font-bold">{payrollSummary.totalEmployees}</p>
+              <p className="text-2xl font-bold">{summary.totalEmployees || 0}</p>
             </div>
             <div>
               <p className="text-primary-200 text-sm">Total Hours</p>
-              <p className="text-2xl font-bold">{payrollSummary.totalHours}h</p>
+              <p className="text-2xl font-bold">{summary.totalHours || 0}h</p>
             </div>
             <div>
               <p className="text-primary-200 text-sm">Overtime</p>
-              <p className="text-2xl font-bold">{payrollSummary.overtimeHours}h</p>
+              <p className="text-2xl font-bold">{summary.overtimeHours || 0}h</p>
             </div>
             <div>
-              <p className="text-primary-200 text-sm">Gross Pay</p>
-              <p className="text-2xl font-bold">${payrollSummary.grossPay.toLocaleString()}</p>
+              <p className="text-primary-200 text-sm">Approved</p>
+              <p className="text-2xl font-bold">{summary.approvedHours || 0}h</p>
             </div>
           </div>
         </div>
       </Card>
 
-      {/* Status Cards */}
+      {/* Readiness Indicators */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card padding="sm">
           <div className="flex items-center gap-3">
@@ -178,23 +399,19 @@ const Payroll = () => {
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {employeePayroll.filter(e => e.status === 'ready').length}
-              </p>
-              <p className="text-sm text-gray-500">Ready to Process</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.readyClients || 0}</p>
+              <p className="text-sm text-gray-500">Ready Clients</p>
             </div>
           </div>
         </Card>
         <Card padding="sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="w-5 h-5 text-yellow-600" />
+              <AlertTriangle className="w-5 h-5 text-yellow-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {employeePayroll.filter(e => e.status === 'pending').length}
-              </p>
-              <p className="text-sm text-gray-500">Pending Approval</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.warningClients || 0}</p>
+              <p className="text-sm text-gray-500">Warning</p>
             </div>
           </div>
         </Card>
@@ -204,127 +421,591 @@ const Payroll = () => {
               <AlertCircle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {employeePayroll.filter(e => e.status === 'flagged').length}
-              </p>
-              <p className="text-sm text-gray-500">Flagged</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.criticalClients || 0}</p>
+              <p className="text-sm text-gray-500">Critical</p>
             </div>
           </div>
         </Card>
         <Card padding="sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
-              <DollarSign className="w-5 h-5 text-blue-600" />
+              <Clock className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                ${(payrollSummary.grossPay / payrollSummary.totalEmployees).toFixed(0)}
-              </p>
-              <p className="text-sm text-gray-500">Avg Per Employee</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalUnapproved || 0}</p>
+              <p className="text-sm text-gray-500">Pending Approval</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Employee Payroll Table */}
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Employee Payroll Details</h3>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableHeader>Employee</TableHeader>
-              <TableHeader>Client</TableHeader>
-              <TableHeader className="text-right">Regular Hours</TableHeader>
-              <TableHeader className="text-right">Overtime</TableHeader>
-              <TableHeader className="text-right">Rate</TableHeader>
-              <TableHeader className="text-right">Gross Pay</TableHeader>
-              <TableHeader>Status</TableHeader>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {employeePayroll.map((emp) => (
-              <TableRow key={emp.id}>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar name={emp.employee} size="sm" />
-                    <span className="font-medium text-gray-900">{emp.employee}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <span className="text-gray-600">{emp.client}</span>
-                </TableCell>
-                <TableCell className="text-right">{emp.regularHours}h</TableCell>
-                <TableCell className="text-right">
-                  {emp.overtimeHours > 0 ? (
-                    <span className="text-orange-600 font-medium">{emp.overtimeHours}h</span>
-                  ) : (
-                    <span className="text-gray-400">-</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">${emp.rate.toFixed(2)}</TableCell>
-                <TableCell className="text-right font-semibold text-gray-900">
-                  ${emp.grossPay.toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <div>
-                    {getStatusBadge(emp.status)}
-                    {emp.note && (
-                      <p className="text-xs text-gray-500 mt-1">{emp.note}</p>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-4">
+          {[
+            { id: 'overview', label: 'Client Overview', icon: Building2 },
+            { id: 'employees', label: 'Employees', icon: Users },
+            { id: 'unapproved', label: 'Pending Approval', icon: Clock, count: summary.totalUnapproved },
+            { id: 'disputed', label: 'Disputed', icon: AlertTriangle, count: summary.totalDisputed },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+              {tab.count > 0 && (
+                <span className="ml-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full">
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Payroll Status</h3>
+          {clients.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Client</TableHeader>
+                  <TableHeader className="text-right">Employees</TableHeader>
+                  <TableHeader className="text-right">Total Hours</TableHeader>
+                  <TableHeader className="text-right">Approved</TableHeader>
+                  <TableHeader className="text-right">Pending</TableHeader>
+                  <TableHeader className="text-right">Overtime</TableHeader>
+                  <TableHeader>Readiness</TableHeader>
+                  <TableHeader>Status</TableHeader>
+                  <TableHeader></TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {clients.map((client) => (
+                  <TableRow key={client.clientId}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                          <Building2 className="w-4 h-4 text-primary" />
+                        </div>
+                        <span className="font-medium text-gray-900">{client.companyName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">{client.employeeCount}</TableCell>
+                    <TableCell className="text-right font-medium">{client.totalHours}h</TableCell>
+                    <TableCell className="text-right text-green-600">{client.approvedHours}h</TableCell>
+                    <TableCell className="text-right text-yellow-600">{client.pendingHours}h</TableCell>
+                    <TableCell className="text-right text-orange-600">{client.overtimeHours}h</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {getReadinessBadge(client.readiness)}
+                        <span className="text-xs text-gray-500">{client.approvedPercentage}%</span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {client.isLocked ? (
+                        <Badge variant="warning" className="flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Locked
+                        </Badge>
+                      ) : (
+                        <Badge variant="default">Open</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedClient(client.clientId);
+                          setActiveTab('employees');
+                        }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Building2 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>No client data for this period</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {activeTab === 'employees' && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Employee Payroll Details</h3>
+            <div className="flex items-center gap-2">
+              <select
+                className="input text-sm py-1.5"
+                value={selectedClient}
+                onChange={(e) => setSelectedClient(e.target.value)}
+              >
+                <option value="">All Clients</option>
+                {clients.map((client) => (
+                  <option key={client.clientId} value={client.clientId}>
+                    {client.companyName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-5 gap-4 mb-6">
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">Ready</p>
+              <p className="text-xl font-bold text-green-600">{totals.readyCount || 0}</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">Pending</p>
+              <p className="text-xl font-bold text-yellow-600">{totals.pendingCount || 0}</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">Flagged</p>
+              <p className="text-xl font-bold text-red-600">{totals.flaggedCount || 0}</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">Total Hours</p>
+              <p className="text-xl font-bold text-gray-900">{totals.totalHours || 0}h</p>
+            </div>
+            <div className="p-3 bg-green-50 rounded-lg">
+              <p className="text-sm text-green-600">Gross Pay</p>
+              <p className="text-xl font-bold text-green-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
+            </div>
+          </div>
+
+          {employees.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Employee</TableHeader>
+                  <TableHeader>Client</TableHeader>
+                  <TableHeader className="text-right">Regular Hours</TableHeader>
+                  <TableHeader className="text-right">Overtime</TableHeader>
+                  <TableHeader className="text-right">Rate</TableHeader>
+                  <TableHeader className="text-right">Gross Pay</TableHeader>
+                  <TableHeader>Status</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {employees.map((emp) => (
+                  <TableRow key={emp.employee.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          name={`${emp.employee.firstName} ${emp.employee.lastName}`}
+                          src={emp.employee.profilePhoto}
+                          size="sm"
+                        />
+                        <span className="font-medium text-gray-900">
+                          {emp.employee.firstName} {emp.employee.lastName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-gray-600">{emp.client?.companyName || '-'}</span>
+                    </TableCell>
+                    <TableCell className="text-right">{emp.regularHours}h</TableCell>
+                    <TableCell className="text-right">
+                      {emp.overtimeHours > 0 ? (
+                        <span className="text-orange-600 font-medium">{emp.overtimeHours}h</span>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {emp.hourlyRate > 0 ? (
+                        <span className="text-gray-600">${emp.hourlyRate}/hr</span>
+                      ) : (
+                        <span className="text-gray-400 text-xs">Not set</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold text-green-600">
+                      {emp.grossPay > 0 ? `$${emp.grossPay.toLocaleString()}` : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        {getStatusBadge(emp.status)}
+                        {emp.note && (
+                          <p className="text-xs text-gray-500 mt-1">{emp.note}</p>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p>No employee data for this period</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {activeTab === 'unapproved' && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Time Approvals</h3>
+          {unapprovedRecords.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Employee</TableHeader>
+                  <TableHeader>Client</TableHeader>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader className="text-right">Hours</TableHeader>
+                  <TableHeader className="text-right">Overtime</TableHeader>
+                  <TableHeader>Status</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {unapprovedRecords.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          src={record.employee?.profilePhoto}
+                          size="sm"
+                        />
+                        <span className="font-medium text-gray-900">
+                          {record.employee?.firstName} {record.employee?.lastName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{record.client?.companyName || '-'}</TableCell>
+                    <TableCell>{formatDate(record.date)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {Math.round(record.totalMinutes / 60 * 10) / 10}h
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {record.overtimeMinutes > 0 ? (
+                        <span className="text-orange-600">
+                          {Math.round(record.overtimeMinutes / 60 * 10) / 10}h
+                        </span>
+                      ) : '-'}
+                    </TableCell>
+                    <TableCell>{getStatusBadge(record.status)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+              <p>All time records have been approved!</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {activeTab === 'disputed' && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Disputed Time Records</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            Time records that have been adjusted and require client re-approval
+          </p>
+          {disputedRecords.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Employee</TableHeader>
+                  <TableHeader>Client</TableHeader>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader className="text-right">Hours</TableHeader>
+                  <TableHeader>Adjustment</TableHeader>
+                  <TableHeader>Adjusted By</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {disputedRecords.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Avatar
+                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          src={record.employee?.profilePhoto}
+                          size="sm"
+                        />
+                        <span className="font-medium text-gray-900">
+                          {record.employee?.firstName} {record.employee?.lastName}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>{record.client?.companyName || '-'}</TableCell>
+                    <TableCell>{formatDate(record.date)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {Math.round(record.totalMinutes / 60 * 10) / 10}h
+                    </TableCell>
+                    <TableCell>
+                      {record.adjustments?.[0] && (
+                        <div className="text-xs">
+                          <p className="text-gray-500">{record.adjustments[0].reason}</p>
+                          <p className="text-gray-400">
+                            {record.adjustments[0].oldValue} → {record.adjustments[0].newValue}
+                          </p>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {record.adjustments?.[0]?.adjuster && (
+                        <span className="text-sm text-gray-600">
+                          {record.adjustments[0].adjuster.admin?.firstName} {record.adjustments[0].adjuster.admin?.lastName}
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
+              <p>No disputed time records</p>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Payroll History */}
-      <Card>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll History</h3>
-        <div className="space-y-3">
-          {payrollHistory.map((record, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-            >
-              <div className="flex items-center gap-4">
-                <div className="p-2 bg-white rounded-lg shadow-sm">
-                  <FileText className="w-5 h-5 text-gray-400" />
+      {periods.length > 0 && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll Periods</h3>
+          <div className="space-y-3">
+            {periods.map((period) => (
+              <div
+                key={period.id}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <FileText className="w-5 h-5 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {formatPeriodLabel(period.periodStart, period.periodEnd)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Cutoff: {formatDate(period.cutoffDate)}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900">{record.period}</p>
-                  <p className="text-sm text-gray-500">{record.employees} employees</p>
+                <div className="flex items-center gap-4">
+                  {period.totalHours && (
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">{period.totalHours}h</p>
+                      <p className="text-xs text-gray-500">Total Hours</p>
+                    </div>
+                  )}
+                  {getStatusBadge(period.status)}
+                  <div className="flex items-center gap-1">
+                    {period.status === 'OPEN' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        icon={Lock}
+                        onClick={() => {
+                          setSelectedPeriod(period);
+                          setShowLockModal(true);
+                        }}
+                      >
+                        Lock
+                      </Button>
+                    )}
+                    {period.status === 'LOCKED' && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          icon={Unlock}
+                          onClick={() => {
+                            setSelectedPeriod(period);
+                            setShowUnlockModal(true);
+                          }}
+                        >
+                          Unlock
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          icon={CheckCircle}
+                          onClick={() => {
+                            setSelectedPeriod(period);
+                            setShowProcessModal(true);
+                          }}
+                        >
+                          Finalize
+                        </Button>
+                      </>
+                    )}
+                    <Button variant="ghost" size="sm" icon={Download}>
+                      Report
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900">${record.gross.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Paid {record.paidOn}</p>
-                </div>
-                {getStatusBadge(record.status)}
-                <Button variant="ghost" size="sm" icon={Download}>
-                  Report
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
+            ))}
+          </div>
+        </Card>
+      )}
 
-      {/* Process Modal */}
+      {/* Export Modal */}
+      <Modal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        title="Export Payroll Data"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Export payroll data for {formatPeriodLabel(periodStart, periodEnd)}
+          </p>
+          <div className="space-y-2">
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              icon={FileDown}
+              onClick={() => handleExport('csv')}
+              disabled={actionLoading}
+            >
+              Download as CSV
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              icon={FileDown}
+              onClick={() => handleExport('json')}
+              disabled={actionLoading}
+            >
+              Download as JSON
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Lock Modal */}
+      <Modal
+        isOpen={showLockModal}
+        onClose={() => {
+          setShowLockModal(false);
+          setSelectedPeriod(null);
+        }}
+        title="Lock Payroll Period"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowLockModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="warning"
+              icon={Lock}
+              onClick={handleLockPeriod}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Locking...' : 'Lock Period'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Locking this payroll period will prevent any further changes to time records.
+          </p>
+          {selectedPeriod && (
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="font-medium">
+                {formatPeriodLabel(selectedPeriod.periodStart, selectedPeriod.periodEnd)}
+              </p>
+            </div>
+          )}
+          <div className="p-3 bg-yellow-50 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-700">
+              Make sure all time records have been approved before locking.
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unlock Modal */}
+      <Modal
+        isOpen={showUnlockModal}
+        onClose={() => {
+          setShowUnlockModal(false);
+          setSelectedPeriod(null);
+          setUnlockReason('');
+        }}
+        title="Unlock Payroll Period"
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowUnlockModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={Unlock}
+              onClick={handleUnlockPeriod}
+              disabled={actionLoading || !unlockReason.trim()}
+            >
+              {actionLoading ? 'Unlocking...' : 'Unlock Period'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Please provide a reason for unlocking this payroll period. This action will be logged.
+          </p>
+          <div>
+            <label className="label">Reason for Unlocking *</label>
+            <textarea
+              className="input min-h-[100px] resize-none"
+              value={unlockReason}
+              onChange={(e) => setUnlockReason(e.target.value)}
+              placeholder="Enter the reason for unlocking this period..."
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Finalize Modal */}
       <Modal
         isOpen={showProcessModal}
-        onClose={() => setShowProcessModal(false)}
-        title="Process Payroll"
+        onClose={() => {
+          setShowProcessModal(false);
+          setSelectedPeriod(null);
+        }}
+        title="Finalize Payroll Period"
         size="md"
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowProcessModal(false)}>
               Cancel
             </Button>
-            <Button variant="primary" icon={Send} onClick={() => setShowProcessModal(false)}>
-              Process Payroll
+            <Button
+              variant="primary"
+              icon={Send}
+              onClick={handleFinalizePeriod}
+              disabled={actionLoading}
+            >
+              {actionLoading ? 'Processing...' : 'Finalize Payroll'}
             </Button>
           </>
         }
@@ -332,21 +1013,23 @@ const Payroll = () => {
         <div className="space-y-4">
           <div className="p-4 bg-primary-50 rounded-xl">
             <p className="text-sm text-primary-600 font-medium">Period</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{selectedPeriod}</p>
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {formatPeriodLabel(periodStart, periodEnd)}
+            </p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="p-4 bg-gray-50 rounded-xl">
               <p className="text-sm text-gray-500">Total Employees</p>
-              <p className="text-2xl font-bold text-gray-900">{payrollSummary.totalEmployees}</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalEmployees || 0}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Total Gross Pay</p>
-              <p className="text-2xl font-bold text-gray-900">${payrollSummary.grossPay.toLocaleString()}</p>
+              <p className="text-sm text-gray-500">Total Hours</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.totalHours || 0}h</p>
             </div>
           </div>
 
-          {employeePayroll.some(e => e.status === 'pending' || e.status === 'flagged') && (
+          {(summary.totalUnapproved > 0 || summary.totalDisputed > 0) && (
             <div className="p-3 bg-yellow-50 rounded-lg flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div>
@@ -354,9 +1037,10 @@ const Payroll = () => {
                   Some items need attention
                 </p>
                 <p className="text-sm text-yellow-700 mt-1">
-                  {employeePayroll.filter(e => e.status === 'pending').length} pending approval,{' '}
-                  {employeePayroll.filter(e => e.status === 'flagged').length} flagged for review.
-                  These will be excluded from this payroll run.
+                  {summary.totalUnapproved > 0 && `${summary.totalUnapproved} pending approval`}
+                  {summary.totalUnapproved > 0 && summary.totalDisputed > 0 && ', '}
+                  {summary.totalDisputed > 0 && `${summary.totalDisputed} disputed records`}
+                  . These will be excluded from this payroll run.
                 </p>
               </div>
             </div>

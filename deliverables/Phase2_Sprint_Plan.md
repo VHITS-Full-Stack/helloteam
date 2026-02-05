@@ -219,10 +219,10 @@ This phase introduces approval workflows and payroll validation. Building on the
 
 ---
 
-## Sprint 11: Admin Portal - Leave Policy Management
+## Sprint 11: Admin Portal - Leave Policy Management ✅
 
 **Duration:** 2 weeks
-**Status:** Pending
+**Status:** COMPLETE
 
 ### Objectives
 - Build leave policy configuration per client
@@ -233,47 +233,58 @@ This phase introduces approval workflows and payroll validation. Building on the
 ### Tasks
 
 #### 11.1 Policy Configuration
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-11.1.1 | Create policy settings UI | - Per-client configuration<br>- Enable/disable options |
-| T-11.1.2 | Implement paid leave config | - Type selection (fixed/accrued/milestone/none)<br>- Annual allocation |
-| T-11.1.3 | Build unpaid leave config | - Enable/disable<br>- Notice requirements |
-| T-11.1.4 | Add overtime policy settings | - Requires approval toggle<br>- Threshold configuration |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-11.1.1 | Create policy settings UI | - Per-client configuration<br>- Enable/disable options | ✅ |
+| T-11.1.2 | Implement paid leave config | - Type selection (fixed/accrued/milestone/none)<br>- Annual allocation | ✅ |
+| T-11.1.3 | Build unpaid leave config | - Enable/disable<br>- Notice requirements | ✅ |
+| T-11.1.4 | Add overtime policy settings | - Requires approval toggle<br>- Threshold configuration | ✅ |
 
 #### 11.2 Accrual Logic
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-11.2.1 | Implement accrual calculation | - Based on policy type<br>- Pro-rated for partial years |
-| T-11.2.2 | Build milestone tracking | - Anniversary dates<br>- Milestone triggers |
-| T-11.2.3 | Add carryover rules | - Max carryover amount<br>- Expiration dates |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-11.2.1 | Implement accrual calculation | - Based on policy type<br>- Pro-rated for partial years | ✅ |
+| T-11.2.2 | Build milestone tracking | - Anniversary dates<br>- Milestone triggers | Partial |
+| T-11.2.3 | Add carryover rules | - Max carryover amount<br>- Expiration dates | ✅ |
 
 #### 11.3 Manual Adjustments
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-11.3.1 | Create balance adjustment form | - Add/deduct balance<br>- Mandatory reason |
-| T-11.3.2 | Build adjustment history | - Track all manual changes<br>- Filter by employee |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-11.3.1 | Create balance adjustment form | - Add/deduct balance<br>- Mandatory reason | ✅ |
+| T-11.3.2 | Build adjustment history | - Track all manual changes<br>- Filter by employee | ✅ |
 
 #### 11.4 Leave Approval Admin
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-11.4.1 | Create pending requests queue | - All clients view<br>- Filter by status/client |
-| T-11.4.2 | Implement admin approval | - Final approval step<br>- Override capability |
-| T-11.4.3 | Add rejection workflow | - Reason required<br>- Notification to employee |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-11.4.1 | Create pending requests queue | - All clients view<br>- Filter by status/client | ✅ |
+| T-11.4.2 | Implement admin approval | - Final approval step<br>- Override capability | ✅ |
+| T-11.4.3 | Add rejection workflow | - Reason required<br>- Notification to employee | ✅ |
 
 #### 11.5 Backend API Development
-| ID | Task | Acceptance Criteria |
-|----|------|---------------------|
-| T-11.5.1 | Policy configuration endpoints | - CRUD for policies<br>- Validation rules |
-| T-11.5.2 | Accrual service | - Calculation logic<br>- Scheduled updates |
-| T-11.5.3 | Balance management endpoints | - Adjustments<br>- History retrieval |
+| ID | Task | Acceptance Criteria | Status |
+|----|------|---------------------|--------|
+| T-11.5.1 | Policy configuration endpoints | - CRUD for policies<br>- Validation rules | ✅ |
+| T-11.5.2 | Accrual service | - Calculation logic<br>- Scheduled updates | ✅ |
+| T-11.5.3 | Balance management endpoints | - Adjustments<br>- History retrieval | ✅ |
+
+#### 11.6 Additional Features Completed
+| Feature | Description |
+|---------|-------------|
+| Leave Policy Page | Tabbed UI with Policy Config, Leave Balances, and Approvals tabs |
+| Policy Config Modal | Configure paid/unpaid leave, entitlement type, carryover, overtime per client |
+| Balance Management | View employee balances by client/year with adjustment capabilities |
+| Manual Adjustments | ADD, DEDUCT, CARRYOVER, RESET balance with mandatory reason |
+| Run Accrual | Manual trigger for monthly accrual calculation (ACCRUED policy type) |
+| Approval Queue | All pending leave requests with bulk approve, individual approve/reject |
+| Stats Dashboard | Leave approval stats (pending, client-approved, approved, rejected) |
 
 ### Deliverables
-- [ ] Policy configuration UI
-- [ ] Accrual calculation engine
-- [ ] Manual balance adjustment tools
-- [ ] Admin leave approval queue
-- [ ] Policy enforcement
-- [ ] API endpoints
+- [x] Policy configuration UI
+- [x] Accrual calculation engine
+- [x] Manual balance adjustment tools
+- [x] Admin leave approval queue
+- [x] Policy enforcement
+- [x] API endpoints
 
 ---
 
@@ -383,12 +394,12 @@ This phase introduces approval workflows and payroll validation. Building on the
 | Sprint 8 | Client Portal - Time Approvals | 2 weeks | Approval UI, Overtime, Session Logs | ✅ Complete |
 | Sprint 9 | Employee Portal - Leave & Availability | 2 weeks | Leave Requests, Balance Tracking, Policy Enforcement | ✅ Complete |
 | Sprint 10 | Admin Portal - Time Adjustments | 2 weeks | Adjustments, Audit Trail, Re-approval | ✅ Complete |
-| Sprint 11 | Admin Portal - Leave Policy Management | 2 weeks | Policy Config, Accruals, Admin Approval | Pending |
+| Sprint 11 | Admin Portal - Leave Policy Management | 2 weeks | Policy Config, Accruals, Admin Approval | ✅ Complete |
 | Sprint 12 | Payroll Readiness & Controls | 2 weeks | Dashboard, Cutoffs, Reports | Pending |
 | Sprint 13 | Integration & Testing | 2 weeks | Testing, Security, Documentation | Pending |
 
 **Total Phase 2 Duration: 12 weeks**
-**Current Progress: 3/6 sprints complete**
+**Current Progress: 4/6 sprints complete**
 
 ### Sprint 9 Notes
 - Availability requests deferred to future sprint (leave system prioritized)
@@ -401,6 +412,13 @@ This phase introduces approval workflows and payroll validation. Building on the
 - AuditLog enhanced with AuditAction enum for better categorization
 - Client re-approval workflow automatically triggers when approved records are adjusted
 - CSV export available for audit logs with comprehensive filtering
+
+### Sprint 11 Notes
+- Milestone-based tracking partially implemented (schema ready, UI supports config)
+- Manual accrual trigger available for monthly calculation
+- Balance adjustment supports ADD, DEDUCT, CARRYOVER, RESET types with audit trail
+- Leave approval queue supports bulk approve with individual approve/reject actions
+- LeavePolicy page accessible at /admin/leave-policy
 
 ---
 

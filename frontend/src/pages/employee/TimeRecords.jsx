@@ -172,10 +172,21 @@ const TimeRecords = () => {
   };
 
   const formatDateHeader = (dateString) => {
-    // Parse the date string manually to avoid timezone issues
-    // dateString is in format "YYYY-MM-DD"
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
+    if (!dateString) return 'Invalid Date';
+
+    let date;
+    // Handle ISO timestamp format (e.g., "2026-02-01T09:00:00.000Z")
+    if (dateString.includes('T')) {
+      date = new Date(dateString);
+    } else {
+      // Parse the date string manually to avoid timezone issues
+      // dateString is in format "YYYY-MM-DD"
+      const [year, month, day] = dateString.split('-').map(Number);
+      date = new Date(year, month - 1, day); // month is 0-indexed
+    }
+
+    if (isNaN(date.getTime())) return 'Invalid Date';
+
     return date.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',

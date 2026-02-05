@@ -222,6 +222,10 @@ model ClientEmployee {
   assignedAt  DateTime  @default(now())
   isActive    Boolean   @default(true)
 
+  // Optional per-employee rate override (if null, uses client default)
+  hourlyRate      Decimal?  @db.Decimal(10, 2)
+  overtimeRate    Decimal?  @db.Decimal(10, 2)
+
   client      Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee    Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -232,6 +236,11 @@ model ClientEmployee {
 model ClientPolicy {
   id                      String    @id @default(uuid())
   clientId                String    @unique
+
+  // Billing/Rate settings
+  defaultHourlyRate       Decimal   @default(0) @db.Decimal(10, 2)
+  defaultOvertimeRate     Decimal   @default(0) @db.Decimal(10, 2)  // If 0, uses 1.5x hourly rate
+  currency                String    @default("USD")
 
   // Leave policy settings
   allowPaidLeave          Boolean   @default(false)

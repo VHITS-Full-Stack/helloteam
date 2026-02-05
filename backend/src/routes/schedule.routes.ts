@@ -7,7 +7,7 @@ import {
   bulkUpdateSchedule,
   deleteSchedule,
 } from '../controllers/schedule.controller';
-import { authenticate, authorizeRoles, requirePermission } from '../middleware/auth.middleware';
+import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -32,7 +32,6 @@ router.get('/today', authorizeRoles(['EMPLOYEE']), getTodaySchedule);
 router.get(
   '/employee/:employeeId',
   authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR']),
-  requirePermission('scheduling.view'),
   getEmployeeSchedule
 );
 
@@ -40,7 +39,6 @@ router.get(
 router.post(
   '/employee/:employeeId',
   authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR']),
-  requirePermission('scheduling.create'),
   upsertSchedule
 );
 
@@ -48,7 +46,6 @@ router.post(
 router.put(
   '/employee/:employeeId/bulk',
   authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR']),
-  requirePermission('scheduling.edit'),
   bulkUpdateSchedule
 );
 
@@ -56,7 +53,6 @@ router.put(
 router.delete(
   '/:scheduleId',
   authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS']),
-  requirePermission('scheduling.delete'),
   deleteSchedule
 );
 

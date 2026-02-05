@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -439,6 +440,13 @@ const Employees = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
+                      <Link
+                        to={`/admin/employees/${employee.id}`}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4 text-primary" />
+                      </Link>
                       <button
                         className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                         onClick={() => openAssignModal(employee)}
