@@ -136,7 +136,7 @@ const Workforce = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
@@ -422,7 +422,7 @@ const Workforce = () => {
 
       {/* Live Update Indicator */}
       <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
-        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
         <span>Live updates every 15 seconds</span>
       </div>
 

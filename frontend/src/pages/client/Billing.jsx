@@ -237,7 +237,7 @@ const Billing = () => {
                   <TableHeader>Amount</TableHeader>
                   <TableHeader>Due Date</TableHeader>
                   <TableHeader>Status</TableHeader>
-                  <TableHeader></TableHeader>
+                  <TableHeader />
                 </TableRow>
               </TableHead>
               <TableBody>

@@ -485,7 +485,7 @@ const Payroll = () => {
                   <TableHeader className="text-right">Overtime</TableHeader>
                   <TableHeader>Readiness</TableHeader>
                   <TableHeader>Status</TableHeader>
-                  <TableHeader></TableHeader>
+                  <TableHeader />
                 </TableRow>
               </TableHead>
               <TableBody>

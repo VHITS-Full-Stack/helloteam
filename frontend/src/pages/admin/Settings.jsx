@@ -565,7 +565,7 @@ const Settings = () => {
               </div>
               {loadingGeneralSettings ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                   <span className="ml-3 text-gray-500">Loading settings...</span>
                 </div>
               ) : (
@@ -693,7 +693,7 @@ const Settings = () => {
 
               {loadingAdminUsers ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                   <span className="ml-3 text-gray-500">Loading admin users...</span>
                 </div>
               ) : adminUsersError ? (
@@ -796,7 +796,7 @@ const Settings = () => {
 
                 {loadingRoles ? (
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                     <span className="ml-3 text-gray-500">Loading roles...</span>
                   </div>
                 ) : rolesError ? (
@@ -1216,7 +1216,7 @@ const Settings = () => {
               </div>
               {loadingNotifications ? (
                 <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                   <span className="ml-3 text-gray-500">Loading settings...</span>
                 </div>
               ) : (
@@ -1241,7 +1241,7 @@ const Settings = () => {
                             [key]: e.target.checked
                           }))}
                         />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                       </label>
                     </div>
                   ))}
@@ -1255,7 +1255,7 @@ const Settings = () => {
               {loadingSecuritySettings ? (
                 <Card>
                   <div className="flex items-center justify-center py-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
                     <span className="ml-3 text-gray-500">Loading security settings...</span>
                   </div>
                 </Card>
@@ -1309,7 +1309,7 @@ const Settings = () => {
                               requireSpecialChars: e.target.checked
                             }))}
                           />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                         </label>
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
@@ -1365,7 +1365,7 @@ const Settings = () => {
                               enforce2FAForAdmins: e.target.checked
                             }))}
                           />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                         </label>
                       </div>
                     </div>

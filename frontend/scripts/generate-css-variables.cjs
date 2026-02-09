@@ -1,0 +1,277 @@
+#!/usr/bin/env node
+const path = require("path");
+const fs = require("fs/promises");
+const parser = require("@babel/parser");
+
+const COLORS_PATH = path.join("src", "theme", "colors.js");
+const THEME_PATH = path.join("src", "theme", "theme.js");
+const OUTPUT_PATH = path.join("src", "assets", "style", "variables.css");
+
+/**
+ * Convert camelCase to kebab-case
+ * e.g., "successLight" -> "success-light"
+ */
+function camelToKebab(str) {
+  return str
+    .replace(/([a-z])([A-Z0-9])/g, "$1-$2")
+    .replace(/([0-9])([a-zA-Z])/g, "$1-$2")
+    .toLowerCase();
+}
+
+/**
+ * Extract the literal value from an AST node
+ */
+function extractValue(node) {
+  if (!node) return null;
+
+  switch (node.type) {
+    case "StringLiteral":
+      return node.value;
+
+    case "NumericLiteral":
+      return String(node.value);
+
+    case "TemplateLiteral":
+      if (node.expressions.length === 0) {
+        return node.quasis.map((q) => q.value.raw).join("");
+      }
+      let result = "";
+      for (let i = 0; i < node.quasis.length; i++) {
+        result += node.quasis[i].value.raw;
+        if (i < node.expressions.length) {
+          const expr = node.expressions[i];
+          if (expr.type === "NumericLiteral") result += expr.value;
+          else if (expr.type === "Identifier") result += expr.name;
+        }
+      }
+      return result;
+
+    case "ObjectExpression": {
+      const obj = {};
+      for (const prop of node.properties) {
+        if (prop.type === "ObjectProperty") {
+          const key =
+            prop.key.type === "Identifier"
+              ? prop.key.name
+              : String(prop.key.value);
+          obj[key] = extractValue(prop.value);
+        }
+      }
+      return obj;
+    }
+
+    default:
+      return null;
+  }
+}
+
+/**
+ * Parse a JS file and extract a named export object
+ */
+function parseExportedObject(sourceCode, exportName) {
+  const ast = parser.parse(sourceCode, {
+    sourceType: "module",
+    plugins: ["typescript"],
+  });
+
+  for (const node of ast.program.body) {
+    if (
+      node.type === "ExportNamedDeclaration" &&
+      node.declaration?.type === "VariableDeclaration"
+    ) {
+      for (const declarator of node.declaration.declarations) {
+        if (
+          declarator.id?.type === "Identifier" &&
+          declarator.id.name === exportName
+        ) {
+          let objectNode = declarator.init;
+          if (objectNode?.type === "TSAsExpression") {
+            objectNode = objectNode.expression;
+          }
+          if (objectNode?.type === "ObjectExpression") {
+            return extractValue(objectNode);
+          }
+        }
+      }
+    }
+  }
+
+  throw new Error(
+    `Could not find 'export const ${exportName}' in source file`
+  );
+}
+
+/**
+ * Parse default export object from theme.js (skips imported references)
+ */
+function parseDefaultExportObject(sourceCode) {
+  const ast = parser.parse(sourceCode, {
+    sourceType: "module",
+    plugins: ["typescript"],
+  });
+
+  for (const node of ast.program.body) {
+    // Look for: const theme = { ... }
+    if (node.type === "VariableDeclaration") {
+      for (const declarator of node.declarations) {
+        if (
+          declarator.id?.type === "Identifier" &&
+          declarator.id.name === "theme" &&
+          declarator.init?.type === "ObjectExpression"
+        ) {
+          // Only extract inline string properties (skip Identifier references like `colors`)
+          const obj = {};
+          for (const prop of declarator.init.properties) {
+            if (
+              prop.type === "ObjectProperty" &&
+              prop.value.type !== "Identifier"
+            ) {
+              const key =
+                prop.key.type === "Identifier"
+                  ? prop.key.name
+                  : String(prop.key.value);
+              obj[key] = extractValue(prop.value);
+            }
+          }
+          return obj;
+        }
+      }
+    }
+  }
+
+  throw new Error("Could not find 'const theme = { ... }' in theme.js");
+}
+
+/**
+ * Recursively generate CSS variable declarations from a nested object
+ */
+function generateCssVariables(obj, prefix) {
+  const variables = [];
+
+  for (const [key, value] of Object.entries(obj)) {
+    const kebabKey = camelToKebab(key);
+    const varName = `--${prefix}-${kebabKey}`;
+
+    if (typeof value === "string") {
+      variables.push(`  ${varName}: ${value};`);
+
+      // Create alias without suffix for DEFAULT keys
+      if (key === "DEFAULT") {
+        variables.push(`  --${prefix}: ${value};`);
+      }
+    } else if (typeof value === "object" && value !== null) {
+      variables.push(...generateCssVariables(value, `${prefix}-${kebabKey}`));
+    }
+  }
+
+  return variables;
+}
+
+/**
+ * Format the final CSS output
+ */
+function formatCss(sections) {
+  const lines = [
+    "/* ==========================================================",
+    "   Auto-generated by scripts/generate-css-variables.cjs",
+    "   Do not edit manually. Edit src/theme/colors.js or",
+    "   src/theme/theme.js instead, then run:",
+    "     npm run generate:css",
+    "   ========================================================== */",
+    "",
+    ":root {",
+  ];
+
+  for (const { comment, variables } of sections) {
+    lines.push(`  /* ${comment} */`);
+    lines.push(...variables);
+    lines.push("");
+  }
+
+  lines.push("}");
+  lines.push("");
+
+  return lines.join("\n");
+}
+
+async function main() {
+  try {
+    const root = process.cwd();
+
+    // 1. Read and parse colors.js
+    const colorsSource = await fs.readFile(
+      path.resolve(root, COLORS_PATH),
+      "utf-8"
+    );
+    const colors = parseExportedObject(colorsSource, "colors");
+
+    // 2. Read and parse theme.js (shadows, borderRadius, fonts)
+    const themeSource = await fs.readFile(
+      path.resolve(root, THEME_PATH),
+      "utf-8"
+    );
+    const themeExtras = parseDefaultExportObject(themeSource);
+
+    // 3. Generate CSS variable sections
+    const sections = [];
+
+    // Colors
+    sections.push({
+      comment: "Colors",
+      variables: generateCssVariables(colors, "color"),
+    });
+
+    // Shadows
+    if (themeExtras.shadows) {
+      sections.push({
+        comment: "Shadows",
+        variables: generateCssVariables(themeExtras.shadows, "shadow"),
+      });
+    }
+
+    // Border Radius
+    if (themeExtras.borderRadius) {
+      sections.push({
+        comment: "Border Radius",
+        variables: generateCssVariables(themeExtras.borderRadius, "radius"),
+      });
+    }
+
+    // Spacing
+    if (themeExtras.spacing) {
+      sections.push({
+        comment: "Spacing",
+        variables: generateCssVariables(themeExtras.spacing, "spacing"),
+      });
+    }
+
+    // Font Sizes
+    if (themeExtras.fontSize) {
+      sections.push({
+        comment: "Font Sizes",
+        variables: generateCssVariables(themeExtras.fontSize, "font-size"),
+      });
+    }
+
+    // Fonts
+    if (themeExtras.fonts) {
+      sections.push({
+        comment: "Fonts",
+        variables: generateCssVariables(themeExtras.fonts, "font"),
+      });
+    }
+
+    // 4. Write output
+    const css = formatCss(sections);
+    const outputPath = path.resolve(root, OUTPUT_PATH);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, css, "utf-8");
+
+    console.log(`Generated ${outputPath}`);
+  } catch (err) {
+    console.error("Error:", err.message);
+    process.exit(1);
+  }
+}
+
+main();

@@ -377,7 +377,7 @@ const Employees = () => {
       <Card padding="none">
         {loading ? (
           <div className="p-8 text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
             <p className="mt-2 text-gray-500">Loading employees...</p>
           </div>
         ) : employees.length === 0 ? (

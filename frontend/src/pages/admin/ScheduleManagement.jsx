@@ -243,7 +243,7 @@ const ScheduleManagement = () => {
       );
 
       if (response.success) {
-        setSuccess(`Schedule saved successfully! ${response.data.created} entries created.`);
+        setSuccess(`Schedule saved successfully! ${response.schedules?.length || 0} entries created.`);
         fetchEmployeeSchedule(selectedEmployee.id);
       } else {
         setError(response.error || 'Failed to save schedule');
