@@ -497,7 +497,7 @@ const TimeRecords = () => {
             {/* Loading State */}
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : groupedSessions.length === 0 ? (
               <div className="text-center py-16">
@@ -863,7 +863,7 @@ const TimeRecords = () => {
               <h4 className="text-sm font-medium text-gray-700 mb-3">Activity Log</h4>
               {logsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
                 </div>
               ) : sessionLogs.length > 0 ? (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">

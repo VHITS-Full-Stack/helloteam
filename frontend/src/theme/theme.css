@@ -1,0 +1,80 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+/* Custom Theme Configuration */
+@theme {
+  /* Primary Colors - Dark Slate Blue (Professional Base) */
+  --color-primary-50: #f0f4f8;
+  --color-primary-100: #d9e2ec;
+  --color-primary-200: #bcccdc;
+  --color-primary-300: #9fb3c8;
+  --color-primary-400: #829ab1;
+  --color-primary-500: #627d98;
+  --color-primary-600: #486581;
+  --color-primary-700: #334e68;
+  --color-primary-800: #243b53;
+  --color-primary-900: #102a43;
+  --color-primary: #334e68;
+  --color-primary-light: #486581;
+  --color-primary-dark: #243b53;
+
+  /* Secondary Colors - Hello Team Orange (Brand Accent) */
+  --color-secondary-50: #fff8eb;
+  --color-secondary-100: #feecc7;
+  --color-secondary-200: #fdd889;
+  --color-secondary-300: #fcc44b;
+  --color-secondary-400: #f7a816;
+  --color-secondary-500: #e89b0c;
+  --color-secondary-600: #db8a0a;
+  --color-secondary-700: #b6680b;
+  --color-secondary-800: #945110;
+  --color-secondary-900: #7a4311;
+  --color-secondary: #f7a816;
+  --color-secondary-light: #f9bc4a;
+  --color-secondary-dark: #db8a0a;
+
+  /* Accent Colors - Teal (Fresh Complement) */
+  --color-accent-50: #e6fffa;
+  --color-accent-100: #b2f5ea;
+  --color-accent-200: #81e6d9;
+  --color-accent-300: #4fd1c5;
+  --color-accent-400: #38b2ac;
+  --color-accent-500: #319795;
+  --color-accent-600: #2c7a7b;
+  --color-accent-700: #285e61;
+  --color-accent-800: #234e52;
+  --color-accent-900: #1d4044;
+  --color-accent: #38b2ac;
+  --color-accent-light: #4fd1c5;
+  --color-accent-dark: #2c7a7b;
+
+  /* Status Colors */
+  --color-success: #10b981;
+  --color-success-light: #d1fae5;
+  --color-warning: #f59e0b;
+  --color-warning-light: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-light: #fee2e2;
+  --color-info: #3b82f6;
+  --color-info-light: #dbeafe;
+
+  /* Custom Border Radius */
+  --radius-pill: 50px;
+
+  /* Custom Shadows */
+  --shadow-card: 0 2px 8px rgb(0 0 0 / 8%);
+  --shadow-card-hover: 0 4px 16px rgb(0 0 0 / 12%);
+  --shadow-sidebar: 2px 0 8px rgb(0 0 0 / 5%);
+  --shadow-button: 0 2px 4px rgb(51 78 104 / 30%);
+  --shadow-button-hover: 0 4px 8px rgb(51 78 104 / 40%);
+
+  /* Custom Animations */
+  --animate-fade-in: fadeIn 0.3s ease-in-out;
+  --animate-slide-in: slideIn 0.3s ease-out;
+  --animate-pulse-soft: pulseSoft 2s infinite;
+  --animate-bounce-soft: bounceSoft 0.5s ease-out;
+
+  /* Fonts */
+  --font-heading: 'Poppins', sans-serif;
+  --font-body: 'Poppins', sans-serif;
+  --font-condensed: 'Poppins', sans-serif;
+}

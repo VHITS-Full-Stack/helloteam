@@ -1,0 +1,17 @@
+{
+  "extends": "stylelint-config-standard",
+  "rules": {
+    "at-rule-no-unknown": [true, {
+      "ignoreAtRules": ["tailwind", "theme", "apply", "layer", "config"]
+    }],
+    "import-notation": null,
+    "no-descending-specificity": null,
+    "property-no-unknown": [true, {
+      "ignoreProperties": ["ring", "ring-offset"]
+    }],
+    "keyframes-name-pattern": null,
+    "value-keyword-case": ["lower", {
+      "ignoreKeywords": ["fadeIn", "slideIn", "pulseSoft", "bounceSoft"]
+    }]
+  }
+}

@@ -1,0 +1,135 @@
+/* Base Styles */
+html {
+  font-family: var(--font-body);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+}
+
+body {
+  background-color: var(--color-primary-50);
+  color: var(--color-primary-900);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Component Styles */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.625rem 1.5rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-pill);
+  transition: all 0.2s;
+}
+
+.btn:focus {
+  outline: none;
+  ring: 2px;
+  ring-offset: 2px;
+}
+
+.card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: var(--shadow-card);
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.input {
+  width: 100%;
+  padding: 0.625rem 1rem;
+  border: 1px solid var(--color-primary-200);
+  border-radius: 0.5rem;
+  transition: all 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+.label {
+  display: block;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-primary-700);
+  margin-bottom: 0.375rem;
+}
+
+/* Scrollbar Styles */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary-200) transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background-color: var(--color-primary-200);
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary-400);
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@keyframes slideIn {
+  0% {
+    transform: translateX(-10px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+@keyframes bounceSoft {
+  0% { transform: scale(0.95); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* Animation Classes */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.animate-slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.animate-pulse-soft {
+  animation: pulseSoft 2s infinite;
+}

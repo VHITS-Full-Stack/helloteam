@@ -248,7 +248,7 @@ const Header = ({
                 <div className="max-h-96 overflow-y-auto">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"/>
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="text-center py-8">

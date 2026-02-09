@@ -1,0 +1,41 @@
+/* ========================================
+   Responsive Breakpoints
+   ======================================== */
+
+/* Mobile (max-width: 639px) */
+@media (width <= 639px) {
+  .card {
+    padding: var(--spacing-card-padding-sm);
+  }
+
+  .btn {
+    padding: var(--spacing-btn-padding-sm);
+    font-size: var(--font-size-btn-sm);
+  }
+}
+
+/* Tablet (min-width: 640px) and (max-width: 1023px) */
+@media (width >= 640px) and (width <= 1023px) {
+  .card {
+    padding: var(--spacing-card-padding-md);
+  }
+}
+
+/* Desktop (min-width: 1024px) */
+@media (width >= 1024px) {
+  .card {
+    padding: var(--spacing-card-padding-lg);
+  }
+
+  .btn {
+    padding: var(--spacing-btn-padding-lg);
+    font-size: var(--font-size-btn-lg);
+  }
+}
+
+/* Large Desktop (min-width: 1280px) */
+@media (width >= 1280px) {
+  .card {
+    padding: var(--spacing-card-padding-xl);
+  }
+}

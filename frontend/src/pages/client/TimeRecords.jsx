@@ -356,15 +356,15 @@ const TimeRecords = () => {
       {/* Legend */}
       <div className="flex items-center gap-6 text-sm text-gray-500">
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-green-500"></div>
+          <div className="w-3 h-3 rounded-full bg-green-500" />
           <span>Approved</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+          <div className="w-3 h-3 rounded-full bg-yellow-500" />
           <span>Pending</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+          <div className="w-3 h-3 rounded-full bg-orange-500" />
           <span>Overtime</span>
         </div>
       </div>

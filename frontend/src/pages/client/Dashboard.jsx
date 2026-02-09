@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Users,
   Clock,
@@ -9,10 +9,17 @@ import {
   Activity,
   Eye,
   RefreshCw,
-  XCircle
-} from 'lucide-react';
-import { Card, StatCard, Badge, Button, Avatar, Modal } from '../../components/common';
-import clientPortalService from '../../services/clientPortal.service';
+  XCircle,
+} from "lucide-react";
+import {
+  Card,
+  StatCard,
+  Badge,
+  Button,
+  Avatar,
+  Modal,
+} from "../../components/common";
+import clientPortalService from "../../services/clientPortal.service";
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
@@ -34,7 +41,7 @@ const ClientDashboard = () => {
 
   // Action modals
   const [rejectModal, setRejectModal] = useState({ show: false, item: null });
-  const [rejectReason, setRejectReason] = useState('');
+  const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
   const fetchDashboardData = useCallback(async (showRefresh = false) => {
@@ -43,31 +50,32 @@ const ClientDashboard = () => {
       else setLoading(true);
       setError(null);
 
-      const [statsRes, activeRes, pendingRes, weeklyRes] = await Promise.allSettled([
-        clientPortalService.getDashboardStats(),
-        clientPortalService.getActiveEmployees(),
-        clientPortalService.getPendingApprovals(5),
-        clientPortalService.getWeeklyHoursOverview(),
-      ]);
+      const [statsRes, activeRes, pendingRes, weeklyRes] =
+        await Promise.allSettled([
+          clientPortalService.getDashboardStats(),
+          clientPortalService.getActiveEmployees(),
+          clientPortalService.getPendingApprovals(5),
+          clientPortalService.getWeeklyHoursOverview(),
+        ]);
 
-      if (statsRes.status === 'fulfilled' && statsRes.value.success) {
+      if (statsRes.status === "fulfilled" && statsRes.value.success) {
         setStats(statsRes.value.data);
       }
 
-      if (activeRes.status === 'fulfilled' && activeRes.value.success) {
+      if (activeRes.status === "fulfilled" && activeRes.value.success) {
         setActiveEmployees(activeRes.value.data || []);
       }
 
-      if (pendingRes.status === 'fulfilled' && pendingRes.value.success) {
+      if (pendingRes.status === "fulfilled" && pendingRes.value.success) {
         setPendingItems(pendingRes.value.data || []);
       }
 
-      if (weeklyRes.status === 'fulfilled' && weeklyRes.value.success) {
+      if (weeklyRes.status === "fulfilled" && weeklyRes.value.success) {
         setWeeklyData(weeklyRes.value.data || []);
       }
     } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setError('Failed to load dashboard data');
+      console.error("Error fetching dashboard data:", err);
+      setError("Failed to load dashboard data");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -88,13 +96,13 @@ const ClientDashboard = () => {
   const handleApprove = async (item) => {
     try {
       setActionLoading(true);
-      if (item.type === 'time-entry' || item.type === 'overtime') {
+      if (item.type === "time-entry" || item.type === "overtime") {
         await clientPortalService.approveTimeRecord(item.id);
       }
       // Refresh data after approval
       fetchDashboardData(true);
     } catch (err) {
-      console.error('Error approving:', err);
+      console.error("Error approving:", err);
     } finally {
       setActionLoading(false);
     }
@@ -104,24 +112,24 @@ const ClientDashboard = () => {
     try {
       setActionLoading(true);
       const item = rejectModal.item;
-      if (item.type === 'time-entry' || item.type === 'overtime') {
+      if (item.type === "time-entry" || item.type === "overtime") {
         await clientPortalService.rejectTimeRecord(item.id, rejectReason);
       }
       setRejectModal({ show: false, item: null });
-      setRejectReason('');
+      setRejectReason("");
       // Refresh data after rejection
       fetchDashboardData(true);
     } catch (err) {
-      console.error('Error rejecting:', err);
+      console.error("Error rejecting:", err);
     } finally {
       setActionLoading(false);
     }
   };
 
   const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(amount);
@@ -130,7 +138,7 @@ const ClientDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
@@ -141,7 +149,9 @@ const ClientDashboard = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Welcome back!</h2>
-          <p className="text-gray-500">Here's what's happening with your team today.</p>
+          <p className="text-gray-500">
+            Here's what's happening with your team today.
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -149,14 +159,22 @@ const ClientDashboard = () => {
             icon={RefreshCw}
             onClick={() => fetchDashboardData(true)}
             disabled={refreshing}
-            className={refreshing ? 'animate-spin' : ''}
+            className={refreshing ? "animate-spin" : ""}
           >
-            {refreshing ? 'Refreshing...' : 'Refresh'}
+            {refreshing ? "Refreshing..." : "Refresh"}
           </Button>
-          <Button variant="outline" icon={Eye} onClick={() => navigate('/client/analytics')}>
+          <Button
+            variant="outline"
+            icon={Eye}
+            onClick={() => navigate("/client/analytics")}
+          >
             View Reports
           </Button>
-          <Button variant="primary" icon={CheckCircle} onClick={() => navigate('/client/approvals')}>
+          <Button
+            variant="primary"
+            icon={CheckCircle}
+            onClick={() => navigate("/client/approvals")}
+          >
             View Approvals
           </Button>
         </div>
@@ -207,8 +225,14 @@ const ClientDashboard = () => {
         <div className="lg:col-span-2">
           <Card>
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Active Workforce</h3>
-              <Button variant="ghost" size="sm" onClick={() => navigate('/client/workforce')}>
+              <h3 className="text-lg font-semibold text-gray-900">
+                Active Workforce
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/client/workforce")}
+              >
                 View All
               </Button>
             </div>
@@ -216,7 +240,9 @@ const ClientDashboard = () => {
               <div className="text-center py-8 text-gray-500">
                 <Activity className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p>No employees are currently working</p>
-                <p className="text-sm mt-1">Active employees will appear here</p>
+                <p className="text-sm mt-1">
+                  Active employees will appear here
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -229,10 +255,14 @@ const ClientDashboard = () => {
                       <Avatar
                         name={employee.name}
                         src={employee.profilePhoto}
-                        status={employee.status === 'working' ? 'online' : 'away'}
+                        status={
+                          employee.status === "working" ? "online" : "away"
+                        }
                       />
                       <div>
-                        <p className="font-medium text-gray-900">{employee.name}</p>
+                        <p className="font-medium text-gray-900">
+                          {employee.name}
+                        </p>
                         <p className="text-sm text-gray-500">{employee.role}</p>
                       </div>
                     </div>
@@ -241,22 +271,29 @@ const ClientDashboard = () => {
                         <p className="text-sm text-gray-500">Started</p>
                         <p className="font-semibold text-gray-900">
                           {employee.startTime
-                            ? new Date(employee.startTime).toLocaleTimeString([], {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : '-'}
+                            ? new Date(employee.startTime).toLocaleTimeString(
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )
+                            : "-"}
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="text-sm text-gray-500">Duration</p>
-                        <p className="font-semibold text-gray-900">{employee.duration}</p>
+                        <p className="font-semibold text-gray-900">
+                          {employee.duration}
+                        </p>
                       </div>
                       <Badge
-                        variant={employee.status === 'working' ? 'success' : 'warning'}
+                        variant={
+                          employee.status === "working" ? "success" : "warning"
+                        }
                         dot
                       >
-                        {employee.status === 'working' ? 'Working' : 'On Break'}
+                        {employee.status === "working" ? "Working" : "On Break"}
                       </Badge>
                     </div>
                   </div>
@@ -269,7 +306,9 @@ const ClientDashboard = () => {
         {/* Pending Actions */}
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Pending Actions</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Pending Actions
+            </h3>
             {pendingItems.length > 0 && (
               <Badge variant="danger">{pendingItems.length}</Badge>
             )}
@@ -291,13 +330,19 @@ const ClientDashboard = () => {
                     <div>
                       <Badge
                         variant={
-                          item.type === 'overtime' ? 'warning' :
-                          item.type === 'leave' ? 'info' : 'default'
+                          item.type === "overtime"
+                            ? "warning"
+                            : item.type === "leave"
+                              ? "info"
+                              : "default"
                         }
                         size="sm"
                       >
-                        {item.type === 'overtime' ? 'Overtime' :
-                         item.type === 'leave' ? 'Leave Request' : 'Time Entry'}
+                        {item.type === "overtime"
+                          ? "Overtime"
+                          : item.type === "leave"
+                            ? "Leave Request"
+                            : "Time Entry"}
                       </Badge>
                     </div>
                   </div>
@@ -306,9 +351,11 @@ const ClientDashboard = () => {
                     {item.description}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {typeof item.date === 'string' ? item.date : new Date(item.date).toLocaleDateString()}
+                    {typeof item.date === "string"
+                      ? item.date
+                      : new Date(item.date).toLocaleDateString()}
                   </p>
-                  {item.type !== 'leave' && (
+                  {item.type !== "leave" && (
                     <div className="flex gap-2 mt-3">
                       <Button
                         variant="primary"
@@ -340,7 +387,9 @@ const ClientDashboard = () => {
       {/* Weekly Overview */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Weekly Hours Overview</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            Weekly Hours Overview
+          </h3>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-primary" />
@@ -353,18 +402,21 @@ const ClientDashboard = () => {
           </div>
         </div>
         <div className="grid grid-cols-7 gap-4">
-          {(weeklyData.length > 0 ? weeklyData : [
-            { day: 'Sun', approved: 0, pending: 0, total: 0 },
-            { day: 'Mon', approved: 0, pending: 0, total: 0 },
-            { day: 'Tue', approved: 0, pending: 0, total: 0 },
-            { day: 'Wed', approved: 0, pending: 0, total: 0 },
-            { day: 'Thu', approved: 0, pending: 0, total: 0 },
-            { day: 'Fri', approved: 0, pending: 0, total: 0 },
-            { day: 'Sat', approved: 0, pending: 0, total: 0 },
-          ]).map((data) => {
+          {(weeklyData.length > 0
+            ? weeklyData
+            : [
+                { day: "Sun", approved: 0, pending: 0, total: 0 },
+                { day: "Mon", approved: 0, pending: 0, total: 0 },
+                { day: "Tue", approved: 0, pending: 0, total: 0 },
+                { day: "Wed", approved: 0, pending: 0, total: 0 },
+                { day: "Thu", approved: 0, pending: 0, total: 0 },
+                { day: "Fri", approved: 0, pending: 0, total: 0 },
+                { day: "Sat", approved: 0, pending: 0, total: 0 },
+              ]
+          ).map((data) => {
             const maxHours = Math.max(
-              ...weeklyData.map(d => d.total || 0),
-              stats.totalEmployees * 8 || 40
+              ...weeklyData.map((d) => d.total || 0),
+              stats.totalEmployees * 8 || 40,
             );
 
             return (
@@ -375,19 +427,23 @@ const ClientDashboard = () => {
                     <>
                       <div
                         className="absolute bottom-0 left-0 right-0 bg-primary transition-all"
-                        style={{ height: `${Math.min((data.approved / maxHours) * 100, 100)}%` }}
+                        style={{
+                          height: `${Math.min((data.approved / maxHours) * 100, 100)}%`,
+                        }}
                       />
                       <div
                         className="absolute left-0 right-0 bg-yellow-400 transition-all"
                         style={{
                           bottom: `${Math.min((data.approved / maxHours) * 100, 100)}%`,
-                          height: `${Math.min((data.pending / maxHours) * 100, 100)}%`
+                          height: `${Math.min((data.pending / maxHours) * 100, 100)}%`,
                         }}
                       />
                     </>
                   )}
                 </div>
-                <p className="text-sm font-medium text-gray-900 mt-2">{data.total}h</p>
+                <p className="text-sm font-medium text-gray-900 mt-2">
+                  {data.total}h
+                </p>
               </div>
             );
           })}
@@ -399,13 +455,13 @@ const ClientDashboard = () => {
         isOpen={rejectModal.show}
         onClose={() => {
           setRejectModal({ show: false, item: null });
-          setRejectReason('');
+          setRejectReason("");
         }}
         title="Reject Time Entry"
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Are you sure you want to reject this time entry from{' '}
+            Are you sure you want to reject this time entry from{" "}
             <span className="font-semibold">{rejectModal.item?.employee}</span>?
           </p>
           <div>
@@ -425,7 +481,7 @@ const ClientDashboard = () => {
               variant="outline"
               onClick={() => {
                 setRejectModal({ show: false, item: null });
-                setRejectReason('');
+                setRejectReason("");
               }}
             >
               Cancel

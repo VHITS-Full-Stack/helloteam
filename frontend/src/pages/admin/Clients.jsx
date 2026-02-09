@@ -366,7 +366,7 @@ const Clients = () => {
       {/* Client Cards */}
       {loading ? (
         <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
           <p className="mt-2 text-gray-500">Loading clients...</p>
         </div>
       ) : clients.length === 0 ? (
@@ -434,8 +434,7 @@ const Clients = () => {
                 <Button variant="ghost" size="sm" fullWidth icon={Edit} onClick={() => openEditModal(client)}>
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => openDeleteModal(client)}>
-                </Button>
+                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => openDeleteModal(client)} />
               </div>
             </Card>
           ))}

@@ -254,7 +254,7 @@ const Schedule = () => {
   if (isLoading && scheduleData.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
       </div>
     );
   }
@@ -451,7 +451,7 @@ const Schedule = () => {
                           <div className="mt-1">
                             {hasSchedule ? (
                               <>
-                                <div className="w-full h-1 bg-green-400 rounded mb-1"></div>
+                                <div className="w-full h-1 bg-green-400 rounded mb-1" />
                                 <p className="text-xs text-gray-600 truncate">
                                   {formatTime(day.schedule.startTime)}
                                 </p>
@@ -477,15 +477,15 @@ const Schedule = () => {
             {/* Month Legend */}
             <div className="flex items-center gap-4 mt-4 pt-4 border-t border-gray-200">
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-400 rounded"></div>
+                <div className="w-3 h-3 bg-green-400 rounded" />
                 <span className="text-sm text-gray-600">Working Day</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-gray-200 rounded"></div>
+                <div className="w-3 h-3 bg-gray-200 rounded" />
                 <span className="text-sm text-gray-600">Day Off / No Schedule</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-3 h-3 ring-2 ring-primary rounded"></div>
+                <div className="w-3 h-3 ring-2 ring-primary rounded" />
                 <span className="text-sm text-gray-600">Today</span>
               </div>
             </div>
