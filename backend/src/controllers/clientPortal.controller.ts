@@ -1677,7 +1677,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
     // Policy fields
     if (allowPaidLeave !== undefined) updateData.allowPaidLeave = allowPaidLeave;
     if (paidLeaveEntitlementType !== undefined) updateData.paidLeaveEntitlementType = paidLeaveEntitlementType;
-    if (annualPaidLeaveDays !== undefined) updateData.annualPaidLeaveDays = annualPaidLeaveDays;
+    if (annualPaidLeaveDays !== undefined) updateData.annualPaidLeaveDays = parseInt(annualPaidLeaveDays, 10) || 0;
     if (allowUnpaidLeave !== undefined) updateData.allowUnpaidLeave = allowUnpaidLeave;
     if (requireTwoWeeksNotice !== undefined) updateData.requireTwoWeeksNotice = requireTwoWeeksNotice;
     if (allowOvertime !== undefined) updateData.allowOvertime = allowOvertime;
@@ -1712,7 +1712,7 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
           clientId: client.id,
           allowPaidLeave: allowPaidLeave ?? false,
           paidLeaveEntitlementType,
-          annualPaidLeaveDays: annualPaidLeaveDays ?? 0,
+          annualPaidLeaveDays: parseInt(annualPaidLeaveDays, 10) || 0,
           allowUnpaidLeave: allowUnpaidLeave ?? true,
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
           allowOvertime: allowOvertime ?? true,
