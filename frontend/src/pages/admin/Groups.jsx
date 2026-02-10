@@ -72,7 +72,7 @@ const Groups = () => {
         }));
       }
     } catch (err) {
-      setError(err.error || 'Failed to fetch groups');
+      console.error('Failed to fetch groups:', err);
     } finally {
       setLoading(false);
     }
@@ -339,6 +339,7 @@ const Groups = () => {
   };
 
   const openAssignClientModal = (group) => {
+    setError('');
     setSelectedGroup(group);
     setShowAssignClientModal(true);
     // Fetch full group details with clientAssignments in background
@@ -350,6 +351,7 @@ const Groups = () => {
   };
 
   const openEditModal = (group) => {
+    setError('');
     setSelectedGroup(group);
     setFormData({
       name: group.name,
@@ -360,11 +362,13 @@ const Groups = () => {
   };
 
   const openDeleteModal = (group) => {
+    setError('');
     setSelectedGroup(group);
     setShowDeleteModal(true);
   };
 
   const openManageModal = async (group) => {
+    setError('');
     try {
       const response = await groupService.getGroup(group.id);
       if (response.success) {
