@@ -189,6 +189,37 @@ async function main() {
   });
   console.log('✅ Created admin:', admin.email);
 
+  // Create Default group
+  const defaultGroup = await prisma.group.upsert({
+    where: { id: 'default-group' },
+    update: {},
+    create: {
+      id: 'default-group',
+      name: 'Default',
+      description: 'This is auto generated group',
+      isActive: true,
+    },
+  });
+  console.log('✅ Created Default group');
+
+  // Assign Default group to demo client
+  if (client.client) {
+    await prisma.clientGroup.upsert({
+      where: {
+        clientId_groupId: {
+          clientId: client.client.id,
+          groupId: defaultGroup.id,
+        },
+      },
+      update: {},
+      create: {
+        clientId: client.client.id,
+        groupId: defaultGroup.id,
+      },
+    });
+    console.log('✅ Assigned Default group to demo client');
+  }
+
   // Assign employee to client
   if (employee.employee && client.client) {
     await prisma.clientEmployee.upsert({
