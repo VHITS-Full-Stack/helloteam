@@ -16,7 +16,6 @@ export const getGroups = async (req: AuthenticatedRequest, res: Response): Promi
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
 
-    // Build where clause
     const where: any = {};
 
     if (search) {
@@ -26,10 +25,13 @@ export const getGroups = async (req: AuthenticatedRequest, res: Response): Promi
       ];
     }
 
-    if (status === 'active') {
-      where.isActive = true;
-    } else if (status === 'inactive') {
+    if (status === 'inactive') {
       where.isActive = false;
+    } else if (status === 'all') {
+      // Show all groups (no filter)
+    } else {
+      // Default: show only active groups
+      where.isActive = true;
     }
 
     const [groups, total] = await Promise.all([

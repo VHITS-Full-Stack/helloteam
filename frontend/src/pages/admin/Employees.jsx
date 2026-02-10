@@ -630,7 +630,7 @@ const Employees = () => {
                 onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
               >
                 <option value="">Select a group</option>
-                {groups.filter(g => g.isActive).map((group) => (
+                {groups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.name}
                   </option>
@@ -749,7 +749,7 @@ const Employees = () => {
                 onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
               >
                 <option value="">No group</option>
-                {groups.filter(g => g.isActive).map((group) => (
+                {groups.map((group) => (
                   <option key={group.id} value={group.id}>
                     {group.name}
                   </option>
