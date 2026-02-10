@@ -18,6 +18,7 @@ import payrollRoutes from './payroll.routes';
 import leaveRoutes from './leave.routes';
 import timeAdjustmentRoutes from './timeAdjustment.routes';
 import leavePolicyRoutes from './leavePolicy.routes';
+import groupRoutes from './group.routes';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/payroll', payrollRoutes);
 router.use('/leave', leaveRoutes);
 router.use('/time-adjustments', timeAdjustmentRoutes);
 router.use('/leave-policy', leavePolicyRoutes);
+router.use('/groups', groupRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 
 export default router;

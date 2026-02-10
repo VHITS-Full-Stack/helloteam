@@ -78,6 +78,15 @@ export const PERMISSIONS = {
     EDIT: 'schedules.edit',
     DELETE: 'schedules.delete',
   },
+
+  // Groups
+  GROUPS: {
+    VIEW: 'groups.view',
+    CREATE: 'groups.create',
+    EDIT: 'groups.edit',
+    DELETE: 'groups.delete',
+    MANAGE_EMPLOYEES: 'groups.manage_employees',
+  },
 } as const;
 
 // Flatten permissions for easy iteration
@@ -147,6 +156,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SCHEDULES.CREATE,
     PERMISSIONS.SCHEDULES.EDIT,
     PERMISSIONS.SCHEDULES.DELETE,
+
+    // Groups - Full access
+    PERMISSIONS.GROUPS.VIEW,
+    PERMISSIONS.GROUPS.CREATE,
+    PERMISSIONS.GROUPS.EDIT,
+    PERMISSIONS.GROUPS.DELETE,
+    PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
   ],
 
   OPERATIONS: [
@@ -190,6 +206,13 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     // Support - View and respond
     PERMISSIONS.SUPPORT.VIEW,
     PERMISSIONS.SUPPORT.RESPOND,
+
+    // Groups - Full access
+    PERMISSIONS.GROUPS.VIEW,
+    PERMISSIONS.GROUPS.CREATE,
+    PERMISSIONS.GROUPS.EDIT,
+    PERMISSIONS.GROUPS.DELETE,
+    PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
   ],
 
   HR: [
@@ -225,6 +248,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
 
     // Support - View
     PERMISSIONS.SUPPORT.VIEW,
+
+    // Groups - View, create, edit, manage (no delete)
+    PERMISSIONS.GROUPS.VIEW,
+    PERMISSIONS.GROUPS.CREATE,
+    PERMISSIONS.GROUPS.EDIT,
+    PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
   ],
 
   FINANCE: [
@@ -371,6 +400,11 @@ export const getPermissionsByCategory = () => {
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),
     })),
     Schedules: Object.entries(PERMISSIONS.SCHEDULES).map(([key, value]) => ({
+      key,
+      value,
+      label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),
+    })),
+    Groups: Object.entries(PERMISSIONS.GROUPS).map(([key, value]) => ({
       key,
       value,
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),

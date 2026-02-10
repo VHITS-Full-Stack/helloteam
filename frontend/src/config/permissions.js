@@ -78,6 +78,15 @@ export const PERMISSIONS = {
     EDIT: 'schedules.edit',
     DELETE: 'schedules.delete',
   },
+
+  // Groups
+  GROUPS: {
+    VIEW: 'groups.view',
+    CREATE: 'groups.create',
+    EDIT: 'groups.edit',
+    DELETE: 'groups.delete',
+    MANAGE_EMPLOYEES: 'groups.manage_employees',
+  },
 };
 
 // Flatten permissions for easy iteration
@@ -133,6 +142,12 @@ export const PERMISSION_LABELS = {
   'schedules.create': 'Create Schedules',
   'schedules.edit': 'Edit Schedules',
   'schedules.delete': 'Delete Schedules',
+
+  'groups.view': 'View Groups',
+  'groups.create': 'Create Groups',
+  'groups.edit': 'Edit Groups',
+  'groups.delete': 'Delete Groups',
+  'groups.manage_employees': 'Manage Group Employees',
 };
 
 // Get permission label
@@ -152,4 +167,5 @@ export const PERMISSION_CATEGORIES = {
   Dashboard: Object.values(PERMISSIONS.DASHBOARD),
   Approvals: Object.values(PERMISSIONS.APPROVALS),
   Schedules: Object.values(PERMISSIONS.SCHEDULES),
+  Groups: Object.values(PERMISSIONS.GROUPS),
 };

@@ -173,19 +173,19 @@ export const updateClientPolicy = async (req: AuthenticatedRequest, res: Respons
     if (paidLeaveEntitlementType !== undefined) {
       policyData.paidLeaveEntitlementType = paidLeaveEntitlementType as PaidLeaveEntitlementType;
     }
-    if (annualPaidLeaveDays !== undefined) policyData.annualPaidLeaveDays = annualPaidLeaveDays;
+    if (annualPaidLeaveDays !== undefined) policyData.annualPaidLeaveDays = parseInt(annualPaidLeaveDays, 10) || 0;
     if (accrualRatePerMonth !== undefined) {
       policyData.accrualRatePerMonth = accrualRatePerMonth ? new Prisma.Decimal(accrualRatePerMonth) : null;
     }
-    if (milestoneYearsRequired !== undefined) policyData.milestoneYearsRequired = milestoneYearsRequired;
-    if (milestoneBonusDays !== undefined) policyData.milestoneBonusDays = milestoneBonusDays;
-    if (maxCarryoverDays !== undefined) policyData.maxCarryoverDays = maxCarryoverDays;
-    if (carryoverExpiryMonths !== undefined) policyData.carryoverExpiryMonths = carryoverExpiryMonths;
+    if (milestoneYearsRequired !== undefined) policyData.milestoneYearsRequired = milestoneYearsRequired !== null ? parseInt(milestoneYearsRequired, 10) : null;
+    if (milestoneBonusDays !== undefined) policyData.milestoneBonusDays = milestoneBonusDays !== null ? parseInt(milestoneBonusDays, 10) : null;
+    if (maxCarryoverDays !== undefined) policyData.maxCarryoverDays = parseInt(maxCarryoverDays, 10) || 0;
+    if (carryoverExpiryMonths !== undefined) policyData.carryoverExpiryMonths = carryoverExpiryMonths !== null ? parseInt(carryoverExpiryMonths, 10) : null;
     if (allowUnpaidLeave !== undefined) policyData.allowUnpaidLeave = allowUnpaidLeave;
     if (requireTwoWeeksNotice !== undefined) policyData.requireTwoWeeksNotice = requireTwoWeeksNotice;
     if (allowOvertime !== undefined) policyData.allowOvertime = allowOvertime;
     if (overtimeRequiresApproval !== undefined) policyData.overtimeRequiresApproval = overtimeRequiresApproval;
-    if (overtimeThreshold !== undefined) policyData.overtimeThreshold = overtimeThreshold;
+    if (overtimeThreshold !== undefined) policyData.overtimeThreshold = parseInt(overtimeThreshold, 10) || 40;
 
     let policy;
     if (client.clientPolicies) {

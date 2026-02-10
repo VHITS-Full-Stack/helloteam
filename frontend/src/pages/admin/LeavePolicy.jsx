@@ -356,7 +356,8 @@ const LeavePolicy = () => {
   const getEntitlementLabel = (type) => {
     switch (type) {
       case 'NONE': return 'No Paid Leave';
-      case 'FIXED': return 'Fixed Annual';
+      case 'FIXED': return 'Fixed Yearly';
+      case 'FIXED_HALF_YEARLY': return 'Fixed Half-Yearly';
       case 'ACCRUED': return 'Monthly Accrual';
       case 'MILESTONE': return 'Milestone Based';
       default: return type;
@@ -885,7 +886,8 @@ const LeavePolicy = () => {
                     className="input w-full"
                   >
                     <option value="NONE">None</option>
-                    <option value="FIXED">Fixed Annual Allocation</option>
+                    <option value="FIXED">Fixed Yearly Allocation</option>
+                    <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly Allocation</option>
                     <option value="ACCRUED">Monthly Accrual</option>
                     <option value="MILESTONE">Milestone Based</option>
                   </select>
