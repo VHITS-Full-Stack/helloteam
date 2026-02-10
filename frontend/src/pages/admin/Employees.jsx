@@ -31,7 +31,6 @@ import {
 } from '../../components/common';
 import employeeService from '../../services/employee.service';
 import clientService from '../../services/client.service';
-import groupService from '../../services/group.service';
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -43,7 +42,6 @@ const Employees = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
-  const [groups, setGroups] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -59,7 +57,6 @@ const Employees = () => {
     address: '',
     hireDate: '',
     clientId: '',
-    groupId: '',
     payableRate: '',
     billingRate: '',
   });
@@ -106,18 +103,6 @@ const Employees = () => {
     }
   };
 
-  // Fetch groups for dropdown
-  const fetchGroups = async () => {
-    try {
-      const response = await groupService.getGroups({ limit: 100 });
-      if (response.success) {
-        setGroups(response.data.groups);
-      }
-    } catch (err) {
-      console.error('Failed to fetch groups:', err);
-    }
-  };
-
   // Fetch clients for dropdown
   const fetchClients = async () => {
     try {
@@ -134,7 +119,6 @@ const Employees = () => {
     fetchEmployees();
     fetchStats();
     fetchClients();
-    fetchGroups();
   }, [fetchEmployees]);
 
   // Debounce search - skip initial mount since fetchEmployees is already called
@@ -163,7 +147,6 @@ const Employees = () => {
       address: '',
       hireDate: '',
       clientId: '',
-      groupId: '',
       payableRate: '',
       billingRate: '',
     });
@@ -210,7 +193,6 @@ const Employees = () => {
         address: formData.address,
         hireDate: formData.hireDate,
         status: formData.status,
-        groupId: formData.groupId,
         payableRate: formData.payableRate,
         billingRate: formData.billingRate,
       });
@@ -295,7 +277,6 @@ const Employees = () => {
       address: employee.address || '',
       hireDate: employee.hireDate ? employee.hireDate.split('T')[0] : '',
       status: employee.user?.status || 'ACTIVE',
-      groupId: employee.groupAssignments?.[0]?.groupId || '',
       payableRate: employee.payableRate ?? '',
       billingRate: employee.billingRate ?? '',
     });
@@ -620,25 +601,6 @@ const Employees = () => {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assign to Group (Optional)
-              </label>
-              <select
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                value={formData.groupId}
-                onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-              >
-                <option value="">Select a group</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <Input
               label="Hire Date"
               type="date"
@@ -741,23 +703,6 @@ const Employees = () => {
                 <option value="SUSPENDED">Suspended</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
-              <select
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                value={formData.groupId}
-                onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
-              >
-                <option value="">No group</option>
-                {groups.map((group) => (
-                  <option key={group.id} value={group.id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <Input
               label="Hire Date"
               type="date"

@@ -8,6 +8,9 @@ import {
   getGroupEmployees,
   addEmployees,
   removeEmployee,
+  assignGroupToClient,
+  unassignGroupFromClient,
+  getGroupClients,
 } from '../controllers/group.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -28,5 +31,10 @@ router.delete('/:id', requirePermission(PERMISSIONS.GROUPS.DELETE), deleteGroup)
 router.get('/:id/employees', requirePermission(PERMISSIONS.GROUPS.MANAGE_EMPLOYEES), getGroupEmployees);
 router.post('/:id/employees', requirePermission(PERMISSIONS.GROUPS.MANAGE_EMPLOYEES), addEmployees);
 router.delete('/:id/employees/:employeeId', requirePermission(PERMISSIONS.GROUPS.MANAGE_EMPLOYEES), removeEmployee);
+
+// Client assignment for group
+router.get('/:id/clients', requirePermission(PERMISSIONS.GROUPS.VIEW), getGroupClients);
+router.post('/:id/clients', requirePermission(PERMISSIONS.GROUPS.MANAGE_EMPLOYEES), assignGroupToClient);
+router.delete('/:id/clients/:clientId', requirePermission(PERMISSIONS.GROUPS.MANAGE_EMPLOYEES), unassignGroupFromClient);
 
 export default router;
