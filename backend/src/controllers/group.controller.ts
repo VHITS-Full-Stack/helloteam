@@ -198,7 +198,7 @@ export const createGroup = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { name, description } = req.body;
+    const { name, description, billingRate } = req.body;
 
     if (!name) {
       res.status(400).json({
@@ -212,6 +212,7 @@ export const createGroup = async (
       data: {
         name,
         description,
+        billingRate: billingRate ? parseFloat(billingRate) : null,
       },
       include: {
         _count: {
@@ -246,7 +247,7 @@ export const updateGroup = async (
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { name, description, isActive } = req.body;
+    const { name, description, isActive, billingRate } = req.body;
 
     const existingGroup = await prisma.group.findUnique({ where: { id } });
 
@@ -264,6 +265,7 @@ export const updateGroup = async (
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
         ...(isActive !== undefined && { isActive }),
+        ...(billingRate !== undefined && { billingRate: billingRate ? parseFloat(billingRate) : null }),
       },
       include: {
         employees: {

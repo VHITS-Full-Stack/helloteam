@@ -30,6 +30,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [newGroupBillingRate, setNewGroupBillingRate] = useState('');
 
   // Delete confirmation
   const [deleteGroup, setDeleteGroup] = useState(null);
@@ -128,6 +129,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
       const response = await groupService.createGroup({
         name: newGroupName.trim(),
         description: newGroupDescription.trim(),
+        billingRate: newGroupBillingRate || null,
       });
       if (response.success) {
         // Auto-assign the new group to this client
@@ -137,6 +139,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
         }
         setNewGroupName('');
         setNewGroupDescription('');
+        setNewGroupBillingRate('');
         setShowCreateForm(false);
         setError('');
         await refreshData();
@@ -434,6 +437,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
                             {group.totalEmployees > 0
                               ? `${group.totalEmployees} employee${group.totalEmployees !== 1 ? 's' : ''}`
                               : 'No employees yet'}
+                            {group.billingRate ? ` · $${Number(group.billingRate).toFixed(2)}/hr` : ''}
                           </p>
                         </div>
                       </div>
@@ -483,12 +487,20 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
                     value={newGroupDescription}
                     onChange={(e) => setNewGroupDescription(e.target.value)}
                   />
+                  <Input
+                    type="number"
+                    placeholder="Billing Rate (optional)"
+                    value={newGroupBillingRate}
+                    onChange={(e) => setNewGroupBillingRate(e.target.value)}
+                    min="0"
+                    step="0.01"
+                  />
                   <div className="flex justify-end gap-2">
                     <Button
                       variant="ghost"
                       size="sm"
                       type="button"
-                      onClick={() => { setShowCreateForm(false); setNewGroupName(''); setNewGroupDescription(''); setError(''); }}
+                      onClick={() => { setShowCreateForm(false); setNewGroupName(''); setNewGroupDescription(''); setNewGroupBillingRate(''); setError(''); }}
                     >
                       Cancel
                     </Button>

@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { config } from '../config';
 import { AuthenticatedRequest, JwtPayload } from '../types';
-import { hasPermission as staticHasPermission, hasAnyPermission as staticHasAnyPermission, hasAllPermissions as staticHasAllPermissions } from '../config/permissions';
+// Dynamic permissions are now fully database-driven (no static fallback)
 
 const prisma = new PrismaClient();
 
@@ -12,7 +12,7 @@ const permissionsCache = new Map<string, { permissions: string[]; timestamp: num
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // Get user permissions from database
-async function getUserPermissions(userId: string | undefined): Promise<string[]> {
+async function getUserPermissions(userId: string | undefined, role?: string): Promise<string[]> {
   // If userId is undefined, null, or empty, return empty permissions
   if (!userId || userId === 'undefined' || userId.trim() === '') {
     console.log('getUserPermissions called with invalid userId:', userId);
@@ -39,7 +39,32 @@ async function getUserPermissions(userId: string | undefined): Promise<string[]>
     },
   });
 
-  const permissions = user?.dynamicRole?.permissions.map(p => p.permission) || [];
+  let permissions = user?.dynamicRole?.permissions.map(p => p.permission) || [];
+
+  // If user has no dynamicRole linked, look up role by name
+  if (permissions.length === 0 && (role || user?.role)) {
+    const roleName = role || user?.role;
+    const roleRecord = await prisma.role.findUnique({
+      where: { name: roleName },
+      include: {
+        permissions: {
+          select: { permission: true },
+        },
+      },
+    });
+
+    if (roleRecord) {
+      permissions = roleRecord.permissions.map(p => p.permission);
+
+      // Auto-link the role to the user for future lookups
+      if (user && !user.roleId) {
+        await prisma.user.update({
+          where: { id: userId },
+          data: { roleId: roleRecord.id },
+        }).catch(() => {}); // Non-critical, don't fail the request
+      }
+    }
+  }
 
   // Cache the result
   permissionsCache.set(userId, { permissions, timestamp: Date.now() });
@@ -56,39 +81,22 @@ export function invalidatePermissionsCache(userId?: string) {
   }
 }
 
-// Check if user has permission (database-driven with fallback to static)
+// Check if user has permission (database-driven only)
 async function hasPermission(userId: string | undefined, role: string, permission: string): Promise<boolean> {
-  const dbPermissions = await getUserPermissions(userId);
-
-  // If user has permissions in DB, use those
-  if (dbPermissions.length > 0) {
-    return dbPermissions.includes(permission);
-  }
-
-  // Fallback to static config for backward compatibility
-  return staticHasPermission(role, permission);
+  const dbPermissions = await getUserPermissions(userId, role);
+  return dbPermissions.includes(permission);
 }
 
-// Check if user has any of the permissions
+// Check if user has any of the permissions (database-driven only)
 async function hasAnyPermission(userId: string | undefined, role: string, permissions: string[]): Promise<boolean> {
-  const dbPermissions = await getUserPermissions(userId);
-
-  if (dbPermissions.length > 0) {
-    return permissions.some(p => dbPermissions.includes(p));
-  }
-
-  return staticHasAnyPermission(role, permissions);
+  const dbPermissions = await getUserPermissions(userId, role);
+  return permissions.some(p => dbPermissions.includes(p));
 }
 
-// Check if user has all permissions
+// Check if user has all permissions (database-driven only)
 async function hasAllPermissions(userId: string | undefined, role: string, permissions: string[]): Promise<boolean> {
-  const dbPermissions = await getUserPermissions(userId);
-
-  if (dbPermissions.length > 0) {
-    return permissions.every(p => dbPermissions.includes(p));
-  }
-
-  return staticHasAllPermissions(role, permissions);
+  const dbPermissions = await getUserPermissions(userId, role);
+  return permissions.every(p => dbPermissions.includes(p));
 }
 
 export const authenticate = (

@@ -248,12 +248,16 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
 
     // Create user and employee in transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Find the EMPLOYEE dynamic role
+      const employeeRole = await tx.role.findUnique({ where: { name: 'EMPLOYEE' } });
+
       // Create user
       const user = await tx.user.create({
         data: {
           email,
           password: hashedPassword,
           role: 'EMPLOYEE',
+          roleId: employeeRole?.id,
           status: 'ACTIVE',
         },
       });

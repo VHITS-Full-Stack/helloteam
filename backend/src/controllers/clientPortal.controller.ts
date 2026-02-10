@@ -2081,7 +2081,7 @@ export const getClientGroups = async (req: AuthenticatedRequest, res: Response):
 export const createClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { name, description } = req.body;
+    const { name, description, billingRate } = req.body;
 
     if (!name) {
       res.status(400).json({ success: false, error: 'Group name is required' });
@@ -2100,7 +2100,11 @@ export const createClientGroup = async (req: AuthenticatedRequest, res: Response
 
     const group = await prisma.$transaction(async (tx) => {
       const newGroup = await tx.group.create({
-        data: { name, description },
+        data: {
+          name,
+          description,
+          billingRate: billingRate ? parseFloat(billingRate) : null,
+        },
       });
 
       await tx.clientGroup.create({
@@ -2122,7 +2126,7 @@ export const updateClientGroup = async (req: AuthenticatedRequest, res: Response
   try {
     const userId = req.user?.userId;
     const groupId = req.params.groupId;
-    const { name, description } = req.body;
+    const { name, description, billingRate } = req.body;
 
     if (!name) {
       res.status(400).json({ success: false, error: 'Group name is required' });
@@ -2154,6 +2158,7 @@ export const updateClientGroup = async (req: AuthenticatedRequest, res: Response
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
+        ...(billingRate !== undefined && { billingRate: billingRate ? parseFloat(billingRate) : null }),
       },
     });
 
