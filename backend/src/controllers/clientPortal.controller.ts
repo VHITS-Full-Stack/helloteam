@@ -2022,3 +2022,322 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     res.status(500).json({ success: false, error: 'Failed to reject leave request' });
   }
 };
+
+// Get groups assigned to this client
+export const getClientGroups = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const clientGroups = await prisma.clientGroup.findMany({
+      where: { clientId: client.id },
+      include: {
+        group: {
+          include: {
+            employees: {
+              include: {
+                employee: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    profilePhoto: true,
+                    user: {
+                      select: { email: true, status: true },
+                    },
+                  },
+                },
+              },
+            },
+            _count: { select: { employees: true } },
+          },
+        },
+      },
+    });
+
+    const groups = clientGroups.map((cg) => ({
+      ...cg.group,
+      employeeCount: cg.group._count.employees,
+      assignedAt: cg.assignedAt,
+    }));
+
+    res.json({ success: true, data: { groups } });
+  } catch (error) {
+    console.error('Get client groups error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch groups' });
+  }
+};
+
+// Create a new group for this client
+export const createClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { name, description } = req.body;
+
+    if (!name) {
+      res.status(400).json({ success: false, error: 'Group name is required' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const group = await prisma.$transaction(async (tx) => {
+      const newGroup = await tx.group.create({
+        data: { name, description },
+      });
+
+      await tx.clientGroup.create({
+        data: { clientId: client.id, groupId: newGroup.id },
+      });
+
+      return newGroup;
+    });
+
+    res.status(201).json({ success: true, message: 'Group created successfully', data: group });
+  } catch (error) {
+    console.error('Create client group error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create group' });
+  }
+};
+
+// Update a group (client-scoped)
+export const updateClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const groupId = req.params.groupId;
+    const { name, description } = req.body;
+
+    if (!name) {
+      res.status(400).json({ success: false, error: 'Group name is required' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Verify this group belongs to this client
+    const clientGroup = await prisma.clientGroup.findUnique({
+      where: { clientId_groupId: { clientId: client.id, groupId } },
+    });
+
+    if (!clientGroup) {
+      res.status(404).json({ success: false, error: 'Group not found' });
+      return;
+    }
+
+    const group = await prisma.group.update({
+      where: { id: groupId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(description !== undefined && { description }),
+      },
+    });
+
+    res.json({ success: true, message: 'Group updated successfully', data: group });
+  } catch (error) {
+    console.error('Update client group error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update group' });
+  }
+};
+
+// Delete a group from this client
+export const deleteClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const groupId = req.params.groupId;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Verify this group belongs to this client
+    const clientGroup = await prisma.clientGroup.findUnique({
+      where: { clientId_groupId: { clientId: client.id, groupId } },
+    });
+
+    if (!clientGroup) {
+      res.status(404).json({ success: false, error: 'Group not found' });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Remove the client-group link
+      await tx.clientGroup.delete({
+        where: { clientId_groupId: { clientId: client.id, groupId } },
+      });
+
+      // Deactivate employee assignments from this group
+      const groupEmployees = await tx.groupEmployee.findMany({
+        where: { groupId },
+        select: { employeeId: true },
+      });
+
+      for (const ge of groupEmployees) {
+        await tx.clientEmployee.updateMany({
+          where: { clientId: client.id, employeeId: ge.employeeId },
+          data: { isActive: false },
+        });
+      }
+    });
+
+    res.json({ success: true, message: 'Group removed successfully' });
+  } catch (error) {
+    console.error('Delete client group error:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove group' });
+  }
+};
+
+// Add employees to a group (client-scoped)
+export const addEmployeesToClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const groupId = req.params.groupId;
+    const { employeeIds } = req.body;
+
+    if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
+      res.status(400).json({ success: false, error: 'Employee IDs array is required' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Verify this group belongs to this client
+    const clientGroup = await prisma.clientGroup.findUnique({
+      where: { clientId_groupId: { clientId: client.id, groupId } },
+    });
+
+    if (!clientGroup) {
+      res.status(404).json({ success: false, error: 'Group not found' });
+      return;
+    }
+
+    for (const employeeId of employeeIds) {
+      await prisma.groupEmployee.upsert({
+        where: { groupId_employeeId: { groupId, employeeId } },
+        create: { groupId, employeeId },
+        update: {},
+      });
+    }
+
+    res.json({ success: true, message: 'Employees added to group successfully' });
+  } catch (error) {
+    console.error('Add employees to client group error:', error);
+    res.status(500).json({ success: false, error: 'Failed to add employees' });
+  }
+};
+
+// Remove employee from a group (client-scoped)
+export const removeEmployeeFromClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { groupId, employeeId } = req.params;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Verify this group belongs to this client
+    const clientGroup = await prisma.clientGroup.findUnique({
+      where: { clientId_groupId: { clientId: client.id, groupId } },
+    });
+
+    if (!clientGroup) {
+      res.status(404).json({ success: false, error: 'Group not found' });
+      return;
+    }
+
+    await prisma.groupEmployee.deleteMany({
+      where: { groupId, employeeId },
+    });
+
+    res.json({ success: true, message: 'Employee removed from group successfully' });
+  } catch (error) {
+    console.error('Remove employee from client group error:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove employee' });
+  }
+};
+
+// Get employees assigned to this client (for adding to groups)
+export const getClientEmployeesList = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const clientEmployees = await prisma.clientEmployee.findMany({
+      where: { clientId: client.id, isActive: true },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profilePhoto: true,
+            user: {
+              select: { email: true, status: true },
+            },
+          },
+        },
+      },
+    });
+
+    const employees = clientEmployees.map((ce) => ce.employee);
+
+    res.json({ success: true, data: { employees } });
+  } catch (error) {
+    console.error('Get client employees list error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch employees' });
+  }
+};

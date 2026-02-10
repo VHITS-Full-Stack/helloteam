@@ -17,6 +17,13 @@ import {
   updateClientSettings,
   approveLeaveRequest,
   rejectLeaveRequest,
+  getClientGroups,
+  createClientGroup,
+  updateClientGroup,
+  deleteClientGroup,
+  addEmployeesToClientGroup,
+  removeEmployeeFromClientGroup,
+  getClientEmployeesList,
 } from '../controllers/clientPortal.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -104,5 +111,30 @@ router.get('/settings', getClientSettings);
 
 // Update client settings (policies)
 router.put('/settings', updateClientSettings);
+
+// ============================================
+// GROUPS ROUTES
+// ============================================
+
+// Get groups assigned to this client
+router.get('/groups', getClientGroups);
+
+// Create a new group
+router.post('/groups', createClientGroup);
+
+// Update a group
+router.put('/groups/:groupId', updateClientGroup);
+
+// Delete a group
+router.delete('/groups/:groupId', deleteClientGroup);
+
+// Add employees to a group
+router.post('/groups/:groupId/employees', addEmployeesToClientGroup);
+
+// Remove employee from a group
+router.delete('/groups/:groupId/employees/:employeeId', removeEmployeeFromClientGroup);
+
+// Get employees assigned to this client (for group management)
+router.get('/employees', getClientEmployeesList);
 
 export default router;

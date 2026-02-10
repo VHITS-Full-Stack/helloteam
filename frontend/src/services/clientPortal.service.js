@@ -98,6 +98,42 @@ const clientPortalService = {
     const response = await api.put('/client-portal/settings', settingsData);
     return response;
   },
+
+  // Groups APIs
+  getMyGroups: async () => {
+    const response = await api.get('/client-portal/groups');
+    return response;
+  },
+
+  createGroup: async (groupData) => {
+    const response = await api.post('/client-portal/groups', groupData);
+    return response;
+  },
+
+  updateGroup: async (groupId, groupData) => {
+    const response = await api.put(`/client-portal/groups/${groupId}`, groupData);
+    return response;
+  },
+
+  deleteGroup: async (groupId) => {
+    const response = await api.delete(`/client-portal/groups/${groupId}`);
+    return response;
+  },
+
+  addEmployeesToGroup: async (groupId, employeeIds) => {
+    const response = await api.post(`/client-portal/groups/${groupId}/employees`, { employeeIds });
+    return response;
+  },
+
+  removeEmployeeFromGroup: async (groupId, employeeId) => {
+    const response = await api.delete(`/client-portal/groups/${groupId}/employees/${employeeId}`);
+    return response;
+  },
+
+  getMyEmployees: async () => {
+    const response = await api.get('/client-portal/employees');
+    return response;
+  },
 };
 
 export default clientPortalService;
