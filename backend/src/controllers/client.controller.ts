@@ -78,11 +78,19 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
             },
           },
           clientPolicies: true,
+          groups: {
+            include: {
+              group: {
+                select: { id: true, name: true },
+              },
+            },
+          },
           _count: {
             select: {
               employees: {
                 where: { isActive: true },
               },
+              groups: true,
             },
           },
         },
@@ -118,6 +126,7 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
           employees: employeesWithFreshUrls,
           employeeCount: client._count.employees,
           activeEmployeeCount: activeEmployees,
+          groupCount: client._count.groups,
         };
       })
     );
@@ -232,6 +241,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       phone,
       address,
       timezone,
+      groupId,
       // Policy fields
       allowPaidLeave,
       paidLeaveEntitlementType,
@@ -305,6 +315,58 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         },
       });
 
+      // Find or create the "Default" group
+      let defaultGroup = await tx.group.findFirst({
+        where: { name: 'Default' },
+      });
+      if (!defaultGroup) {
+        defaultGroup = await tx.group.create({
+          data: { name: 'Default', description: 'Default group assigned to all clients' },
+        });
+      }
+
+      // Assign the Default group to this client
+      await tx.clientGroup.create({
+        data: { clientId: client.id, groupId: defaultGroup.id },
+      });
+
+      // Also assign Default group employees to this client
+      const defaultGroupEmployees = await tx.groupEmployee.findMany({
+        where: { groupId: defaultGroup.id },
+        select: { employeeId: true },
+      });
+      for (const ge of defaultGroupEmployees) {
+        await tx.clientEmployee.upsert({
+          where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
+          create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
+          update: { isActive: true },
+        });
+      }
+
+      // If additional groupId provided (and it's not the Default group), assign it too
+      if (groupId && groupId !== defaultGroup.id) {
+        // Create the ClientGroup link
+        await tx.clientGroup.upsert({
+          where: { clientId_groupId: { clientId: client.id, groupId } },
+          create: { clientId: client.id, groupId },
+          update: {},
+        });
+
+        // Assign group employees to this client
+        const groupEmployees = await tx.groupEmployee.findMany({
+          where: { groupId },
+          select: { employeeId: true },
+        });
+
+        for (const ge of groupEmployees) {
+          await tx.clientEmployee.upsert({
+            where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
+            create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
+            update: { isActive: true },
+          });
+        }
+      }
+
       // Fetch complete client data
       const completeClient = await tx.client.findUnique({
         where: { id: client.id },
@@ -350,6 +412,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       address,
       timezone,
       status,
+      groupId,
       // Policy fields
       allowPaidLeave,
       paidLeaveEntitlementType,
@@ -451,6 +514,42 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             currency: currency ?? 'USD',
           },
         });
+      }
+
+      // If groupId provided, assign all group employees to this client
+      if (groupId) {
+        const groupEmployees = await tx.groupEmployee.findMany({
+          where: { groupId },
+          select: { employeeId: true },
+        });
+
+        for (const ge of groupEmployees) {
+          const existing = await tx.clientEmployee.findUnique({
+            where: {
+              clientId_employeeId: {
+                clientId: id,
+                employeeId: ge.employeeId,
+              },
+            },
+          });
+
+          if (existing) {
+            if (!existing.isActive) {
+              await tx.clientEmployee.update({
+                where: { id: existing.id },
+                data: { isActive: true },
+              });
+            }
+          } else {
+            await tx.clientEmployee.create({
+              data: {
+                clientId: id,
+                employeeId: ge.employeeId,
+                isActive: true,
+              },
+            });
+          }
+        }
       }
 
       // Fetch complete client data

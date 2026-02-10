@@ -17,7 +17,9 @@ import {
   AlertCircle,
   RefreshCw,
   Settings,
-  DollarSign
+  DollarSign,
+  FolderOpen,
+  FolderPlus
 } from 'lucide-react';
 import {
   Card,
@@ -29,6 +31,8 @@ import {
 } from '../../components/common';
 import clientService from '../../services/client.service';
 import employeeService from '../../services/employee.service';
+import groupService from '../../services/group.service';
+import ClientGroupsModal from '../../components/admin/ClientGroupsModal';
 
 const ClientDetail = () => {
   const { id } = useParams();
@@ -37,6 +41,7 @@ const ClientDetail = () => {
   const [client, setClient] = useState(null);
   const [clientEmployees, setClientEmployees] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
+  const [connectedGroups, setConnectedGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -45,6 +50,7 @@ const ClientDetail = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [rateFormData, setRateFormData] = useState({
     hourlyRate: '',
@@ -130,10 +136,51 @@ const ClientDetail = () => {
     }
   };
 
+  // Fetch connected groups (groups directly assigned to this client via ClientGroup)
+  const fetchConnectedGroups = async () => {
+    try {
+      const response = await groupService.getGroups({ limit: 100 });
+      if (response.success) {
+        // Filter groups that are directly assigned to this client
+        const groups = response.data.groups.filter((group) =>
+          group.clients?.some((cg) => {
+            const cid = cg.client?.id || cg.clientId;
+            return cid === id;
+          })
+        );
+
+        // Count how many employees from each group are assigned to this client
+        // and extract the assignedAt date from the ClientGroup relation
+        const groupsWithCount = groups.map((group) => {
+          const assignedCount = group.employees?.filter((ge) =>
+            ge.employee?.clientAssignments?.some((ca) => {
+              const cid = ca.client?.id || ca.clientId;
+              return cid === id;
+            })
+          ).length || 0;
+          const clientGroup = group.clients?.find((cg) => {
+            const cid = cg.client?.id || cg.clientId;
+            return cid === id;
+          });
+          return {
+            ...group,
+            assignedToClientCount: assignedCount,
+            assignedAt: clientGroup?.assignedAt || group.createdAt,
+          };
+        });
+
+        setConnectedGroups(groupsWithCount);
+      }
+    } catch (err) {
+      console.error('Failed to fetch connected groups:', err);
+    }
+  };
+
   useEffect(() => {
     fetchClient();
     fetchClientEmployees();
     fetchAllEmployees();
+    fetchConnectedGroups();
   }, [id]);
 
   const handleEditClient = async (e) => {
@@ -348,7 +395,7 @@ const ClientDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={() => { fetchClient(); fetchClientEmployees(); }}>
+          <Button variant="outline" icon={RefreshCw} onClick={() => { fetchClient(); fetchClientEmployees(); fetchConnectedGroups(); }}>
             Refresh
           </Button>
           <Button variant="outline" icon={Edit} onClick={() => setShowEditModal(true)}>
@@ -533,8 +580,46 @@ const ClientDetail = () => {
           </Card>
         </div>
 
-        {/* Assigned Employees */}
+        {/* Sidebar */}
         <div className="space-y-6">
+          {/* Connected Groups */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Connected Groups</h3>
+              <Button variant="outline" size="sm" icon={FolderPlus} onClick={() => setShowGroupsModal(true)}>
+                Manage
+              </Button>
+            </div>
+            {connectedGroups.length === 0 ? (
+              <div className="text-center py-6">
+                <FolderOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">No groups connected</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {connectedGroups.map((group) => (
+                  <div key={group.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
+                        <Users className="w-4 h-4 text-primary" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900 text-sm">{group.name}</p>
+                        <p className="text-xs text-gray-500">
+                          {group.assignedToClientCount}/{group.employeeCount} employees assigned
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {new Date(group.assignedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* Assigned Employees */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Assigned Employees</h3>
@@ -923,6 +1008,15 @@ const ClientDetail = () => {
           </form>
         )}
       </Modal>
+
+      {/* Groups Management Modal */}
+      <ClientGroupsModal
+        isOpen={showGroupsModal}
+        onClose={() => setShowGroupsModal(false)}
+        clientId={id}
+        clientName={client?.companyName}
+        onGroupsChanged={() => { fetchClient(); fetchClientEmployees(); fetchConnectedGroups(); }}
+      />
     </div>
   );
 };

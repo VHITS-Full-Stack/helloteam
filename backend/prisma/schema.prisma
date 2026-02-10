@@ -212,6 +212,7 @@ model Client {
   // Relations
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   employees      ClientEmployee[]
+  groups         ClientGroup[]
   clientPolicies ClientPolicy?
   timeRecords    TimeRecord[]
   leaveRequests  LeaveRequest[]
@@ -739,15 +740,27 @@ model Group {
   id          String   @id @default(uuid())
   name        String
   description String?
-  color       String? // Hex color code (e.g., "#3B82F6")
-  icon        String? // Icon name (e.g., "Users", "Building")
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   employees GroupEmployee[]
+  clients   ClientGroup[]
 
   @@map("groups")
+}
+
+model ClientGroup {
+  id         String   @id @default(uuid())
+  clientId   String
+  groupId    String
+  assignedAt DateTime @default(now())
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, groupId])
+  @@map("client_groups")
 }
 
 model GroupEmployee {

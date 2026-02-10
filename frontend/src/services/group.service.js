@@ -76,6 +76,36 @@ const groupService = {
       throw { error: error.message || 'Failed to remove employee from group' };
     }
   },
+
+  // Assign group to client
+  assignToClient: async (groupId, clientId) => {
+    try {
+      const response = await api.post(`/groups/${groupId}/clients`, { clientId });
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to assign group to client' };
+    }
+  },
+
+  // Unassign group from client
+  unassignFromClient: async (groupId, clientId) => {
+    try {
+      const response = await api.delete(`/groups/${groupId}/clients/${clientId}`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to unassign group from client' };
+    }
+  },
+
+  // Get clients assigned to a group
+  getGroupClients: async (groupId) => {
+    try {
+      const response = await api.get(`/groups/${groupId}/clients`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to fetch group clients' };
+    }
+  },
 };
 
 export default groupService;

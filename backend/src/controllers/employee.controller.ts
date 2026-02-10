@@ -217,7 +217,6 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       address,
       hireDate,
       clientId,
-      groupId,
       payableRate,
       billingRate,
     } = req.body;
@@ -294,16 +293,6 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
         });
       }
 
-      // If groupId provided, create group assignment
-      if (groupId) {
-        await tx.groupEmployee.create({
-          data: {
-            groupId,
-            employeeId: employee.id,
-          },
-        });
-      }
-
       return employee;
     });
 
@@ -333,7 +322,6 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
       address,
       hireDate,
       status,
-      groupId,
       payableRate,
       billingRate,
     } = req.body;
@@ -414,24 +402,6 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
           },
         },
       });
-
-      // Handle group assignment if groupId is provided
-      if (groupId !== undefined) {
-        // Remove all existing group assignments
-        await tx.groupEmployee.deleteMany({
-          where: { employeeId: id },
-        });
-
-        // Create new group assignment if groupId is not empty
-        if (groupId) {
-          await tx.groupEmployee.create({
-            data: {
-              groupId,
-              employeeId: id,
-            },
-          });
-        }
-      }
 
       return employee;
     });

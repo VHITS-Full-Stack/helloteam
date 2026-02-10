@@ -11,7 +11,9 @@ import {
   Trash2,
   X,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  FolderPlus,
+  FolderOpen
 } from 'lucide-react';
 import {
   Card,
@@ -22,6 +24,8 @@ import {
   Avatar
 } from '../../components/common';
 import clientService from '../../services/client.service';
+import groupService from '../../services/group.service';
+import ClientGroupsModal from '../../components/admin/ClientGroupsModal';
 
 const Clients = () => {
   const navigate = useNavigate();
@@ -30,8 +34,11 @@ const Clients = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showGroupsModal, setShowGroupsModal] = useState(false);
+  const [groupsModalClient, setGroupsModalClient] = useState(null);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clients, setClients] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [stats, setStats] = useState({
     totalClients: 0,
     activeClients: 0,
@@ -51,6 +58,7 @@ const Clients = () => {
     phone: '',
     address: '',
     timezone: 'UTC',
+    groupId: '',
     allowPaidLeave: false,
     paidLeaveType: 'fixed',
     annualPaidLeaveDays: 0,
@@ -90,6 +98,18 @@ const Clients = () => {
     }
   }, [pagination.page, pagination.limit, searchQuery]);
 
+  // Fetch groups for dropdown
+  const fetchGroups = async () => {
+    try {
+      const response = await groupService.getGroups({ limit: 100 });
+      if (response.success) {
+        setGroups(response.data.groups);
+      }
+    } catch (err) {
+      console.error('Failed to fetch groups:', err);
+    }
+  };
+
   // Fetch stats
   const fetchStats = async () => {
     try {
@@ -105,6 +125,7 @@ const Clients = () => {
   useEffect(() => {
     fetchClients();
     fetchStats();
+    fetchGroups();
   }, [fetchClients]);
 
   // Debounce search - skip initial mount since fetchClients is already called
@@ -123,6 +144,11 @@ const Clients = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  const getDefaultGroupId = () => {
+    const defaultGroup = groups.find((g) => g.name === 'Default');
+    return defaultGroup?.id || '';
+  };
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -132,6 +158,7 @@ const Clients = () => {
       phone: '',
       address: '',
       timezone: 'UTC',
+      groupId: getDefaultGroupId(),
       allowPaidLeave: false,
       paidLeaveType: 'fixed',
       annualPaidLeaveDays: 0,
@@ -183,6 +210,7 @@ const Clients = () => {
         address: formData.address,
         timezone: formData.timezone,
         status: formData.status,
+        groupId: formData.groupId,
         allowPaidLeave: formData.allowPaidLeave,
         paidLeaveType: formData.paidLeaveType,
         annualPaidLeaveDays: parseInt(formData.annualPaidLeaveDays),
@@ -380,40 +408,49 @@ const Clients = () => {
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {clients.map((client) => (
-            <Card key={client.id} className="hover:border-primary-200 border border-transparent">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
+            <Card key={client.id} padding="sm" className="hover:border-primary-200 border border-transparent">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
                   {client.logoUrl ? (
-                    <Avatar src={client.logoUrl} name={client.companyName} size="lg" />
+                    <Avatar src={client.logoUrl} name={client.companyName} size="md" />
                   ) : (
-                    <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center">
-                      <Building className="w-6 h-6 text-primary" />
+                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                      <Building className="w-5 h-5 text-primary" />
                     </div>
                   )}
                   <div>
-                    <h3 className="font-semibold text-gray-900">{client.companyName}</h3>
-                    <p className="text-sm text-gray-500">{client.contactPerson}</p>
+                    <h3 className="font-semibold text-gray-900 text-sm">{client.companyName}</h3>
+                    <p className="text-xs text-gray-500">{client.contactPerson}</p>
                   </div>
                 </div>
                 {getStatusBadge(client.user?.status)}
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-500 mb-1">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm">Employees</span>
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                    <Users className="w-3.5 h-3.5" />
+                    <span className="text-xs">Employees</span>
                   </div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-semibold text-gray-900 text-sm">
                     {client.activeEmployeeCount || 0}/{client.employeeCount || 0} active
                   </p>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2 text-gray-500 mb-1">
-                    <Settings className="w-4 h-4" />
-                    <span className="text-sm">Leave Policy</span>
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                    <FolderOpen className="w-3.5 h-3.5" />
+                    <span className="text-xs">Groups</span>
+                  </div>
+                  <p className="font-semibold text-gray-900 text-sm">
+                    {client.groupCount || 0} assigned
+                  </p>
+                </div>
+                <div className="p-2 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
+                    <Settings className="w-3.5 h-3.5" />
+                    <span className="text-xs">Leave Policy</span>
                   </div>
                   <Badge variant={client.clientPolicies?.allowPaidLeave ? 'success' : 'warning'} size="sm">
                     {client.clientPolicies?.allowPaidLeave ? 'Paid Leave' : 'Unpaid Only'}
@@ -421,20 +458,27 @@ const Clients = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2 pt-4 border-t border-gray-100">
+              <div className="flex gap-2 pt-3 border-t border-gray-100">
                 <Button
                   variant="outline"
                   size="sm"
-                  fullWidth
                   icon={Eye}
                   onClick={() => navigate(`/admin/clients/${client.id}`)}
                 >
                   View
                 </Button>
-                <Button variant="ghost" size="sm" fullWidth icon={Edit} onClick={() => openEditModal(client)}>
+                <Button variant="ghost" size="sm" icon={Edit} onClick={() => openEditModal(client)}>
                   Edit
                 </Button>
-                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => openDeleteModal(client)} />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={FolderPlus}
+                  onClick={() => { setGroupsModalClient(client); setShowGroupsModal(true); }}
+                >
+                  Manage Groups
+                </Button>
+                <Button variant="ghost" size="sm" icon={Trash2} className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeleteModal(client)} />
               </div>
             </Card>
           ))}
@@ -537,6 +581,24 @@ const Clients = () => {
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Assign Group (Optional)
+            </label>
+            <select
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={formData.groupId}
+              onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+            >
+              <option value="">Select a group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">All employees in the selected group will be assigned to this client</p>
+          </div>
 
           <div className="pt-4 border-t border-gray-100">
             <h4 className="font-medium text-gray-900 mb-4">Policy Configuration</h4>
@@ -689,6 +751,24 @@ const Clients = () => {
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Assign Group
+            </label>
+            <select
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={formData.groupId}
+              onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+            >
+              <option value="">No group</option>
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">All employees in the selected group will be assigned to this client</p>
+          </div>
 
           <div className="pt-4 border-t border-gray-100">
             <h4 className="font-medium text-gray-900 mb-4">Policy Configuration</h4>
@@ -793,6 +873,15 @@ const Clients = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Groups Management Modal */}
+      <ClientGroupsModal
+        isOpen={showGroupsModal}
+        onClose={() => { setShowGroupsModal(false); setGroupsModalClient(null); }}
+        clientId={groupsModalClient?.id}
+        clientName={groupsModalClient?.companyName}
+        onGroupsChanged={() => { fetchClients(); fetchStats(); }}
+      />
     </div>
   );
 };
