@@ -4,13 +4,11 @@ import {
   Users,
   UserPlus,
   UserMinus,
-  Building,
   FolderOpen,
   AlertCircle,
   X,
   ChevronLeft,
-  Link,
-  Unlink,
+  Trash2,
 } from 'lucide-react';
 import {
   Button,
@@ -23,8 +21,7 @@ import employeeService from '../../services/employee.service';
 
 const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChanged }) => {
   // Main state
-  const [connectedGroups, setConnectedGroups] = useState([]);
-  const [availableGroups, setAvailableGroups] = useState([]);
+  const [clientGroups, setClientGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -34,29 +31,28 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
 
+  // Delete confirmation
+  const [deleteGroup, setDeleteGroup] = useState(null);
+
   // Manage employees sub-view
   const [managingGroup, setManagingGroup] = useState(null);
   const [allEmployees, setAllEmployees] = useState([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
 
-  // Categorize groups into connected vs available using ClientGroup relation
-  const categorizeGroups = (groups) => {
-    const connected = [];
-    const available = [];
+  // Filter groups that belong to this client only
+  const filterClientGroups = (groups) => {
+    const myGroups = [];
 
     groups.forEach((group) => {
       if (!group.isActive) return;
 
-      const totalEmployees = group.employees?.length || 0;
-
-      // Check if group is directly linked to this client via ClientGroup
       const isLinked = group.clients?.some((cg) => {
         const cid = cg.client?.id || cg.clientId;
         return cid === clientId;
       });
 
       if (isLinked) {
-        // Count how many employees are also assigned to this client
+        const totalEmployees = group.employees?.length || 0;
         let assignedCount = 0;
         if (group.employees && group.employees.length > 0) {
           group.employees.forEach((ge) => {
@@ -70,14 +66,11 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
             }
           });
         }
-        connected.push({ ...group, assignedCount, totalEmployees });
-      } else {
-        available.push({ ...group, totalEmployees });
+        myGroups.push({ ...group, assignedCount, totalEmployees });
       }
     });
 
-    setConnectedGroups(connected);
-    setAvailableGroups(available);
+    setClientGroups(myGroups);
   };
 
   // Fetch all data when modal opens (with loading spinner)
@@ -91,9 +84,8 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
       ]);
 
       if (groupsRes.success) {
-        const groups = groupsRes.data.groups;
         setAllEmployees(employeesRes.success ? employeesRes.data.employees : []);
-        categorizeGroups(groups);
+        filterClientGroups(groupsRes.data.groups);
       }
     } catch (err) {
       console.error('Failed to fetch data:', err);
@@ -108,7 +100,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
     try {
       const groupsRes = await groupService.getGroups({ limit: 100 });
       if (groupsRes.success) {
-        categorizeGroups(groupsRes.data.groups);
+        filterClientGroups(groupsRes.data.groups);
       }
     } catch (err) {
       console.error('Failed to refresh data:', err);
@@ -125,47 +117,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
     }
   }, [isOpen, fetchData]);
 
-  // Assign a group to this client (works with or without employees)
-  const handleAssignGroup = async (group) => {
-    setSubmitting(true);
-    setError('');
-    try {
-      const response = await groupService.assignToClient(group.id, clientId);
-      if (response.success) {
-        setError('');
-        await refreshData();
-        onGroupsChanged?.();
-      } else {
-        setError(response.error || 'Failed to assign group');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to assign group');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Unassign a group from this client
-  const handleUnassignGroup = async (group) => {
-    setSubmitting(true);
-    setError('');
-    try {
-      const response = await groupService.unassignFromClient(group.id, clientId);
-      if (response.success) {
-        setError('');
-        await refreshData();
-        onGroupsChanged?.();
-      } else {
-        setError(response.error || 'Failed to unassign group');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to unassign group');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // Create a new group
+  // Create a new group and auto-assign to this client
   const handleCreateGroup = async (e) => {
     e.preventDefault();
     if (!newGroupName.trim()) return;
@@ -178,6 +130,11 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
         description: newGroupDescription.trim(),
       });
       if (response.success) {
+        // Auto-assign the new group to this client
+        const groupId = response.data?.id;
+        if (groupId) {
+          await groupService.assignToClient(groupId, clientId);
+        }
         setNewGroupName('');
         setNewGroupDescription('');
         setShowCreateForm(false);
@@ -189,6 +146,28 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
       }
     } catch (err) {
       setError(err.error || err.message || 'Failed to create group');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Remove group from this client (with confirmation)
+  const handleConfirmRemoveGroup = async () => {
+    if (!deleteGroup) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await groupService.unassignFromClient(deleteGroup.id, clientId);
+      if (response.success) {
+        setError('');
+        setDeleteGroup(null);
+        await refreshData();
+        onGroupsChanged?.();
+      } else {
+        setError(response.error || 'Failed to remove group');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to remove group');
     } finally {
       setSubmitting(false);
     }
@@ -281,6 +260,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
 
   const handleClose = () => {
     setManagingGroup(null);
+    setDeleteGroup(null);
     setError('');
     setShowCreateForm(false);
     setSelectedEmployeeIds([]);
@@ -431,106 +411,57 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
           </div>
         ) : (
           <>
-            {/* Connected Groups */}
+            {/* Client's Groups */}
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Link className="w-4 h-4" />
-                Connected Groups ({connectedGroups.length})
+                <Users className="w-4 h-4" />
+                Groups ({clientGroups.length})
               </h4>
-              {connectedGroups.length > 0 ? (
+              {clientGroups.length > 0 ? (
                 <div className="space-y-2">
-                  {connectedGroups.map((group) => (
+                  {clientGroups.map((group) => (
                     <div
                       key={group.id}
-                      className="flex items-center justify-between p-3 border border-green-200 bg-green-50 rounded-xl"
+                      className="flex items-center justify-between p-3 border border-gray-200 bg-gray-50 rounded-xl"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-green-100">
-                          <Users className="w-4 h-4 text-green-600" />
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary-100">
+                          <Users className="w-4 h-4 text-primary" />
                         </div>
                         <div>
-                            <p className="text-sm font-medium text-gray-900">{group.name}</p>
+                          <p className="text-sm font-medium text-gray-900">{group.name}</p>
                           <p className="text-xs text-gray-500">
                             {group.totalEmployees > 0
-                              ? `${group.assignedCount}/${group.totalEmployees} employees assigned`
+                              ? `${group.totalEmployees} employee${group.totalEmployees !== 1 ? 's' : ''}`
                               : 'No employees yet'}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          className="p-2 hover:bg-green-100 rounded-lg transition-colors"
+                          className="p-2 hover:bg-primary-100 rounded-lg transition-colors"
                           onClick={() => openManageEmployees(group)}
                           title="Manage Employees"
                         >
-                          <UserPlus className="w-4 h-4 text-blue-500" />
+                          <UserPlus className="w-4 h-4 text-primary" />
                         </button>
-                      <button
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                        onClick={() => handleUnassignGroup(group)}
-                        disabled={submitting}
-                      >
-                        <Unlink className="w-3.5 h-3.5" />
-                        Unassign
-                      </button>
-                    </div>
+                        <button
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-500 hover:text-red-700"
+                          onClick={() => setDeleteGroup(group)}
+                          disabled={submitting}
+                          title="Remove Group"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="py-4 text-center">
                   <FolderOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-400">No groups connected to this client</p>
+                  <p className="text-sm text-gray-400">No groups yet. Create one below.</p>
                 </div>
-              )}
-            </div>
-
-            {/* Available Groups to Assign */}
-            <div>
-              <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                <Building className="w-4 h-4" />
-                Available Groups ({availableGroups.length})
-              </h4>
-              {availableGroups.length > 0 ? (
-                <div className="space-y-2">
-                  {availableGroups.map((group) => (
-                    <div
-                      key={group.id}
-                      className="flex items-center justify-between p-3 border border-gray-200 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-gray-100">
-                          <Users className="w-4 h-4 text-gray-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{group.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {group.totalEmployees} employee{group.totalEmployees !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                          onClick={() => openManageEmployees(group)}
-                          title="Manage Employees"
-                        >
-                          <UserPlus className="w-4 h-4 text-blue-500" />
-                        </button>
-                        <button
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
-                          onClick={() => handleAssignGroup(group)}
-                          disabled={submitting}
-                        >
-                          <Link className="w-3.5 h-3.5" />
-                          Assign
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400 py-2">No available groups. Create one below.</p>
               )}
             </div>
 
@@ -579,6 +510,29 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
               )}
             </div>
           </>
+        )}
+
+        {/* Delete Confirmation */}
+        {deleteGroup && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+            <p className="text-sm text-gray-700">
+              Are you sure you want to remove <strong>{deleteGroup.name}</strong>? This will unassign all its employees from this client.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setDeleteGroup(null)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleConfirmRemoveGroup}
+                loading={submitting}
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
         )}
 
         {error && (

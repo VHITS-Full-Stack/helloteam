@@ -17,6 +17,7 @@ import {
   BarChart3,
   CheckSquare,
   Briefcase,
+  FolderOpen
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -43,6 +44,7 @@ const Sidebar = ({
   const clientLinks = [
     { to: '/client/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/client/workforce', icon: Users, label: 'Workforce' },
+    { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals' },
     { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
@@ -71,7 +73,6 @@ const Sidebar = ({
       label: 'Clients',
       permission: PERMISSIONS.CLIENTS.VIEW
     },
-   
     {
       to: '/admin/analytics',
       icon: BarChart3,

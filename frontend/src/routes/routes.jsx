@@ -28,6 +28,7 @@ const ClientTimeRecords = lazy(() => import('../pages/client/TimeRecords'));
 const Billing = lazy(() => import('../pages/client/Billing'));
 const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
+const ClientGroups = lazy(() => import('../pages/client/Groups'));
 
 // Admin Pages (lazy)
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -145,6 +146,7 @@ const AppRoutes = () => {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="workforce" element={<Workforce />} />
+          <Route path="groups" element={<ClientGroups />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="analytics" element={<ClientAnalytics />} />
           <Route path="time-records" element={<ClientTimeRecords />} />
