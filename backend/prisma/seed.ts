@@ -214,7 +214,7 @@ async function main() {
       create: {
         clientId: client.client.id,
         allowPaidLeave: true,
-        paidLeaveType: 'fixed',
+        paidLeaveEntitlementType: 'FIXED',
         annualPaidLeaveDays: 15,
         allowUnpaidLeave: true,
         requireTwoWeeksNotice: true,

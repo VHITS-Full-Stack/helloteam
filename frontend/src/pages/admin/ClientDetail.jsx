@@ -669,6 +669,7 @@ const ClientDetail = () => {
                       onChange={(e) => setFormData({ ...formData, paidLeaveType: e.target.value })}
                     >
                       <option value="fixed">Fixed Annual</option>
+                      <option value="fixed-half-yearly">Fixed Half-Yearly</option>
                       <option value="accrued">Accrued</option>
                       <option value="milestone">Milestone Based</option>
                     </select>

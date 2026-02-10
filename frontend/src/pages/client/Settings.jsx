@@ -385,6 +385,7 @@ const Settings = () => {
                           >
                             <option value="">Select type</option>
                             <option value="fixed">Fixed Annual Days</option>
+                              <option value="fixed-half-yearly">Fixed Half-Yearly</option>
                             <option value="accrued">Accrued Monthly</option>
                             <option value="milestone">Milestone Based</option>
                           </select>

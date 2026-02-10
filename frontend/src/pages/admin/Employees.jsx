@@ -31,6 +31,7 @@ import {
 } from '../../components/common';
 import employeeService from '../../services/employee.service';
 import clientService from '../../services/client.service';
+import groupService from '../../services/group.service';
 
 const Employees = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,6 +43,7 @@ const Employees = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -57,6 +59,9 @@ const Employees = () => {
     address: '',
     hireDate: '',
     clientId: '',
+    groupId: '',
+    payableRate: '',
+    billingRate: '',
   });
 
   // Fetch employees
@@ -101,6 +106,18 @@ const Employees = () => {
     }
   };
 
+  // Fetch groups for dropdown
+  const fetchGroups = async () => {
+    try {
+      const response = await groupService.getGroups({ limit: 100 });
+      if (response.success) {
+        setGroups(response.data.groups);
+      }
+    } catch (err) {
+      console.error('Failed to fetch groups:', err);
+    }
+  };
+
   // Fetch clients for dropdown
   const fetchClients = async () => {
     try {
@@ -117,6 +134,7 @@ const Employees = () => {
     fetchEmployees();
     fetchStats();
     fetchClients();
+    fetchGroups();
   }, [fetchEmployees]);
 
   // Debounce search - skip initial mount since fetchEmployees is already called
@@ -145,6 +163,9 @@ const Employees = () => {
       address: '',
       hireDate: '',
       clientId: '',
+      groupId: '',
+      payableRate: '',
+      billingRate: '',
     });
   };
 
@@ -189,6 +210,9 @@ const Employees = () => {
         address: formData.address,
         hireDate: formData.hireDate,
         status: formData.status,
+        groupId: formData.groupId,
+        payableRate: formData.payableRate,
+        billingRate: formData.billingRate,
       });
 
       if (response.success) {
@@ -271,6 +295,9 @@ const Employees = () => {
       address: employee.address || '',
       hireDate: employee.hireDate ? employee.hireDate.split('T')[0] : '',
       status: employee.user?.status || 'ACTIVE',
+      groupId: employee.groupAssignments?.[0]?.groupId || '',
+      payableRate: employee.payableRate ?? '',
+      billingRate: employee.billingRate ?? '',
     });
     setShowEditModal(true);
   };
@@ -393,7 +420,10 @@ const Employees = () => {
               <TableRow>
                 <TableHeader>Employee</TableHeader>
                 <TableHeader>Contact</TableHeader>
+                <TableHeader>Payable Rate ($/hr)</TableHeader>
+                <TableHeader>Billing Rate ($/hr)</TableHeader>
                 <TableHeader>Client</TableHeader>
+                <TableHeader>Group</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Joined</TableHeader>
                 <TableHeader>Actions</TableHeader>
@@ -401,6 +431,7 @@ const Employees = () => {
             </TableHead>
             <TableBody>
               {employees.map((employee) => (
+                console.log('Rendering employee:', employee) || (
                 <TableRow key={employee.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -423,11 +454,26 @@ const Employees = () => {
                       )}
                     </div>
                   </TableCell>
+                   <TableCell>
+                    <span className="text-sm text-gray-700">
+                      {employee.payableRate ?? 'N/A'}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-700">
+                      {employee.billingRate ?? 'N/A'}
+                    </span>
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building className="w-4 h-4 text-gray-400" />
                       <span className="text-sm">{getEmployeeClients(employee)}</span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-600">
+                      {employee.groupAssignments?.[0]?.group?.name || <span className="text-gray-400">None</span>}
+                    </span>
                   </TableCell>
                   <TableCell>{getStatusBadge(employee.user?.status)}</TableCell>
                   <TableCell>
@@ -471,7 +517,7 @@ const Employees = () => {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )))}
             </TableBody>
           </Table>
         )}
@@ -574,11 +620,50 @@ const Employees = () => {
                 ))}
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Assign to Group (Optional)
+              </label>
+              <select
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                value={formData.groupId}
+                onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+              >
+                <option value="">Select a group</option>
+                {groups.filter(g => g.isActive).map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Input
               label="Hire Date"
               type="date"
               value={formData.hireDate}
               onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Payable Rate ($/hr)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 25.00"
+              value={formData.payableRate}
+              onChange={(e) => setFormData({ ...formData, payableRate: e.target.value })}
+            />
+            <Input
+              label="Billing Rate ($/hr)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 45.00"
+              value={formData.billingRate}
+              onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
             />
           </div>
 
@@ -656,11 +741,48 @@ const Employees = () => {
                 <option value="SUSPENDED">Suspended</option>
               </select>
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <select
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                value={formData.groupId}
+                onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+              >
+                <option value="">No group</option>
+                {groups.filter(g => g.isActive).map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <Input
               label="Hire Date"
               type="date"
               value={formData.hireDate}
               onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Payable Rate ($/hr)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 25.00"
+              value={formData.payableRate}
+              onChange={(e) => setFormData({ ...formData, payableRate: e.target.value })}
+            />
+            <Input
+              label="Billing Rate ($/hr)"
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="e.g. 45.00"
+              value={formData.billingRate}
+              onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
             />
           </div>
 

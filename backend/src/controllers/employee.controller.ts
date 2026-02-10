@@ -84,6 +84,16 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
           schedules: {
             where: { isActive: true },
           },
+          groupAssignments: {
+            include: {
+              group: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -151,6 +161,16 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
         schedules: {
           where: { isActive: true },
         },
+        groupAssignments: {
+          include: {
+            group: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        },
         workSessions: {
           take: 10,
           orderBy: { startTime: 'desc' },
@@ -197,6 +217,9 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       address,
       hireDate,
       clientId,
+      groupId,
+      payableRate,
+      billingRate,
     } = req.body;
 
     // Validate required fields
@@ -245,6 +268,8 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           phone,
           address,
           hireDate: hireDate ? new Date(hireDate) : null,
+          payableRate: payableRate !== undefined && payableRate !== '' ? parseFloat(payableRate) : null,
+          billingRate: billingRate !== undefined && billingRate !== '' ? parseFloat(billingRate) : null,
         },
         include: {
           user: {
@@ -265,6 +290,16 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
             clientId,
             employeeId: employee.id,
             isActive: true,
+          },
+        });
+      }
+
+      // If groupId provided, create group assignment
+      if (groupId) {
+        await tx.groupEmployee.create({
+          data: {
+            groupId,
+            employeeId: employee.id,
           },
         });
       }
@@ -298,6 +333,9 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
       address,
       hireDate,
       status,
+      groupId,
+      payableRate,
+      billingRate,
     } = req.body;
 
     // Check if employee exists
@@ -351,6 +389,8 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
           ...(phone !== undefined && { phone }),
           ...(address !== undefined && { address }),
           ...(hireDate && { hireDate: new Date(hireDate) }),
+          ...(payableRate !== undefined && { payableRate: payableRate !== '' ? parseFloat(payableRate) : null }),
+          ...(billingRate !== undefined && { billingRate: billingRate !== '' ? parseFloat(billingRate) : null }),
         },
         include: {
           user: {
@@ -374,6 +414,24 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
           },
         },
       });
+
+      // Handle group assignment if groupId is provided
+      if (groupId !== undefined) {
+        // Remove all existing group assignments
+        await tx.groupEmployee.deleteMany({
+          where: { employeeId: id },
+        });
+
+        // Create new group assignment if groupId is not empty
+        if (groupId) {
+          await tx.groupEmployee.create({
+            data: {
+              groupId,
+              employeeId: id,
+            },
+          });
+        }
+      }
 
       return employee;
     });

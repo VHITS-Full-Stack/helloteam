@@ -16,6 +16,8 @@
     "prisma:migrate:prod": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
+    "nukedb": "npx prisma migrate reset --force --skip-seed",
+    "seed": "npm run prisma:seed",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
