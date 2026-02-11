@@ -74,7 +74,7 @@ const Clients = () => {
           <Button variant="outline" icon={RefreshCw} onClick={refresh}>
             Refresh
           </Button>
-          <Button variant="primary" icon={Plus} onClick={() => navigate('/admin/clients/new')}>
+          <Button variant="primary" icon={Plus} onClick={() => navigate('/admin/clients/add')}>
             Add Client
           </Button>
         </div>
@@ -162,7 +162,7 @@ const Clients = () => {
           <div className="p-8 text-center">
             <Building className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <p className="text-gray-500">No clients found</p>
-            <Button variant="primary" icon={Plus} className="mt-4" onClick={() => navigate('/admin/clients/new')}>
+            <Button variant="primary" icon={Plus} className="mt-4" onClick={() => navigate('/admin/clients/add')}>
               Add First Client
             </Button>
           </div>
