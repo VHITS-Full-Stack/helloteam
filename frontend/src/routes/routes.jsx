@@ -38,6 +38,8 @@ const EmployeeDetail = lazy(() => import('../pages/admin/employees/EmployeeDetai
 const Clients = lazy(() => import('../pages/admin/clients/Clients'));
 const AddClient = lazy(() => import('../pages/admin/clients/AddEditClient'));
 const ClientDetail = lazy(() => import('../pages/admin/clients/ClientDetail'));
+const ClientEmployees = lazy(() => import('../pages/admin/clients/ClientEmployees'));
+const ClientConnectedGroups = lazy(() => import('../pages/admin/clients/ClientConnectedGroups'));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
@@ -168,6 +170,8 @@ const AppRoutes = () => {
           <Route path="clients" element={<Clients />} />
           <Route path="clients/add" element={<AddClient />} />
           <Route path="clients/:id/edit" element={<AddClient />} />
+          <Route path="clients/:id/employees" element={<ClientEmployees />} />
+          <Route path="clients/:id/groups" element={<ClientConnectedGroups />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
           <Route path="analytics" element={<AdminAnalytics />} />

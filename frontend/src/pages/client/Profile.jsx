@@ -1,28 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { Building2, User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Clock, Loader2, Trash2 } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
+import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
+  const { user: authUser } = useAuth();
+
   const [activeTab, setActiveTab] = useState('company');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Profile data from API
-  const [profile, setProfile] = useState(null);
+  // Profile data - initialized from auth context (no extra API call needed)
+  const [profile, setProfile] = useState(authUser);
 
-  // Form data for editing
-  const [formData, setFormData] = useState({
-    companyName: '',
-    contactPerson: '',
-    phone: '',
-    address: '',
-    timezone: 'America/New_York',
+  // Form data for editing - initialized from auth context
+  const [formData, setFormData] = useState(() => {
+    const client = authUser?.client;
+    return {
+      companyName: client?.companyName || '',
+      contactPerson: client?.contactPerson || '',
+      phone: client?.phone || '',
+      address: client?.address || '',
+      timezone: client?.timezone || 'America/New_York',
+    };
   });
 
   // Password change form
@@ -44,17 +50,17 @@ const Profile = () => {
     invoiceNotifications: true,
   });
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const fetchingRef = useRef(false);
 
+  // Only used to refresh after profile updates, not on mount
   const fetchProfile = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       const response = await authService.getProfile();
       if (response.success && response.data) {
         setProfile(response.data);
-        // Initialize form data with profile data
         if (response.data.client) {
           const client = response.data.client;
           setFormData({
@@ -71,6 +77,7 @@ const Profile = () => {
       console.error('Profile fetch error:', err);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

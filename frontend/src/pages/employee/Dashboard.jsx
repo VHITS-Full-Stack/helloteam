@@ -87,7 +87,10 @@ const EmployeeDashboard = () => {
   ];
 
   // Fetch overtime requests
+  const fetchingOvertimeRef = useRef(false);
   const fetchOvertimeRequests = useCallback(async () => {
+    if (fetchingOvertimeRef.current) return;
+    fetchingOvertimeRef.current = true;
     try {
       setOvertimeRequestsLoading(true);
       const response = await overtimeService.getOvertimeRequests({ limit: 5 });
@@ -98,6 +101,7 @@ const EmployeeDashboard = () => {
       console.error('Failed to fetch overtime requests:', err);
     } finally {
       setOvertimeRequestsLoading(false);
+      fetchingOvertimeRef.current = false;
     }
   }, []);
 
@@ -151,7 +155,10 @@ const EmployeeDashboard = () => {
   }, []);
 
   // Fetch work session data
+  const fetchingSessionRef = useRef(false);
   const fetchWorkSessionData = useCallback(async () => {
+    if (fetchingSessionRef.current) return;
+    fetchingSessionRef.current = true;
     try {
       // Use Promise.allSettled to handle partial failures gracefully
       const [sessionResult, todayResult, weeklyResult] = await Promise.allSettled([
@@ -159,7 +166,6 @@ const EmployeeDashboard = () => {
         workSessionService.getTodaySummary(),
         workSessionService.getWeeklySummary(),
       ]);
-      console.log(sessionResult, todayResult, weeklyResult);
 
       // Handle session data
       if (sessionResult.status === 'fulfilled') {
@@ -188,6 +194,7 @@ const EmployeeDashboard = () => {
       // Don't show error on dashboard, just use defaults
     } finally {
       setIsLoading(false);
+      fetchingSessionRef.current = false;
     }
   }, []);
 

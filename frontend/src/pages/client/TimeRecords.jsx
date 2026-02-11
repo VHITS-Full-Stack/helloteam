@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import {
   Card,
@@ -54,7 +54,14 @@ const TimeRecords = () => {
     return `${startStr} - ${endStr}`;
   };
 
+  const fetchingRef = useRef(false);
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+  const prevSearchRef = useRef(searchQuery);
+
   const fetchTimeRecords = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -62,7 +69,7 @@ const TimeRecords = () => {
         startDate: currentWeek.start.toISOString().split('T')[0],
         endDate: currentWeek.end.toISOString().split('T')[0],
         status: statusFilter !== 'all' ? statusFilter.toUpperCase() : undefined,
-        search: searchQuery || undefined,
+        search: searchQueryRef.current || undefined,
       });
 
       if (response.success) {
@@ -83,12 +90,23 @@ const TimeRecords = () => {
       setError('Failed to load time records');
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
-  }, [currentWeek, statusFilter, searchQuery]);
+  }, [currentWeek, statusFilter]);
 
   useEffect(() => {
     fetchTimeRecords();
   }, [fetchTimeRecords]);
+
+  // Debounce search
+  useEffect(() => {
+    if (prevSearchRef.current === searchQuery) return;
+    prevSearchRef.current = searchQuery;
+    const timer = setTimeout(() => {
+      fetchTimeRecords();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handlePreviousWeek = () => {
     const newStart = new Date(currentWeek.start);

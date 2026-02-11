@@ -1,24 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { User, Mail, Phone, Shield, Briefcase, Save, Lock, Eye, EyeOff, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { Card, Button, Badge, Avatar } from '../../components/common';
+import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
+  const { user: authUser } = useAuth();
+
   const [activeTab, setActiveTab] = useState('personal');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Profile data from API
-  const [profile, setProfile] = useState(null);
+  // Profile data - initialized from auth context (no extra API call needed)
+  const [profile, setProfile] = useState(authUser);
 
-  // Form data for editing
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
+  // Form data for editing - initialized from auth context
+  const [formData, setFormData] = useState(() => {
+    const admin = authUser?.admin;
+    return {
+      firstName: admin?.firstName || '',
+      lastName: admin?.lastName || '',
+      phone: admin?.phone || '',
+    };
   });
 
   // Password change form
@@ -31,17 +37,17 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const fetchingRef = useRef(false);
 
+  // Only used to refresh after profile updates, not on mount
   const fetchProfile = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       const response = await authService.getProfile();
       if (response.success && response.data) {
         setProfile(response.data);
-        // Initialize form data with profile data
         if (response.data.admin) {
           const admin = response.data.admin;
           setFormData({
@@ -56,6 +62,7 @@ const Profile = () => {
       console.error('Profile fetch error:', err);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

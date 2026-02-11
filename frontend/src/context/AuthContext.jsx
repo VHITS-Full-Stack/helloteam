@@ -29,6 +29,7 @@ export const AuthProvider = ({ children }) => {
 
   const lastActivityRef = useRef(Date.now());
   const timeoutCheckRef = useRef(null);
+  const checkingAuthRef = useRef(false);
 
   // Update last activity on user interaction
   const updateActivity = useCallback(() => {
@@ -88,6 +89,8 @@ export const AuthProvider = ({ children }) => {
 
   // Check authentication status on mount
   useEffect(() => {
+    if (checkingAuthRef.current) return;
+    checkingAuthRef.current = true;
     checkAuth();
   }, []);
 

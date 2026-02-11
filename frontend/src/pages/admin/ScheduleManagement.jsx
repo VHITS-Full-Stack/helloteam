@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Search,
@@ -71,8 +71,13 @@ const ScheduleManagement = () => {
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyToEmployees, setCopyToEmployees] = useState([]);
 
+  const fetchingEmployeesRef = useRef(false);
+  const fetchingScheduleRef = useRef(false);
+
   // Fetch employees
   const fetchEmployees = useCallback(async () => {
+    if (fetchingEmployeesRef.current) return;
+    fetchingEmployeesRef.current = true;
     try {
       const response = await api.get('/employees');
       if (response.success) {
@@ -85,12 +90,15 @@ const ScheduleManagement = () => {
       setEmployees([]);
     } finally {
       setLoading(false);
+      fetchingEmployeesRef.current = false;
     }
   }, []);
 
   // Fetch employee schedule
   const fetchEmployeeSchedule = useCallback(async (employeeId) => {
     if (!employeeId) return;
+    if (fetchingScheduleRef.current) return;
+    fetchingScheduleRef.current = true;
 
     setLoading(true);
     try {
@@ -123,6 +131,7 @@ const ScheduleManagement = () => {
       setError('Failed to load employee schedule');
     } finally {
       setLoading(false);
+      fetchingScheduleRef.current = false;
     }
   }, []);
 

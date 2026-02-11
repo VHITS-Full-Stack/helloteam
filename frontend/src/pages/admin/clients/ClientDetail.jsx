@@ -10,15 +10,12 @@ import {
   Calendar,
   Edit,
   Trash2,
-  UserPlus,
   X,
-  Plus,
   AlertCircle,
   RefreshCw,
   Settings,
   DollarSign,
   FolderOpen,
-  FolderPlus
 } from 'lucide-react';
 import {
   Card,
@@ -28,7 +25,6 @@ import {
   Modal,
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
-import ClientGroupsModal from '../../../components/admin/ClientGroupsModal';
 
 const ClientDetail = () => {
   const { id } = useParams();
@@ -42,25 +38,10 @@ const ClientDetail = () => {
     error,
     submitting,
     showDeleteModal,
-    showAssignModal,
-    showRateModal,
-    showGroupsModal,
-    selectedEmployee,
-    rateFormData,
     setError,
-    setRateFormData,
     setShowDeleteModal,
-    setShowAssignModal,
-    setShowGroupsModal,
     handleDeleteClient,
-    handleAssignEmployee,
-    handleRemoveEmployee,
-    handleOpenRateModal,
-    handleUpdateEmployeeRate,
-    getUnassignedEmployees,
     closeDeleteModal,
-    closeAssignModal,
-    closeRateModal,
     refresh,
   } = useClientData({ mode: 'detail', id });
 
@@ -157,9 +138,9 @@ const ClientDetail = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         {/* Client Information */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Contact Information */}
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
@@ -315,98 +296,39 @@ const ClientDetail = () => {
               </div>
             )}
           </Card>
-        </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
           {/* Connected Groups */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Connected Groups</h3>
-              <Button variant="outline" size="sm" icon={FolderPlus} onClick={() => setShowGroupsModal(true)}>
+              <Button variant="outline" size="sm" icon={FolderOpen} onClick={() => navigate(`/admin/clients/${id}/groups`)}>
                 Manage
               </Button>
             </div>
-            {connectedGroups.length === 0 ? (
-              <div className="text-center py-6">
-                <FolderOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No groups connected</p>
+            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+              <FolderOpen className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">Total Connected</p>
+                <p className="font-medium text-gray-900">{connectedGroups.length} groups</p>
               </div>
-            ) : (
-              <div className="space-y-2">
-                {connectedGroups.map((group) => (
-                  <div key={group.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
-                        <Users className="w-4 h-4 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900 text-sm">{group.name}</p>
-                        <p className="text-xs text-gray-500">
-                          {group.assignedToClientCount}/{group.employeeCount} employees assigned
-                        </p>
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-400">
-                      {new Date(group.assignedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
+            </div>
           </Card>
 
           {/* Assigned Employees */}
           <Card>
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Assigned Employees</h3>
-              <Button variant="outline" size="sm" icon={UserPlus} onClick={() => setShowAssignModal(true)}>
-                Assign
+              <Button variant="outline" size="sm" icon={Users} onClick={() => navigate(`/admin/clients/${id}/employees`)}>
+                Manage
               </Button>
             </div>
-
-            {clientEmployees.length === 0 ? (
-              <div className="text-center py-8">
-                <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-500">No employees assigned</p>
-                <Button variant="primary" size="sm" icon={UserPlus} className="mt-4" onClick={() => setShowAssignModal(true)}>
-                  Assign Employee
-                </Button>
+            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+              <Users className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">Total Assigned</p>
+                <p className="font-medium text-gray-900">{clientEmployees.length} employees</p>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                {clientEmployees.map((employee) => (
-                  <div key={employee.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="sm" />
-                      <div>
-                        <p className="font-medium text-gray-900">{employee.firstName} {employee.lastName}</p>
-                        <p className="text-sm text-gray-500">{employee.user?.email}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getStatusBadge(employee.user?.status)}
-                      <button
-                        onClick={() => handleOpenRateModal(employee)}
-                        className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors"
-                        disabled={submitting}
-                        title="Set custom rate"
-                      >
-                        <DollarSign className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleRemoveEmployee(employee.id)}
-                        className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                        disabled={submitting}
-                        title="Remove from client"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            </div>
           </Card>
         </div>
       </div>
@@ -441,142 +363,6 @@ const ClientDetail = () => {
         </div>
       </Modal>
 
-      {/* Assign Employee Modal */}
-      <Modal
-        isOpen={showAssignModal}
-        onClose={closeAssignModal}
-        title="Assign Employee"
-        size="md"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">Select an employee to assign to <strong>{client.companyName}</strong></p>
-
-          {getUnassignedEmployees().length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">No available employees to assign</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto">
-              {getUnassignedEmployees().map((employee) => (
-                <div key={employee.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
-                  <div className="flex items-center gap-3">
-                    <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="sm" />
-                    <div>
-                      <p className="font-medium text-gray-900">{employee.firstName} {employee.lastName}</p>
-                      <p className="text-sm text-gray-500">{employee.user?.email}</p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    icon={Plus}
-                    onClick={() => handleAssignEmployee(employee.id)}
-                    disabled={submitting}
-                  >
-                    Assign
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end pt-4">
-            <Button variant="primary" onClick={closeAssignModal}>
-              Done
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Employee Rate Modal */}
-      <Modal
-        isOpen={showRateModal}
-        onClose={closeRateModal}
-        title="Set Employee Rate"
-        size="sm"
-      >
-        {selectedEmployee && (
-          <form onSubmit={handleUpdateEmployeeRate} className="space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <Avatar src={selectedEmployee.profilePhoto} name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} size="sm" />
-              <div>
-                <p className="font-medium text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
-                <p className="text-sm text-gray-500">{selectedEmployee.user?.email}</p>
-              </div>
-            </div>
-
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
-              <p className="text-sm text-blue-600">
-                Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
-                Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
-              </p>
-            </div>
-
-            <p className="text-sm text-gray-500">
-              Set custom rates for this employee. Leave blank to use the client default rates.
-            </p>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Use default"
-                  value={rateFormData.hourlyRate}
-                  onChange={(e) => setRateFormData({ ...rateFormData, hourlyRate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Rate ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="Use default"
-                  value={rateFormData.overtimeRate}
-                  onChange={(e) => setRateFormData({ ...rateFormData, overtimeRate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-3 pt-4">
-              <Button variant="ghost" type="button" onClick={closeRateModal}>
-                Cancel
-              </Button>
-              <Button variant="primary" type="submit" loading={submitting}>
-                Save Rate
-              </Button>
-            </div>
-          </form>
-        )}
-      </Modal>
-
-      {/* Groups Management Modal */}
-      <ClientGroupsModal
-        isOpen={showGroupsModal}
-        onClose={() => setShowGroupsModal(false)}
-        clientId={id}
-        clientName={client?.companyName}
-        onGroupsChanged={refresh}
-      />
     </div>
   );
 };

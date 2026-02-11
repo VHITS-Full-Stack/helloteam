@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
 import scheduleService from '../../services/schedule.service';
@@ -10,7 +10,8 @@ const Schedule = () => {
   const [error, setError] = useState(null);
   const [scheduleData, setScheduleData] = useState([]);
   const [todaySchedule, setTodaySchedule] = useState(null);
-  const [monthScheduleCache, setMonthScheduleCache] = useState({});
+  const monthScheduleCacheRef = useRef({});
+  const fetchingRef = useRef(false);
 
   // Get the start of the current week (Sunday)
   const getWeekStart = useCallback((date) => {
@@ -39,6 +40,8 @@ const Schedule = () => {
 
   // Fetch schedule data based on view mode
   const fetchScheduleData = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setIsLoading(true);
       setError(null);
@@ -63,8 +66,8 @@ const Schedule = () => {
         const monthKey = `${monthStart.getFullYear()}-${monthStart.getMonth()}`;
 
         // Check cache first
-        if (monthScheduleCache[monthKey]) {
-          setScheduleData(monthScheduleCache[monthKey]);
+        if (monthScheduleCacheRef.current[monthKey]) {
+          setScheduleData(monthScheduleCacheRef.current[monthKey]);
         } else {
           // Fetch all weeks of the month
           const weeksToFetch = [];
@@ -100,7 +103,7 @@ const Schedule = () => {
           allDays.sort((a, b) => new Date(a.date) - new Date(b.date));
 
           // Cache the result
-          setMonthScheduleCache(prev => ({ ...prev, [monthKey]: allDays }));
+          monthScheduleCacheRef.current[monthKey] = allDays;
           setScheduleData(allDays);
         }
 
@@ -115,8 +118,9 @@ const Schedule = () => {
       setError('Failed to load schedule data. Please try again.');
     } finally {
       setIsLoading(false);
+      fetchingRef.current = false;
     }
-  }, [currentDate, viewMode, getWeekStart, getMonthStart, fetchWeekSchedule, monthScheduleCache]);
+  }, [currentDate, viewMode, getWeekStart, getMonthStart, fetchWeekSchedule]);
 
   useEffect(() => {
     fetchScheduleData();

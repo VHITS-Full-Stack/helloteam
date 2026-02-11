@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Users,
@@ -44,7 +44,11 @@ const ClientDashboard = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  const fetchingRef = useRef(false);
+
   const fetchDashboardData = useCallback(async (showRefresh = false) => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       if (showRefresh) setRefreshing(true);
       else setLoading(true);
@@ -79,6 +83,7 @@ const ClientDashboard = () => {
     } finally {
       setLoading(false);
       setRefreshing(false);
+      fetchingRef.current = false;
     }
   }, []);
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   CheckCircle,
   XCircle,
@@ -42,7 +42,11 @@ const Approvals = () => {
   const [processing, setProcessing] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
 
+  const fetchingRef = useRef(false);
+
   const fetchApprovals = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
     try {
       const params = {
@@ -63,6 +67,7 @@ const Approvals = () => {
       console.error('Failed to fetch approvals:', error);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

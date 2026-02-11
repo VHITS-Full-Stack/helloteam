@@ -1,28 +1,34 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Trash2 } from 'lucide-react';
 import { Card, Button, Badge, Avatar } from '../../components/common';
+import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
+  const { user: authUser } = useAuth();
+
   const [activeTab, setActiveTab] = useState('personal');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Profile data from API
-  const [profile, setProfile] = useState(null);
+  // Profile data - initialized from auth context (no extra API call needed)
+  const [profile, setProfile] = useState(authUser);
 
-  // Form data for editing
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    address: '',
-    emergencyContact: '',
+  // Form data for editing - initialized from auth context
+  const [formData, setFormData] = useState(() => {
+    const emp = authUser?.employee;
+    return {
+      firstName: emp?.firstName || '',
+      lastName: emp?.lastName || '',
+      phone: emp?.phone || '',
+      address: emp?.address || '',
+      emergencyContact: emp?.emergencyContact || '',
+    };
   });
 
   // Password change form
@@ -35,27 +41,30 @@ const Profile = () => {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
-    scheduleChanges: true,
-    shiftReminders: true,
-    leaveApprovals: true,
-    pushMessages: false,
-    weeklySummary: true,
+  // Notification preferences - initialized from auth context
+  const [notifications, setNotifications] = useState(() => {
+    const emp = authUser?.employee;
+    return {
+      scheduleChanges: emp?.notifyScheduleChanges ?? true,
+      shiftReminders: emp?.notifyShiftReminders ?? true,
+      leaveApprovals: emp?.notifyLeaveApprovals ?? true,
+      pushMessages: emp?.notifyPushMessages ?? false,
+      weeklySummary: emp?.notifyWeeklySummary ?? true,
+    };
   });
   const [, setSavingNotification] = useState(null);
 
-  useEffect(() => {
-    fetchProfile();
-  }, []);
+  const fetchingRef = useRef(false);
 
+  // Only used to refresh after profile updates, not on mount
   const fetchProfile = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       const response = await authService.getProfile();
       if (response.success && response.data) {
         setProfile(response.data);
-        // Initialize form data with profile data
         if (response.data.employee) {
           const emp = response.data.employee;
           setFormData({
@@ -65,7 +74,6 @@ const Profile = () => {
             address: emp.address || '',
             emergencyContact: emp.emergencyContact || '',
           });
-          // Initialize notification preferences from API
           setNotifications({
             scheduleChanges: emp.notifyScheduleChanges ?? true,
             shiftReminders: emp.notifyShiftReminders ?? true,
@@ -80,6 +88,7 @@ const Profile = () => {
       console.error('Profile fetch error:', err);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

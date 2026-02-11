@@ -1,0 +1,346 @@
+import { useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import {
+  ArrowLeft,
+  Users,
+  UserPlus,
+  X,
+  Plus,
+  AlertCircle,
+  DollarSign,
+  Search,
+  RefreshCw,
+} from 'lucide-react';
+import {
+  Card,
+  Button,
+  Badge,
+  Avatar,
+  Modal,
+} from '../../../components/common';
+import { useClientData } from '../../../hooks/useClientData';
+
+const ClientEmployees = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [showAssignSection, setShowAssignSection] = useState(false);
+  const [searchFilter, setSearchFilter] = useState('');
+
+  const {
+    client,
+    clientEmployees,
+    loading,
+    error,
+    submitting,
+    showRateModal,
+    selectedEmployee,
+    rateFormData,
+    setError,
+    setRateFormData,
+    handleAssignEmployee,
+    handleRemoveEmployee,
+    handleOpenRateModal,
+    handleUpdateEmployeeRate,
+    getUnassignedEmployees,
+    closeRateModal,
+    refresh,
+  } = useClientData({ mode: 'detail', id });
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'ACTIVE':
+        return <Badge variant="success">Active</Badge>;
+      case 'INACTIVE':
+        return <Badge variant="default">Inactive</Badge>;
+      default:
+        return <Badge variant="default">{status}</Badge>;
+    }
+  };
+
+  const filteredUnassigned = getUnassignedEmployees().filter((emp) => {
+    if (!searchFilter) return true;
+    const query = searchFilter.toLowerCase();
+    return (
+      `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(query) ||
+      emp.user?.email?.toLowerCase().includes(query)
+    );
+  });
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
+          <p className="mt-4 text-gray-500">Loading employees...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900">Client Not Found</h3>
+          <p className="text-gray-500 mb-4">The client you're looking for doesn't exist.</p>
+          <Button variant="primary" onClick={() => navigate('/admin/clients')}>
+            Back to Clients
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate(`/admin/clients/${id}`)}>
+            Back
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Assigned Employees</h2>
+            <p className="text-gray-500">{client.companyName}</p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
+            Refresh
+          </Button>
+          <Button
+            variant="primary"
+            icon={UserPlus}
+            onClick={() => setShowAssignSection(!showAssignSection)}
+          >
+            Assign Employee
+          </Button>
+        </div>
+      </div>
+
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Assign Employee Section */}
+      {showAssignSection && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Available Employees</h3>
+            <button
+              onClick={() => setShowAssignSection(false)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="relative mb-4">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search employees..."
+              value={searchFilter}
+              onChange={(e) => setSearchFilter(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+          </div>
+
+          {filteredUnassigned.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">
+                {searchFilter ? 'No employees match your search' : 'No available employees to assign'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[400px] overflow-y-auto">
+              {filteredUnassigned.map((employee) => (
+                <div
+                  key={employee.id}
+                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      src={employee.profilePhoto}
+                      name={`${employee.firstName} ${employee.lastName}`}
+                      size="sm"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {employee.firstName} {employee.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={Plus}
+                    onClick={() => handleAssignEmployee(employee.id)}
+                    disabled={submitting}
+                  >
+                    Assign
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Assigned Employees List */}
+      <Card>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">
+            Currently Assigned ({clientEmployees.length})
+          </h3>
+        </div>
+
+        {clientEmployees.length === 0 ? (
+          <div className="text-center py-8">
+            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500">No employees assigned</p>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={UserPlus}
+              className="mt-4"
+              onClick={() => setShowAssignSection(true)}
+            >
+              Assign Employee
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {clientEmployees.map((employee) => (
+              <div
+                key={employee.id}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    src={employee.profilePhoto}
+                    name={`${employee.firstName} ${employee.lastName}`}
+                    size="sm"
+                  />
+                  <div>
+                    <p className="font-medium text-gray-900">
+                      {employee.firstName} {employee.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(employee.user?.status)}
+                  <button
+                    onClick={() => handleOpenRateModal(employee)}
+                    className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors"
+                    disabled={submitting}
+                    title="Set custom rate"
+                  >
+                    <DollarSign className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => handleRemoveEmployee(employee.id)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                    disabled={submitting}
+                    title="Remove from client"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Employee Rate Modal */}
+      <Modal
+        isOpen={showRateModal}
+        onClose={closeRateModal}
+        title="Set Employee Rate"
+        size="sm"
+      >
+        {selectedEmployee && (
+          <form onSubmit={handleUpdateEmployeeRate} className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Avatar src={selectedEmployee.profilePhoto} name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} size="sm" />
+              <div>
+                <p className="font-medium text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
+                <p className="text-sm text-gray-500">{selectedEmployee.user?.email}</p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
+              <p className="text-sm text-blue-600">
+                Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
+                Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
+              </p>
+            </div>
+
+            <p className="text-sm text-gray-500">
+              Set custom rates for this employee. Leave blank to use the client default rates.
+            </p>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Use default"
+                  value={rateFormData.hourlyRate}
+                  onChange={(e) => setRateFormData({ ...rateFormData, hourlyRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Rate ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Use default"
+                  value={rateFormData.overtimeRate}
+                  onChange={(e) => setRateFormData({ ...rateFormData, overtimeRate: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="ghost" type="button" onClick={closeRateModal}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" loading={submitting}>
+                Save Rate
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+    </div>
+  );
+};
+
+export default ClientEmployees;

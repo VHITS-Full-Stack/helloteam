@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw } from 'lucide-react';
 import {
   Card,
@@ -52,9 +52,17 @@ const TimeRecords = () => {
     setEndDate(endOfWeek.toISOString().split('T')[0]);
   }, []);
 
+  const fetchingClientsRef = useRef(false);
+  const fetchingRecordsRef = useRef(false);
+  const searchTimerRef = useRef(null);
+  const searchTermRef = useRef(searchTerm);
+  searchTermRef.current = searchTerm;
+
   // Fetch clients list
   useEffect(() => {
     const fetchClients = async () => {
+      if (fetchingClientsRef.current) return;
+      fetchingClientsRef.current = true;
       try {
         const response = await clientService.getClients({ limit: 100 });
         if (response?.success) {
@@ -68,6 +76,8 @@ const TimeRecords = () => {
         }
       } catch (error) {
         console.error('Failed to fetch clients:', error);
+      } finally {
+        fetchingClientsRef.current = false;
       }
     };
     fetchClients();
@@ -75,6 +85,8 @@ const TimeRecords = () => {
 
   // Fetch time records
   const fetchTimeRecords = async () => {
+    if (fetchingRecordsRef.current) return;
+    fetchingRecordsRef.current = true;
     setLoading(true);
     try {
       const params = {
@@ -96,14 +108,25 @@ const TimeRecords = () => {
       console.error('Failed to fetch time records:', error);
     } finally {
       setLoading(false);
+      fetchingRecordsRef.current = false;
     }
   };
 
+  // Fetch on filter/date changes (not searchTerm — that's debounced below)
   useEffect(() => {
     if (startDate && endDate) {
       fetchTimeRecords();
     }
-  }, [selectedClient, selectedStatus, searchTerm, startDate, endDate]);
+  }, [selectedClient, selectedStatus, startDate, endDate]);
+
+  // Debounce search term
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    const timer = setTimeout(() => {
+      fetchTimeRecords();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   const getStatusBadge = (status) => {
     switch (status) {
