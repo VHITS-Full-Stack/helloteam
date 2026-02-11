@@ -13,6 +13,27 @@ const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Prom
   return freshUrl || photoUrl;
 };
 
+/**
+ * Deactivate any existing active client assignments for an employee
+ * before assigning to a new client (enforces 1-client-per-employee rule).
+ * Uses a Prisma transaction client if provided, otherwise uses the default client.
+ */
+export const deactivateOtherClientAssignments = async (
+  employeeId: string,
+  newClientId: string,
+  tx?: any
+) => {
+  const db = tx || prisma;
+  await db.clientEmployee.updateMany({
+    where: {
+      employeeId,
+      clientId: { not: newClientId },
+      isActive: true,
+    },
+    data: { isActive: false },
+  });
+};
+
 // Get all employees with pagination and filters
 export const getEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -520,7 +541,10 @@ export const assignToClient = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Check if assignment already exists
+    // Deactivate any existing assignment to other clients (1-client-per-employee rule)
+    await deactivateOtherClientAssignments(id, clientId);
+
+    // Check if assignment already exists for this client
     const existingAssignment = await prisma.clientEmployee.findUnique({
       where: {
         clientId_employeeId: {

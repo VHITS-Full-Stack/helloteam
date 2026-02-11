@@ -74,11 +74,11 @@ const Employees = () => {
     }
   };
 
-  const getEmployeeClients = (employee) => {
+  const getEmployeeClient = (employee) => {
     if (!employee.clientAssignments || employee.clientAssignments.length === 0) {
       return <span className="text-gray-400">Unassigned</span>;
     }
-    return employee.clientAssignments.map(ca => ca.client?.companyName).join(', ');
+    return employee.clientAssignments[0]?.client?.companyName || <span className="text-gray-400">Unassigned</span>;
   };
 
   return (
@@ -224,7 +224,7 @@ const Employees = () => {
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <Building className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm">{getEmployeeClients(employee)}</span>
+                      <span className="text-sm">{getEmployeeClient(employee)}</span>
                     </div>
                   </TableCell>
                   <TableCell>
@@ -348,6 +348,13 @@ const Employees = () => {
           <p className="text-gray-600">
             Assign <strong>{selectedEmployee?.firstName} {selectedEmployee?.lastName}</strong> to a client:
           </p>
+          {selectedEmployee?.clientAssignments?.length > 0 && (
+            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-700">
+                Currently assigned to <strong>{selectedEmployee.clientAssignments[0]?.client?.companyName}</strong>. Assigning to a new client will remove the existing assignment.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Select Client</label>

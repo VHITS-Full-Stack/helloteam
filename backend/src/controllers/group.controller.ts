@@ -1,6 +1,7 @@
 import { Response } from "express";
 import prisma from "../config/database";
 import { AuthenticatedRequest } from "../types";
+import { deactivateOtherClientAssignments } from "./employee.controller";
 
 // Get all groups with pagination and filters
 export const getGroups = async (
@@ -543,9 +544,11 @@ export const assignGroupToClient = async (
       update: {},
     });
 
-    // Also assign any existing group employees to the client
+    // Also assign any existing group employees to the client (1-client-per-employee)
     if (group.employees.length > 0) {
       for (const ge of group.employees) {
+        await deactivateOtherClientAssignments(ge.employeeId, clientId);
+
         const existing = await prisma.clientEmployee.findUnique({
           where: { clientId_employeeId: { clientId, employeeId: ge.employeeId } },
         });
