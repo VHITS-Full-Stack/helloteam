@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Users,
   Building,
@@ -37,7 +37,11 @@ const AdminDashboard = () => {
     daysUntilCutoff: 0,
   });
 
+  const fetchingRef = useRef(false);
+
   const fetchDashboardData = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setLoading(true);
     try {
       const [statsRes, activityRes, actionsRes, clientsRes, payrollRes] = await Promise.all([
@@ -67,6 +71,7 @@ const AdminDashboard = () => {
       console.error('Failed to fetch dashboard data:', error);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

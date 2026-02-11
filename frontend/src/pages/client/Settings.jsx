@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Building2, Users, Bell, Shield, Globe, Clock, Save, AlertCircle, Check, Loader2 } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
 import clientPortalService from '../../services/clientPortal.service';
@@ -68,11 +68,15 @@ const Settings = () => {
     { value: 'UTC', label: 'UTC' },
   ];
 
+  const fetchingRef = useRef(false);
+
   useEffect(() => {
     fetchSettings();
   }, []);
 
   const fetchSettings = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       setLoading(true);
       const response = await clientPortalService.getSettings();
@@ -108,6 +112,7 @@ const Settings = () => {
       console.error('Settings fetch error:', err);
     } finally {
       setLoading(false);
+      fetchingRef.current = false;
     }
   };
 

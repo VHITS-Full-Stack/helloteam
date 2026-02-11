@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   CheckCircle,
   XCircle,
@@ -57,7 +57,12 @@ const Approvals = () => {
     endDate: '',
   });
 
+  const fetchingApprovalsRef = useRef(false);
+  const fetchingOvertimeRef = useRef(false);
+
   const fetchApprovals = useCallback(async () => {
+    if (fetchingApprovalsRef.current) return;
+    fetchingApprovalsRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -78,10 +83,13 @@ const Approvals = () => {
       setError('Failed to load approvals');
     } finally {
       setLoading(false);
+      fetchingApprovalsRef.current = false;
     }
   }, [activeTab]);
 
   const fetchOvertimeRequests = useCallback(async () => {
+    if (fetchingOvertimeRef.current) return;
+    fetchingOvertimeRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -115,6 +123,7 @@ const Approvals = () => {
       setError('Failed to load overtime requests');
     } finally {
       setLoading(false);
+      fetchingOvertimeRef.current = false;
     }
   }, [activeTab, dateRange.startDate, dateRange.endDate]);
 

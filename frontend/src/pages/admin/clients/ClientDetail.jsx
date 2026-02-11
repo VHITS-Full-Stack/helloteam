@@ -157,9 +157,9 @@ const ClientDetail = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="space-y-6">
         {/* Client Information */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6">
           {/* Contact Information */}
           <Card>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
@@ -315,10 +315,7 @@ const ClientDetail = () => {
               </div>
             )}
           </Card>
-        </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
           {/* Connected Groups */}
           <Card>
             <div className="flex items-center justify-between mb-4">
@@ -328,14 +325,14 @@ const ClientDetail = () => {
               </Button>
             </div>
             {connectedGroups.length === 0 ? (
-              <div className="text-center py-6">
-                <FolderOpen className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">No groups connected</p>
+              <div className="text-center py-8">
+                <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No groups connected</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {connectedGroups.map((group) => (
-                  <div key={group.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div key={group.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center">
                         <Users className="w-4 h-4 text-primary" />

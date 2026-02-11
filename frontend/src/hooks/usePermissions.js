@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import permissionsService from '../services/permissions.service';
 
+// Module-level promise deduplication so multiple hook instances share one API call
+let activePermissionsFetch = null;
+
 /**
  * Custom hook for permission-based access control
  * Fetches user permissions from the API and provides helper functions
@@ -25,7 +28,12 @@ export const usePermissions = () => {
       try {
         setLoading(true);
         setError(null);
-        const response = await permissionsService.getMyPermissions();
+
+        // Reuse in-flight request if one exists
+        if (!activePermissionsFetch) {
+          activePermissionsFetch = permissionsService.getMyPermissions();
+        }
+        const response = await activePermissionsFetch;
 
         if (response.success) {
           setPermissions(response.data.permissions || []);
@@ -39,6 +47,7 @@ export const usePermissions = () => {
         setPermissions([]);
       } finally {
         setLoading(false);
+        activePermissionsFetch = null;
       }
     };
 
@@ -115,6 +124,7 @@ export const usePermissions = () => {
 
     try {
       setLoading(true);
+      activePermissionsFetch = null; // Clear cached promise to force fresh fetch
       const response = await permissionsService.getMyPermissions();
       if (response.success) {
         setPermissions(response.data.permissions || []);

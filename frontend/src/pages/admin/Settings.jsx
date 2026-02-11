@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Building2,
   Users,
@@ -77,8 +77,17 @@ const Settings = () => {
     return false;
   });
 
+  const fetchingRolesRef = useRef(false);
+  const fetchingPermissionsRef = useRef(false);
+  const fetchingAdminUsersRef = useRef(false);
+  const fetchingGeneralRef = useRef(false);
+  const fetchingNotificationsRef = useRef(false);
+  const fetchingSecurityRef = useRef(false);
+
   // Fetch roles from database
   const fetchRoles = async () => {
+    if (fetchingRolesRef.current) return;
+    fetchingRolesRef.current = true;
     try {
       setLoadingRoles(true);
       setRolesError(null);
@@ -93,11 +102,14 @@ const Settings = () => {
       setRolesError(err.error || 'Failed to load roles');
     } finally {
       setLoadingRoles(false);
+      fetchingRolesRef.current = false;
     }
   };
 
   // Fetch available permissions
   const fetchAvailablePermissions = async () => {
+    if (fetchingPermissionsRef.current) return;
+    fetchingPermissionsRef.current = true;
     try {
       const response = await rolesService.getAvailablePermissions();
       if (response.success) {
@@ -105,6 +117,8 @@ const Settings = () => {
       }
     } catch (err) {
       console.error('Failed to load available permissions:', err);
+    } finally {
+      fetchingPermissionsRef.current = false;
     }
   };
 
@@ -218,6 +232,8 @@ const Settings = () => {
 
   // Fetch admin users from database
   const fetchAdminUsers = async () => {
+    if (fetchingAdminUsersRef.current) return;
+    fetchingAdminUsersRef.current = true;
     try {
       setLoadingAdminUsers(true);
       setAdminUsersError(null);
@@ -231,6 +247,7 @@ const Settings = () => {
       setAdminUsersError(err.message || 'Failed to load admin users');
     } finally {
       setLoadingAdminUsers(false);
+      fetchingAdminUsersRef.current = false;
     }
   };
 
@@ -385,6 +402,8 @@ const Settings = () => {
 
   // Fetch general settings
   const fetchGeneralSettings = async () => {
+    if (fetchingGeneralRef.current) return;
+    fetchingGeneralRef.current = true;
     try {
       setLoadingGeneralSettings(true);
       const response = await settingsService.getGeneralSettings();
@@ -395,6 +414,7 @@ const Settings = () => {
       console.error('Failed to load general settings:', err);
     } finally {
       setLoadingGeneralSettings(false);
+      fetchingGeneralRef.current = false;
     }
   };
 
@@ -415,6 +435,8 @@ const Settings = () => {
 
   // Fetch notification settings
   const fetchNotificationSettings = async () => {
+    if (fetchingNotificationsRef.current) return;
+    fetchingNotificationsRef.current = true;
     try {
       setLoadingNotifications(true);
       const response = await settingsService.getNotificationSettings();
@@ -425,6 +447,7 @@ const Settings = () => {
       console.error('Failed to load notification settings:', err);
     } finally {
       setLoadingNotifications(false);
+      fetchingNotificationsRef.current = false;
     }
   };
 
@@ -445,6 +468,8 @@ const Settings = () => {
 
   // Fetch security settings
   const fetchSecuritySettings = async () => {
+    if (fetchingSecurityRef.current) return;
+    fetchingSecurityRef.current = true;
     try {
       setLoadingSecuritySettings(true);
       const response = await settingsService.getSecuritySettings();
@@ -455,6 +480,7 @@ const Settings = () => {
       console.error('Failed to load security settings:', err);
     } finally {
       setLoadingSecuritySettings(false);
+      fetchingSecurityRef.current = false;
     }
   };
 
@@ -483,11 +509,6 @@ const Settings = () => {
       fetchSecuritySettings();
     }
   }, [activeTab]);
-
-  // Fetch general settings on initial load
-  useEffect(() => {
-    fetchGeneralSettings();
-  }, []);
 
   // Notification setting labels
   const notificationLabels = {

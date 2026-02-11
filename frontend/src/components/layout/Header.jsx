@@ -1,5 +1,5 @@
 import { Bell, Search, Menu, X, Check, Trash2 } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Avatar } from '../common';
 import notificationService from '../../services/notification.service';
 
@@ -17,8 +17,12 @@ const Header = ({
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const fetchingCountRef = useRef(false);
+  const fetchingNotificationsRef = useRef(false);
 
   const fetchNotifications = useCallback(async () => {
+    if (fetchingNotificationsRef.current) return;
+    fetchingNotificationsRef.current = true;
     try {
       setLoading(true);
       const response = await notificationService.getNotifications({ limit: 10 });
@@ -30,10 +34,13 @@ const Header = ({
       console.error('Failed to fetch notifications:', error);
     } finally {
       setLoading(false);
+      fetchingNotificationsRef.current = false;
     }
   }, []);
 
   const fetchUnreadCount = useCallback(async () => {
+    if (fetchingCountRef.current) return;
+    fetchingCountRef.current = true;
     try {
       const response = await notificationService.getUnreadCount();
       if (response.success) {
@@ -41,6 +48,8 @@ const Header = ({
       }
     } catch (error) {
       console.error('Failed to fetch unread count:', error);
+    } finally {
+      fetchingCountRef.current = false;
     }
   }, []);
 

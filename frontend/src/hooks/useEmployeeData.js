@@ -22,7 +22,9 @@ export const useEmployeeData = ({ mode = 'list', id } = {}) => {
 
 function useEmployeeList() {
   const [searchQuery, setSearchQuery] = useState('');
-  const isInitialMount = useRef(true);
+  const searchQueryRef = useRef(searchQuery);
+  searchQueryRef.current = searchQuery;
+  const prevSearchRef = useRef(searchQuery);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -33,31 +35,41 @@ function useEmployeeList() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
+  const fetchingEmployeesRef = useRef(false);
+  const fetchingStatsRef = useRef(false);
+  const fetchingClientsRef = useRef(false);
 
   const fetchEmployees = useCallback(async () => {
+    if (fetchingEmployeesRef.current) return;
+    fetchingEmployeesRef.current = true;
     try {
       setLoading(true);
       const response = await employeeService.getEmployees({
         page: pagination.page,
         limit: pagination.limit,
-        search: searchQuery,
+        search: searchQueryRef.current,
       });
 
       if (response.success) {
         setEmployees(response.data.employees);
+        const p = response.data.pagination;
         setPagination(prev => ({
           ...prev,
-          ...response.data.pagination,
+          total: p.total ?? prev.total,
+          totalPages: p.totalPages ?? prev.totalPages,
         }));
       }
     } catch (err) {
       setError(err.error || 'Failed to fetch employees');
     } finally {
       setLoading(false);
+      fetchingEmployeesRef.current = false;
     }
-  }, [pagination.page, pagination.limit, searchQuery]);
+  }, [pagination.page, pagination.limit]);
 
   const fetchStats = async () => {
+    if (fetchingStatsRef.current) return;
+    fetchingStatsRef.current = true;
     try {
       const response = await employeeService.getStats();
       if (response.success) {
@@ -65,10 +77,14 @@ function useEmployeeList() {
       }
     } catch (err) {
       console.error('Failed to fetch stats:', err);
+    } finally {
+      fetchingStatsRef.current = false;
     }
   };
 
   const fetchClients = async () => {
+    if (fetchingClientsRef.current) return;
+    fetchingClientsRef.current = true;
     try {
       const response = await clientService.getClients({ limit: 100 });
       if (response.success) {
@@ -76,21 +92,25 @@ function useEmployeeList() {
       }
     } catch (err) {
       console.error('Failed to fetch clients:', err);
+    } finally {
+      fetchingClientsRef.current = false;
     }
   };
 
+  // Fetch employees on mount and pagination change
   useEffect(() => {
     fetchEmployees();
-    fetchStats();
-    fetchClients();
   }, [fetchEmployees]);
 
-  // Debounce search - skip initial mount
+  // Fetch stats only on mount
   useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
+    fetchStats();
+  }, []);
+
+  // Debounce search - skip if search hasn't actually changed
+  useEffect(() => {
+    if (prevSearchRef.current === searchQuery) return;
+    prevSearchRef.current = searchQuery;
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
         fetchEmployees();
@@ -162,6 +182,7 @@ function useEmployeeList() {
   const openAssignModal = (employee) => {
     setSelectedEmployee(employee);
     setShowAssignModal(true);
+    if (clients.length === 0) fetchClients();
   };
 
   const closeAssignModal = () => {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Clock,
   Calendar,
@@ -100,7 +100,10 @@ const TimeRecords = () => {
   }, [viewMode, weekRange, dayRange]);
 
   // Fetch sessions
+  const fetchingSessionsRef = useRef(false);
   const fetchSessions = useCallback(async () => {
+    if (fetchingSessionsRef.current) return;
+    fetchingSessionsRef.current = true;
     try {
       setIsLoading(true);
       setError(null);
@@ -121,6 +124,7 @@ const TimeRecords = () => {
       setError('Failed to load time entries. Please try again.');
     } finally {
       setIsLoading(false);
+      fetchingSessionsRef.current = false;
     }
   }, [activeRange]);
 
