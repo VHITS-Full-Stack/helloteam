@@ -35,10 +35,13 @@ const Employees = () => {
   const {
     employees,
     clients,
+    clientGroups,
     stats,
     pagination,
     searchQuery,
     selectedEmployee,
+    selectedClientId,
+    selectedGroupId,
     loading,
     error,
     submitting,
@@ -47,10 +50,12 @@ const Employees = () => {
     setSearchQuery,
     setError,
     setPagination,
+    setSelectedGroupId,
     openDeleteModal,
     closeDeleteModal,
     openAssignModal,
     closeAssignModal,
+    handleSelectClient,
     handleDeleteEmployee,
     handleAssignToClient,
     refresh,
@@ -341,27 +346,43 @@ const Employees = () => {
       >
         <div className="space-y-4">
           <p className="text-gray-600">
-            Select a client to assign <strong>{selectedEmployee?.firstName} {selectedEmployee?.lastName}</strong> to:
+            Assign <strong>{selectedEmployee?.firstName} {selectedEmployee?.lastName}</strong> to a client:
           </p>
 
-          <div className="space-y-2">
-            {clients.map((client) => (
-              <button
-                key={client.id}
-                className="w-full p-4 text-left border border-gray-200 rounded-xl hover:bg-primary-50 hover:border-primary transition-colors"
-                onClick={() => handleAssignToClient(client.id)}
-                disabled={submitting}
-              >
-                <div className="flex items-center gap-3">
-                  <Building className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="font-medium text-gray-900">{client.companyName}</p>
-                    <p className="text-sm text-gray-500">{client.contactPerson}</p>
-                  </div>
-                </div>
-              </button>
-            ))}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Select Client</label>
+            <select
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={selectedClientId}
+              onChange={(e) => handleSelectClient(e.target.value)}
+            >
+              <option value="">Select a client</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.companyName}
+                </option>
+              ))}
+            </select>
           </div>
+
+          {selectedClientId && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Select Group (Optional)</label>
+              <select
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                value={selectedGroupId}
+                onChange={(e) => setSelectedGroupId(e.target.value)}
+              >
+                <option value="">No group</option>
+                {clientGroups.map((group) => (
+                  <option key={group.id} value={group.id}>
+                    {group.name} ({group.employees?.length || 0} employees)
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Optionally add this employee to a group under the selected client</p>
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -369,9 +390,17 @@ const Employees = () => {
             </div>
           )}
 
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end gap-3 pt-4">
             <Button variant="ghost" onClick={closeAssignModal}>
               Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleAssignToClient}
+              disabled={!selectedClientId}
+              loading={submitting}
+            >
+              Assign
             </Button>
           </div>
         </div>

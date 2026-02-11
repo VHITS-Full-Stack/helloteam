@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import employeeService from '../services/employee.service';
 import clientService from '../services/client.service';
+import groupService from '../services/group.service';
 
 /**
  * Custom hook for employee add/edit form logic
@@ -13,6 +14,8 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
   const isEdit = Boolean(id);
 
   const [clients, setClients] = useState([]);
+  const [allGroups, setAllGroups] = useState([]);
+  const [clientGroups, setClientGroups] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -27,18 +30,46 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     hireDate: '',
     status: 'ACTIVE',
     clientId: '',
+    groupId: '',
     payableRate: '',
     billingRate: '',
   });
+
+  const filterGroupsByClient = (groups, clientId) => {
+    if (!clientId) {
+      setClientGroups([]);
+      return;
+    }
+    const filtered = groups.filter((group) =>
+      group.clients?.some((cg) => {
+        const cid = cg.client?.id || cg.clientId;
+        return cid === clientId;
+      })
+    );
+    setClientGroups(filtered);
+  };
+
+  const handleClientChange = (clientId) => {
+    setFormData((prev) => ({ ...prev, clientId, groupId: '' }));
+    filterGroupsByClient(allGroups, clientId);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         if (isEdit) setLoading(true);
 
-        const clientsRes = await clientService.getClients({ limit: 100 });
+        const [clientsRes, groupsRes] = await Promise.all([
+          clientService.getClients({ limit: 100 }),
+          groupService.getGroups({ limit: 100 }),
+        ]);
+
         if (clientsRes.success) {
           setClients(clientsRes.data.clients);
+        }
+
+        if (groupsRes.success) {
+          setAllGroups(groupsRes.data.groups);
         }
 
         if (isEdit) {
@@ -79,10 +110,20 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     try {
       let response;
       if (isEdit) {
-        const { password, clientId, ...updateData } = formData;
+        const { password, clientId, groupId, ...updateData } = formData;
         response = await employeeService.updateEmployee(id, updateData);
       } else {
-        response = await employeeService.createEmployee(formData);
+        const { groupId, ...createData } = formData;
+        response = await employeeService.createEmployee(createData);
+
+        // Add to group if selected
+        if (response.success && groupId && response.data?.id) {
+          try {
+            await groupService.addEmployees(groupId, [response.data.id]);
+          } catch (groupErr) {
+            console.error('Failed to add employee to group:', groupErr);
+          }
+        }
       }
 
       if (response.success) {
@@ -101,12 +142,14 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     formData,
     setFormData,
     clients,
+    clientGroups,
     isEdit,
     loading,
     error,
     setError,
     submitting,
     handleSubmit,
+    handleClientChange,
   };
 };
 

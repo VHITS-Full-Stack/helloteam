@@ -20,12 +20,14 @@ const AddEmployee = () => {
     formData,
     setFormData,
     clients,
+    clientGroups,
     isEdit,
     loading,
     error,
     setError,
     submitting,
     handleSubmit,
+    handleClientChange,
   } = useEmployeeForm({ id, onSuccess: () => navigate('/admin/employees') });
 
   if (loading) {
@@ -159,7 +161,7 @@ const AddEmployee = () => {
                   <select
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                     value={formData.clientId}
-                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+                    onChange={(e) => handleClientChange(e.target.value)}
                   >
                     <option value="">Select a client</option>
                     {clients.map((client) => (
@@ -168,6 +170,26 @@ const AddEmployee = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+              {!isEdit && formData.clientId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Assign to Group (Optional)
+                  </label>
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    value={formData.groupId}
+                    onChange={(e) => setFormData({ ...formData, groupId: e.target.value })}
+                  >
+                    <option value="">No group</option>
+                    {clientGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name} ({group.employees?.length || 0} employees)
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Add this employee to a group under the selected client</p>
                 </div>
               )}
               <Input

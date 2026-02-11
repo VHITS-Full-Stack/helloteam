@@ -350,6 +350,9 @@ function useClientDetail(id) {
         setRateFormData({
           hourlyRate: response.data.hourlyRate !== null ? response.data.hourlyRate : '',
           overtimeRate: response.data.overtimeRate !== null ? response.data.overtimeRate : '',
+          employeeBillingRate: response.data.employeeBillingRate || null,
+          groupBillingRate: response.data.groupBillingRate || null,
+          groupName: response.data.groupName || null,
           defaultHourlyRate: response.data.defaultHourlyRate,
           defaultOvertimeRate: response.data.defaultOvertimeRate,
         });
@@ -358,6 +361,9 @@ function useClientDetail(id) {
       setRateFormData({
         hourlyRate: '',
         overtimeRate: '',
+        employeeBillingRate: null,
+        groupBillingRate: null,
+        groupName: null,
         defaultHourlyRate: Number(client?.clientPolicies?.defaultHourlyRate || 0),
         defaultOvertimeRate: Number(client?.clientPolicies?.defaultOvertimeRate || 0),
       });

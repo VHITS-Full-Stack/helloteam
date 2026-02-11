@@ -223,45 +223,85 @@ const ClientEmployees = () => {
           </div>
         ) : (
           <div className="space-y-3">
-            {clientEmployees.map((employee) => (
-              <div
-                key={employee.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar
-                    src={employee.profilePhoto}
-                    name={`${employee.firstName} ${employee.lastName}`}
-                    size="sm"
-                  />
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {employee.firstName} {employee.lastName}
-                    </p>
-                    <p className="text-sm text-gray-500">{employee.user?.email}</p>
+            {clientEmployees.map((employee) => {
+              // Determine effective billing rate: assignment override > employee rate > group rate
+              const assignmentRate = employee.assignmentHourlyRate;
+              const employeeRate = employee.billingRate ? Number(employee.billingRate) : null;
+              const groupRate = employee.groupAssignments?.[0]?.group?.billingRate
+                ? Number(employee.groupAssignments[0].group.billingRate)
+                : null;
+              const groupName = employee.groupAssignments?.[0]?.group?.name;
+
+              let effectiveRate = null;
+              let rateSource = '';
+              if (assignmentRate) {
+                effectiveRate = assignmentRate;
+                rateSource = 'custom';
+              } else if (employeeRate) {
+                effectiveRate = employeeRate;
+                rateSource = 'employee';
+              } else if (groupRate) {
+                effectiveRate = groupRate;
+                rateSource = 'group';
+              }
+
+              return (
+                <div
+                  key={employee.id}
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar
+                      src={employee.profilePhoto}
+                      name={`${employee.firstName} ${employee.lastName}`}
+                      size="sm"
+                    />
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {employee.firstName} {employee.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Billing Rate Display */}
+                    <div className="text-right">
+                      {effectiveRate ? (
+                        <>
+                          <p className="text-sm font-medium text-gray-900">
+                            ${Number(effectiveRate).toFixed(2)}/hr
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            {rateSource === 'custom' && 'Custom rate'}
+                            {rateSource === 'employee' && 'Employee rate'}
+                            {rateSource === 'group' && `${groupName || 'Group'} rate`}
+                          </p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-400">No rate</p>
+                      )}
+                    </div>
+                    {getStatusBadge(employee.user?.status)}
+                    <button
+                      onClick={() => handleOpenRateModal(employee)}
+                      className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors"
+                      disabled={submitting}
+                      title="Set custom rate"
+                    >
+                      <DollarSign className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleRemoveEmployee(employee.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                      disabled={submitting}
+                      title="Remove from client"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(employee.user?.status)}
-                  <button
-                    onClick={() => handleOpenRateModal(employee)}
-                    className="p-1.5 text-gray-400 hover:text-green-500 hover:bg-green-50 rounded transition-colors"
-                    disabled={submitting}
-                    title="Set custom rate"
-                  >
-                    <DollarSign className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleRemoveEmployee(employee.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                    disabled={submitting}
-                    title="Remove from client"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
@@ -283,16 +323,39 @@ const ClientEmployees = () => {
               </div>
             </div>
 
-            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
-              <p className="text-sm text-blue-600">
-                Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
-                Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
-              </p>
+            {/* Rate Hierarchy Info */}
+            <div className="space-y-2">
+              {rateFormData.employeeBillingRate > 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <p className="text-sm text-green-800 font-medium mb-1">Employee Billing Rate</p>
+                  <p className="text-sm text-green-600">
+                    ${Number(rateFormData.employeeBillingRate).toFixed(2)}/hr
+                  </p>
+                </div>
+              )}
+              {rateFormData.groupBillingRate > 0 && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800 font-medium mb-1">
+                    Group Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
+                  </p>
+                  <p className="text-sm text-purple-600">
+                    ${Number(rateFormData.groupBillingRate).toFixed(2)}/hr
+                  </p>
+                </div>
+              )}
+              {(Number(rateFormData.defaultHourlyRate) > 0 || Number(rateFormData.defaultOvertimeRate) > 0) && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
+                  <p className="text-sm text-blue-600">
+                    Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
+                    Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
+                  </p>
+                </div>
+              )}
             </div>
 
             <p className="text-sm text-gray-500">
-              Set custom rates for this employee. Leave blank to use the client default rates.
+              Set a custom rate for this employee on this client. Leave blank to use the fallback rates (employee rate &rarr; group rate &rarr; client default).
             </p>
 
             <div className="grid grid-cols-2 gap-4">

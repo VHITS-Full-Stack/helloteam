@@ -101,11 +101,20 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
       prisma.employee.count({ where }),
     ]);
 
-    // Refresh presigned URLs for profile photos
+    // Refresh presigned URLs for profile photos and convert Decimal fields
     const employeesWithFreshUrls = await Promise.all(
       employees.map(async (employee) => ({
         ...employee,
         profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+        billingRate: employee.billingRate ? Number(employee.billingRate) : null,
+        payableRate: employee.payableRate ? Number(employee.payableRate) : null,
+        groupAssignments: employee.groupAssignments.map((ga) => ({
+          ...ga,
+          group: {
+            ...ga.group,
+            billingRate: ga.group.billingRate ? Number(ga.group.billingRate) : null,
+          },
+        })),
       }))
     );
 
@@ -188,10 +197,19 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Refresh presigned URL for profile photo
+    // Refresh presigned URL for profile photo and convert Decimal fields
     const employeeWithFreshUrl = {
       ...employee,
       profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+      billingRate: employee.billingRate ? Number(employee.billingRate) : null,
+      payableRate: employee.payableRate ? Number(employee.payableRate) : null,
+      groupAssignments: employee.groupAssignments.map((ga) => ({
+        ...ga,
+        group: {
+          ...ga.group,
+          billingRate: ga.group.billingRate ? Number(ga.group.billingRate) : null,
+        },
+      })),
     };
 
     res.json({
