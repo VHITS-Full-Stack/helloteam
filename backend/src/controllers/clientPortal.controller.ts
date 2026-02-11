@@ -2066,6 +2066,7 @@ export const getClientGroups = async (req: AuthenticatedRequest, res: Response):
 
     const groups = clientGroups.map((cg) => ({
       ...cg.group,
+      billingRate: cg.group.billingRate ? Number(cg.group.billingRate) : null,
       employeeCount: cg.group._count.employees,
       assignedAt: cg.assignedAt,
     }));
@@ -2114,7 +2115,14 @@ export const createClientGroup = async (req: AuthenticatedRequest, res: Response
       return newGroup;
     });
 
-    res.status(201).json({ success: true, message: 'Group created successfully', data: group });
+    res.status(201).json({
+      success: true,
+      message: 'Group created successfully',
+      data: {
+        ...group,
+        billingRate: group.billingRate ? Number(group.billingRate) : null,
+      },
+    });
   } catch (error) {
     console.error('Create client group error:', error);
     res.status(500).json({ success: false, error: 'Failed to create group' });
@@ -2162,7 +2170,14 @@ export const updateClientGroup = async (req: AuthenticatedRequest, res: Response
       },
     });
 
-    res.json({ success: true, message: 'Group updated successfully', data: group });
+    res.json({
+      success: true,
+      message: 'Group updated successfully',
+      data: {
+        ...group,
+        billingRate: group.billingRate ? Number(group.billingRate) : null,
+      },
+    });
   } catch (error) {
     console.error('Update client group error:', error);
     res.status(500).json({ success: false, error: 'Failed to update group' });

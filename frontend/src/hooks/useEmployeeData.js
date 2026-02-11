@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import employeeService from '../services/employee.service';
 import clientService from '../services/client.service';
+import groupService from '../services/group.service';
 import api from '../services/api';
 import scheduleService from '../services/schedule.service';
 
@@ -28,6 +29,9 @@ function useEmployeeList() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [clientGroups, setClientGroups] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
@@ -145,17 +149,56 @@ function useEmployeeList() {
     }
   };
 
-  const handleAssignToClient = async (clientId) => {
-    if (!selectedEmployee || !clientId) return;
+  const fetchClientGroups = async (clientId) => {
+    if (!clientId) {
+      setClientGroups([]);
+      return;
+    }
+    try {
+      const response = await groupService.getGroups({ limit: 100 });
+      if (response.success) {
+        const filtered = response.data.groups.filter((group) =>
+          group.clients?.some((cg) => {
+            const cid = cg.client?.id || cg.clientId;
+            return cid === clientId;
+          })
+        );
+        setClientGroups(filtered);
+      }
+    } catch (err) {
+      console.error('Failed to fetch client groups:', err);
+      setClientGroups([]);
+    }
+  };
+
+  const handleSelectClient = (clientId) => {
+    setSelectedClientId(clientId);
+    setSelectedGroupId('');
+    fetchClientGroups(clientId);
+  };
+
+  const handleAssignToClient = async () => {
+    if (!selectedEmployee || !selectedClientId) return;
 
     setSubmitting(true);
     setError('');
 
     try {
-      const response = await employeeService.assignToClient(selectedEmployee.id, clientId);
+      const response = await employeeService.assignToClient(selectedEmployee.id, selectedClientId);
       if (response.success) {
+        // Also add to group if selected
+        if (selectedGroupId) {
+          try {
+            await groupService.addEmployees(selectedGroupId, [selectedEmployee.id]);
+          } catch (groupErr) {
+            console.error('Failed to add employee to group:', groupErr);
+          }
+        }
         setShowAssignModal(false);
         setSelectedEmployee(null);
+        setSelectedClientId('');
+        setSelectedGroupId('');
+        setClientGroups([]);
         setError('');
         fetchEmployees();
       } else {
@@ -188,6 +231,9 @@ function useEmployeeList() {
   const closeAssignModal = () => {
     setShowAssignModal(false);
     setSelectedEmployee(null);
+    setSelectedClientId('');
+    setSelectedGroupId('');
+    setClientGroups([]);
     setError('');
   };
 
@@ -199,10 +245,13 @@ function useEmployeeList() {
   return {
     employees,
     clients,
+    clientGroups,
     stats,
     pagination,
     searchQuery,
     selectedEmployee,
+    selectedClientId,
+    selectedGroupId,
     loading,
     error,
     submitting,
@@ -211,10 +260,12 @@ function useEmployeeList() {
     setSearchQuery,
     setError,
     setPagination,
+    setSelectedGroupId,
     openDeleteModal,
     closeDeleteModal,
     openAssignModal,
     closeAssignModal,
+    handleSelectClient,
     handleDeleteEmployee,
     handleAssignToClient,
     refresh,

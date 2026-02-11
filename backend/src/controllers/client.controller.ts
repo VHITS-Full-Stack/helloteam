@@ -660,16 +660,39 @@ export const getClientEmployees = async (req: AuthenticatedRequest, res: Respons
             schedules: {
               where: { isActive: true },
             },
+            groupAssignments: {
+              include: {
+                group: {
+                  select: {
+                    id: true,
+                    name: true,
+                    billingRate: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
 
     // Refresh presigned URLs for employee profile photos
+    // Also include assignment-level rate overrides and convert Decimal fields
     const employeesWithFreshUrls = await Promise.all(
       employees.map(async (ce) => ({
         ...ce.employee,
         profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+        billingRate: ce.employee.billingRate ? Number(ce.employee.billingRate) : null,
+        payableRate: ce.employee.payableRate ? Number(ce.employee.payableRate) : null,
+        assignmentHourlyRate: ce.hourlyRate ? Number(ce.hourlyRate) : null,
+        assignmentOvertimeRate: ce.overtimeRate ? Number(ce.overtimeRate) : null,
+        groupAssignments: ce.employee.groupAssignments?.map((ga: any) => ({
+          ...ga,
+          group: {
+            ...ga.group,
+            billingRate: ga.group?.billingRate ? Number(ga.group.billingRate) : null,
+          },
+        })) || [],
       }))
     );
 
@@ -853,6 +876,17 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
             user: {
               select: { email: true },
             },
+            groupAssignments: {
+              include: {
+                group: {
+                  select: {
+                    id: true,
+                    name: true,
+                    billingRate: true,
+                  },
+                },
+              },
+            },
           },
         },
         client: {
@@ -871,6 +905,15 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
+    // Get employee billing rate and group billing rate for hierarchy display
+    const employeeBillingRate = assignment.employee.billingRate
+      ? Number(assignment.employee.billingRate)
+      : null;
+    const groupAssignment = assignment.employee.groupAssignments?.[0];
+    const groupBillingRate = groupAssignment?.group?.billingRate
+      ? Number(groupAssignment.group.billingRate)
+      : null;
+
     res.json({
       success: true,
       data: {
@@ -879,6 +922,9 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
         employeeEmail: assignment.employee.user?.email,
         hourlyRate: assignment.hourlyRate ? Number(assignment.hourlyRate) : null,
         overtimeRate: assignment.overtimeRate ? Number(assignment.overtimeRate) : null,
+        employeeBillingRate,
+        groupBillingRate,
+        groupName: groupAssignment?.group?.name || null,
         defaultHourlyRate: assignment.client.clientPolicies?.defaultHourlyRate
           ? Number(assignment.client.clientPolicies.defaultHourlyRate)
           : 0,

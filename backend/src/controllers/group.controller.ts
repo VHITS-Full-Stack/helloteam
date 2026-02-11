@@ -90,6 +90,7 @@ export const getGroups = async (
 
     const groupsWithStats = groups.map((group) => ({
       ...group,
+      billingRate: group.billingRate ? Number(group.billingRate) : null,
       employeeCount: group._count.employees,
     }));
 
@@ -180,6 +181,7 @@ export const getGroup = async (
       success: true,
       data: {
         ...group,
+        billingRate: group.billingRate ? Number(group.billingRate) : null,
         employeeCount: group._count.employees,
       },
     });
@@ -228,6 +230,7 @@ export const createGroup = async (
       message: "Group created successfully",
       data: {
         ...group,
+        billingRate: group.billingRate ? Number(group.billingRate) : null,
         employeeCount: group._count.employees,
       },
     });
@@ -299,6 +302,7 @@ export const updateGroup = async (
       message: "Group updated successfully",
       data: {
         ...group,
+        billingRate: group.billingRate ? Number(group.billingRate) : null,
         employeeCount: group._count.employees,
       },
     });
