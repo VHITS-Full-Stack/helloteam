@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { authenticate } from '../middleware/auth.middleware';
 import {
@@ -9,15 +10,17 @@ import {
   ALL_PERMISSIONS,
 } from '../config/permissions';
 
+const prisma = new PrismaClient();
 const router = Router();
 
 // Apply authentication to all routes
 router.use(authenticate);
 
 // Get current user's permissions
-router.get('/me', (req: AuthenticatedRequest, res: Response) => {
+router.get('/me', async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userRole = req.user?.role;
+    const userId = req.user?.userId;
 
     if (!userRole) {
       return res.status(401).json({
@@ -26,7 +29,48 @@ router.get('/me', (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const permissions = getRolePermissions(userRole);
+    // Get permissions from database (dynamicRole) only
+    let permissions: string[] = [];
+
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          dynamicRole: {
+            include: {
+              permissions: {
+                select: { permission: true },
+              },
+            },
+          },
+        },
+      });
+
+      if (user?.dynamicRole?.permissions?.length) {
+        // User has a linked dynamicRole with permissions
+        permissions = user.dynamicRole.permissions.map(p => p.permission);
+      } else {
+        // User has no dynamicRole linked — look up role by name and assign it
+        const role = await prisma.role.findUnique({
+          where: { name: userRole },
+          include: {
+            permissions: {
+              select: { permission: true },
+            },
+          },
+        });
+
+        if (role) {
+          permissions = role.permissions.map(p => p.permission);
+
+          // Auto-link the role to the user so future lookups are faster
+          await prisma.user.update({
+            where: { id: userId },
+            data: { roleId: role.id },
+          });
+        }
+      }
+    }
 
     res.json({
       success: true,

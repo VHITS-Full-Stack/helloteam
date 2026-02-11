@@ -279,12 +279,16 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
 
     // Create user, client, and policies in transaction
     const result = await prisma.$transaction(async (tx) => {
+      // Find the CLIENT dynamic role
+      const clientRole = await tx.role.findUnique({ where: { name: 'CLIENT' } });
+
       // Create user
       const user = await tx.user.create({
         data: {
           email,
           password: hashedPassword,
           role: 'CLIENT',
+          roleId: clientRole?.id,
           status: 'ACTIVE',
         },
       });

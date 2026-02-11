@@ -19,10 +19,10 @@ import {
   Avatar,
   Input,
   Modal,
-} from '../../components/common';
-import clientPortalService from '../../services/clientPortal.service';
-import { usePermissions } from '../../hooks/usePermissions';
-import { PERMISSIONS } from '../../config/permissions';
+} from '../../../components/common';
+import clientPortalService from '../../../services/clientPortal.service';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { PERMISSIONS } from '../../../config/permissions';
 
 const Groups = () => {
   const { hasPermission } = usePermissions();
@@ -40,11 +40,13 @@ const Groups = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
+  const [newGroupBillingRate, setNewGroupBillingRate] = useState('');
 
   // Edit group
   const [editGroup, setEditGroup] = useState(null);
   const [editGroupName, setEditGroupName] = useState('');
   const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [editGroupBillingRate, setEditGroupBillingRate] = useState('');
 
   // Delete confirmation
   const [deleteGroup, setDeleteGroup] = useState(null);
@@ -106,10 +108,12 @@ const Groups = () => {
       const response = await clientPortalService.createGroup({
         name: newGroupName.trim(),
         description: newGroupDescription.trim(),
+        billingRate: newGroupBillingRate || null,
       });
       if (response.success) {
         setNewGroupName('');
         setNewGroupDescription('');
+        setNewGroupBillingRate('');
         setShowCreateModal(false);
         setError('');
         await refreshGroups();
@@ -128,6 +132,7 @@ const Groups = () => {
     setEditGroup(group);
     setEditGroupName(group.name);
     setEditGroupDescription(group.description || '');
+    setEditGroupBillingRate(group.billingRate ? String(group.billingRate) : '');
     setError('');
   };
 
@@ -142,11 +147,13 @@ const Groups = () => {
       const response = await clientPortalService.updateGroup(editGroup.id, {
         name: editGroupName.trim(),
         description: editGroupDescription.trim(),
+        billingRate: editGroupBillingRate || null,
       });
       if (response.success) {
         setEditGroup(null);
         setEditGroupName('');
         setEditGroupDescription('');
+        setEditGroupBillingRate('');
         setError('');
         await refreshGroups();
       } else {
@@ -327,6 +334,11 @@ const Groups = () => {
                   <Badge variant="default" size="sm">
                     {group.employeeCount} employee{group.employeeCount !== 1 ? 's' : ''}
                   </Badge>
+                  {group.billingRate && (
+                    <Badge variant="default" size="sm">
+                      ${Number(group.billingRate).toFixed(2)}/hr
+                    </Badge>
+                  )}
                   <span className="text-xs text-gray-400">
                     {new Date(group.assignedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                   </span>
@@ -404,6 +416,15 @@ const Groups = () => {
             value={newGroupDescription}
             onChange={(e) => setNewGroupDescription(e.target.value)}
           />
+          <Input
+            label="Billing Rate"
+            type="number"
+            placeholder="e.g. 25.00 (optional)"
+            value={newGroupBillingRate}
+            onChange={(e) => setNewGroupBillingRate(e.target.value)}
+            min="0"
+            step="0.01"
+          />
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -412,7 +433,7 @@ const Groups = () => {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" type="button" onClick={() => { setShowCreateModal(false); setNewGroupName(''); setNewGroupDescription(''); setError(''); }}>
+            <Button variant="ghost" type="button" onClick={() => { setShowCreateModal(false); setNewGroupName(''); setNewGroupDescription(''); setNewGroupBillingRate(''); setError(''); }}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" loading={submitting}>
@@ -444,6 +465,15 @@ const Groups = () => {
             value={editGroupDescription}
             onChange={(e) => setEditGroupDescription(e.target.value)}
           />
+          <Input
+            label="Billing Rate"
+            type="number"
+            placeholder="e.g. 25.00 (optional)"
+            value={editGroupBillingRate}
+            onChange={(e) => setEditGroupBillingRate(e.target.value)}
+            min="0"
+            step="0.01"
+          />
 
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -452,7 +482,7 @@ const Groups = () => {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" type="button" onClick={() => { setEditGroup(null); setEditGroupName(''); setEditGroupDescription(''); setError(''); }}>
+            <Button variant="ghost" type="button" onClick={() => { setEditGroup(null); setEditGroupName(''); setEditGroupDescription(''); setEditGroupBillingRate(''); setError(''); }}>
               Cancel
             </Button>
             <Button variant="primary" type="submit" loading={submitting}>

@@ -737,12 +737,13 @@ model SystemSettings {
 // ============================================
 
 model Group {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  billingRate  Decimal? @db.Decimal(10, 2)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   employees GroupEmployee[]
   clients   ClientGroup[]

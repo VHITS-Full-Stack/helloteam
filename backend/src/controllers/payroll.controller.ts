@@ -973,6 +973,16 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
             firstName: true,
             lastName: true,
             profilePhoto: true,
+            billingRate: true,
+            groupAssignments: {
+              include: {
+                group: {
+                  select: {
+                    billingRate: true,
+                  },
+                },
+              },
+            },
           },
         },
         client: {
@@ -1010,15 +1020,23 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
     records.forEach((record) => {
       const empId = record.employeeId;
       if (!employeeSummary[empId]) {
-        // Get rates: employee-specific override or client default
+        // Get rates: assignment override > employee billing rate > group billing rate > client default
         const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
         const policy = policyMap.get(record.clientId);
+        const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
+        const groupBillingRate = record.employee.groupAssignments?.[0]?.group?.billingRate
+          ? Number(record.employee.groupAssignments[0].group.billingRate)
+          : null;
 
         const hourlyRate = assignment?.hourlyRate
           ? Number(assignment.hourlyRate)
-          : policy?.defaultHourlyRate
-            ? Number(policy.defaultHourlyRate)
-            : 0;
+          : employeeBillingRate
+            ? employeeBillingRate
+            : groupBillingRate
+              ? groupBillingRate
+              : policy?.defaultHourlyRate
+                ? Number(policy.defaultHourlyRate)
+                : 0;
 
         let overtimeRate = assignment?.overtimeRate
           ? Number(assignment.overtimeRate)

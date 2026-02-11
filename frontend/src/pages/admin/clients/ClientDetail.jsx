@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -27,307 +26,43 @@ import {
   Badge,
   Avatar,
   Modal,
-  Input
-} from '../../components/common';
-import clientService from '../../services/client.service';
-import employeeService from '../../services/employee.service';
-import groupService from '../../services/group.service';
-import ClientGroupsModal from '../../components/admin/ClientGroupsModal';
+} from '../../../components/common';
+import { useClientData } from '../../../hooks/useClientData';
+import ClientGroupsModal from '../../../components/admin/ClientGroupsModal';
 
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [client, setClient] = useState(null);
-  const [clientEmployees, setClientEmployees] = useState([]);
-  const [allEmployees, setAllEmployees] = useState([]);
-  const [connectedGroups, setConnectedGroups] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [showRateModal, setShowRateModal] = useState(false);
-  const [showGroupsModal, setShowGroupsModal] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [rateFormData, setRateFormData] = useState({
-    hourlyRate: '',
-    overtimeRate: '',
-  });
-
-  const [formData, setFormData] = useState({
-    email: '',
-    companyName: '',
-    contactPerson: '',
-    phone: '',
-    address: '',
-    timezone: 'UTC',
-    status: 'ACTIVE',
-    allowPaidLeave: false,
-    paidLeaveType: 'fixed',
-    annualPaidLeaveDays: 0,
-    allowUnpaidLeave: true,
-    requireTwoWeeksNotice: true,
-    allowOvertime: true,
-    overtimeRequiresApproval: true,
-    defaultHourlyRate: 0,
-    defaultOvertimeRate: 0,
-    currency: 'USD',
-  });
-
-  // Fetch client details
-  const fetchClient = async () => {
-    try {
-      setLoading(true);
-      const response = await clientService.getClient(id);
-      if (response.success) {
-        setClient(response.data);
-        // Set form data for editing
-        setFormData({
-          email: response.data.user?.email || '',
-          companyName: response.data.companyName,
-          contactPerson: response.data.contactPerson,
-          phone: response.data.phone || '',
-          address: response.data.address || '',
-          timezone: response.data.timezone || 'UTC',
-          status: response.data.user?.status || 'ACTIVE',
-          allowPaidLeave: response.data.clientPolicies?.allowPaidLeave || false,
-          paidLeaveType: response.data.clientPolicies?.paidLeaveType || 'fixed',
-          annualPaidLeaveDays: response.data.clientPolicies?.annualPaidLeaveDays || 0,
-          allowUnpaidLeave: response.data.clientPolicies?.allowUnpaidLeave ?? true,
-          requireTwoWeeksNotice: response.data.clientPolicies?.requireTwoWeeksNotice ?? true,
-          allowOvertime: response.data.clientPolicies?.allowOvertime ?? true,
-          overtimeRequiresApproval: response.data.clientPolicies?.overtimeRequiresApproval ?? true,
-          defaultHourlyRate: response.data.clientPolicies?.defaultHourlyRate || 0,
-          defaultOvertimeRate: response.data.clientPolicies?.defaultOvertimeRate || 0,
-          currency: response.data.clientPolicies?.currency || 'USD',
-        });
-      }
-    } catch (err) {
-      setError(err.error || 'Failed to fetch client');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch client's employees
-  const fetchClientEmployees = async () => {
-    try {
-      const response = await clientService.getClientEmployees(id);
-      if (response.success) {
-        setClientEmployees(response.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch client employees:', err);
-    }
-  };
-
-  // Fetch all employees for assignment
-  const fetchAllEmployees = async () => {
-    try {
-      const response = await employeeService.getEmployees({ limit: 100 });
-      if (response.success) {
-        setAllEmployees(response.data.employees);
-      }
-    } catch (err) {
-      console.error('Failed to fetch employees:', err);
-    }
-  };
-
-  // Fetch connected groups (groups directly assigned to this client via ClientGroup)
-  const fetchConnectedGroups = async () => {
-    try {
-      const response = await groupService.getGroups({ limit: 100 });
-      if (response.success) {
-        // Filter groups that are directly assigned to this client
-        const groups = response.data.groups.filter((group) =>
-          group.clients?.some((cg) => {
-            const cid = cg.client?.id || cg.clientId;
-            return cid === id;
-          })
-        );
-
-        // Count how many employees from each group are assigned to this client
-        // and extract the assignedAt date from the ClientGroup relation
-        const groupsWithCount = groups.map((group) => {
-          const assignedCount = group.employees?.filter((ge) =>
-            ge.employee?.clientAssignments?.some((ca) => {
-              const cid = ca.client?.id || ca.clientId;
-              return cid === id;
-            })
-          ).length || 0;
-          const clientGroup = group.clients?.find((cg) => {
-            const cid = cg.client?.id || cg.clientId;
-            return cid === id;
-          });
-          return {
-            ...group,
-            assignedToClientCount: assignedCount,
-            assignedAt: clientGroup?.assignedAt || group.createdAt,
-          };
-        });
-
-        setConnectedGroups(groupsWithCount);
-      }
-    } catch (err) {
-      console.error('Failed to fetch connected groups:', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchClient();
-    fetchClientEmployees();
-    fetchAllEmployees();
-    fetchConnectedGroups();
-  }, [id]);
-
-  const handleEditClient = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await clientService.updateClient(id, {
-        email: formData.email,
-        companyName: formData.companyName,
-        contactPerson: formData.contactPerson,
-        phone: formData.phone,
-        address: formData.address,
-        timezone: formData.timezone,
-        status: formData.status,
-        allowPaidLeave: formData.allowPaidLeave,
-        paidLeaveType: formData.paidLeaveType,
-        annualPaidLeaveDays: parseInt(formData.annualPaidLeaveDays),
-        allowUnpaidLeave: formData.allowUnpaidLeave,
-        requireTwoWeeksNotice: formData.requireTwoWeeksNotice,
-        allowOvertime: formData.allowOvertime,
-        overtimeRequiresApproval: formData.overtimeRequiresApproval,
-        defaultHourlyRate: parseFloat(formData.defaultHourlyRate) || 0,
-        defaultOvertimeRate: parseFloat(formData.defaultOvertimeRate) || 0,
-        currency: formData.currency,
-      });
-
-      if (response.success) {
-        setShowEditModal(false);
-        setError('');
-        fetchClient();
-      } else {
-        setError(response.error || 'Failed to update client');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to update client');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDeleteClient = async () => {
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await clientService.deleteClient(id);
-      if (response.success) {
-        navigate('/admin/clients');
-      } else {
-        setError(response.error || 'Failed to delete client');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to delete client');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAssignEmployee = async (employeeId) => {
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await clientService.assignEmployees(id, [employeeId]);
-      if (response.success) {
-        fetchClientEmployees();
-        setError('');
-      } else {
-        setError(response.error || 'Failed to assign employee');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to assign employee');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleRemoveEmployee = async (employeeId) => {
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await clientService.removeEmployee(id, employeeId);
-      if (response.success) {
-        fetchClientEmployees();
-        setError('');
-      } else {
-        setError(response.error || 'Failed to remove employee');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to remove employee');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleOpenRateModal = async (employee) => {
-    setSelectedEmployee(employee);
-    setError('');
-    try {
-      const response = await clientService.getEmployeeRate(id, employee.id);
-      if (response.success) {
-        setRateFormData({
-          hourlyRate: response.data.hourlyRate !== null ? response.data.hourlyRate : '',
-          overtimeRate: response.data.overtimeRate !== null ? response.data.overtimeRate : '',
-          defaultHourlyRate: response.data.defaultHourlyRate,
-          defaultOvertimeRate: response.data.defaultOvertimeRate,
-        });
-      }
-    } catch (err) {
-      setRateFormData({
-        hourlyRate: '',
-        overtimeRate: '',
-        defaultHourlyRate: Number(client.clientPolicies?.defaultHourlyRate || 0),
-        defaultOvertimeRate: Number(client.clientPolicies?.defaultOvertimeRate || 0),
-      });
-    }
-    setShowRateModal(true);
-  };
-
-  const handleUpdateEmployeeRate = async (e) => {
-    e.preventDefault();
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await clientService.updateEmployeeRate(id, selectedEmployee.id, {
-        hourlyRate: rateFormData.hourlyRate,
-        overtimeRate: rateFormData.overtimeRate,
-      });
-
-      if (response.success) {
-        setShowRateModal(false);
-        setSelectedEmployee(null);
-        setRateFormData({ hourlyRate: '', overtimeRate: '' });
-        setError('');
-      } else {
-        setError(response.error || 'Failed to update employee rate');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to update employee rate');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  const {
+    client,
+    clientEmployees,
+    connectedGroups,
+    loading,
+    error,
+    submitting,
+    showDeleteModal,
+    showAssignModal,
+    showRateModal,
+    showGroupsModal,
+    selectedEmployee,
+    rateFormData,
+    setError,
+    setRateFormData,
+    setShowDeleteModal,
+    setShowAssignModal,
+    setShowGroupsModal,
+    handleDeleteClient,
+    handleAssignEmployee,
+    handleRemoveEmployee,
+    handleOpenRateModal,
+    handleUpdateEmployeeRate,
+    getUnassignedEmployees,
+    closeDeleteModal,
+    closeAssignModal,
+    closeRateModal,
+    refresh,
+  } = useClientData({ mode: 'detail', id });
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -340,9 +75,11 @@ const ClientDetail = () => {
     }
   };
 
-  const getUnassignedEmployees = () => {
-    const assignedIds = clientEmployees.map(e => e.id);
-    return allEmployees.filter(e => !assignedIds.includes(e.id) && e.user?.status === 'ACTIVE');
+  const onDeleteClient = async () => {
+    const success = await handleDeleteClient();
+    if (success) {
+      navigate('/admin/clients');
+    }
   };
 
   if (loading) {
@@ -395,10 +132,10 @@ const ClientDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={() => { fetchClient(); fetchClientEmployees(); fetchConnectedGroups(); }}>
+          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
             Refresh
           </Button>
-          <Button variant="outline" icon={Edit} onClick={() => setShowEditModal(true)}>
+          <Button variant="outline" icon={Edit} onClick={() => navigate(`/admin/clients/${id}/edit`)}>
             Edit
           </Button>
           <Button variant="outline" icon={Trash2} className="text-red-600 hover:bg-red-50" onClick={() => setShowDeleteModal(true)}>
@@ -674,187 +411,10 @@ const ClientDetail = () => {
         </div>
       </div>
 
-      {/* Edit Client Modal */}
-      <Modal
-        isOpen={showEditModal}
-        onClose={() => { setShowEditModal(false); setError(''); }}
-        title="Edit Client"
-        size="lg"
-      >
-        <form onSubmit={handleEditClient} className="space-y-4">
-          <Input
-            label="Company Name"
-            placeholder="Enter company name"
-            value={formData.companyName}
-            onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-            required
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Contact Person"
-              placeholder="Primary contact name"
-              value={formData.contactPerson}
-              onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-              required
-            />
-            <Input
-              label="Email"
-              type="email"
-              placeholder="Contact email"
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Phone"
-              placeholder="Contact phone number"
-              value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-            />
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-              <select
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="ACTIVE">Active</option>
-                <option value="INACTIVE">Inactive</option>
-              </select>
-            </div>
-          </div>
-          <Input
-            label="Address"
-            placeholder="Company address"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          />
-
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="font-medium text-gray-900 mb-4">Policy Configuration</h4>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Allow Paid Leave</label>
-                <input
-                  type="checkbox"
-                  checked={formData.allowPaidLeave}
-                  onChange={(e) => setFormData({ ...formData, allowPaidLeave: e.target.checked })}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                />
-              </div>
-              {formData.allowPaidLeave && (
-                <div className="grid grid-cols-2 gap-4 pl-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type</label>
-                    <select
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                      value={formData.paidLeaveType}
-                      onChange={(e) => setFormData({ ...formData, paidLeaveType: e.target.value })}
-                    >
-                      <option value="fixed">Fixed Annual</option>
-                      <option value="fixed-half-yearly">Fixed Half-Yearly</option>
-                      <option value="accrued">Accrued</option>
-                      <option value="milestone">Milestone Based</option>
-                    </select>
-                  </div>
-                  <Input
-                    label="Annual Days"
-                    type="number"
-                    min="0"
-                    value={formData.annualPaidLeaveDays}
-                    onChange={(e) => setFormData({ ...formData, annualPaidLeaveDays: e.target.value })}
-                  />
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Allow Unpaid Leave</label>
-                <input
-                  type="checkbox"
-                  checked={formData.allowUnpaidLeave}
-                  onChange={(e) => setFormData({ ...formData, allowUnpaidLeave: e.target.checked })}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <label className="text-sm text-gray-700">Allow Overtime</label>
-                <input
-                  type="checkbox"
-                  checked={formData.allowOvertime}
-                  onChange={(e) => setFormData({ ...formData, allowOvertime: e.target.checked })}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-gray-100">
-            <h4 className="font-medium text-gray-900 mb-4">Billing Rates</h4>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={formData.defaultHourlyRate}
-                  onChange={(e) => setFormData({ ...formData, defaultHourlyRate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Overtime Rate ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  value={formData.defaultOvertimeRate}
-                  onChange={(e) => setFormData({ ...formData, defaultOvertimeRate: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                <p className="text-xs text-gray-500 mt-1">Leave as 0 to use 1.5x hourly rate</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
-                  <option value="AUD">AUD</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" type="button" onClick={() => { setShowEditModal(false); setError(''); }}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" loading={submitting}>
-              Save Changes
-            </Button>
-          </div>
-        </form>
-      </Modal>
-
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={showDeleteModal}
-        onClose={() => { setShowDeleteModal(false); setError(''); }}
+        onClose={closeDeleteModal}
         title="Delete Client"
         size="sm"
       >
@@ -871,10 +431,10 @@ const ClientDetail = () => {
           )}
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={() => { setShowDeleteModal(false); setError(''); }}>
+            <Button variant="ghost" onClick={closeDeleteModal}>
               Cancel
             </Button>
-            <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={handleDeleteClient} loading={submitting}>
+            <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={onDeleteClient} loading={submitting}>
               Delete
             </Button>
           </div>
@@ -884,7 +444,7 @@ const ClientDetail = () => {
       {/* Assign Employee Modal */}
       <Modal
         isOpen={showAssignModal}
-        onClose={() => { setShowAssignModal(false); setError(''); }}
+        onClose={closeAssignModal}
         title="Assign Employee"
         size="md"
       >
@@ -928,7 +488,7 @@ const ClientDetail = () => {
           )}
 
           <div className="flex justify-end pt-4">
-            <Button variant="primary" onClick={() => { setShowAssignModal(false); setError(''); }}>
+            <Button variant="primary" onClick={closeAssignModal}>
               Done
             </Button>
           </div>
@@ -938,7 +498,7 @@ const ClientDetail = () => {
       {/* Employee Rate Modal */}
       <Modal
         isOpen={showRateModal}
-        onClose={() => { setShowRateModal(false); setSelectedEmployee(null); setError(''); }}
+        onClose={closeRateModal}
         title="Set Employee Rate"
         size="sm"
       >
@@ -998,7 +558,7 @@ const ClientDetail = () => {
             )}
 
             <div className="flex justify-end gap-3 pt-4">
-              <Button variant="ghost" type="button" onClick={() => { setShowRateModal(false); setSelectedEmployee(null); setError(''); }}>
+              <Button variant="ghost" type="button" onClick={closeRateModal}>
                 Cancel
               </Button>
               <Button variant="primary" type="submit" loading={submitting}>
@@ -1015,7 +575,7 @@ const ClientDetail = () => {
         onClose={() => setShowGroupsModal(false)}
         clientId={id}
         clientName={client?.companyName}
-        onGroupsChanged={() => { fetchClient(); fetchClientEmployees(); fetchConnectedGroups(); }}
+        onGroupsChanged={refresh}
       />
     </div>
   );

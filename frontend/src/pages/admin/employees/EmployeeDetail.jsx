@@ -1,126 +1,40 @@
-import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
-  User,
   Mail,
   Phone,
   MapPin,
   Calendar,
   Clock,
-  Briefcase,
   Edit,
   Loader2,
   AlertCircle,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
   Building2,
-  Users,
 } from 'lucide-react';
 import {
   Card,
   Button,
   Badge,
   Avatar,
-} from '../../components/common';
-import api from '../../services/api';
-import scheduleService from '../../services/schedule.service';
+} from '../../../components/common';
+import { useEmployeeData } from '../../../hooks/useEmployeeData';
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const EmployeeDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [employee, setEmployee] = useState(null);
-  const [schedules, setSchedules] = useState([]);
-  const [timeStats, setTimeStats] = useState(null);
-  const [recentRecords, setRecentRecords] = useState([]);
 
-  // Fetch employee details
-  const fetchEmployeeDetails = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch employee info
-      const empResponse = await api.get(`/employees/${id}`);
-      if (empResponse.success) {
-        setEmployee(empResponse.data);
-      }
-
-      // Fetch employee schedule
-      try {
-        const scheduleResponse = await scheduleService.getEmployeeSchedule(id);
-        if (scheduleResponse.success) {
-          setSchedules(scheduleResponse.schedules || []);
-        }
-      } catch (scheduleErr) {
-        console.error('Error fetching schedule:', scheduleErr);
-        // Don't fail the whole page for schedule error
-      }
-
-      // Fetch time records for analytics
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
-
-      try {
-        const timeResponse = await api.get(`/admin-portal/time-records?employeeId=${id}&startDate=${startOfMonth}&endDate=${endOfMonth}`);
-        if (timeResponse.success) {
-          const records = timeResponse.data?.records || timeResponse.records || [];
-          setRecentRecords(records.slice(0, 10));
-
-          // Calculate stats
-          const totalMinutes = records.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
-          const overtimeMinutes = records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0);
-          const workDays = records.length;
-          const avgMinutesPerDay = workDays > 0 ? Math.round(totalMinutes / workDays) : 0;
-
-          setTimeStats({
-            totalHours: Math.round(totalMinutes / 60 * 10) / 10,
-            overtimeHours: Math.round(overtimeMinutes / 60 * 10) / 10,
-            workDays,
-            avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 10) / 10,
-          });
-        }
-      } catch (timeErr) {
-        console.error('Error fetching time records:', timeErr);
-        // Don't fail the whole page for time records error
-      }
-    } catch (err) {
-      console.error('Error fetching employee details:', err);
-      setError(err.message || 'Failed to load employee details');
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchEmployeeDetails();
-  }, [fetchEmployeeDetails]);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (timeStr) => {
-    if (!timeStr) return '-';
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
+  const {
+    employee,
+    schedules,
+    timeStats,
+    recentRecords,
+    loading,
+    error,
+    formatDate,
+    formatTime,
+  } = useEmployeeData({ mode: 'detail', id });
 
   const getStatusBadge = (status) => {
     const variants = {
@@ -167,7 +81,7 @@ const EmployeeDetail = () => {
           <h2 className="text-2xl font-bold text-gray-900">Employee Details</h2>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" icon={Edit} onClick={() => navigate('/admin/employees', { state: { editEmployee: employee } })}>
+          <Button variant="outline" icon={Edit} onClick={() => navigate(`/admin/employees/${id}/edit`)}>
             Edit Employee
           </Button>
           <Link to={`/admin/schedules?employee=${id}`}>
