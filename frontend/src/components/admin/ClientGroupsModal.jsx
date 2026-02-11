@@ -9,6 +9,7 @@ import {
   X,
   ChevronLeft,
   Trash2,
+  Edit,
 } from 'lucide-react';
 import {
   Button,
@@ -31,6 +32,12 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupDescription, setNewGroupDescription] = useState('');
   const [newGroupBillingRate, setNewGroupBillingRate] = useState('');
+
+  // Edit group
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [editGroupName, setEditGroupName] = useState('');
+  const [editGroupDescription, setEditGroupDescription] = useState('');
+  const [editGroupBillingRate, setEditGroupBillingRate] = useState('');
 
   // Delete confirmation
   const [deleteGroup, setDeleteGroup] = useState(null);
@@ -154,6 +161,46 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
     }
   };
 
+  // Open edit form for a group
+  const openEditGroup = (group) => {
+    setEditingGroup(group);
+    setEditGroupName(group.name);
+    setEditGroupDescription(group.description || '');
+    setEditGroupBillingRate(group.billingRate ? String(group.billingRate) : '');
+    setError('');
+  };
+
+  // Update group
+  const handleUpdateGroup = async (e) => {
+    e.preventDefault();
+    if (!editingGroup || !editGroupName.trim()) return;
+
+    setSubmitting(true);
+    setError('');
+    try {
+      const response = await groupService.updateGroup(editingGroup.id, {
+        name: editGroupName.trim(),
+        description: editGroupDescription.trim(),
+        billingRate: editGroupBillingRate || null,
+      });
+      if (response.success) {
+        setEditingGroup(null);
+        setEditGroupName('');
+        setEditGroupDescription('');
+        setEditGroupBillingRate('');
+        setError('');
+        await refreshData();
+        onGroupsChanged?.();
+      } else {
+        setError(response.error || 'Failed to update group');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to update group');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Remove group from this client (with confirmation)
   const handleConfirmRemoveGroup = async () => {
     if (!deleteGroup) return;
@@ -264,6 +311,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
   const handleClose = () => {
     setManagingGroup(null);
     setDeleteGroup(null);
+    setEditingGroup(null);
     setError('');
     setShowCreateForm(false);
     setSelectedEmployeeIds([]);
@@ -450,6 +498,13 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
                           <UserPlus className="w-4 h-4 text-primary" />
                         </button>
                         <button
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-500 hover:text-gray-700"
+                          onClick={() => openEditGroup(group)}
+                          title="Edit Group"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
                           className="p-2 hover:bg-red-50 rounded-lg transition-colors text-red-500 hover:text-red-700"
                           onClick={() => setDeleteGroup(group)}
                           disabled={submitting}
@@ -522,6 +577,49 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
               )}
             </div>
           </>
+        )}
+
+        {/* Edit Group Form */}
+        {editingGroup && (
+          <form onSubmit={handleUpdateGroup} className="border border-primary-200 bg-primary-50 rounded-xl p-4 space-y-3">
+            <h4 className="text-sm font-semibold text-gray-700">Edit Group - {editingGroup.name}</h4>
+            <Input
+              label="Group Name"
+              placeholder="Group name"
+              value={editGroupName}
+              onChange={(e) => setEditGroupName(e.target.value)}
+              required
+            />
+            <textarea
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none text-sm"
+              rows={2}
+              placeholder="Description (optional)"
+              value={editGroupDescription}
+              onChange={(e) => setEditGroupDescription(e.target.value)}
+            />
+            <Input
+              label="Billing Rate ($/hr)"
+              type="number"
+              placeholder="e.g. 45.00 (optional)"
+              value={editGroupBillingRate}
+              onChange={(e) => setEditGroupBillingRate(e.target.value)}
+              min="0"
+              step="0.01"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                type="button"
+                onClick={() => { setEditingGroup(null); setError(''); }}
+              >
+                Cancel
+              </Button>
+              <Button variant="primary" size="sm" type="submit" loading={submitting}>
+                Save Changes
+              </Button>
+            </div>
+          </form>
         )}
 
         {/* Delete Confirmation */}

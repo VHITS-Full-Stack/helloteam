@@ -19,10 +19,10 @@ import {
   Avatar,
   Input,
   Modal,
-} from '../../components/common';
-import clientPortalService from '../../services/clientPortal.service';
-import { usePermissions } from '../../hooks/usePermissions';
-import { PERMISSIONS } from '../../config/permissions';
+} from '../../../components/common';
+import clientPortalService from '../../../services/clientPortal.service';
+import { usePermissions } from '../../../hooks/usePermissions';
+import { PERMISSIONS } from '../../../config/permissions';
 
 const Groups = () => {
   const { hasPermission } = usePermissions();

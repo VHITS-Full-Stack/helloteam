@@ -28,14 +28,16 @@ const ClientTimeRecords = lazy(() => import('../pages/client/TimeRecords'));
 const Billing = lazy(() => import('../pages/client/Billing'));
 const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
-const ClientGroups = lazy(() => import('../pages/client/Groups'));
+const ClientGroups = lazy(() => import('../pages/client/group/Groups'));
 
 // Admin Pages (lazy)
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
-const Employees = lazy(() => import('../pages/admin/Employees'));
-const EmployeeDetail = lazy(() => import('../pages/admin/EmployeeDetail'));
-const Clients = lazy(() => import('../pages/admin/Clients'));
-const ClientDetail = lazy(() => import('../pages/admin/ClientDetail'));
+const Employees = lazy(() => import('../pages/admin/employees/Employees'));
+const AddEmployee = lazy(() => import('../pages/admin/employees/AddEditEmployee'));
+const EmployeeDetail = lazy(() => import('../pages/admin/employees/EmployeeDetail'));
+const Clients = lazy(() => import('../pages/admin/clients/Clients'));
+const AddClient = lazy(() => import('../pages/admin/clients/AddEditClient'));
+const ClientDetail = lazy(() => import('../pages/admin/clients/ClientDetail'));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
@@ -46,7 +48,7 @@ const TimeAdjustments = lazy(() => import('../pages/admin/TimeAdjustments'));
 const AuditLog = lazy(() => import('../pages/admin/AuditLog'));
 const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
-const Groups = lazy(() => import('../pages/admin/Groups'));
+const Groups = lazy(() => import('../pages/admin/groups/Groups'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -160,8 +162,12 @@ const AppRoutes = () => {
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboard />} />
           <Route path="employees" element={<Employees />} />
+          <Route path="employees/add" element={<AddEmployee />} />
+          <Route path="employees/:id/edit" element={<AddEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetail />} />
           <Route path="clients" element={<Clients />} />
+          <Route path="clients/add" element={<AddClient />} />
+          <Route path="clients/:id/edit" element={<AddClient />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
           <Route path="analytics" element={<AdminAnalytics />} />

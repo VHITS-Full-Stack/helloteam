@@ -90,6 +90,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
                 select: {
                   id: true,
                   name: true,
+                  billingRate: true,
                 },
               },
             },
@@ -167,6 +168,7 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
               select: {
                 id: true,
                 name: true,
+                billingRate: true,
               },
             },
           },

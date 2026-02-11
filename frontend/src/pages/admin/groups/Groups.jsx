@@ -26,10 +26,10 @@ import {
   TableRow,
   TableHeader,
   TableCell,
-} from '../../components/common';
-import groupService from '../../services/group.service';
-import employeeService from '../../services/employee.service';
-import clientService from '../../services/client.service';
+} from '../../../components/common';
+import groupService from '../../../services/group.service';
+import employeeService from '../../../services/employee.service';
+import clientService from '../../../services/client.service';
 
 const Groups = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,6 +52,7 @@ const Groups = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    billingRate: '',
   });
 
   // Fetch groups
@@ -128,6 +129,7 @@ const Groups = () => {
     setFormData({
       name: '',
       description: '',
+      billingRate: '',
     });
   };
 
@@ -137,7 +139,11 @@ const Groups = () => {
     setError('');
 
     try {
-      const response = await groupService.createGroup(formData);
+      const response = await groupService.createGroup({
+        name: formData.name,
+        description: formData.description,
+        billingRate: formData.billingRate || null,
+      });
       if (response.success) {
         setShowAddModal(false);
         resetForm();
@@ -165,6 +171,7 @@ const Groups = () => {
         name: formData.name,
         description: formData.description,
         isActive: formData.isActive,
+        billingRate: formData.billingRate || null,
       });
 
       if (response.success) {
@@ -357,6 +364,7 @@ const Groups = () => {
       name: group.name,
       description: group.description || '',
       isActive: group.isActive,
+      billingRate: group.billingRate ? String(group.billingRate) : '',
     });
     setShowEditModal(true);
   };
@@ -539,6 +547,7 @@ const Groups = () => {
               <TableRow>
                 <TableHeader>Group</TableHeader>
                 <TableHeader>Description</TableHeader>
+                <TableHeader>Billing Rate ($/hr)</TableHeader>
                 <TableHeader>Employees</TableHeader>
                 <TableHeader>Assigned Clients</TableHeader>
                 <TableHeader>Status</TableHeader>
@@ -560,6 +569,11 @@ const Groups = () => {
                   <TableCell>
                     <span className="text-sm text-gray-600">
                       {group.description || <span className="text-gray-400">No description</span>}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-700">
+                      {group.billingRate ? `$${Number(group.billingRate).toFixed(2)}` : <span className="text-gray-400">N/A</span>}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -687,6 +701,15 @@ const Groups = () => {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
+          <Input
+            label="Billing Rate ($/hr)"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="e.g. 45.00"
+            value={formData.billingRate}
+            onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
+          />
           {error && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600">{error}</p>
@@ -729,6 +752,15 @@ const Groups = () => {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
           </div>
+          <Input
+            label="Billing Rate ($/hr)"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="e.g. 45.00"
+            value={formData.billingRate}
+            onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
+          />
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
