@@ -2133,7 +2133,7 @@ export const createClientGroup = async (req: AuthenticatedRequest, res: Response
 export const updateClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const groupId = req.params.groupId;
+    const groupId = req.params.groupId as string;
     const { name, description, billingRate } = req.body;
 
     if (!name) {
@@ -2188,7 +2188,7 @@ export const updateClientGroup = async (req: AuthenticatedRequest, res: Response
 export const deleteClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const groupId = req.params.groupId;
+    const groupId = req.params.groupId as string;
 
     const client = await prisma.client.findUnique({
       where: { userId },
@@ -2241,7 +2241,7 @@ export const deleteClientGroup = async (req: AuthenticatedRequest, res: Response
 export const addEmployeesToClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const groupId = req.params.groupId;
+    const groupId = req.params.groupId as string;
     const { employeeIds } = req.body;
 
     if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
@@ -2288,7 +2288,8 @@ export const addEmployeesToClientGroup = async (req: AuthenticatedRequest, res: 
 export const removeEmployeeFromClientGroup = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { groupId, employeeId } = req.params;
+    const groupId = req.params.groupId as string;
+    const employeeId = req.params.employeeId as string;
 
     const client = await prisma.client.findUnique({
       where: { userId },
