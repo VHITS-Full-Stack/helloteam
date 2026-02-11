@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { deactivateOtherClientAssignments } from './employee.controller';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -334,12 +335,13 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         data: { clientId: client.id, groupId: defaultGroup.id },
       });
 
-      // Also assign Default group employees to this client
+      // Also assign Default group employees to this client (1-client-per-employee)
       const defaultGroupEmployees = await tx.groupEmployee.findMany({
         where: { groupId: defaultGroup.id },
         select: { employeeId: true },
       });
       for (const ge of defaultGroupEmployees) {
+        await deactivateOtherClientAssignments(ge.employeeId, client.id, tx);
         await tx.clientEmployee.upsert({
           where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
           create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
@@ -356,13 +358,14 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           update: {},
         });
 
-        // Assign group employees to this client
+        // Assign group employees to this client (1-client-per-employee)
         const groupEmployees = await tx.groupEmployee.findMany({
           where: { groupId },
           select: { employeeId: true },
         });
 
         for (const ge of groupEmployees) {
+          await deactivateOtherClientAssignments(ge.employeeId, client.id, tx);
           await tx.clientEmployee.upsert({
             where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
             create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
@@ -520,7 +523,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
         });
       }
 
-      // If groupId provided, assign all group employees to this client
+      // If groupId provided, assign all group employees to this client (1-client-per-employee)
       if (groupId) {
         const groupEmployees = await tx.groupEmployee.findMany({
           where: { groupId },
@@ -528,6 +531,8 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
         });
 
         for (const ge of groupEmployees) {
+          await deactivateOtherClientAssignments(ge.employeeId, id, tx);
+
           const existing = await tx.clientEmployee.findUnique({
             where: {
               clientId_employeeId: {
@@ -733,8 +738,10 @@ export const assignEmployees = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    // Create or update assignments
+    // Create or update assignments (1-client-per-employee: deactivate other client assignments)
     for (const employeeId of employeeIds) {
+      await deactivateOtherClientAssignments(employeeId, id);
+
       const existingAssignment = await prisma.clientEmployee.findUnique({
         where: {
           clientId_employeeId: {

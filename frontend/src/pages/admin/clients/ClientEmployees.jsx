@@ -181,6 +181,11 @@ const ClientEmployees = () => {
                         {employee.firstName} {employee.lastName}
                       </p>
                       <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                      {employee.clientAssignments?.length > 0 && (
+                        <p className="text-xs text-yellow-600">
+                          Currently: {employee.clientAssignments[0]?.client?.companyName}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <Button
@@ -190,7 +195,7 @@ const ClientEmployees = () => {
                     onClick={() => handleAssignEmployee(employee.id)}
                     disabled={submitting}
                   >
-                    Assign
+                    {employee.clientAssignments?.length > 0 ? 'Reassign' : 'Assign'}
                   </Button>
                 </div>
               ))}
