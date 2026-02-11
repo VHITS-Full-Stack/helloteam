@@ -258,7 +258,7 @@ const AddClient = () => {
           </div>
 
           {/* Billing Rates */}
-          <div>
+          {/* <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Billing Rates</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -301,7 +301,7 @@ const AddClient = () => {
                 </select>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Actions */}
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
