@@ -92,6 +92,10 @@ export const getGroups = async (
     const groupsWithStats = groups.map((group) => ({
       ...group,
       billingRate: group.billingRate ? Number(group.billingRate) : null,
+      clients: group.clients.map((cg) => ({
+        ...cg,
+        billingRate: cg.billingRate ? Number(cg.billingRate) : null,
+      })),
       employeeCount: group._count.employees,
     }));
 
