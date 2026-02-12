@@ -159,12 +159,11 @@ const ClientConnectedGroups = () => {
       const response = await groupService.createGroup({
         name: newGroupName.trim(),
         description: newGroupDescription.trim(),
-        billingRate: newGroupBillingRate || null,
       });
       if (response.success) {
         const groupId = response.data?.id;
         if (groupId) {
-          await groupService.assignToClient(groupId, clientId);
+          await groupService.assignToClient(groupId, clientId, newGroupBillingRate || null);
         }
         setNewGroupName('');
         setNewGroupDescription('');
@@ -202,8 +201,11 @@ const ClientConnectedGroups = () => {
       const response = await groupService.updateGroup(editingGroup.id, {
         name: editGroupName.trim(),
         description: editGroupDescription.trim(),
-        billingRate: editGroupBillingRate || null,
       });
+      // Update client-specific billing rate
+      if (response.success) {
+        await groupService.assignToClient(editingGroup.id, clientId, editGroupBillingRate || null);
+      }
       if (response.success) {
         setEditingGroup(null);
         setEditGroupName('');

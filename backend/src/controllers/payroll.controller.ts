@@ -975,7 +975,8 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
             profilePhoto: true,
             billingRate: true,
             groupAssignments: {
-              include: {
+              select: {
+                groupId: true,
                 group: {
                   select: {
                     billingRate: true,
@@ -1014,29 +1015,44 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
       assignments.map((a) => [`${a.clientId}-${a.employeeId}`, a])
     );
 
+    // Fetch client-group billing rates
+    const clientGroupRecords = await prisma.clientGroup.findMany({
+      where: { clientId: { in: clientIds } },
+      select: { clientId: true, groupId: true, billingRate: true },
+    });
+    const clientGroupRateMap = new Map(
+      clientGroupRecords.map((cg) => [`${cg.clientId}-${cg.groupId}`, cg.billingRate ? Number(cg.billingRate) : null])
+    );
+
     // Group by employee
     const employeeSummary: Record<string, any> = {};
 
     records.forEach((record) => {
       const empId = record.employeeId;
       if (!employeeSummary[empId]) {
-        // Get rates: assignment override > employee billing rate > group billing rate > client default
+        // Get rates: assignment override > employee billing rate > client-group billing rate > group billing rate > client default
         const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
         const policy = policyMap.get(record.clientId);
         const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
-        const groupBillingRate = record.employee.groupAssignments?.[0]?.group?.billingRate
-          ? Number(record.employee.groupAssignments[0].group.billingRate)
+        const groupAssignment = record.employee.groupAssignments?.[0];
+        const clientGroupBillingRate = groupAssignment?.groupId
+          ? clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null
+          : null;
+        const groupBillingRate = groupAssignment?.group?.billingRate
+          ? Number(groupAssignment.group.billingRate)
           : null;
 
         const hourlyRate = assignment?.hourlyRate
           ? Number(assignment.hourlyRate)
           : employeeBillingRate
             ? employeeBillingRate
-            : groupBillingRate
-              ? groupBillingRate
-              : policy?.defaultHourlyRate
-                ? Number(policy.defaultHourlyRate)
-                : 0;
+            : clientGroupBillingRate
+              ? clientGroupBillingRate
+              : groupBillingRate
+                ? groupBillingRate
+                : policy?.defaultHourlyRate
+                  ? Number(policy.defaultHourlyRate)
+                  : 0;
 
         let overtimeRate = assignment?.overtimeRate
           ? Number(assignment.overtimeRate)

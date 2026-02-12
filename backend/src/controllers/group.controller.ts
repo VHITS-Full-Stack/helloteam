@@ -513,7 +513,7 @@ export const assignGroupToClient = async (
 ): Promise<void> => {
   try {
     const groupId = req.params.id as string;
-    const { clientId } = req.body;
+    const { clientId, billingRate } = req.body;
 
     if (!clientId) {
       res.status(400).json({ success: false, error: "Client ID is required" });
@@ -538,10 +538,11 @@ export const assignGroupToClient = async (
     }
 
     // Create the direct group-client link (upsert to avoid duplicates)
+    const parsedRate = billingRate ? parseFloat(billingRate) : null;
     await prisma.clientGroup.upsert({
       where: { clientId_groupId: { clientId, groupId } },
-      create: { clientId, groupId },
-      update: {},
+      create: { clientId, groupId, billingRate: parsedRate },
+      update: { billingRate: parsedRate },
     });
 
     // Also assign any existing group employees to the client (1-client-per-employee)
@@ -631,6 +632,7 @@ export const getGroupClients = async (
         id: cg.client.id,
         companyName: cg.client.companyName,
         contactPerson: cg.client.contactPerson,
+        billingRate: cg.billingRate ? Number(cg.billingRate) : null,
         assignedAt: cg.assignedAt,
       })),
     });

@@ -78,9 +78,9 @@ const groupService = {
   },
 
   // Assign group to client
-  assignToClient: async (groupId, clientId) => {
+  assignToClient: async (groupId, clientId, billingRate = null) => {
     try {
-      const response = await api.post(`/groups/${groupId}/clients`, { clientId });
+      const response = await api.post(`/groups/${groupId}/clients`, { clientId, billingRate });
       return response;
     } catch (error) {
       throw { error: error.message || 'Failed to assign group to client' };

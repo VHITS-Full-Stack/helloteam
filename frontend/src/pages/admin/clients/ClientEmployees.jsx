@@ -229,9 +229,10 @@ const ClientEmployees = () => {
         ) : (
           <div className="space-y-3">
             {clientEmployees.map((employee) => {
-              // Determine effective billing rate: assignment override > employee rate > group rate
+              // Determine effective billing rate: assignment override > employee rate > client-group rate > group rate
               const assignmentRate = employee.assignmentHourlyRate;
               const employeeRate = employee.billingRate ? Number(employee.billingRate) : null;
+              const clientGroupRate = employee.clientGroupBillingRate ? Number(employee.clientGroupBillingRate) : null;
               const groupRate = employee.groupAssignments?.[0]?.group?.billingRate
                 ? Number(employee.groupAssignments[0].group.billingRate)
                 : null;
@@ -245,6 +246,9 @@ const ClientEmployees = () => {
               } else if (employeeRate) {
                 effectiveRate = employeeRate;
                 rateSource = 'employee';
+              } else if (clientGroupRate) {
+                effectiveRate = clientGroupRate;
+                rateSource = 'group';
               } else if (groupRate) {
                 effectiveRate = groupRate;
                 rateSource = 'group';
@@ -338,10 +342,20 @@ const ClientEmployees = () => {
                   </p>
                 </div>
               )}
-              {rateFormData.groupBillingRate > 0 && (
+              {rateFormData.clientGroupBillingRate > 0 && (
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-sm text-purple-800 font-medium mb-1">
-                    Group Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
+                    Client Group Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
+                  </p>
+                  <p className="text-sm text-purple-600">
+                    ${Number(rateFormData.clientGroupBillingRate).toFixed(2)}/hr
+                  </p>
+                </div>
+              )}
+              {rateFormData.groupBillingRate > 0 && !rateFormData.clientGroupBillingRate && (
+                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                  <p className="text-sm text-purple-800 font-medium mb-1">
+                    Group Default Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
                   </p>
                   <p className="text-sm text-purple-600">
                     ${Number(rateFormData.groupBillingRate).toFixed(2)}/hr
