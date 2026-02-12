@@ -752,10 +752,11 @@ model Group {
 }
 
 model ClientGroup {
-  id         String   @id @default(uuid())
-  clientId   String
-  groupId    String
-  assignedAt DateTime @default(now())
+  id          String   @id @default(uuid())
+  clientId    String
+  groupId     String
+  billingRate Decimal? @db.Decimal(10, 2)
+  assignedAt  DateTime @default(now())
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
   group  Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)

@@ -2066,7 +2066,7 @@ export const getClientGroups = async (req: AuthenticatedRequest, res: Response):
 
     const groups = clientGroups.map((cg) => ({
       ...cg.group,
-      billingRate: cg.group.billingRate ? Number(cg.group.billingRate) : null,
+      billingRate: cg.billingRate ? Number(cg.billingRate) : (cg.group.billingRate ? Number(cg.group.billingRate) : null),
       employeeCount: cg.group._count.employees,
       assignedAt: cg.assignedAt,
     }));
@@ -2099,17 +2099,18 @@ export const createClientGroup = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
+    const parsedRate = billingRate ? parseFloat(billingRate) : null;
+
     const group = await prisma.$transaction(async (tx) => {
       const newGroup = await tx.group.create({
         data: {
           name,
           description,
-          billingRate: billingRate ? parseFloat(billingRate) : null,
         },
       });
 
       await tx.clientGroup.create({
-        data: { clientId: client.id, groupId: newGroup.id },
+        data: { clientId: client.id, groupId: newGroup.id, billingRate: parsedRate },
       });
 
       return newGroup;
@@ -2120,7 +2121,7 @@ export const createClientGroup = async (req: AuthenticatedRequest, res: Response
       message: 'Group created successfully',
       data: {
         ...group,
-        billingRate: group.billingRate ? Number(group.billingRate) : null,
+        billingRate: parsedRate,
       },
     });
   } catch (error) {
@@ -2161,21 +2162,30 @@ export const updateClientGroup = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
+    const parsedRate = billingRate !== undefined ? (billingRate ? parseFloat(billingRate) : null) : undefined;
+
     const group = await prisma.group.update({
       where: { id: groupId },
       data: {
         ...(name !== undefined && { name }),
         ...(description !== undefined && { description }),
-        ...(billingRate !== undefined && { billingRate: billingRate ? parseFloat(billingRate) : null }),
       },
     });
+
+    // Update billing rate on the client-group link (per-client rate)
+    if (parsedRate !== undefined) {
+      await prisma.clientGroup.update({
+        where: { clientId_groupId: { clientId: client.id, groupId } },
+        data: { billingRate: parsedRate },
+      });
+    }
 
     res.json({
       success: true,
       message: 'Group updated successfully',
       data: {
         ...group,
-        billingRate: group.billingRate ? Number(group.billingRate) : null,
+        billingRate: parsedRate !== undefined ? parsedRate : (clientGroup.billingRate ? Number(clientGroup.billingRate) : null),
       },
     });
   } catch (error) {

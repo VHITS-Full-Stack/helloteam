@@ -681,24 +681,42 @@ export const getClientEmployees = async (req: AuthenticatedRequest, res: Respons
       },
     });
 
+    // Fetch client-group billing rates for this client
+    const clientGroupRecords = await prisma.clientGroup.findMany({
+      where: { clientId: id },
+      select: { groupId: true, billingRate: true },
+    });
+    const clientGroupRateMap = new Map(
+      clientGroupRecords.map((cg) => [cg.groupId, cg.billingRate ? Number(cg.billingRate) : null])
+    );
+
     // Refresh presigned URLs for employee profile photos
     // Also include assignment-level rate overrides and convert Decimal fields
     const employeesWithFreshUrls = await Promise.all(
-      employees.map(async (ce) => ({
-        ...ce.employee,
-        profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
-        billingRate: ce.employee.billingRate ? Number(ce.employee.billingRate) : null,
-        payableRate: ce.employee.payableRate ? Number(ce.employee.payableRate) : null,
-        assignmentHourlyRate: ce.hourlyRate ? Number(ce.hourlyRate) : null,
-        assignmentOvertimeRate: ce.overtimeRate ? Number(ce.overtimeRate) : null,
-        groupAssignments: ce.employee.groupAssignments?.map((ga: any) => ({
-          ...ga,
-          group: {
-            ...ga.group,
-            billingRate: ga.group?.billingRate ? Number(ga.group.billingRate) : null,
-          },
-        })) || [],
-      }))
+      employees.map(async (ce) => {
+        // Look up client-specific group billing rate
+        const groupAssignment = ce.employee.groupAssignments?.[0];
+        const clientGroupBillingRate = groupAssignment
+          ? clientGroupRateMap.get(groupAssignment.groupId) ?? null
+          : null;
+
+        return {
+          ...ce.employee,
+          profilePhoto: await refreshProfilePhotoUrl(ce.employee.profilePhoto),
+          billingRate: ce.employee.billingRate ? Number(ce.employee.billingRate) : null,
+          payableRate: ce.employee.payableRate ? Number(ce.employee.payableRate) : null,
+          assignmentHourlyRate: ce.hourlyRate ? Number(ce.hourlyRate) : null,
+          assignmentOvertimeRate: ce.overtimeRate ? Number(ce.overtimeRate) : null,
+          clientGroupBillingRate,
+          groupAssignments: ce.employee.groupAssignments?.map((ga: any) => ({
+            ...ga,
+            group: {
+              ...ga.group,
+              billingRate: ga.group?.billingRate ? Number(ga.group.billingRate) : null,
+            },
+          })) || [],
+        };
+      })
     );
 
     res.json({
@@ -921,6 +939,16 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
       ? Number(groupAssignment.group.billingRate)
       : null;
 
+    // Get client-specific group billing rate
+    let clientGroupBillingRate: number | null = null;
+    if (groupAssignment?.groupId) {
+      const clientGroup = await prisma.clientGroup.findUnique({
+        where: { clientId_groupId: { clientId: id, groupId: groupAssignment.groupId } },
+        select: { billingRate: true },
+      });
+      clientGroupBillingRate = clientGroup?.billingRate ? Number(clientGroup.billingRate) : null;
+    }
+
     res.json({
       success: true,
       data: {
@@ -930,6 +958,7 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
         hourlyRate: assignment.hourlyRate ? Number(assignment.hourlyRate) : null,
         overtimeRate: assignment.overtimeRate ? Number(assignment.overtimeRate) : null,
         employeeBillingRate,
+        clientGroupBillingRate,
         groupBillingRate,
         groupName: groupAssignment?.group?.name || null,
         defaultHourlyRate: assignment.client.clientPolicies?.defaultHourlyRate
