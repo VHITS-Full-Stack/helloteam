@@ -122,21 +122,53 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
       prisma.employee.count({ where }),
     ]);
 
+    // Fetch client-specific group billing rates for each employee's active client + group
+    const clientGroupPairs: { clientId: string; groupId: string }[] = [];
+    employees.forEach((employee) => {
+      const activeClient = employee.clientAssignments?.[0];
+      const groupAssignment = employee.groupAssignments?.[0];
+      if (activeClient && groupAssignment) {
+        clientGroupPairs.push({ clientId: activeClient.clientId, groupId: groupAssignment.groupId });
+      }
+    });
+
+    const clientGroupRateMap = new Map<string, number | null>();
+    if (clientGroupPairs.length > 0) {
+      const clientGroupRecords = await prisma.clientGroup.findMany({
+        where: {
+          OR: clientGroupPairs.map((p) => ({ clientId: p.clientId, groupId: p.groupId })),
+        },
+        select: { clientId: true, groupId: true, billingRate: true },
+      });
+      clientGroupRecords.forEach((cg) => {
+        clientGroupRateMap.set(`${cg.clientId}-${cg.groupId}`, cg.billingRate ? Number(cg.billingRate) : null);
+      });
+    }
+
     // Refresh presigned URLs for profile photos and convert Decimal fields
     const employeesWithFreshUrls = await Promise.all(
-      employees.map(async (employee) => ({
-        ...employee,
-        profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
-        billingRate: employee.billingRate ? Number(employee.billingRate) : null,
-        payableRate: employee.payableRate ? Number(employee.payableRate) : null,
-        groupAssignments: employee.groupAssignments.map((ga) => ({
-          ...ga,
-          group: {
-            ...ga.group,
-            billingRate: ga.group.billingRate ? Number(ga.group.billingRate) : null,
-          },
-        })),
-      }))
+      employees.map(async (employee) => {
+        const activeClient = employee.clientAssignments?.[0];
+        const groupAssignment = employee.groupAssignments?.[0];
+        const clientGroupBillingRate = activeClient && groupAssignment
+          ? clientGroupRateMap.get(`${activeClient.clientId}-${groupAssignment.groupId}`) ?? null
+          : null;
+
+        return {
+          ...employee,
+          profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+          billingRate: employee.billingRate ? Number(employee.billingRate) : null,
+          payableRate: employee.payableRate ? Number(employee.payableRate) : null,
+          clientGroupBillingRate,
+          groupAssignments: employee.groupAssignments.map((ga) => ({
+            ...ga,
+            group: {
+              ...ga.group,
+              billingRate: ga.group.billingRate ? Number(ga.group.billingRate) : null,
+            },
+          })),
+        };
+      })
     );
 
     res.json({

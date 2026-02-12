@@ -14,6 +14,7 @@ import {
   Edit,
   RefreshCw,
   Search,
+  DollarSign,
 } from 'lucide-react';
 import {
   Card,
@@ -67,12 +68,12 @@ const ClientConnectedGroups = () => {
     groups.forEach((group) => {
       if (!group.isActive) return;
 
-      const isLinked = group.clients?.some((cg) => {
+      const clientGroupLink = group.clients?.find((cg) => {
         const cid = cg.client?.id || cg.clientId;
         return cid === clientId;
       });
 
-      if (isLinked) {
+      if (clientGroupLink) {
         const totalEmployees = group.employees?.length || 0;
         let assignedCount = 0;
         if (group.employees && group.employees.length > 0) {
@@ -87,7 +88,14 @@ const ClientConnectedGroups = () => {
             }
           });
         }
-        myGroups.push({ ...group, assignedCount, totalEmployees });
+        // Use client-specific billing rate from ClientGroup, fallback to global Group rate
+        const clientGroupBillingRate = clientGroupLink.billingRate ? Number(clientGroupLink.billingRate) : null;
+        myGroups.push({
+          ...group,
+          billingRate: clientGroupBillingRate ?? group.billingRate,
+          assignedCount,
+          totalEmployees,
+        });
       }
     });
 
@@ -676,11 +684,22 @@ const ClientConnectedGroups = () => {
                       {group.totalEmployees > 0
                         ? `${group.totalEmployees} employee${group.totalEmployees !== 1 ? 's' : ''}`
                         : 'No employees yet'}
-                      {group.billingRate ? ` · $${Number(group.billingRate).toFixed(2)}/hr` : ''}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
+                  {/* Billing Rate */}
+                  <div className="text-right">
+                    {group.billingRate ? (
+                      <div className="flex items-center gap-1 text-sm font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-lg">
+                        <DollarSign className="w-3.5 h-3.5" />
+                        {Number(group.billingRate).toFixed(2)}/hr
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">No rate</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
                   <button
                     className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
                     onClick={() => openManageEmployees(group)}
@@ -703,6 +722,7 @@ const ClientConnectedGroups = () => {
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
+                  </div>
                 </div>
               </div>
             ))}

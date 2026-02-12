@@ -212,6 +212,11 @@ const Employees = () => {
                       <span className="text-sm text-gray-700">
                         {employee.billingRate}
                       </span>
+                    ) : employee.clientGroupBillingRate ? (
+                      <span className="text-sm text-gray-700">
+                        {Number(employee.clientGroupBillingRate).toFixed(2)}
+                        <span className="text-xs text-gray-400 ml-1">(client group)</span>
+                      </span>
                     ) : employee.groupAssignments?.[0]?.group?.billingRate ? (
                       <span className="text-sm text-gray-700">
                         {Number(employee.groupAssignments[0].group.billingRate).toFixed(2)}

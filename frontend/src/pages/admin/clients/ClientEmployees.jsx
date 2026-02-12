@@ -372,12 +372,12 @@ const ClientEmployees = () => {
                 </div>
               )}
             </div>
-
+{/* 
             <p className="text-sm text-gray-500">
               Set a custom rate for this employee on this client. Leave blank to use the fallback rates (employee rate &rarr; group rate &rarr; client default).
-            </p>
+            </p> */}
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
                 <input
@@ -402,7 +402,7 @@ const ClientEmployees = () => {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
-            </div>
+            </div> */}
 
             {error && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
