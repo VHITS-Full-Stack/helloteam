@@ -8,6 +8,7 @@ import {
   updateTaskStatus,
   addTaskComment,
   getTaskComments,
+  getTaskActivities,
 } from '../controllers/task.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -30,5 +31,8 @@ router.patch('/:id/status', requirePermission(PERMISSIONS.TASKS.VIEW), updateTas
 // Comments (anyone with task view access can comment)
 router.get('/:id/comments', requirePermission(PERMISSIONS.TASKS.VIEW), getTaskComments);
 router.post('/:id/comments', requirePermission(PERMISSIONS.TASKS.VIEW), addTaskComment);
+
+// Activities
+router.get('/:id/activities', requirePermission(PERMISSIONS.TASKS.VIEW), getTaskActivities);
 
 export default router;

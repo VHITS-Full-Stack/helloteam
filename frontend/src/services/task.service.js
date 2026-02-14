@@ -40,6 +40,11 @@ const taskService = {
     const response = await api.post(`/tasks/${id}/comments`, { message });
     return response;
   },
+
+  getTaskActivities: async (id) => {
+    const response = await api.get(`/tasks/${id}/activities`);
+    return response;
+  },
 };
 
 export default taskService;

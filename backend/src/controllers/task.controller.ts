@@ -1,6 +1,65 @@
 import { Response } from "express";
 import prisma from "../config/database";
 import { AuthenticatedRequest } from "../types";
+import { TaskActivityAction } from "@prisma/client";
+
+// Helper: resolve user info (name, avatar, role) from userId
+const resolveUserInfo = async (userId: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      role: true,
+      employee: {
+        select: { firstName: true, lastName: true, profilePhoto: true },
+      },
+      client: { select: { companyName: true, logoUrl: true } },
+      admin: { select: { firstName: true, lastName: true } },
+    },
+  });
+
+  let authorName = user?.email || "Unknown";
+  let authorAvatar: string | null = null;
+  if (user?.employee) {
+    authorName = `${user.employee.firstName} ${user.employee.lastName}`;
+    authorAvatar = user.employee.profilePhoto;
+  } else if (user?.client) {
+    authorName = user.client.companyName;
+    authorAvatar = user.client.logoUrl;
+  } else if (user?.admin) {
+    authorName = `${user.admin.firstName} ${user.admin.lastName}`;
+  }
+
+  return {
+    authorName,
+    authorAvatar,
+    authorRole: user?.role || "UNKNOWN",
+  };
+};
+
+// Helper: create task activity log (fire and forget)
+const createTaskActivity = (
+  taskId: string,
+  userId: string,
+  action: TaskActivityAction,
+  oldValue?: string | null,
+  newValue?: string | null,
+  metadata?: any,
+) => {
+  prisma.taskActivity
+    .create({
+      data: {
+        taskId,
+        userId,
+        action,
+        oldValue: oldValue || null,
+        newValue: newValue || null,
+        metadata: metadata || null,
+      },
+    })
+    .catch((err: any) => console.error("Failed to log task activity:", err));
+};
 
 // Get tasks (scoped by role)
 export const getTasks = async (
@@ -88,7 +147,7 @@ export const getTasks = async (
             select: { id: true, email: true },
           },
           _count: {
-            select: { comments: true },
+            select: { comments: true, activities: true },
           },
         },
         orderBy: [{ createdAt: "desc" }],
@@ -142,6 +201,9 @@ export const getTask = async (
         comments: {
           orderBy: { createdAt: "asc" },
         },
+        _count: {
+          select: { comments: true, activities: true },
+        },
       },
     });
 
@@ -178,7 +240,9 @@ export const getTask = async (
         id: true,
         email: true,
         role: true,
-        employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
+        employee: {
+          select: { firstName: true, lastName: true, profilePhoto: true },
+        },
         client: { select: { companyName: true, logoUrl: true } },
         admin: { select: { firstName: true, lastName: true } },
       },
@@ -275,10 +339,32 @@ export const createTask = async (
           select: { id: true, companyName: true },
         },
         _count: {
-          select: { comments: true },
+          select: { comments: true, activities: true },
         },
       },
     });
+
+    // Log activity: CREATED
+    createTaskActivity(
+      task.id,
+      req.user!.userId,
+      "CREATED",
+      null,
+      null,
+      { title: task.title },
+    );
+
+    // Log activity: ASSIGNED (if employee was set)
+    if (employeeId && task.assignee) {
+      createTaskActivity(
+        task.id,
+        req.user!.userId,
+        "ASSIGNED",
+        null,
+        `${task.assignee.firstName} ${task.assignee.lastName}`,
+        { employeeId },
+      );
+    }
 
     res.status(201).json({
       success: true,
@@ -310,7 +396,14 @@ export const updateTask = async (
       return;
     }
 
-    const existing = await prisma.task.findUnique({ where: { id } });
+    const existing = await prisma.task.findUnique({
+      where: { id },
+      include: {
+        assignee: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+    });
     if (!existing || existing.clientId !== client.id) {
       res.status(404).json({ success: false, error: "Task not found" });
       return;
@@ -363,10 +456,83 @@ export const updateTask = async (
           select: { id: true, companyName: true },
         },
         _count: {
-          select: { comments: true },
+          select: { comments: true, activities: true },
         },
       },
     });
+
+    // Log per-field activity changes
+    const userId = req.user!.userId;
+
+    if (title !== undefined && title !== existing.title) {
+      createTaskActivity(id, userId, "TITLE_UPDATED", existing.title, title);
+    }
+    if (description !== undefined && description !== existing.description) {
+      createTaskActivity(
+        id,
+        userId,
+        "DESCRIPTION_UPDATED",
+        existing.description || "",
+        description || "",
+      );
+    }
+    if (priority !== undefined && priority !== existing.priority) {
+      createTaskActivity(
+        id,
+        userId,
+        "PRIORITY_CHANGED",
+        existing.priority,
+        priority,
+      );
+    }
+    if (dueDate !== undefined) {
+      const oldDue = existing.dueDate
+        ? existing.dueDate.toISOString().split("T")[0]
+        : null;
+      const newDue = dueDate || null;
+      if (oldDue !== newDue) {
+        createTaskActivity(
+          id,
+          userId,
+          "DUE_DATE_CHANGED",
+          oldDue,
+          newDue,
+        );
+      }
+    }
+    if (status !== undefined && status !== existing.status) {
+      createTaskActivity(
+        id,
+        userId,
+        "STATUS_CHANGED",
+        existing.status,
+        status,
+      );
+    }
+    if (employeeId !== undefined) {
+      const oldEmpId = existing.employeeId;
+      const newEmpId = employeeId || null;
+      if (oldEmpId !== newEmpId) {
+        if (oldEmpId && !newEmpId) {
+          const oldName = existing.assignee
+            ? `${existing.assignee.firstName} ${existing.assignee.lastName}`
+            : oldEmpId;
+          createTaskActivity(id, userId, "UNASSIGNED", oldName, null, {
+            employeeId: oldEmpId,
+          });
+        } else if (newEmpId) {
+          const newName = task.assignee
+            ? `${task.assignee.firstName} ${task.assignee.lastName}`
+            : newEmpId;
+          const oldName = existing.assignee
+            ? `${existing.assignee.firstName} ${existing.assignee.lastName}`
+            : null;
+          createTaskActivity(id, userId, "ASSIGNED", oldName, newName, {
+            employeeId: newEmpId,
+          });
+        }
+      }
+    }
 
     res.json({
       success: true,
@@ -462,6 +628,8 @@ export const updateTaskStatus = async (
       return;
     }
 
+    const oldStatus = task.status;
+
     const updatedTask = await prisma.task.update({
       where: { id },
       data: {
@@ -481,10 +649,15 @@ export const updateTaskStatus = async (
           select: { id: true, companyName: true },
         },
         _count: {
-          select: { comments: true },
+          select: { comments: true, activities: true },
         },
       },
     });
+
+    // Log activity
+    if (oldStatus !== status) {
+      createTaskActivity(id, req.user!.userId, "STATUS_CHANGED", oldStatus, status);
+    }
 
     res.json({
       success: true,
@@ -547,39 +720,20 @@ export const addTaskComment = async (
       },
     });
 
-    // Get author info
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.userId },
-      select: {
-        id: true,
-        email: true,
-        role: true,
-        employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
-        client: { select: { companyName: true, logoUrl: true } },
-        admin: { select: { firstName: true, lastName: true } },
-      },
+    // Log activity
+    createTaskActivity(taskId, req.user!.userId, "COMMENTED", null, null, {
+      preview: message.trim().substring(0, 100),
     });
 
-    let authorName = user?.email || "Unknown";
-    let authorAvatar: string | null = null;
-    if (user?.employee) {
-      authorName = `${user.employee.firstName} ${user.employee.lastName}`;
-      authorAvatar = user.employee.profilePhoto;
-    } else if (user?.client) {
-      authorName = user.client.companyName;
-      authorAvatar = user.client.logoUrl;
-    } else if (user?.admin) {
-      authorName = `${user.admin.firstName} ${user.admin.lastName}`;
-    }
+    // Get author info
+    const info = await resolveUserInfo(req.user!.userId);
 
     res.status(201).json({
       success: true,
       message: "Comment added successfully",
       data: {
         ...comment,
-        authorName,
-        authorAvatar,
-        authorRole: user?.role || "UNKNOWN",
+        ...info,
       },
     });
   } catch (error) {
@@ -637,7 +791,9 @@ export const getTaskComments = async (
         id: true,
         email: true,
         role: true,
-        employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
+        employee: {
+          select: { firstName: true, lastName: true, profilePhoto: true },
+        },
         client: { select: { companyName: true, logoUrl: true } },
         admin: { select: { firstName: true, lastName: true } },
       },
@@ -671,5 +827,91 @@ export const getTaskComments = async (
     res
       .status(500)
       .json({ success: false, error: "Failed to fetch comments" });
+  }
+};
+
+// Get task activities
+export const getTaskActivities = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const taskId = req.params.id as string;
+
+    const task = await prisma.task.findUnique({ where: { id: taskId } });
+    if (!task) {
+      res.status(404).json({ success: false, error: "Task not found" });
+      return;
+    }
+
+    // Verify access
+    const userRole = req.user!.role;
+    if (userRole === "CLIENT") {
+      const client = await prisma.client.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!client || task.clientId !== client.id) {
+        res.status(403).json({ success: false, error: "Access denied" });
+        return;
+      }
+    } else if (userRole === "EMPLOYEE") {
+      const employee = await prisma.employee.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!employee || task.employeeId !== employee.id) {
+        res.status(403).json({ success: false, error: "Access denied" });
+        return;
+      }
+    }
+
+    const activities = await prisma.taskActivity.findMany({
+      where: { taskId },
+      orderBy: { createdAt: "desc" },
+    });
+
+    // Enrich with user info
+    const userIds = [...new Set(activities.map((a) => a.userId))];
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        employee: {
+          select: { firstName: true, lastName: true, profilePhoto: true },
+        },
+        client: { select: { companyName: true, logoUrl: true } },
+        admin: { select: { firstName: true, lastName: true } },
+      },
+    });
+    const userMap = new Map(users.map((u) => [u.id, u]));
+
+    const enriched = activities.map((activity) => {
+      const user = userMap.get(activity.userId);
+      let authorName = user?.email || "Unknown";
+      let authorAvatar: string | null = null;
+      if (user?.employee) {
+        authorName = `${user.employee.firstName} ${user.employee.lastName}`;
+        authorAvatar = user.employee.profilePhoto;
+      } else if (user?.client) {
+        authorName = user.client.companyName;
+        authorAvatar = user.client.logoUrl;
+      } else if (user?.admin) {
+        authorName = `${user.admin.firstName} ${user.admin.lastName}`;
+      }
+      return {
+        ...activity,
+        authorName,
+        authorAvatar,
+        authorRole: user?.role || "UNKNOWN",
+      };
+    });
+
+    res.json({ success: true, data: enriched });
+  } catch (error) {
+    console.error("Get task activities error:", error);
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch activities" });
   }
 };
