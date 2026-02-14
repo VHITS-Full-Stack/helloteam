@@ -4,26 +4,21 @@ import {
   Search,
   Building,
   Users,
-  Settings,
   Eye,
-  Edit,
-  Trash2,
   X,
   AlertCircle,
   RefreshCw,
-  FolderPlus,
-  FolderOpen
+  CheckCircle,
+  Clock,
 } from 'lucide-react';
 import {
   Card,
   Button,
   Badge,
   Input,
-  Modal,
   Avatar
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
-import ClientGroupsModal from '../../../components/admin/ClientGroupsModal';
 
 const Clients = () => {
   const navigate = useNavigate();
@@ -33,21 +28,11 @@ const Clients = () => {
     stats,
     pagination,
     searchQuery,
-    selectedClient,
-    groupsModalClient,
     loading,
     error,
-    submitting,
-    showDeleteModal,
-    showGroupsModal,
     setSearchQuery,
     setError,
     setPagination,
-    openDeleteModal,
-    closeDeleteModal,
-    openGroupsModal,
-    closeGroupsModal,
-    handleDeleteClient,
     refresh,
   } = useClientData({ mode: 'list' });
 
@@ -59,6 +44,25 @@ const Clients = () => {
         return <Badge variant="default">Inactive</Badge>;
       default:
         return <Badge variant="default">{status}</Badge>;
+    }
+  };
+
+  const getOnboardingBadge = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+            <CheckCircle className="w-3.5 h-3.5" /> Completed
+          </span>
+        );
+      case 'PENDING_AGREEMENT':
+        return (
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-700">
+            <Clock className="w-3.5 h-3.5" /> Pending
+          </span>
+        );
+      default:
+        return <span className="text-xs text-gray-500">{status}</span>;
     }
   };
 
@@ -151,7 +155,7 @@ const Clients = () => {
         />
       </Card>
 
-      {/* Client Cards */}
+      {/* Client Table */}
       {loading ? (
         <div className="p-8 text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
@@ -168,81 +172,96 @@ const Clients = () => {
           </div>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {clients.map((client) => (
-            <Card key={client.id} padding="sm" className="hover:border-primary-200 border border-transparent">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  {client.logoUrl ? (
-                    <Avatar src={client.logoUrl} name={client.companyName} size="md" />
-                  ) : (
-                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <Building className="w-5 h-5 text-primary" />
-                    </div>
-                  )}
-                  <div>
-                    <h3 className="font-semibold text-gray-900 text-sm">{client.companyName}</h3>
-                    <p className="text-xs text-gray-500">{client.contactPerson}</p>
-                  </div>
-                </div>
-                {getStatusBadge(client.user?.status)}
-              </div>
+        <Card padding="none">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Onboarding</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employees</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Groups</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Leave</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {clients.map((client) => (
+                  <tr
+                    key={client.id}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/admin/clients/${client.id}`)}
+                  >
+                    {/* Client name + contact */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {client.logoUrl ? (
+                          <Avatar src={client.logoUrl} name={client.companyName} size="sm" />
+                        ) : (
+                          <div className="w-8 h-8 bg-primary-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <Building className="w-4 h-4 text-primary" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">{client.companyName}</p>
+                          <p className="text-xs text-gray-500 truncate">{client.contactPerson}</p>
+                        </div>
+                      </div>
+                    </td>
 
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <div className="p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
-                    <Users className="w-3.5 h-3.5" />
-                    <span className="text-xs">Employees</span>
-                  </div>
-                  <p className="font-semibold text-gray-900 text-sm">
-                    {client.activeEmployeeCount || 0}/{client.employeeCount || 0} active
-                  </p>
-                </div>
-                <div className="p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
-                    <FolderOpen className="w-3.5 h-3.5" />
-                    <span className="text-xs">Groups</span>
-                  </div>
-                  <p className="font-semibold text-gray-900 text-sm">
-                    {client.groupCount || 0} assigned
-                  </p>
-                </div>
-                <div className="p-2 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-1.5 text-gray-500 mb-0.5">
-                    <Settings className="w-3.5 h-3.5" />
-                    <span className="text-xs">Leave Policy</span>
-                  </div>
-                  <Badge variant={client.clientPolicies?.allowPaidLeave ? 'success' : 'warning'} size="sm">
-                    {client.clientPolicies?.allowPaidLeave ? 'Paid Leave' : 'Unpaid Only'}
-                  </Badge>
-                </div>
-              </div>
+                    {/* Email */}
+                    <td className="px-4 py-3">
+                      <p className="text-sm text-gray-600 truncate max-w-[200px]">{client.user?.email}</p>
+                    </td>
 
-              <div className="flex gap-2 pt-3 border-t border-gray-100">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  icon={Eye}
-                  onClick={() => navigate(`/admin/clients/${client.id}`)}
-                >
-                  View
-                </Button>
-                <Button variant="ghost" size="sm" icon={Edit} onClick={() => navigate(`/admin/clients/${client.id}/edit`)}>
-                  Edit
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  icon={FolderPlus}
-                  onClick={() => openGroupsModal(client)}
-                >
-                  Manage Groups
-                </Button>
-                <Button variant="ghost" size="sm" icon={Trash2} className="text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => openDeleteModal(client)} />
-              </div>
-            </Card>
-          ))}
-        </div>
+                    {/* Status */}
+                    <td className="px-4 py-3 text-center">
+                      {getStatusBadge(client.user?.status)}
+                    </td>
+
+                    {/* Onboarding */}
+                    <td className="px-4 py-3 text-center">
+                      {getOnboardingBadge(client.onboardingStatus)}
+                    </td>
+
+                    {/* Employees */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm font-medium text-gray-900">{client.activeEmployeeCount || 0}</span>
+                      <span className="text-xs text-gray-400">/{client.employeeCount || 0}</span>
+                    </td>
+
+                    {/* Groups */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm font-medium text-gray-900">{client.groupCount || 0}</span>
+                    </td>
+
+                    {/* Leave Policy */}
+                    <td className="px-4 py-3 text-center">
+                      <Badge variant={client.clientPolicies?.allowPaidLeave ? 'success' : 'warning'} size="sm">
+                        {client.clientPolicies?.allowPaidLeave ? 'Paid' : 'Unpaid'}
+                      </Badge>
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          onClick={() => navigate(`/admin/clients/${client.id}`)}
+                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                          title="View"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
 
       {/* Pagination */}
@@ -272,44 +291,6 @@ const Clients = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={closeDeleteModal}
-        title="Delete Client"
-        size="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Are you sure you want to delete <strong>{selectedClient?.companyName}</strong>?
-            This will deactivate the client account.
-          </p>
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={handleDeleteClient} loading={submitting}>
-              Delete
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Groups Management Modal */}
-      <ClientGroupsModal
-        isOpen={showGroupsModal}
-        onClose={closeGroupsModal}
-        clientId={groupsModalClient?.id}
-        clientName={groupsModalClient?.companyName}
-        onGroupsChanged={refresh}
-      />
     </div>
   );
 };

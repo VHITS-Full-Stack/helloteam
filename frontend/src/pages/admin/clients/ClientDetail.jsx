@@ -13,16 +13,13 @@ import {
   Trash2,
   X,
   AlertCircle,
-  RefreshCw,
-  Settings,
-  DollarSign,
-  FolderOpen,
   FileText,
   Download,
   PenTool,
   CheckCircle,
   CreditCard,
-  Landmark,
+  FolderOpen,
+  Settings,
 } from 'lucide-react';
 import {
   Card,
@@ -33,6 +30,17 @@ import {
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
 import clientService from '../../../services/client.service';
+
+// Compact info row
+const InfoRow = ({ label, value, icon: Icon }) => (
+  <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+    <span className="flex items-center gap-2 text-xs text-gray-500">
+      {Icon && <Icon className="w-3.5 h-3.5" />}
+      {label}
+    </span>
+    <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] truncate">{value || '—'}</span>
+  </div>
+);
 
 const ClientDetail = () => {
   const { id } = useParams();
@@ -55,28 +63,6 @@ const ClientDetail = () => {
 
   const [downloading, setDownloading] = useState(false);
 
-  const getOnboardingBadge = (status) => {
-    switch (status) {
-      case 'COMPLETED':
-        return <Badge variant="success">Completed</Badge>;
-      case 'PENDING_AGREEMENT':
-        return <Badge variant="warning">Pending Agreement</Badge>;
-      default:
-        return <Badge variant="default">{status}</Badge>;
-    }
-  };
-
-  const getAgreementTypeLabel = (type) => {
-    switch (type) {
-      case 'WEEKLY_ACH':
-        return 'Weekly ACH';
-      case 'MONTHLY_ACH':
-        return 'Monthly ACH';
-      default:
-        return type || 'N/A';
-    }
-  };
-
   const handleDownloadPdf = async () => {
     setDownloading(true);
     try {
@@ -88,30 +74,19 @@ const ClientDetail = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'ACTIVE':
-        return <Badge variant="success">Active</Badge>;
-      case 'INACTIVE':
-        return <Badge variant="default">Inactive</Badge>;
-      default:
-        return <Badge variant="default">{status}</Badge>;
-    }
-  };
-
   const onDeleteClient = async () => {
     const success = await handleDeleteClient();
-    if (success) {
-      navigate('/admin/clients');
-    }
+    if (success) navigate('/admin/clients');
   };
+
+  const agreementLabel = client?.agreementType === 'WEEKLY_ACH' ? 'Weekly ACH' : client?.agreementType === 'MONTHLY_ACH' ? 'Monthly ACH' : client?.agreementType || 'N/A';
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-gray-500">Loading client details...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto" />
+          <p className="mt-3 text-sm text-gray-500">Loading client...</p>
         </div>
       </div>
     );
@@ -121,10 +96,9 @@ const ClientDetail = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900">Client Not Found</h3>
-          <p className="text-gray-500 mb-4">The client you're looking for doesn't exist.</p>
-          <Button variant="primary" onClick={() => navigate('/admin/clients')}>
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <h3 className="font-semibold text-gray-900">Client Not Found</h3>
+          <Button variant="primary" className="mt-3" onClick={() => navigate('/admin/clients')}>
             Back to Clients
           </Button>
         </div>
@@ -132,495 +106,243 @@ const ClientDetail = () => {
     );
   }
 
+  const ag = client.agreement;
+  const pol = client.clientPolicies;
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate('/admin/clients')}>
-            Back
-          </Button>
-          <div className="flex items-center gap-4">
-            {client.logoUrl ? (
-              <Avatar src={client.logoUrl} name={client.companyName} size="xl" />
-            ) : (
-              <div className="w-16 h-16 bg-primary-100 rounded-xl flex items-center justify-center">
-                <Building className="w-8 h-8 text-primary" />
-              </div>
-            )}
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900">{client.companyName}</h2>
-              <p className="text-gray-500">{client.contactPerson}</p>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/admin/clients')} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          {client.logoUrl ? (
+            <Avatar src={client.logoUrl} name={client.companyName} size="md" />
+          ) : (
+            <div className="w-10 h-10 bg-primary-100 rounded-xl flex items-center justify-center">
+              <Building className="w-5 h-5 text-primary" />
             </div>
-            {getStatusBadge(client.user?.status)}
+          )}
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-gray-900">{client.companyName}</h2>
+              <Badge variant={client.user?.status === 'ACTIVE' ? 'success' : 'default'}>
+                {client.user?.status}
+              </Badge>
+            </div>
+            <p className="text-xs text-gray-500">{client.contactPerson} &middot; {client.user?.email}</p>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
-            Refresh
-          </Button>
-          <Button variant="outline" icon={Edit} onClick={() => navigate(`/admin/clients/${id}/edit`)}>
+        <div className="flex gap-1.5">
+          <Button variant="outline" size="sm" icon={Edit} onClick={() => navigate(`/admin/clients/${id}/edit`)}>
             Edit
           </Button>
-          <Button variant="outline" icon={Trash2} className="text-red-600 hover:bg-red-50" onClick={() => setShowDeleteModal(true)}>
+          <Button variant="outline" size="sm" icon={Trash2} className="text-red-600 hover:bg-red-50" onClick={() => setShowDeleteModal(true)}>
             Delete
           </Button>
         </div>
       </div>
 
-      {/* Error Alert */}
+      {/* Error */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
-            <X className="w-4 h-4" />
-          </button>
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500 mt-0.5" />
+          <p className="text-sm text-red-600 flex-1">{error}</p>
+          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600"><X className="w-4 h-4" /></button>
         </div>
       )}
 
-      <div className="space-y-6">
-        {/* Client Information */}
-        <div className="space-y-6">
-          {/* Contact Information */}
+      {/* Pending banner */}
+      {client.onboardingStatus === 'PENDING_AGREEMENT' && (
+        <div className="p-2.5 bg-yellow-50 border border-yellow-200 rounded-lg flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-yellow-600" />
+          <p className="text-xs text-yellow-700">Client has not yet signed their service agreement.</p>
+        </div>
+      )}
+
+      {/* 2-column grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* LEFT: Contact + Policies */}
+        <div className="space-y-4">
+          {/* Contact Info */}
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <Mail className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Email</p>
-                  <p className="font-medium text-gray-900">{client.user?.email}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <Phone className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium text-gray-900">{client.phone || 'Not provided'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <MapPin className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Address</p>
-                  <p className="font-medium text-gray-900">{client.address || 'Not provided'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <Clock className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Timezone</p>
-                  <p className="font-medium text-gray-900">{client.timezone || 'UTC'}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <Calendar className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Member Since</p>
-                  <p className="font-medium text-gray-900">
-                    {new Date(client.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <Users className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Employees</p>
-                  <p className="font-medium text-gray-900">{clientEmployees.length} assigned</p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          {/* Agreement Status */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Agreement Status</h3>
-              <FileText className="w-5 h-5 text-gray-400" />
-            </div>
-
-            {client.onboardingStatus === 'PENDING_AGREEMENT' && (
-              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-600" />
-                  <p className="text-sm text-yellow-700">
-                    This client has not yet signed their service agreement.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                <FileText className="w-5 h-5 text-gray-400" />
-                <div>
-                  <p className="text-sm text-gray-500">Agreement Type</p>
-                  <p className="font-medium text-gray-900">{getAgreementTypeLabel(client.agreementType)}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                {client.onboardingStatus === 'COMPLETED' ? (
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                ) : (
-                  <Clock className="w-5 h-5 text-yellow-500" />
-                )}
-                <div>
-                  <p className="text-sm text-gray-500">Onboarding Status</p>
-                  {getOnboardingBadge(client.onboardingStatus)}
-                </div>
-              </div>
-
-              {client.agreement?.signedByName && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <PenTool className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Signed By</p>
-                    <p className="font-medium text-gray-900">{client.agreement.signedByName}</p>
-                  </div>
-                </div>
-              )}
-
-              {client.agreement?.signedAt && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <Calendar className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">Signed Date</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(client.agreement.signedAt).toLocaleDateString()} at{' '}
-                      {new Date(client.agreement.signedAt).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {client.agreement?.signedByIP && (
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                  <Settings className="w-5 h-5 text-gray-400" />
-                  <div>
-                    <p className="text-sm text-gray-500">IP Address</p>
-                    <p className="font-medium text-gray-900">{client.agreement.signedByIP}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {client.agreement?.signatureImage && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-500 mb-2">Signature</p>
-                <div className="bg-white border border-gray-200 rounded-lg p-2 inline-block">
-                  <img
-                    src={client.agreement.signatureImage}
-                    alt="Client Signature"
-                    className="h-16 object-contain"
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Business Information */}
-            {client.agreement?.businessName && (
-              <div className="mt-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <Building className="w-4 h-4 text-gray-400" />
-                  Business Information
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500">Entity Name</p>
-                    <p className="text-sm font-medium text-gray-900">{client.agreement.businessName}</p>
-                  </div>
-                  {client.agreement.businessAddress && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500">Address</p>
-                      <p className="text-sm font-medium text-gray-900">{client.agreement.businessAddress}</p>
-                    </div>
-                  )}
-                  {client.agreement.businessEIN && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500">EIN</p>
-                      <p className="text-sm font-medium text-gray-900">{client.agreement.businessEIN}</p>
-                    </div>
-                  )}
-                  {client.agreement.signerName && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500">Authorized Signer</p>
-                      <p className="text-sm font-medium text-gray-900">{client.agreement.signerName}</p>
-                    </div>
-                  )}
-                  {client.agreement.signerAddress && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-xs text-gray-500">Signer Address</p>
-                      <p className="text-sm font-medium text-gray-900">{client.agreement.signerAddress}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Payment Authorization */}
-            {client.agreement?.paymentMethod && (
-              <div className="mt-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-gray-400" />
-                  Payment Authorization
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500">Payment Method</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {client.agreement.paymentMethod === 'both'
-                        ? 'Credit Card & ACH'
-                        : client.agreement.paymentMethod === 'credit_card'
-                        ? 'Credit Card'
-                        : 'ACH Bank Transfer'}
-                    </p>
-                  </div>
-
-                  {(client.agreement.paymentMethod === 'credit_card' || client.agreement.paymentMethod === 'both') && (
-                    <>
-                      {client.agreement.ccCardholderName && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Cardholder</p>
-                          <p className="text-sm font-medium text-gray-900">{client.agreement.ccCardholderName}</p>
-                        </div>
-                      )}
-                      {client.agreement.ccCardType && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Card Type</p>
-                          <p className="text-sm font-medium text-gray-900">{client.agreement.ccCardType}</p>
-                        </div>
-                      )}
-                      {client.agreement.ccCardNumber && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Card Number</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            ****{client.agreement.ccCardNumber.slice(-4)}
-                          </p>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {(client.agreement.paymentMethod === 'ach' || client.agreement.paymentMethod === 'both') && (
-                    <>
-                      {client.agreement.achAccountHolder && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Account Holder</p>
-                          <p className="text-sm font-medium text-gray-900">{client.agreement.achAccountHolder}</p>
-                        </div>
-                      )}
-                      {client.agreement.achBankName && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Bank</p>
-                          <p className="text-sm font-medium text-gray-900">{client.agreement.achBankName}</p>
-                        </div>
-                      )}
-                      {client.agreement.achAccountNumber && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Account Number</p>
-                          <p className="text-sm font-medium text-gray-900">
-                            ****{client.agreement.achAccountNumber.slice(-4)}
-                          </p>
-                        </div>
-                      )}
-                      {client.agreement.achAccountType && (
-                        <div className="p-3 bg-gray-50 rounded-lg">
-                          <p className="text-xs text-gray-500">Account Type</p>
-                          <p className="text-sm font-medium text-gray-900">{client.agreement.achAccountType}</p>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4">
-              <Button
-                variant="outline"
-                icon={Download}
-                onClick={handleDownloadPdf}
-                loading={downloading}
-              >
-                Download Agreement PDF
-              </Button>
-            </div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact</h3>
+            <InfoRow label="Email" value={client.user?.email} icon={Mail} />
+            <InfoRow label="Phone" value={client.phone || 'Not provided'} icon={Phone} />
+            <InfoRow label="Address" value={client.address || 'Not provided'} icon={MapPin} />
+            <InfoRow label="Timezone" value={client.timezone || 'UTC'} icon={Clock} />
+            <InfoRow label="Member Since" value={new Date(client.createdAt).toLocaleDateString()} icon={Calendar} />
           </Card>
 
           {/* Policies */}
           <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Policies</h3>
-              <Settings className="w-5 h-5 text-gray-400" />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Paid Leave</span>
-                  <Badge variant={client.clientPolicies?.allowPaidLeave ? 'success' : 'warning'}>
-                    {client.clientPolicies?.allowPaidLeave ? 'Allowed' : 'Not Allowed'}
-                  </Badge>
-                </div>
-                {client.clientPolicies?.allowPaidLeave && (
-                  <p className="text-sm text-gray-500">
-                    {client.clientPolicies.annualPaidLeaveDays} days/year ({client.clientPolicies.paidLeaveType})
-                  </p>
-                )}
-              </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Unpaid Leave</span>
-                  <Badge variant={client.clientPolicies?.allowUnpaidLeave ? 'success' : 'warning'}>
-                    {client.clientPolicies?.allowUnpaidLeave ? 'Allowed' : 'Not Allowed'}
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Policies</h3>
+            <div className="space-y-0">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-xs text-gray-500">Paid Leave</span>
+                <div className="flex items-center gap-2">
+                  {pol?.allowPaidLeave && (
+                    <span className="text-xs text-gray-400">{pol.annualPaidLeaveDays} days/yr</span>
+                  )}
+                  <Badge variant={pol?.allowPaidLeave ? 'success' : 'warning'} size="sm">
+                    {pol?.allowPaidLeave ? 'Yes' : 'No'}
                   </Badge>
                 </div>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Overtime</span>
-                  <Badge variant={client.clientPolicies?.allowOvertime ? 'success' : 'warning'}>
-                    {client.clientPolicies?.allowOvertime ? 'Allowed' : 'Not Allowed'}
-                  </Badge>
-                </div>
-                {client.clientPolicies?.allowOvertime && (
-                  <p className="text-sm text-gray-500">
-                    {client.clientPolicies.overtimeRequiresApproval ? 'Requires approval' : 'No approval needed'}
-                  </p>
-                )}
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-xs text-gray-500">Unpaid Leave</span>
+                <Badge variant={pol?.allowUnpaidLeave ? 'success' : 'warning'} size="sm">
+                  {pol?.allowUnpaidLeave ? 'Yes' : 'No'}
+                </Badge>
               </div>
-              <div className="p-4 border border-gray-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Notice Period</span>
-                  <Badge variant={client.clientPolicies?.requireTwoWeeksNotice ? 'info' : 'default'}>
-                    {client.clientPolicies?.requireTwoWeeksNotice ? '2 Weeks Required' : 'Flexible'}
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-xs text-gray-500">Overtime</span>
+                <div className="flex items-center gap-2">
+                  {pol?.allowOvertime && (
+                    <span className="text-xs text-gray-400">{pol.overtimeRequiresApproval ? 'Needs approval' : 'No approval'}</span>
+                  )}
+                  <Badge variant={pol?.allowOvertime ? 'success' : 'warning'} size="sm">
+                    {pol?.allowOvertime ? 'Yes' : 'No'}
                   </Badge>
                 </div>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-xs text-gray-500">Notice Period</span>
+                <Badge variant={pol?.requireTwoWeeksNotice ? 'info' : 'default'} size="sm">
+                  {pol?.requireTwoWeeksNotice ? '2 Weeks' : 'Flexible'}
+                </Badge>
               </div>
             </div>
           </Card>
 
-          {/* Billing Rates */}
-          {/* <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Billing Rates</h3>
-              <DollarSign className="w-5 h-5 text-gray-400" />
+          {/* Groups & Employees */}
+          <Card>
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <FolderOpen className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-700">Groups</span>
+                <span className="text-sm font-semibold text-gray-900">{connectedGroups.length}</span>
+              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/clients/${id}/groups`)}>Manage</Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  <span className="text-sm text-gray-600">Default Hourly Rate</span>
-                </div>
-                <p className="text-2xl font-bold text-green-700">
-                  ${Number(client.clientPolicies?.defaultHourlyRate || 0).toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Per hour</p>
+            <hr className="my-1 border-gray-100" />
+            <div className="flex items-center justify-between py-1">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-700">Employees</span>
+                <span className="text-sm font-semibold text-gray-900">{clientEmployees.length}</span>
               </div>
-              <div className="p-4 bg-orange-50 border border-orange-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <Clock className="w-4 h-4 text-orange-600" />
-                  <span className="text-sm text-gray-600">Overtime Rate</span>
-                </div>
-                <p className="text-2xl font-bold text-orange-700">
-                  ${Number(client.clientPolicies?.defaultOvertimeRate || 0).toFixed(2)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {Number(client.clientPolicies?.defaultOvertimeRate || 0) === 0
-                    ? 'Uses 1.5x hourly rate'
-                    : 'Per overtime hour'}
-                </p>
-              </div>
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-gray-600">Currency</span>
-                </div>
-                <p className="text-2xl font-bold text-blue-700">
-                  {client.clientPolicies?.currency || 'USD'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Billing currency</p>
-              </div>
+              <Button variant="ghost" size="sm" onClick={() => navigate(`/admin/clients/${id}/employees`)}>Manage</Button>
             </div>
-            {Number(client.clientPolicies?.defaultHourlyRate || 0) === 0 && (
-              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-600" />
-                  <p className="text-sm text-yellow-700">
-                    No billing rates configured. Click Edit to set up rates for payroll calculations.
-                  </p>
+          </Card>
+        </div>
+
+        {/* RIGHT: Agreement + Business + Payment */}
+        <div className="space-y-4">
+          {/* Agreement */}
+          <Card>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-gray-900">Agreement</h3>
+              {client.onboardingStatus === 'COMPLETED' ? (
+                <span className="flex items-center gap-1 text-xs font-medium text-green-700">
+                  <CheckCircle className="w-3.5 h-3.5" /> Signed
+                </span>
+              ) : (
+                <Badge variant="warning" size="sm">Pending</Badge>
+              )}
+            </div>
+            <InfoRow label="Type" value={agreementLabel} icon={FileText} />
+            {ag?.signedByName && <InfoRow label="Signed By" value={ag.signedByName} icon={PenTool} />}
+            {ag?.signedAt && (
+              <InfoRow
+                label="Signed Date"
+                value={`${new Date(ag.signedAt).toLocaleDateString()} ${new Date(ag.signedAt).toLocaleTimeString()}`}
+                icon={Calendar}
+              />
+            )}
+            {ag?.signedByIP && <InfoRow label="IP" value={ag.signedByIP} icon={Settings} />}
+
+            {ag?.signatureImage && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1">Signature</p>
+                <div className="bg-gray-50 border border-gray-200 rounded p-1.5 inline-block">
+                  <img src={ag.signatureImage} alt="Signature" className="h-10 object-contain" />
                 </div>
               </div>
             )}
-          </Card> */}
 
-          {/* Connected Groups */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Connected Groups</h3>
-              <Button variant="outline" size="sm" icon={FolderOpen} onClick={() => navigate(`/admin/clients/${id}/groups`)}>
-                Manage
+            <div className="mt-3">
+              <Button variant="outline" size="sm" icon={Download} onClick={handleDownloadPdf} loading={downloading}>
+                Download PDF
               </Button>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-              <FolderOpen className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Total Connected</p>
-                <p className="font-medium text-gray-900">{connectedGroups.length} groups</p>
-              </div>
             </div>
           </Card>
 
-          {/* Assigned Employees */}
-          <Card>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Assigned Employees</h3>
-              <Button variant="outline" size="sm" icon={Users} onClick={() => navigate(`/admin/clients/${id}/employees`)}>
-                Manage
-              </Button>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-              <Users className="w-5 h-5 text-gray-400" />
-              <div>
-                <p className="text-sm text-gray-500">Total Assigned</p>
-                <p className="font-medium text-gray-900">{clientEmployees.length} employees</p>
-              </div>
-            </div>
-          </Card>
+          {/* Business Info */}
+          {ag?.businessName && (
+            <Card>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                <Building className="w-3.5 h-3.5 text-gray-400" /> Business Info
+              </h3>
+              <InfoRow label="Entity Name" value={ag.businessName} />
+              {ag.businessAddress && <InfoRow label="Address" value={ag.businessAddress} />}
+              {ag.businessEIN && <InfoRow label="EIN" value={ag.businessEIN} />}
+              {ag.signerName && <InfoRow label="Signer" value={ag.signerName} />}
+              {ag.signerAddress && <InfoRow label="Signer Address" value={ag.signerAddress} />}
+            </Card>
+          )}
+
+          {/* Payment */}
+          {ag?.paymentMethod && (
+            <Card>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-gray-400" /> Payment
+              </h3>
+              <InfoRow
+                label="Method"
+                value={ag.paymentMethod === 'both' ? 'Credit Card & ACH' : ag.paymentMethod === 'credit_card' ? 'Credit Card' : 'ACH'}
+              />
+
+              {(ag.paymentMethod === 'credit_card' || ag.paymentMethod === 'both') && (
+                <>
+                  {ag.ccCardholderName && <InfoRow label="Cardholder" value={ag.ccCardholderName} />}
+                  {ag.ccCardType && <InfoRow label="Card Type" value={ag.ccCardType} />}
+                  {ag.ccCardNumber && <InfoRow label="Card Number" value={`****${ag.ccCardNumber.slice(-4)}`} />}
+                </>
+              )}
+
+              {(ag.paymentMethod === 'ach' || ag.paymentMethod === 'both') && (
+                <>
+                  {ag.achAccountHolder && <InfoRow label="Account Holder" value={ag.achAccountHolder} />}
+                  {ag.achBankName && <InfoRow label="Bank" value={ag.achBankName} />}
+                  {ag.achAccountNumber && <InfoRow label="Account" value={`****${ag.achAccountNumber.slice(-4)}`} />}
+                  {ag.achAccountType && <InfoRow label="Type" value={ag.achAccountType} />}
+                </>
+              )}
+            </Card>
+          )}
         </div>
       </div>
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={showDeleteModal}
-        onClose={closeDeleteModal}
-        title="Delete Client"
-        size="sm"
-      >
+      {/* Delete Modal */}
+      <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Delete Client" size="sm">
         <div className="space-y-4">
           <p className="text-gray-600">
             Are you sure you want to delete <strong>{client.companyName}</strong>?
-            This will deactivate the client account and remove all employee assignments.
+            This will deactivate the account and remove all employee assignments.
           </p>
-
           {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="p-2 bg-red-50 border border-red-200 rounded-lg">
               <p className="text-sm text-red-600">{error}</p>
             </div>
           )}
-
-          <div className="flex justify-end gap-3 pt-4">
-            <Button variant="ghost" onClick={closeDeleteModal}>
-              Cancel
-            </Button>
-            <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={onDeleteClient} loading={submitting}>
-              Delete
-            </Button>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={closeDeleteModal}>Cancel</Button>
+            <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={onDeleteClient} loading={submitting}>Delete</Button>
           </div>
         </div>
       </Modal>
-
     </div>
   );
 };
