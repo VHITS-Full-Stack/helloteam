@@ -17,6 +17,7 @@ const Schedule = lazy(() => import('../pages/employee/Schedule'));
 const TimeRecords = lazy(() => import('../pages/employee/TimeRecords'));
 const LeaveRequests = lazy(() => import('../pages/employee/Leave'));
 const Support = lazy(() => import('../pages/employee/Support'));
+const EmployeeTasks = lazy(() => import('../pages/employee/Tasks'));
 const Profile = lazy(() => import('../pages/employee/Profile'));
 
 // Employee Onboarding (lazy)
@@ -25,6 +26,7 @@ const EmployeeOnboarding = lazy(() => import('../pages/employee/Onboarding'));
 // Client Pages (lazy)
 const ClientOnboarding = lazy(() => import('../pages/client/Onboarding'));
 const ClientDashboard = lazy(() => import('../pages/client/Dashboard'));
+const ClientTasks = lazy(() => import('../pages/client/Tasks'));
 const Workforce = lazy(() => import('../pages/client/Workforce'));
 const Approvals = lazy(() => import('../pages/client/Approvals'));
 const ClientAnalytics = lazy(() => import('../pages/client/Analytics'));
@@ -55,6 +57,7 @@ const AuditLog = lazy(() => import('../pages/admin/AuditLog'));
 const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
+const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -155,6 +158,7 @@ const AppRoutes = () => {
           <Route path="schedule" element={<Schedule />} />
           <Route path="time-records" element={<TimeRecords />} />
           <Route path="leave" element={<LeaveRequests />} />
+          <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="support" element={<Support />} />
           <Route path="profile" element={<Profile />} />
         </Route>
@@ -175,6 +179,7 @@ const AppRoutes = () => {
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="workforce" element={<Workforce />} />
           <Route path="groups" element={<ClientGroups />} />
+          <Route path="tasks" element={<ClientTasks />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="analytics" element={<ClientAnalytics />} />
           <Route path="time-records" element={<ClientTimeRecords />} />
@@ -198,6 +203,7 @@ const AppRoutes = () => {
           <Route path="clients/:id/groups" element={<ClientConnectedGroups />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="tasks" element={<AdminTasks />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />
