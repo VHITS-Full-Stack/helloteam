@@ -39,17 +39,17 @@ const AddEmployee = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate('/admin/employees')}>
-          Back
-        </Button>
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-gray-900">
+      <div className="flex items-center gap-3">
+        <button onClick={() => navigate('/admin/employees')} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">
             {isEdit ? 'Edit Employee' : 'Add New Employee'}
           </h2>
-          <p className="text-gray-500">
+          <p className="text-xs text-gray-500">
             {isEdit ? `${formData.firstName} ${formData.lastName}` : 'Create a new employee account'}
           </p>
         </div>
@@ -57,7 +57,7 @@ const AddEmployee = () => {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-red-600 flex-1">{error}</p>
           <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
@@ -67,11 +67,11 @@ const AddEmployee = () => {
       )}
 
       {/* Form */}
-      <Card padding="lg">
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <Card padding="md">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {/* Personal Information */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Personal Information</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Personal Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="First Name"
@@ -92,7 +92,7 @@ const AddEmployee = () => {
 
           {/* Account Details */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Details</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Account Details</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Email"
@@ -130,7 +130,7 @@ const AddEmployee = () => {
 
           {/* Contact Information */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Phone"
@@ -149,7 +149,7 @@ const AddEmployee = () => {
 
           {/* Assignment & Date */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">
               {isEdit ? 'Employment' : 'Assignment'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,7 +203,7 @@ const AddEmployee = () => {
 
           {/* Rates */}
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Rates</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Rates</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Input
                 label="Payable Rate ($/hr)"

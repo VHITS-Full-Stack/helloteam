@@ -349,8 +349,8 @@ const ClientConnectedGroups = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-gray-500">Loading groups...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="mt-3 text-gray-500 text-sm">Loading groups...</p>
         </div>
       </div>
     );
@@ -359,27 +359,26 @@ const ClientConnectedGroups = () => {
   // ---- Manage Employees Sub-View ----
   if (managingGroup) {
     return (
-      <div className="space-y-6 animate-fade-in">
+      <div className="space-y-4 animate-fade-in">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              icon={ChevronLeft}
+          <div className="flex items-center gap-3">
+            <button
               onClick={() => { setManagingGroup(null); setSelectedEmployeeIds([]); setError(''); setEmployeeSearch(''); }}
+              className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400"
             >
-              Back to Groups
-            </Button>
+              <ChevronLeft className="w-5 h-5" />
+            </button>
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">Manage Employees</h2>
-              <p className="text-gray-500">{managingGroup.name}</p>
+              <h2 className="text-lg font-bold text-gray-900">Manage Employees</h2>
+              <p className="text-xs text-gray-500">{managingGroup.name}</p>
             </div>
           </div>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <p className="text-sm text-red-600">{error}</p>
@@ -392,7 +391,7 @@ const ClientConnectedGroups = () => {
 
         {/* Current Employees */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">
             Current Employees ({managingGroup.employees?.length || 0})
           </h3>
           {managingGroup.employees?.length > 0 ? (
@@ -426,8 +425,8 @@ const ClientConnectedGroups = () => {
               ))}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <div className="text-center py-4">
+              <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">No employees assigned to this group yet.</p>
             </div>
           )}
@@ -435,7 +434,7 @@ const ClientConnectedGroups = () => {
 
         {/* Add Employees */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Employees</h3>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Add Employees</h3>
 
           <div className="relative mb-4">
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -495,8 +494,8 @@ const ClientConnectedGroups = () => {
               )}
             </>
           ) : (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <div className="text-center py-4">
+              <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">
                 {employeeSearch ? 'No employees match your search' : 'All employees are already assigned to this group.'}
               </p>
@@ -509,16 +508,16 @@ const ClientConnectedGroups = () => {
 
   // ---- Main Groups View ----
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate(`/admin/clients/${clientId}`)}>
-            Back
-          </Button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(`/admin/clients/${clientId}`)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Connected Groups</h2>
-            <p className="text-gray-500">{clientName}</p>
+            <h2 className="text-lg font-bold text-gray-900">Connected Groups</h2>
+            <p className="text-xs text-gray-500">{clientName}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -537,7 +536,7 @@ const ClientConnectedGroups = () => {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm text-red-600">{error}</p>
@@ -552,7 +551,7 @@ const ClientConnectedGroups = () => {
       {showCreateForm && (
         <Card>
           <form onSubmit={handleCreateGroup} className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Create New Group</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Create New Group</h3>
             <Input
               placeholder="Group name"
               value={newGroupName}
@@ -595,7 +594,7 @@ const ClientConnectedGroups = () => {
       {editingGroup && (
         <Card>
           <form onSubmit={handleUpdateGroup} className="space-y-4">
-            <h3 className="text-lg font-semibold text-gray-900">Edit Group - {editingGroup.name}</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Edit Group - {editingGroup.name}</h3>
             <Input
               label="Group Name"
               placeholder="Group name"
@@ -638,7 +637,7 @@ const ClientConnectedGroups = () => {
 
       {/* Delete Confirmation */}
       {deleteGroup && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl space-y-3">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl space-y-3">
           <p className="text-sm text-gray-700">
             Are you sure you want to remove <strong>{deleteGroup.name}</strong>? This will unassign all its employees from this client.
           </p>
@@ -662,7 +661,7 @@ const ClientConnectedGroups = () => {
       {/* Groups List */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-gray-900">
             Groups ({clientGroups.length})
           </h3>
         </div>
@@ -728,8 +727,8 @@ const ClientConnectedGroups = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <FolderOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <div className="text-center py-4">
+            <FolderOpen className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-500">No groups connected</p>
             <Button
               variant="primary"
