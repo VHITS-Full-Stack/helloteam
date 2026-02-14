@@ -19,6 +19,9 @@ const LeaveRequests = lazy(() => import('../pages/employee/Leave'));
 const Support = lazy(() => import('../pages/employee/Support'));
 const Profile = lazy(() => import('../pages/employee/Profile'));
 
+// Employee Onboarding (lazy)
+const EmployeeOnboarding = lazy(() => import('../pages/employee/Onboarding'));
+
 // Client Pages (lazy)
 const ClientOnboarding = lazy(() => import('../pages/client/Onboarding'));
 const ClientDashboard = lazy(() => import('../pages/client/Dashboard'));
@@ -133,6 +136,16 @@ const AppRoutes = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+
+        {/* Employee Onboarding (standalone, no sidebar) */}
+        <Route
+          path="/employee/onboarding"
+          element={
+            <ProtectedRoute allowedRoles={['EMPLOYEE']}>
+              <EmployeeOnboarding />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Employee Portal Routes */}
         <Route path="/employee" element={<EmployeeLayout />}>

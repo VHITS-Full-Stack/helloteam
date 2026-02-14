@@ -52,6 +52,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/client/onboarding" replace />;
   }
 
+  // Gate EMPLOYEE users with pending onboarding (redirect to onboarding)
+  if (
+    user?.role === 'EMPLOYEE' &&
+    user?.employee?.onboardingStatus === 'PENDING_AGREEMENT' &&
+    location.pathname !== '/employee/onboarding'
+  ) {
+    return <Navigate to="/employee/onboarding" replace />;
+  }
+
   return children;
 };
 

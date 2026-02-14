@@ -587,6 +587,93 @@ Please change your password after your first login.
   });
 };
 
+/**
+ * Send employee onboarding email with credentials and instructions
+ */
+export const sendEmployeeOnboardingEmail = async (
+  email: string,
+  name: string,
+  password: string
+): Promise<EmailResult> => {
+  const loginUrl = `${config.frontendUrl}/login`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome to Hello Team - Complete Your Onboarding</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Welcome to the team, ${name}!</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Your employee account has been created. Before you can access your portal, you'll need to complete a quick onboarding process.
+          </p>
+          <div style="background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #1e40af; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+            <p style="color: #1e40af; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
+          </div>
+          <div style="background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #166534; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
+            <ol style="color: #166534; margin: 8px 0 0 0; padding-left: 20px;">
+              <li>Log in with the credentials above</li>
+              <li>Enter your personal information (phone, address, email)</li>
+              <li>Add 3 emergency contacts</li>
+              <li>Upload a government-issued ID</li>
+            </ol>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Log In & Complete Onboarding
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+Welcome to the team, ${name}!
+
+Your employee account has been created.
+
+Your Login Credentials:
+Email: ${email}
+Password: ${password}
+
+Before you can access your portal, please complete onboarding:
+1. Log in at: ${loginUrl}
+2. Enter your personal information (phone, address, email)
+3. Add 3 emergency contacts
+4. Upload a government-issued ID
+
+Please change your password after your first login.
+
+© ${new Date().getFullYear()} Hello Team. All rights reserved.
+  `.trim();
+
+  return sendEmail({
+    to: email,
+    subject: 'Welcome to Hello Team - Complete Your Onboarding',
+    html,
+    text,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -596,4 +683,5 @@ export default {
   sendOvertimeRequestEmail,
   sendPayrollReminderEmail,
   sendClientOnboardingEmail,
+  sendEmployeeOnboardingEmail,
 };

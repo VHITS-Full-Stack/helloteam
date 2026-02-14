@@ -37,7 +37,12 @@ class ApiService {
       if (!response.ok) {
         // Handle onboarding incomplete - redirect to onboarding page
         if (response.status === 403 && data.code === 'ONBOARDING_INCOMPLETE') {
-          window.location.href = '/client/onboarding';
+          // Check current path to determine which onboarding to redirect to
+          if (window.location.pathname.startsWith('/employee')) {
+            window.location.href = '/employee/onboarding';
+          } else {
+            window.location.href = '/client/onboarding';
+          }
           return data;
         }
 

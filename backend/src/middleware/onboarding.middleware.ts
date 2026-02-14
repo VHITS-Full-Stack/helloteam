@@ -20,28 +20,53 @@ export const requireOnboardingComplete = async (
       return;
     }
 
-    // Only gate CLIENT users
-    if (req.user.role !== 'CLIENT') {
+    // Gate CLIENT users
+    if (req.user.role === 'CLIENT') {
+      const client = await prisma.client.findUnique({
+        where: { userId: req.user.userId },
+        select: { onboardingStatus: true },
+      });
+
+      if (!client) {
+        res.status(404).json({ success: false, error: 'Client not found' });
+        return;
+      }
+
+      if (client.onboardingStatus === 'PENDING_AGREEMENT') {
+        res.status(403).json({
+          success: false,
+          error: 'Please complete onboarding by signing your service agreement.',
+          code: 'ONBOARDING_INCOMPLETE',
+        });
+        return;
+      }
+
       next();
       return;
     }
 
-    const client = await prisma.client.findUnique({
-      where: { userId: req.user.userId },
-      select: { onboardingStatus: true },
-    });
-
-    if (!client) {
-      res.status(404).json({ success: false, error: 'Client not found' });
-      return;
-    }
-
-    if (client.onboardingStatus === 'PENDING_AGREEMENT') {
-      res.status(403).json({
-        success: false,
-        error: 'Please complete onboarding by signing your service agreement.',
-        code: 'ONBOARDING_INCOMPLETE',
+    // Gate EMPLOYEE users
+    if (req.user.role === 'EMPLOYEE') {
+      const employee = await prisma.employee.findUnique({
+        where: { userId: req.user.userId },
+        select: { onboardingStatus: true },
       });
+
+      if (!employee) {
+        res.status(404).json({ success: false, error: 'Employee not found' });
+        return;
+      }
+
+      if (employee.onboardingStatus === 'PENDING_AGREEMENT') {
+        res.status(403).json({
+          success: false,
+          error: 'Please complete your employee onboarding.',
+          code: 'ONBOARDING_INCOMPLETE',
+        });
+        return;
+      }
+
+      next();
       return;
     }
 

@@ -48,6 +48,26 @@ const employeeService = {
     }
   },
 
+  // Terminate employee
+  terminateEmployee: async (id, terminationDate) => {
+    try {
+      const response = await api.post(`/employees/${id}/terminate`, { terminationDate });
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to terminate employee' };
+    }
+  },
+
+  // Reactivate terminated employee
+  reactivateEmployee: async (id) => {
+    try {
+      const response = await api.post(`/employees/${id}/reactivate`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to reactivate employee' };
+    }
+  },
+
   // Delete employee
   deleteEmployee: async (id) => {
     try {

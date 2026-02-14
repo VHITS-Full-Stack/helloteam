@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { sendEmployeeOnboardingEmail } from '../services/email.service';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -235,6 +236,10 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
             },
           },
         },
+        emergencyContacts: {
+          take: 3,
+          orderBy: { createdAt: 'desc' },
+        },
         workSessions: {
           take: 10,
           orderBy: { startTime: 'desc' },
@@ -372,6 +377,14 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
 
       return employee;
     });
+
+    // Send onboarding email with credentials
+    try {
+      await sendEmployeeOnboardingEmail(email, firstName, password);
+    } catch (emailError) {
+      console.error('Failed to send onboarding email:', emailError);
+      // Don't fail the creation if email fails
+    }
 
     res.status(201).json({
       success: true,
@@ -687,6 +700,111 @@ export const getEmployeeStats = async (req: AuthenticatedRequest, res: Response)
     res.status(500).json({
       success: false,
       error: 'Failed to fetch employee statistics',
+    });
+  }
+};
+
+// Terminate employee (set INACTIVE + record termination date)
+export const terminateEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { terminationDate } = req.body;
+
+    if (!terminationDate) {
+      res.status(400).json({
+        success: false,
+        error: 'Termination date is required',
+      });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Set termination date on employee
+      await tx.employee.update({
+        where: { id },
+        data: { terminationDate: new Date(terminationDate) },
+      });
+
+      // Set user status to INACTIVE
+      await tx.user.update({
+        where: { id: employee.userId },
+        data: { status: 'INACTIVE' },
+      });
+
+      // Deactivate all client assignments
+      await tx.clientEmployee.updateMany({
+        where: { employeeId: id },
+        data: { isActive: false },
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee terminated successfully',
+    });
+  } catch (error) {
+    console.error('Terminate employee error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to terminate employee',
+    });
+  }
+};
+
+// Reactivate a terminated employee
+export const reactivateEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Clear termination date
+      await tx.employee.update({
+        where: { id },
+        data: { terminationDate: null },
+      });
+
+      // Set user status back to ACTIVE
+      await tx.user.update({
+        where: { id: employee.userId },
+        data: { status: 'ACTIVE' },
+      });
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee reactivated successfully',
+    });
+  } catch (error) {
+    console.error('Reactivate employee error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reactivate employee',
     });
   }
 };

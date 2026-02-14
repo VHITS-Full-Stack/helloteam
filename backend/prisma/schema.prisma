@@ -168,8 +168,8 @@ model Session {
 // ============================================
 
 model Employee {
-  id               String    @id @default(uuid())
-  userId           String    @unique
+  id               String           @id @default(uuid())
+  userId           String           @unique
   firstName        String
   lastName         String
   profilePhoto     String?
@@ -177,10 +177,14 @@ model Employee {
   address          String?
   emergencyContact String?
   hireDate         DateTime?
-  payableRate      Decimal?  @db.Decimal(10, 2)
-  billingRate      Decimal?  @db.Decimal(10, 2)
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  terminationDate  DateTime?
+  payableRate      Decimal?         @db.Decimal(10, 2)
+  billingRate      Decimal?         @db.Decimal(10, 2)
+  onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
+  personalEmail    String?
+  governmentIdUrl  String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   // Notification preferences
   notifyScheduleChanges Boolean @default(true)
@@ -199,6 +203,7 @@ model Employee {
   leaveRequests     LeaveRequest[]
   supportTickets    SupportTicket[]
   wellbeingCheckins WellbeingCheckin[]
+  emergencyContacts EmergencyContact[]
 
   @@map("employees")
 }
@@ -838,4 +843,22 @@ model GroupEmployee {
 
   @@unique([groupId, employeeId])
   @@map("group_employees")
+}
+
+// ============================================
+// EMERGENCY CONTACTS
+// ============================================
+
+model EmergencyContact {
+  id           String   @id @default(uuid())
+  employeeId   String
+  name         String
+  phone        String
+  relationship String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
 }
