@@ -26,6 +26,15 @@ export const config = {
 
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 
+  email: {
+    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.EMAIL_PORT || '587', 10),
+    secure: process.env.EMAIL_SECURE === 'true',
+    user: process.env.EMAIL_USER || '',
+    pass: process.env.EMAIL_PASS || '',
+    from: process.env.EMAIL_FROM || 'Hello Team <noreply@thehelloteam.com>',
+  },
+
   logging: {
     level: process.env.LOG_LEVEL || 'debug',
   },

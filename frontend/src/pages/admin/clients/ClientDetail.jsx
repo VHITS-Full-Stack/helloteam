@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,6 +17,12 @@ import {
   Settings,
   DollarSign,
   FolderOpen,
+  FileText,
+  Download,
+  PenTool,
+  CheckCircle,
+  CreditCard,
+  Landmark,
 } from 'lucide-react';
 import {
   Card,
@@ -25,6 +32,7 @@ import {
   Modal,
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
+import clientService from '../../../services/client.service';
 
 const ClientDetail = () => {
   const { id } = useParams();
@@ -44,6 +52,41 @@ const ClientDetail = () => {
     closeDeleteModal,
     refresh,
   } = useClientData({ mode: 'detail', id });
+
+  const [downloading, setDownloading] = useState(false);
+
+  const getOnboardingBadge = (status) => {
+    switch (status) {
+      case 'COMPLETED':
+        return <Badge variant="success">Completed</Badge>;
+      case 'PENDING_AGREEMENT':
+        return <Badge variant="warning">Pending Agreement</Badge>;
+      default:
+        return <Badge variant="default">{status}</Badge>;
+    }
+  };
+
+  const getAgreementTypeLabel = (type) => {
+    switch (type) {
+      case 'WEEKLY_ACH':
+        return 'Weekly ACH';
+      case 'MONTHLY_ACH':
+        return 'Monthly ACH';
+      default:
+        return type || 'N/A';
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      await clientService.downloadAgreementPdf(id);
+    } catch (err) {
+      setError(err.message || 'Failed to download agreement PDF');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -189,6 +232,221 @@ const ClientDetail = () => {
                   <p className="font-medium text-gray-900">{clientEmployees.length} assigned</p>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          {/* Agreement Status */}
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Agreement Status</h3>
+              <FileText className="w-5 h-5 text-gray-400" />
+            </div>
+
+            {client.onboardingStatus === 'PENDING_AGREEMENT' && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-600" />
+                  <p className="text-sm text-yellow-700">
+                    This client has not yet signed their service agreement.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                <FileText className="w-5 h-5 text-gray-400" />
+                <div>
+                  <p className="text-sm text-gray-500">Agreement Type</p>
+                  <p className="font-medium text-gray-900">{getAgreementTypeLabel(client.agreementType)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                {client.onboardingStatus === 'COMPLETED' ? (
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                ) : (
+                  <Clock className="w-5 h-5 text-yellow-500" />
+                )}
+                <div>
+                  <p className="text-sm text-gray-500">Onboarding Status</p>
+                  {getOnboardingBadge(client.onboardingStatus)}
+                </div>
+              </div>
+
+              {client.agreement?.signedByName && (
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <PenTool className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Signed By</p>
+                    <p className="font-medium text-gray-900">{client.agreement.signedByName}</p>
+                  </div>
+                </div>
+              )}
+
+              {client.agreement?.signedAt && (
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Calendar className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">Signed Date</p>
+                    <p className="font-medium text-gray-900">
+                      {new Date(client.agreement.signedAt).toLocaleDateString()} at{' '}
+                      {new Date(client.agreement.signedAt).toLocaleTimeString()}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {client.agreement?.signedByIP && (
+                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
+                  <Settings className="w-5 h-5 text-gray-400" />
+                  <div>
+                    <p className="text-sm text-gray-500">IP Address</p>
+                    <p className="font-medium text-gray-900">{client.agreement.signedByIP}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {client.agreement?.signatureImage && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500 mb-2">Signature</p>
+                <div className="bg-white border border-gray-200 rounded-lg p-2 inline-block">
+                  <img
+                    src={client.agreement.signatureImage}
+                    alt="Client Signature"
+                    className="h-16 object-contain"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Business Information */}
+            {client.agreement?.businessName && (
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-gray-400" />
+                  Business Information
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Entity Name</p>
+                    <p className="text-sm font-medium text-gray-900">{client.agreement.businessName}</p>
+                  </div>
+                  {client.agreement.businessAddress && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500">Address</p>
+                      <p className="text-sm font-medium text-gray-900">{client.agreement.businessAddress}</p>
+                    </div>
+                  )}
+                  {client.agreement.businessEIN && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500">EIN</p>
+                      <p className="text-sm font-medium text-gray-900">{client.agreement.businessEIN}</p>
+                    </div>
+                  )}
+                  {client.agreement.signerName && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500">Authorized Signer</p>
+                      <p className="text-sm font-medium text-gray-900">{client.agreement.signerName}</p>
+                    </div>
+                  )}
+                  {client.agreement.signerAddress && (
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500">Signer Address</p>
+                      <p className="text-sm font-medium text-gray-900">{client.agreement.signerAddress}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Payment Authorization */}
+            {client.agreement?.paymentMethod && (
+              <div className="mt-6">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-gray-400" />
+                  Payment Authorization
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500">Payment Method</p>
+                    <p className="text-sm font-medium text-gray-900">
+                      {client.agreement.paymentMethod === 'both'
+                        ? 'Credit Card & ACH'
+                        : client.agreement.paymentMethod === 'credit_card'
+                        ? 'Credit Card'
+                        : 'ACH Bank Transfer'}
+                    </p>
+                  </div>
+
+                  {(client.agreement.paymentMethod === 'credit_card' || client.agreement.paymentMethod === 'both') && (
+                    <>
+                      {client.agreement.ccCardholderName && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Cardholder</p>
+                          <p className="text-sm font-medium text-gray-900">{client.agreement.ccCardholderName}</p>
+                        </div>
+                      )}
+                      {client.agreement.ccCardType && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Card Type</p>
+                          <p className="text-sm font-medium text-gray-900">{client.agreement.ccCardType}</p>
+                        </div>
+                      )}
+                      {client.agreement.ccCardNumber && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Card Number</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            ****{client.agreement.ccCardNumber.slice(-4)}
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {(client.agreement.paymentMethod === 'ach' || client.agreement.paymentMethod === 'both') && (
+                    <>
+                      {client.agreement.achAccountHolder && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Account Holder</p>
+                          <p className="text-sm font-medium text-gray-900">{client.agreement.achAccountHolder}</p>
+                        </div>
+                      )}
+                      {client.agreement.achBankName && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Bank</p>
+                          <p className="text-sm font-medium text-gray-900">{client.agreement.achBankName}</p>
+                        </div>
+                      )}
+                      {client.agreement.achAccountNumber && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Account Number</p>
+                          <p className="text-sm font-medium text-gray-900">
+                            ****{client.agreement.achAccountNumber.slice(-4)}
+                          </p>
+                        </div>
+                      )}
+                      {client.agreement.achAccountType && (
+                        <div className="p-3 bg-gray-50 rounded-lg">
+                          <p className="text-xs text-gray-500">Account Type</p>
+                          <p className="text-sm font-medium text-gray-900">{client.agreement.achAccountType}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                icon={Download}
+                onClick={handleDownloadPdf}
+                loading={downloading}
+              >
+                Download Agreement PDF
+              </Button>
             </div>
           </Card>
 

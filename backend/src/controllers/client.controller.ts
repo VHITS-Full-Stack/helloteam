@@ -1,9 +1,12 @@
 import { Request, Response } from 'express';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 import { deactivateOtherClientAssignments } from './employee.controller';
+import { sendClientOnboardingEmail } from '../services/email.service';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -187,6 +190,7 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
           },
         },
         clientPolicies: true,
+        agreement: true,
       },
     });
 
@@ -231,6 +235,58 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
   }
 };
 
+// Download agreement PDF for a client (admin use)
+export const downloadAgreementPdf = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const client = await prisma.client.findUnique({
+      where: { id },
+      select: { companyName: true, agreementType: true, agreement: { select: { signedPdfData: true } } },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const safeName = client.companyName.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    // If a signed PDF exists, serve it
+    if (client.agreement?.signedPdfData) {
+      const pdfBuffer = Buffer.from(client.agreement.signedPdfData, 'base64');
+      const downloadName = `${safeName}_Signed_Agreement.pdf`;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+      res.setHeader('Content-Length', pdfBuffer.length.toString());
+      res.send(pdfBuffer);
+      return;
+    }
+
+    // Fall back to template PDF
+    const fileName =
+      client.agreementType === 'WEEKLY_ACH'
+        ? 'weekly-ach-agreement.pdf'
+        : 'monthly-ach-agreement.pdf';
+
+    const filePath = path.join(__dirname, '../../public/agreements', fileName);
+
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ success: false, error: 'Agreement PDF not found' });
+      return;
+    }
+
+    const downloadName = `${safeName}_Service_Agreement.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Download agreement PDF error:', error);
+    res.status(500).json({ success: false, error: 'Failed to download agreement PDF' });
+  }
+};
+
 // Create new client
 export const createClient = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -243,6 +299,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       address,
       timezone,
       groupId,
+      agreementType,
       // Policy fields
       allowPaidLeave,
       paidLeaveEntitlementType,
@@ -294,6 +351,9 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         },
       });
 
+      // Determine agreement type
+      const clientAgreementType = agreementType || 'WEEKLY_ACH';
+
       // Create client
       const client = await tx.client.create({
         data: {
@@ -303,6 +363,16 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           phone,
           address,
           timezone: timezone || 'UTC',
+          onboardingStatus: 'PENDING_AGREEMENT',
+          agreementType: clientAgreementType,
+        },
+      });
+
+      // Create client agreement record (unsigned)
+      await tx.clientAgreement.create({
+        data: {
+          clientId: client.id,
+          agreementType: clientAgreementType,
         },
       });
 
@@ -392,6 +462,15 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
 
       return completeClient;
     });
+
+    // Send onboarding email (non-blocking)
+    sendClientOnboardingEmail(
+      email,
+      companyName,
+      contactPerson,
+      password, // plain-text password before hashing
+      agreementType || 'WEEKLY_ACH'
+    ).catch((err) => console.error('Failed to send onboarding email:', err));
 
     res.status(201).json({
       success: true,

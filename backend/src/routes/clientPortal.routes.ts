@@ -26,12 +26,14 @@ import {
   getClientEmployeesList,
 } from '../controllers/clientPortal.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
+import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
 
 const router = Router();
 
-// All routes require authentication and CLIENT role
+// All routes require authentication, CLIENT role, and completed onboarding
 router.use(authenticate);
 router.use(authorizeRoles(['CLIENT']));
+router.use(requireOnboardingComplete);
 
 // ============================================
 // DASHBOARD ROUTES

@@ -23,7 +23,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       where: { email },
       include: {
         employee: true,
-        client: true,
+        client: {
+          include: {
+            agreement: true,
+          },
+        },
         admin: true,
       },
     });
@@ -198,7 +202,11 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
       where: { id: req.user.userId },
       include: {
         employee: true,
-        client: true,
+        client: {
+          include: {
+            agreement: true,
+          },
+        },
         admin: true,
       },
     });

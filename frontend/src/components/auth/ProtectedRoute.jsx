@@ -43,6 +43,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     }
   }
 
+  // Gate CLIENT users with pending agreement (redirect to onboarding)
+  if (
+    user?.role === 'CLIENT' &&
+    user?.client?.onboardingStatus === 'PENDING_AGREEMENT' &&
+    location.pathname !== '/client/onboarding'
+  ) {
+    return <Navigate to="/client/onboarding" replace />;
+  }
+
   return children;
 };
 

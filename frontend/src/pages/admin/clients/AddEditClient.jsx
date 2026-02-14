@@ -176,6 +176,20 @@ const AddClient = () => {
                 </select>
                 <p className="text-xs text-gray-400 mt-1">All employees in the selected group will be assigned to this client</p>
               </div>
+              {!isEdit && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Agreement Type</label>
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    value={formData.agreementType}
+                    onChange={(e) => setFormData({ ...formData, agreementType: e.target.value })}
+                  >
+                    <option value="WEEKLY_ACH">Weekly ACH</option>
+                    <option value="MONTHLY_ACH">Monthly ACH</option>
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">Client must sign this agreement before accessing the portal</p>
+                </div>
+              )}
             </div>
           </div>
 

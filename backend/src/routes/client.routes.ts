@@ -11,6 +11,7 @@ import {
   updateEmployeeRate,
   getEmployeeRate,
   getClientStats,
+  downloadAgreementPdf,
 } from '../controllers/client.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -29,6 +30,9 @@ router.get('/:id', requirePermission(PERMISSIONS.CLIENTS.VIEW), getClient);
 router.post('/', requirePermission(PERMISSIONS.CLIENTS.CREATE), createClient);
 router.put('/:id', requirePermission(PERMISSIONS.CLIENTS.EDIT), updateClient);
 router.delete('/:id', requirePermission(PERMISSIONS.CLIENTS.DELETE), deleteClient);
+
+// Agreement PDF download
+router.get('/:id/agreement/pdf', requirePermission(PERMISSIONS.CLIENTS.VIEW), downloadAgreementPdf);
 
 // Employee management for client - requires clients.manage_employees permission
 router.get('/:id/employees', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getClientEmployees);

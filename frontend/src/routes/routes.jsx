@@ -20,6 +20,7 @@ const Support = lazy(() => import('../pages/employee/Support'));
 const Profile = lazy(() => import('../pages/employee/Profile'));
 
 // Client Pages (lazy)
+const ClientOnboarding = lazy(() => import('../pages/client/Onboarding'));
 const ClientDashboard = lazy(() => import('../pages/client/Dashboard'));
 const Workforce = lazy(() => import('../pages/client/Workforce'));
 const Approvals = lazy(() => import('../pages/client/Approvals'));
@@ -144,6 +145,16 @@ const AppRoutes = () => {
           <Route path="support" element={<Support />} />
           <Route path="profile" element={<Profile />} />
         </Route>
+
+        {/* Client Onboarding (standalone, no sidebar) */}
+        <Route
+          path="/client/onboarding"
+          element={
+            <ProtectedRoute allowedRoles={['CLIENT']}>
+              <ClientOnboarding />
+            </ProtectedRoute>
+          }
+        />
 
         {/* Client Portal Routes */}
         <Route path="/client" element={<ClientLayout />}>

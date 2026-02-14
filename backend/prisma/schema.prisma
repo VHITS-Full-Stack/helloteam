@@ -49,6 +49,16 @@ enum LeaveType {
   UNPAID
 }
 
+enum AgreementType {
+  WEEKLY_ACH
+  MONTHLY_ACH
+}
+
+enum OnboardingStatus {
+  PENDING_AGREEMENT
+  COMPLETED
+}
+
 enum PaidLeaveEntitlementType {
   NONE // No paid leave
   FIXED // Fixed yearly allocation
@@ -198,26 +208,78 @@ model Employee {
 // ============================================
 
 model Client {
-  id            String   @id @default(uuid())
-  userId        String   @unique
-  companyName   String
-  contactPerson String
-  phone         String?
-  address       String?
-  timezone      String   @default("UTC")
-  logoUrl       String? // Company logo/profile photo
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id               String           @id @default(uuid())
+  userId           String           @unique
+  companyName      String
+  contactPerson    String
+  phone            String?
+  address          String?
+  timezone         String           @default("UTC")
+  logoUrl          String? // Company logo/profile photo
+  onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
+  agreementType    AgreementType?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   // Relations
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   employees      ClientEmployee[]
   groups         ClientGroup[]
   clientPolicies ClientPolicy?
   timeRecords    TimeRecord[]
   leaveRequests  LeaveRequest[]
+  agreement      ClientAgreement?
 
   @@map("clients")
+}
+
+model ClientAgreement {
+  id            String        @id @default(uuid())
+  clientId      String        @unique
+  agreementType AgreementType
+  signedAt      DateTime?
+  signedByName  String?
+  signedByIP    String?
+  signatureImage String?
+
+  // Business Entity Info
+  businessName    String?
+  businessAddress String?
+  businessEIN     String?
+
+  // Signer Individual Info
+  signerName    String?
+  signerAddress String?
+  signerSSN     String?
+
+  // Payment method: 'credit_card', 'ach', 'both'
+  paymentMethod String?
+
+  // Credit Card (Exhibit B Section 1)
+  ccCardholderName String?
+  ccBillingAddress String?
+  ccCityStateZip   String?
+  ccCardType       String?
+  ccCardNumber     String?
+  ccExpiration     String?
+  ccCVV            String?
+
+  // ACH (Exhibit B Section 2)
+  achAccountHolder String?
+  achBankName      String?
+  achRoutingNumber String?
+  achAccountNumber String?
+  achAccountType   String?
+
+  // Signed PDF data (base64)
+  signedPdfData String?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_agreements")
 }
 
 model ClientEmployee {

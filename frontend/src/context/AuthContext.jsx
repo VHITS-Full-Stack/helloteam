@@ -183,7 +183,12 @@ export const AuthProvider = ({ children }) => {
         if (role === 'EMPLOYEE') {
           navigate('/employee/dashboard');
         } else if (role === 'CLIENT') {
-          navigate('/client/dashboard');
+          // Check if client needs to complete onboarding
+          if (response.data.user.client?.onboardingStatus === 'PENDING_AGREEMENT') {
+            navigate('/client/onboarding');
+          } else {
+            navigate('/client/dashboard');
+          }
         } else {
           navigate('/admin/dashboard');
         }

@@ -35,6 +35,12 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        // Handle onboarding incomplete - redirect to onboarding page
+        if (response.status === 403 && data.code === 'ONBOARDING_INCOMPLETE') {
+          window.location.href = '/client/onboarding';
+          return data;
+        }
+
         // Create an error with the message from the API
         const error = new Error(data.error || data.message || 'An error occurred');
         error.status = response.status;

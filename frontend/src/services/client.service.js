@@ -116,6 +116,37 @@ const clientService = {
       throw { error: error.message || 'Failed to update employee rate' };
     }
   },
+
+  // Download agreement PDF for a client
+  downloadAgreementPdf: async (clientId) => {
+    const url = `${api.baseUrl}/clients/${clientId}/agreement/pdf`;
+    const token = api.getToken();
+
+    const response = await fetch(url, {
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` }),
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to download agreement PDF');
+    }
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+
+    // Extract filename from Content-Disposition header or use default
+    const disposition = response.headers.get('Content-Disposition');
+    const match = disposition && disposition.match(/filename="?(.+?)"?$/);
+    a.download = match ? match[1] : 'Service_Agreement.pdf';
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(blobUrl);
+  },
 };
 
 export default clientService;
