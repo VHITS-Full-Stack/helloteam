@@ -20,6 +20,7 @@ import {
   CreditCard,
   FolderOpen,
   Settings,
+  Eye,
 } from 'lucide-react';
 import {
   Card,
@@ -30,6 +31,7 @@ import {
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
 import clientService from '../../../services/client.service';
+import { useAuth } from '../../../context/AuthContext';
 
 // Compact info row
 const InfoRow = ({ label, value, icon: Icon }) => (
@@ -45,6 +47,8 @@ const InfoRow = ({ label, value, icon: Icon }) => (
 const ClientDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { impersonate, user: currentUser } = useAuth();
+  const [impersonating, setImpersonating] = useState(false);
 
   const {
     client,
@@ -60,6 +64,16 @@ const ClientDetail = () => {
     closeDeleteModal,
     refresh,
   } = useClientData({ mode: 'detail', id });
+
+  const handleImpersonate = async () => {
+    if (!client?.user?.id) return;
+    setImpersonating(true);
+    const result = await impersonate(client.user.id);
+    if (!result.success) {
+      setError(result.error || 'Failed to impersonate');
+    }
+    setImpersonating(false);
+  };
 
   const [downloading, setDownloading] = useState(false);
 
@@ -135,6 +149,18 @@ const ClientDetail = () => {
           </div>
         </div>
         <div className="flex gap-1.5">
+          {['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role) && client.user?.status === 'ACTIVE' && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Eye}
+              className="text-blue-600 border-blue-300 hover:bg-blue-50"
+              onClick={handleImpersonate}
+              loading={impersonating}
+            >
+              Impersonate
+            </Button>
+          )}
           <Button variant="outline" size="sm" icon={Edit} onClick={() => navigate(`/admin/clients/${id}/edit`)}>
             Edit
           </Button>

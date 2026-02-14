@@ -62,6 +62,11 @@ export const authService = {
     return api.get('/auth/validate-session');
   },
 
+  // Impersonate a user (admin only)
+  async impersonateUser(userId) {
+    return api.post(`/auth/impersonate/${userId}`);
+  },
+
   // Check if user is logged in
   isAuthenticated() {
     return !!api.getToken();

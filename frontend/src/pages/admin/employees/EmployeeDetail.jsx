@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
   UserCheck,
   Users,
   Heart,
+  Eye,
 } from 'lucide-react';
 import {
   Card,
@@ -26,6 +28,7 @@ import {
   Modal,
 } from '../../../components/common';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
+import { useAuth } from '../../../context/AuthContext';
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -42,6 +45,18 @@ const InfoRow = ({ label, value, icon: Icon }) => (
 const EmployeeDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { impersonate, user: currentUser } = useAuth();
+  const [impersonating, setImpersonating] = useState(false);
+
+  const handleImpersonate = async () => {
+    if (!employee?.user?.id) return;
+    setImpersonating(true);
+    const result = await impersonate(employee.user.id);
+    if (!result.success) {
+      alert(result.error || 'Failed to impersonate');
+    }
+    setImpersonating(false);
+  };
 
   const {
     employee,
@@ -165,6 +180,18 @@ const EmployeeDetail = () => {
           <p className="text-sm text-gray-500 truncate">{employee.user?.email}</p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role) && !isTerminated && employee.user?.status === 'ACTIVE' && (
+            <Button
+              variant="outline"
+              size="sm"
+              icon={Eye}
+              className="text-blue-600 border-blue-300 hover:bg-blue-50"
+              onClick={handleImpersonate}
+              loading={impersonating}
+            >
+              Impersonate
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

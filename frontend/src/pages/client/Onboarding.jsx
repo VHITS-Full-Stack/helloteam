@@ -4,6 +4,7 @@ import {
   Building, CreditCard, Eye, ArrowRight, ArrowLeft, Check,
 } from 'lucide-react';
 import onboardingService from '../../services/onboarding.service';
+import ImpersonationBanner from '../../components/layout/ImpersonationBanner';
 
 const STEPS = [
   { label: 'Business Information', icon: Building },
@@ -470,6 +471,7 @@ const Onboarding = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ImpersonationBanner />
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 py-4 sm:px-6">

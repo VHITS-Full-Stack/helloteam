@@ -11,10 +11,12 @@ import {
   Plus,
   Edit,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Eye,
 } from 'lucide-react';
 import { Card, Button, Badge, Modal } from '../../components/common';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAuth } from '../../context/AuthContext';
 import { PermissionGate } from '../../components/auth';
 import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../config/permissions';
 import rolesService from '../../services/roles.service';
@@ -24,6 +26,8 @@ import settingsService from '../../services/settings.service';
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
   const { isSuperAdmin } = usePermissions();
+  const { impersonate, user: currentUser } = useAuth();
+  const [impersonatingUserId, setImpersonatingUserId] = useState(null);
 
   // Role management state
   const [roles, setRoles] = useState([]);
@@ -348,6 +352,16 @@ const Settings = () => {
     } catch (err) {
       alert(err.message || 'Failed to delete admin user');
     }
+  };
+
+  // Impersonate admin user
+  const handleImpersonateAdmin = async (adminUser) => {
+    setImpersonatingUserId(adminUser.id);
+    const result = await impersonate(adminUser.id);
+    if (!result.success) {
+      setAdminUsersError(result.error || 'Failed to impersonate');
+    }
+    setImpersonatingUserId(null);
   };
 
   // Format date for display
@@ -760,6 +774,18 @@ const Settings = () => {
                         </div>
                         {isSuperAdmin && (
                           <div className="flex items-center gap-1">
+                            {user.role !== 'SUPER_ADMIN' && user.status === 'ACTIVE' && user.id !== currentUser?.id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={Eye}
+                                className="text-blue-600 hover:bg-blue-50"
+                                onClick={() => handleImpersonateAdmin(user)}
+                                loading={impersonatingUserId === user.id}
+                              >
+                                Impersonate
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="sm"

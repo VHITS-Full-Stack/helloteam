@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import ImpersonationBanner from './ImpersonationBanner';
 
 const DashboardLayout = ({
   portalType = 'employee',
@@ -44,6 +45,7 @@ const DashboardLayout = ({
         lg:ml-64 lg:p-2
       `}>
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden min-h-[calc(100vh-1rem)]">
+          <ImpersonationBanner />
           <Header
             title={title}
             subtitle={subtitle}

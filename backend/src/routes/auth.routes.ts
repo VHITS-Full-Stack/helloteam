@@ -9,8 +9,9 @@ import {
   resetPassword,
   changePassword,
   validateSession,
+  impersonateUser,
 } from '../controllers/auth.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { authenticate, authorize } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -26,5 +27,6 @@ router.put('/profile', authenticate, updateProfile);
 router.post('/logout', authenticate, logout);
 router.post('/change-password', authenticate, changePassword);
 router.get('/validate-session', authenticate, validateSession);
+router.post('/impersonate/:userId', authenticate, authorize('SUPER_ADMIN', 'ADMIN'), impersonateUser);
 
 export default router;

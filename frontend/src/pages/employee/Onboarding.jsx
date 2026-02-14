@@ -4,6 +4,7 @@ import {
   ArrowRight, ArrowLeft, Loader2, AlertCircle, FileText, X, Check,
 } from 'lucide-react';
 import employeeOnboardingService from '../../services/employeeOnboarding.service';
+import ImpersonationBanner from '../../components/layout/ImpersonationBanner';
 
 const STEPS = [
   { label: 'Personal Info', icon: User },
@@ -261,7 +262,9 @@ const Onboarding = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
+    <div className="min-h-screen bg-gray-50">
+      <ImpersonationBanner />
+      <div className="py-8 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
@@ -576,6 +579,7 @@ const Onboarding = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

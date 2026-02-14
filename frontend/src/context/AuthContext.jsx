@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth.service';
+import api from '../services/api';
 import { SessionTimeoutModal } from '../components/auth';
 
 const AuthContext = createContext(null);
@@ -25,6 +26,7 @@ export const AuthProvider = ({ children }) => {
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(300); // 5 minutes in seconds
   const [extendingSession, setExtendingSession] = useState(false);
+  const [isImpersonating, setIsImpersonating] = useState(!!localStorage.getItem('adminToken'));
   const navigate = useNavigate();
 
   const lastActivityRef = useRef(Date.now());
@@ -211,6 +213,78 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const impersonate = async (userId) => {
+    const currentToken = api.getToken();
+    try {
+      // Save admin token before switching
+      localStorage.setItem('adminToken', currentToken);
+
+      const response = await authService.impersonateUser(userId);
+      if (response.success) {
+        api.setToken(response.data.token);
+        setUser(response.data.user);
+        setIsImpersonating(true);
+
+        // Navigate based on impersonated user's role
+        const role = response.data.user.role;
+        if (role === 'EMPLOYEE') {
+          navigate('/employee/dashboard');
+        } else if (role === 'CLIENT') {
+          navigate('/client/dashboard');
+        } else if (['ADMIN', 'OPERATIONS', 'HR', 'FINANCE', 'SUPPORT'].includes(role)) {
+          navigate('/admin/dashboard');
+        }
+        return { success: true };
+      } else {
+        // Restore admin token on failure
+        localStorage.removeItem('adminToken');
+        return { success: false, error: response.error || 'Failed to impersonate user' };
+      }
+    } catch (err) {
+      // Restore admin token on error
+      api.setToken(currentToken);
+      localStorage.removeItem('adminToken');
+      return { success: false, error: err.message || 'Failed to impersonate user' };
+    }
+  };
+
+  const exitImpersonation = async () => {
+    const adminToken = localStorage.getItem('adminToken');
+    if (!adminToken) return;
+
+    try {
+      // Try to logout the impersonated session (non-critical)
+      await authService.logout().catch(() => {});
+
+      // Restore admin token
+      api.setToken(adminToken);
+      localStorage.removeItem('adminToken');
+      setIsImpersonating(false);
+
+      // Fetch admin profile
+      const response = await authService.getProfile();
+      if (response.success) {
+        setUser(response.data);
+        navigate('/admin/dashboard');
+      } else {
+        // Admin token expired — full logout
+        api.removeToken();
+        setUser(null);
+        localStorage.removeItem('rememberMe');
+        navigate('/login');
+      }
+    } catch (err) {
+      console.error('Exit impersonation error:', err);
+      // Fallback: full logout
+      api.removeToken();
+      localStorage.removeItem('adminToken');
+      setUser(null);
+      setIsImpersonating(false);
+      localStorage.removeItem('rememberMe');
+      navigate('/login');
+    }
+  };
+
   const logout = useCallback(async () => {
     try {
       await authService.logout();
@@ -219,6 +293,8 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       setShowTimeoutWarning(false);
+      setIsImpersonating(false);
+      localStorage.removeItem('adminToken');
       localStorage.removeItem('rememberMe');
       navigate('/login');
     }
@@ -288,6 +364,9 @@ export const AuthProvider = ({ children }) => {
     isAdmin,
     clearError: () => setError(null),
     extendSession,
+    impersonate,
+    exitImpersonation,
+    isImpersonating,
   };
 
   return (
