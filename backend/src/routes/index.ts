@@ -20,6 +20,7 @@ import timeAdjustmentRoutes from './timeAdjustment.routes';
 import leavePolicyRoutes from './leavePolicy.routes';
 import groupRoutes from './group.routes';
 import taskRoutes from './task.routes';
+import chatRoutes from './chat.routes';
 import onboardingRoutes from './onboarding.routes';
 import employeeOnboardingRoutes from './employeeOnboarding.routes';
 
@@ -56,6 +57,7 @@ router.use('/time-adjustments', timeAdjustmentRoutes);
 router.use('/leave-policy', leavePolicyRoutes);
 router.use('/groups', groupRoutes);
 router.use('/tasks', taskRoutes);
+router.use('/chat', chatRoutes);
 router.use('/onboarding', onboardingRoutes);
 router.use('/employee-onboarding', employeeOnboardingRoutes);
 // router.use('/support-tickets', supportTicketRoutes);

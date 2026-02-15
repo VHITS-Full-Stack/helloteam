@@ -125,6 +125,15 @@ const Header = ({
       case 'SCHEDULE_CHANGE':
       case 'SYSTEM_ALERT':
         return 'bg-info';
+      case 'TASK_ASSIGNED':
+        return 'bg-primary';
+      case 'TASK_STATUS_CHANGED':
+      case 'TASK_UPDATED':
+        return 'bg-info';
+      case 'TASK_COMMENTED':
+        return 'bg-accent';
+      case 'CHAT_MESSAGE':
+        return 'bg-primary';
       default:
         return 'bg-primary';
     }

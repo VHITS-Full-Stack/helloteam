@@ -145,8 +145,80 @@ export const refreshPresignedUrl = async (storedUrl: string): Promise<string | n
   return await getPresignedUrl(key);
 };
 
+// Chat file upload - supports broader MIME types and larger files
+const CHAT_ALLOWED_MIME_TYPES = [
+  // Images
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  // Audio
+  'audio/webm', 'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/wav',
+  // Video
+  'video/webm', 'video/mp4',
+  // Documents
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain', 'text/csv',
+];
+const CHAT_MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB
+
+export const uploadChatFile = async (
+  file: Express.Multer.File
+): Promise<UploadResult & { fileName?: string; fileSize?: number; fileMimeType?: string }> => {
+  try {
+    if (!CHAT_ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+      return {
+        success: false,
+        error: 'File type not supported for chat',
+      };
+    }
+
+    if (file.size > CHAT_MAX_FILE_SIZE) {
+      return {
+        success: false,
+        error: 'File too large. Maximum size is 25MB',
+      };
+    }
+
+    const fileExtension = file.originalname.split('.').pop();
+    const uniqueFilename = `chat-attachments/${uuidv4()}.${fileExtension}`;
+
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: uniqueFilename,
+      Body: file.buffer,
+      ContentType: file.mimetype,
+    });
+
+    await s3Client.send(command);
+
+    const getCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: uniqueFilename,
+    });
+    const url = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 });
+
+    return {
+      success: true,
+      url,
+      key: uniqueFilename,
+      fileName: file.originalname,
+      fileSize: file.size,
+      fileMimeType: file.mimetype,
+    };
+  } catch (error) {
+    console.error('S3 chat upload error:', error);
+    return {
+      success: false,
+      error: 'Failed to upload chat file to S3',
+    };
+  }
+};
+
 export default {
   uploadToS3,
+  uploadChatFile,
   deleteFromS3,
   getKeyFromUrl,
   getPresignedUrl,
