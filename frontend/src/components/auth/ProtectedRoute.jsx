@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
-  const { user, loading, isAuthenticated } = useAuth();
+  const { user, loading, isAuthenticated, isImpersonating } = useAuth();
   const location = useLocation();
 
   // Show loading spinner while checking auth
@@ -41,6 +41,28 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 
       return <Navigate to={redirectPath} replace />;
     }
+  }
+
+  // Gate CLIENT users with pending agreement (redirect to onboarding)
+  // Skip when admin is impersonating
+  if (
+    !isImpersonating &&
+    user?.role === 'CLIENT' &&
+    user?.client?.onboardingStatus === 'PENDING_AGREEMENT' &&
+    location.pathname !== '/client/onboarding'
+  ) {
+    return <Navigate to="/client/onboarding" replace />;
+  }
+
+  // Gate EMPLOYEE users with pending onboarding (redirect to onboarding)
+  // Skip when admin is impersonating
+  if (
+    !isImpersonating &&
+    user?.role === 'EMPLOYEE' &&
+    user?.employee?.onboardingStatus === 'PENDING_AGREEMENT' &&
+    location.pathname !== '/employee/onboarding'
+  ) {
+    return <Navigate to="/employee/onboarding" replace />;
   }
 
   return children;

@@ -6,6 +6,7 @@ import {
   CalendarDays,
   FileText,
   MessageSquare,
+  MessageCircle,
   User,
   Settings,
   LogOut,
@@ -17,7 +18,8 @@ import {
   BarChart3,
   CheckSquare,
   Briefcase,
-  FolderOpen
+  FolderOpen,
+  ClipboardList
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -37,6 +39,8 @@ const Sidebar = ({
     { to: '/employee/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/employee/time-records', icon: FileText, label: 'Time Records' },
     { to: '/employee/leave', icon: Calendar, label: 'Leave Requests' },
+    { to: '/employee/tasks', icon: ClipboardList, label: 'Tasks' },
+    { to: '/employee/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/employee/support', icon: MessageSquare, label: 'Support' },
     { to: '/employee/profile', icon: User, label: 'Profile' },
   ];
@@ -45,6 +49,8 @@ const Sidebar = ({
     { to: '/client/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/client/workforce', icon: Users, label: 'Workforce' },
     { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
+    { to: '/client/tasks', icon: ClipboardList, label: 'Tasks' },
+    { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals' },
     { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
@@ -72,6 +78,12 @@ const Sidebar = ({
       icon: Building2,
       label: 'Clients',
       permission: PERMISSIONS.CLIENTS.VIEW
+    },
+    {
+      to: '/admin/tasks',
+      icon: ClipboardList,
+      label: 'Tasks',
+      permission: PERMISSIONS.TASKS.VIEW
     },
     {
       to: '/admin/analytics',

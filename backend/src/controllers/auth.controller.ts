@@ -23,7 +23,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       where: { email },
       include: {
         employee: true,
-        client: true,
+        client: {
+          include: {
+            agreement: true,
+          },
+        },
         admin: true,
       },
     });
@@ -198,7 +202,11 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
       where: { id: req.user.userId },
       include: {
         employee: true,
-        client: true,
+        client: {
+          include: {
+            agreement: true,
+          },
+        },
         admin: true,
       },
     });
@@ -608,6 +616,107 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
     res.status(500).json({
       success: false,
       error: 'An error occurred while updating profile',
+    });
+  }
+};
+
+// Impersonate a user (admin only)
+export const impersonateUser = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({
+        success: false,
+        error: 'User not authenticated',
+      });
+      return;
+    }
+
+    const userId = req.params.userId as string;
+
+    const targetUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        employee: true,
+        client: {
+          include: {
+            agreement: true,
+          },
+        },
+        admin: true,
+      },
+    });
+
+    if (!targetUser) {
+      res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+      return;
+    }
+
+    // Block impersonating SUPER_ADMIN users
+    if (targetUser.role === 'SUPER_ADMIN') {
+      res.status(403).json({
+        success: false,
+        error: 'Cannot impersonate Super Admin users',
+      });
+      return;
+    }
+
+    // Only SUPER_ADMIN can impersonate admin-role users
+    const adminRoles = ['ADMIN', 'OPERATIONS', 'HR', 'FINANCE', 'SUPPORT'];
+    if (adminRoles.includes(targetUser.role) && req.user.role !== 'SUPER_ADMIN') {
+      res.status(403).json({
+        success: false,
+        error: 'Only Super Admins can impersonate admin users',
+      });
+      return;
+    }
+
+    // Must be active
+    if (targetUser.status !== 'ACTIVE') {
+      res.status(403).json({
+        success: false,
+        error: 'Cannot impersonate inactive or suspended users',
+      });
+      return;
+    }
+
+    // Generate token for the target user
+    const token = generateToken({
+      userId: targetUser.id,
+      email: targetUser.email,
+      role: targetUser.role,
+    });
+
+    // Create session for audit trail
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + config.session.timeoutMinutes);
+
+    await prisma.session.create({
+      data: {
+        userId: targetUser.id,
+        token,
+        expiresAt,
+        isActive: true,
+      },
+    });
+
+    const { password: _, ...userWithoutPassword } = targetUser;
+
+    res.json({
+      success: true,
+      message: `Now impersonating ${targetUser.email}`,
+      data: {
+        user: userWithoutPassword,
+        token,
+      },
+    });
+  } catch (error) {
+    console.error('Impersonate user error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'An error occurred while impersonating user',
     });
   }
 };

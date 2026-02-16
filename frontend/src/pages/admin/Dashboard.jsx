@@ -129,15 +129,17 @@ const AdminDashboard = () => {
       </div>
 
       {/* Main Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-4">
-        <StatCard title="Employees" value={stats.totalEmployees} icon={Users} />
-        <StatCard title="Clients" value={stats.totalClients} icon={Building} />
-        <StatCard title="Active Now" value={stats.activeNow} icon={Activity} />
-        <StatCard title="Pending Approvals" value={stats.pendingApprovals} icon={AlertCircle} />
-        <StatCard title="Leave Requests" value={stats.pendingLeaveRequests} icon={Clock} />
-        <StatCard title="Open Tickets" value={stats.openTickets} icon={MessageSquare} />
-        <StatCard title="Weekly Hours" value={stats.weeklyHours.toLocaleString()} icon={Clock} />
-        <StatCard title="Monthly Revenue" value={formatCurrency(stats.monthlyRevenue)} icon={DollarSign} />
+      <div className="overflow-x-auto pb-2">
+        <div className="grid grid-cols-8 gap-4 min-w-[1000px]">
+          <StatCard title="Employees" value={stats.totalEmployees} icon={Users} />
+          <StatCard title="Clients" value={stats.totalClients} icon={Building} />
+          <StatCard title="Active Now" value={stats.activeNow} icon={Activity} />
+          <StatCard title="Pending Approvals" value={stats.pendingApprovals} icon={AlertCircle} />
+          <StatCard title="Leave Requests" value={stats.pendingLeaveRequests} icon={Clock} />
+          <StatCard title="Open Tickets" value={stats.openTickets} icon={MessageSquare} />
+          <StatCard title="Weekly Hours" value={stats.weeklyHours.toLocaleString()} icon={Clock} />
+          <StatCard title="Monthly Revenue" value={formatCurrency(stats.monthlyRevenue)} icon={DollarSign} />
+        </div>
       </div>
 
       {/* Main Content */}

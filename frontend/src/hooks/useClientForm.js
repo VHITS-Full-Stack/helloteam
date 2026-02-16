@@ -27,6 +27,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     timezone: 'UTC',
     status: 'ACTIVE',
     groupId: '',
+    agreementType: 'WEEKLY_ACH',
     allowPaidLeave: false,
     paidLeaveType: 'fixed',
     annualPaidLeaveDays: 0,

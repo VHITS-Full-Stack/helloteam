@@ -1,6 +1,8 @@
+import { createServer } from 'http';
 import app from './app';
 import { config } from './config';
 import prisma from './config/database';
+import { initializeSocket } from './socket';
 
 const startServer = async (): Promise<void> => {
   try {
@@ -8,8 +10,15 @@ const startServer = async (): Promise<void> => {
     await prisma.$connect();
     console.log('Database connected successfully');
 
+    // Create HTTP server and attach Socket.io
+    const httpServer = createServer(app);
+    const io = initializeSocket(httpServer);
+
+    // Store io on app so controllers can emit events
+    app.set('io', io);
+
     // Start the server
-    app.listen(config.port, () => {
+    httpServer.listen(config.port, () => {
       console.log(`
 ========================================
   Hello Team Workforce Hub API
@@ -19,6 +28,7 @@ const startServer = async (): Promise<void> => {
   URL: http://localhost:${config.port}
   API: http://localhost:${config.port}/api
   Health: http://localhost:${config.port}/api/health
+  Socket.io: enabled
 ========================================
       `);
     });

@@ -87,6 +87,14 @@ export const PERMISSIONS = {
     DELETE: 'groups.delete',
     MANAGE_EMPLOYEES: 'groups.manage_employees',
   },
+
+  // Tasks
+  TASKS: {
+    VIEW: 'tasks.view',
+    CREATE: 'tasks.create',
+    EDIT: 'tasks.edit',
+    DELETE: 'tasks.delete',
+  },
 } as const;
 
 // Flatten permissions for easy iteration
@@ -163,6 +171,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.GROUPS.EDIT,
     PERMISSIONS.GROUPS.DELETE,
     PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
+
+    // Tasks - View only (read-only across all clients)
+    PERMISSIONS.TASKS.VIEW,
   ],
 
   OPERATIONS: [
@@ -213,6 +224,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.GROUPS.EDIT,
     PERMISSIONS.GROUPS.DELETE,
     PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
+
+    // Tasks - View only (read-only across all clients)
+    PERMISSIONS.TASKS.VIEW,
   ],
 
   HR: [
@@ -319,6 +333,12 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.GROUPS.EDIT,
     PERMISSIONS.GROUPS.DELETE,
     PERMISSIONS.GROUPS.MANAGE_EMPLOYEES,
+
+    // Tasks - Full CRUD on own tasks
+    PERMISSIONS.TASKS.VIEW,
+    PERMISSIONS.TASKS.CREATE,
+    PERMISSIONS.TASKS.EDIT,
+    PERMISSIONS.TASKS.DELETE,
   ],
 
   // Employee portal permissions
@@ -327,6 +347,7 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.SCHEDULES.VIEW, // View own schedule
     PERMISSIONS.DASHBOARD.VIEW,
     PERMISSIONS.SUPPORT.VIEW, // Create/view support tickets
+    PERMISSIONS.TASKS.VIEW, // View assigned tasks
   ],
 };
 
@@ -410,6 +431,11 @@ export const getPermissionsByCategory = () => {
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),
     })),
     Groups: Object.entries(PERMISSIONS.GROUPS).map(([key, value]) => ({
+      key,
+      value,
+      label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),
+    })),
+    Tasks: Object.entries(PERMISSIONS.TASKS).map(([key, value]) => ({
       key,
       value,
       label: key.charAt(0) + key.slice(1).toLowerCase().replace(/_/g, ' '),

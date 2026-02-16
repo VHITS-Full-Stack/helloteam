@@ -40,9 +40,11 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../c
 import workSessionService from '../../services/workSession.service';
 import overtimeService from '../../services/overtime.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
+import { useAuth } from '../../context/AuthContext';
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [quoteIndex, setQuoteIndex] = useState(0);
 
@@ -246,7 +248,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to clock in');
+      setError(err.message || 'Failed to clock in');
     } finally {
       setActionLoading(false);
     }
@@ -260,7 +262,7 @@ const EmployeeDashboard = () => {
       playClockOutSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to clock out');
+      setError(err.message || 'Failed to clock out');
     } finally {
       setActionLoading(false);
     }
@@ -274,7 +276,7 @@ const EmployeeDashboard = () => {
       playBreakStartSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to start break');
+      setError(err.message || 'Failed to start break');
     } finally {
       setActionLoading(false);
     }
@@ -288,7 +290,7 @@ const EmployeeDashboard = () => {
       playBreakEndSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to end break');
+      setError(err.message || 'Failed to end break');
     } finally {
       setActionLoading(false);
     }
@@ -433,7 +435,7 @@ const EmployeeDashboard = () => {
                 <span className="text-sm font-medium">{greeting.text}</span>
                 <span className="text-lg">{greeting.emoji}</span>
               </div>
-              <h1 className="text-3xl font-bold font-heading mb-2">Welcome back, John!</h1>
+              <h1 className="text-3xl font-bold font-heading mb-2">Welcome back, {user?.employee?.firstName || 'there'}!</h1>
               <p className="text-primary-100 mb-4">Ready to make today productive?</p>
 
               {/* Quote Section */}
@@ -606,47 +608,49 @@ const EmployeeDashboard = () => {
         {/* Left Column - Stats & Tasks */}
         <div className="lg:col-span-2 space-y-6">
           {/* Stats Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card className="text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
-                <Clock className="w-6 h-6 text-primary" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{weeklyStats.hoursWorked}h</p>
-              <p className="text-xs text-gray-500">Hours This Week</p>
-              <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full"
-                  style={{ width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%` }}
-                />
-              </div>
-            </Card>
+          <div className="overflow-x-auto pb-2">
+            <div className="grid grid-cols-4 gap-4 min-w-[560px]">
+              <Card className="text-center">
+                <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
+                  <Clock className="w-6 h-6 text-primary" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{weeklyStats.hoursWorked}h</p>
+                <p className="text-xs text-gray-500">Hours This Week</p>
+                <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary rounded-full"
+                    style={{ width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%` }}
+                  />
+                </div>
+              </Card>
 
-            <Card className="text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-3">
-                <CheckCircle className="w-6 h-6 text-green-600" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{weeklyStats.tasksCompleted}</p>
-              <p className="text-xs text-gray-500">Tasks Done</p>
-              <Badge variant="success" size="xs" className="mt-2">+5 today</Badge>
-            </Card>
+              <Card className="text-center">
+                <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{weeklyStats.tasksCompleted}</p>
+                <p className="text-xs text-gray-500">Tasks Done</p>
+                <Badge variant="success" size="xs" className="mt-2">+5 today</Badge>
+              </Card>
 
-            <Card className="text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-secondary-100 flex items-center justify-center mb-3">
-                <Video className="w-6 h-6 text-secondary-600" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{weeklyStats.meetingsAttended}</p>
-              <p className="text-xs text-gray-500">Meetings</p>
-              <p className="text-xs text-gray-400 mt-2">This week</p>
-            </Card>
+              <Card className="text-center">
+                <div className="w-12 h-12 mx-auto rounded-full bg-secondary-100 flex items-center justify-center mb-3">
+                  <Video className="w-6 h-6 text-secondary-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{weeklyStats.meetingsAttended}</p>
+                <p className="text-xs text-gray-500">Meetings</p>
+                <p className="text-xs text-gray-400 mt-2">This week</p>
+              </Card>
 
-            <Card className="text-center">
-              <div className="w-12 h-12 mx-auto rounded-full bg-accent-100 flex items-center justify-center mb-3">
-                <Zap className="w-6 h-6 text-accent-600" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{weeklyStats.productivity}%</p>
-              <p className="text-xs text-gray-500">Productivity</p>
-              <Badge variant="accent" size="xs" className="mt-2">Excellent!</Badge>
-            </Card>
+              <Card className="text-center">
+                <div className="w-12 h-12 mx-auto rounded-full bg-accent-100 flex items-center justify-center mb-3">
+                  <Zap className="w-6 h-6 text-accent-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{weeklyStats.productivity}%</p>
+                <p className="text-xs text-gray-500">Productivity</p>
+                <Badge variant="accent" size="xs" className="mt-2">Excellent!</Badge>
+              </Card>
+            </div>
           </div>
 
           {/* Today's Tasks */}

@@ -1,19 +1,4 @@
-/**
- * Email Service Placeholder
- *
- * This is a placeholder for email functionality. In production, integrate with:
- * - SendGrid (https://sendgrid.com)
- * - AWS SES (https://aws.amazon.com/ses/)
- * - Mailgun (https://www.mailgun.com)
- * - Nodemailer with SMTP
- *
- * Example integration with Nodemailer:
- * ```
- * npm install nodemailer
- * npm install @types/nodemailer -D
- * ```
- */
-
+import nodemailer from 'nodemailer';
 import { config } from '../config';
 
 interface EmailOptions {
@@ -29,62 +14,72 @@ interface EmailResult {
   error?: string;
 }
 
+// Create reusable transporter
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter(): nodemailer.Transporter | null {
+  if (transporter) return transporter;
+
+  if (config.email.user && config.email.pass) {
+    transporter = nodemailer.createTransport({
+      host: config.email.host,
+      port: config.email.port,
+      secure: config.email.secure,
+      auth: {
+        user: config.email.user,
+        pass: config.email.pass,
+      },
+    });
+    return transporter;
+  }
+
+  return null;
+}
+
 /**
  * Send an email
- * Currently logs to console in development, would send actual email in production
+ * Uses Nodemailer if configured, falls back to console logging in development
  */
 export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => {
   const { to, subject, html, text } = options;
 
-  if (config.env === 'development') {
-    console.log('====================================');
-    console.log('📧 EMAIL SERVICE (Development Mode)');
-    console.log('====================================');
-    console.log(`To: ${to}`);
-    console.log(`Subject: ${subject}`);
-    console.log('------------------------------------');
-    console.log('HTML Content:');
-    console.log(html);
-    if (text) {
-      console.log('------------------------------------');
-      console.log('Text Content:');
-      console.log(text);
-    }
-    console.log('====================================');
+  const mailer = getTransporter();
 
-    return {
-      success: true,
-      messageId: `dev-${Date.now()}`,
-    };
+  if (mailer) {
+    try {
+      const info = await mailer.sendMail({
+        from: config.email.from,
+        to,
+        subject,
+        text,
+        html,
+      });
+      return { success: true, messageId: info.messageId };
+    } catch (err: any) {
+      console.error('Email send error:', err);
+      return { success: false, error: err.message };
+    }
   }
 
-  // TODO: Implement actual email sending in production
-  // Example with Nodemailer:
-  //
-  // const transporter = nodemailer.createTransporter({
-  //   host: config.email.host,
-  //   port: config.email.port,
-  //   secure: config.email.secure,
-  //   auth: {
-  //     user: config.email.user,
-  //     pass: config.email.pass,
-  //   },
-  // });
-  //
-  // const info = await transporter.sendMail({
-  //   from: config.email.from,
-  //   to,
-  //   subject,
-  //   text,
-  //   html,
-  // });
-  //
-  // return { success: true, messageId: info.messageId };
+  // Fallback: log to console in development
+  console.log('====================================');
+  console.log('📧 EMAIL SERVICE (Development Mode)');
+  console.log('====================================');
+  console.log(`To: ${to}`);
+  console.log(`Subject: ${subject}`);
+  console.log('------------------------------------');
+  console.log('HTML Content:');
+  console.log(html);
+  if (text) {
+    console.log('------------------------------------');
+    console.log('Text Content:');
+    console.log(text);
+  }
+  console.log('====================================');
 
-  console.warn('Email service not configured for production');
   return {
-    success: false,
-    error: 'Email service not configured',
+    success: true,
+    messageId: `dev-${Date.now()}`,
   };
 };
 
@@ -502,6 +497,183 @@ export const sendPayrollReminderEmail = async (
   });
 };
 
+/**
+ * Send client onboarding email with credentials and instructions to sign agreement
+ */
+export const sendClientOnboardingEmail = async (
+  email: string,
+  companyName: string,
+  contactPerson: string,
+  password: string,
+  agreementType: string
+): Promise<EmailResult> => {
+  const loginUrl = `${config.frontendUrl}/login`;
+  const agreementLabel = agreementType === 'WEEKLY_ACH' ? 'Weekly ACH' : 'Monthly ACH';
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome to Hello Team - Action Required</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Welcome to Hello Team, ${contactPerson}!</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Your account for <strong>${companyName}</strong> has been created. Before you can access your client portal, you'll need to review and sign your <strong>${agreementLabel} Service Agreement</strong>.
+          </p>
+          <div style="background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #1e40af; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+            <p style="color: #1e40af; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
+          </div>
+          <div style="background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #166534; margin: 0; font-weight: 600;">Steps to get started:</p>
+            <ol style="color: #166534; margin: 8px 0 0 0; padding-left: 20px;">
+              <li>Log in with the credentials above</li>
+              <li>Review the ${agreementLabel} Service Agreement</li>
+              <li>Type your full name and click "I Accept" to sign</li>
+              <li>Your client portal will be unlocked immediately</li>
+            </ol>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Log In & Sign Agreement
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+Welcome to Hello Team, ${contactPerson}!
+
+Your account for ${companyName} has been created.
+
+Your Login Credentials:
+Email: ${email}
+Password: ${password}
+
+Before you can access your client portal, please:
+1. Log in at: ${loginUrl}
+2. Review the ${agreementLabel} Service Agreement
+3. Type your full name and click "I Accept" to sign
+4. Your client portal will be unlocked immediately
+
+Please change your password after your first login.
+
+© ${new Date().getFullYear()} Hello Team. All rights reserved.
+  `.trim();
+
+  return sendEmail({
+    to: email,
+    subject: 'Welcome to Hello Team - Agreement Signing Required',
+    html,
+    text,
+  });
+};
+
+/**
+ * Send employee onboarding email with credentials and instructions
+ */
+export const sendEmployeeOnboardingEmail = async (
+  email: string,
+  name: string,
+  password: string
+): Promise<EmailResult> => {
+  const loginUrl = `${config.frontendUrl}/login`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Welcome to Hello Team - Complete Your Onboarding</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Welcome to the team, ${name}!</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Your employee account has been created. Before you can access your portal, you'll need to complete a quick onboarding process.
+          </p>
+          <div style="background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #1e40af; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+            <p style="color: #1e40af; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+            <p style="color: #1e40af; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
+          </div>
+          <div style="background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="color: #166534; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
+            <ol style="color: #166534; margin: 8px 0 0 0; padding-left: 20px;">
+              <li>Log in with the credentials above</li>
+              <li>Enter your personal information (phone, address, email)</li>
+              <li>Add 3 emergency contacts</li>
+              <li>Upload a government-issued ID</li>
+            </ol>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Log In & Complete Onboarding
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+Welcome to the team, ${name}!
+
+Your employee account has been created.
+
+Your Login Credentials:
+Email: ${email}
+Password: ${password}
+
+Before you can access your portal, please complete onboarding:
+1. Log in at: ${loginUrl}
+2. Enter your personal information (phone, address, email)
+3. Add 3 emergency contacts
+4. Upload a government-issued ID
+
+Please change your password after your first login.
+
+© ${new Date().getFullYear()} Hello Team. All rights reserved.
+  `.trim();
+
+  return sendEmail({
+    to: email,
+    subject: 'Welcome to Hello Team - Complete Your Onboarding',
+    html,
+    text,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -510,4 +682,6 @@ export default {
   sendTimeApprovalEmail,
   sendOvertimeRequestEmail,
   sendPayrollReminderEmail,
+  sendClientOnboardingEmail,
+  sendEmployeeOnboardingEmail,
 };

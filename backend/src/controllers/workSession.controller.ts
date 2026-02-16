@@ -75,6 +75,20 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       return;
     }
 
+    // Check if employee is assigned to a client
+    const clientAssignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId: employee.id, isActive: true },
+      include: { client: { select: { companyName: true } } },
+    });
+
+    if (!clientAssignment) {
+      res.status(400).json({
+        success: false,
+        message: 'You are not assigned to any client. Please contact your administrator.',
+      });
+      return;
+    }
+
     // Get today's schedule for arrival status
     const today = new Date();
     const dayOfWeek = today.getDay();
@@ -111,12 +125,6 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       include: {
         breaks: true,
       },
-    });
-
-    // Get client assignment for log
-    const clientAssignment = await prisma.clientEmployee.findFirst({
-      where: { employeeId: employee.id, isActive: true },
-      include: { client: { select: { companyName: true } } },
     });
 
     // Create session log for clock in
@@ -259,42 +267,66 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
     ) - totalBreakMinutes;
 
     // Create or update time record for today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Use UTC midnight of the local date to avoid timezone shift when storing in PostgreSQL DATE column
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
-    // Get employee's client assignment
-    const clientAssignment = await prisma.clientEmployee.findFirst({
+    // Get all active client assignments for the employee
+    const clientAssignments = await prisma.clientEmployee.findMany({
       where: {
         employeeId: employee.id,
         isActive: true,
       },
     });
 
-    if (clientAssignment) {
-      await prisma.timeRecord.upsert({
-        where: {
-          employeeId_clientId_date: {
-            employeeId: employee.id,
-            clientId: clientAssignment.clientId,
-            date: today,
-          },
-        },
-        create: {
-          employeeId: employee.id,
-          clientId: clientAssignment.clientId,
-          date: today,
-          actualStart: activeSession.startTime,
-          actualEnd: endTime,
-          totalMinutes: totalWorkMinutes,
-          breakMinutes: totalBreakMinutes,
-          status: 'PENDING',
-        },
-        update: {
-          actualEnd: endTime,
-          totalMinutes: { increment: totalWorkMinutes },
-          breakMinutes: { increment: totalBreakMinutes },
-        },
-      });
+    if (clientAssignments.length > 0) {
+      const overtimeMinutes = Math.max(0, totalWorkMinutes - 480); // Over 8 hours
+
+      // Create/update time record for each assigned client
+      await Promise.all(
+        clientAssignments.map(async (assignment) => {
+          const existing = await prisma.timeRecord.findUnique({
+            where: {
+              employeeId_clientId_date: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+              },
+            },
+          });
+
+          if (existing) {
+            const newTotal = existing.totalMinutes + totalWorkMinutes;
+            const newBreak = existing.breakMinutes + totalBreakMinutes;
+            const newOvertime = Math.max(0, newTotal - 480);
+            await prisma.timeRecord.update({
+              where: { id: existing.id },
+              data: {
+                actualEnd: endTime,
+                totalMinutes: newTotal,
+                breakMinutes: newBreak,
+                overtimeMinutes: newOvertime,
+              },
+            });
+          } else {
+            await prisma.timeRecord.create({
+              data: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                actualStart: activeSession.startTime,
+                actualEnd: endTime,
+                totalMinutes: totalWorkMinutes,
+                breakMinutes: totalBreakMinutes,
+                overtimeMinutes,
+                status: 'PENDING',
+              },
+            });
+          }
+        })
+      );
+    } else {
+      console.warn(`Employee ${employee.id} clocked out but has no active client assignment. No time record created.`);
     }
 
     // Get client IP and check for IP change
@@ -662,7 +694,10 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       dateFilter.gte = new Date(startDate as string);
     }
     if (endDate) {
-      dateFilter.lte = new Date(endDate as string);
+      // Set to end of day so sessions on the last day are included
+      const endDateObj = new Date(endDate as string);
+      endDateObj.setUTCHours(23, 59, 59, 999);
+      dateFilter.lte = endDateObj;
     }
 
     const whereClause: any = {
@@ -680,6 +715,9 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         where: whereClause,
         include: {
           breaks: true,
+          employee: {
+            select: { firstName: true, lastName: true },
+          },
         },
         orderBy: { startTime: 'desc' },
         skip,
@@ -903,7 +941,7 @@ export const getWeeklySummary = async (req: AuthenticatedRequest, res: Response)
     let totalBreakMinutes = 0;
 
     for (const session of weekSessions) {
-      const dateKey = session.startTime.toISOString().split('T')[0];
+      const dateKey = `${session.startTime.getFullYear()}-${String(session.startTime.getMonth() + 1).padStart(2, '0')}-${String(session.startTime.getDate()).padStart(2, '0')}`;
 
       if (!dailySummary[dateKey]) {
         dailySummary[dateKey] = { workMinutes: 0, breakMinutes: 0, sessions: 0 };
@@ -1063,42 +1101,49 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       },
     });
 
-    // Get employee's client assignment
-    const clientAssignment = await prisma.clientEmployee.findFirst({
+    // Get all active client assignments for the employee
+    const clientAssignments = await prisma.clientEmployee.findMany({
       where: {
         employeeId: employee.id,
         isActive: true,
       },
     });
 
-    // Create time record if client is assigned
-    if (clientAssignment) {
-      const recordDate = new Date(entryDate);
-      recordDate.setHours(0, 0, 0, 0);
+    // Create time record for each assigned client
+    if (clientAssignments.length > 0) {
+      // Use UTC midnight of the local date to avoid timezone shift in PostgreSQL DATE column
+      const d = new Date(entryDate);
+      const recordDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
-      await prisma.timeRecord.upsert({
-        where: {
-          employeeId_clientId_date: {
-            employeeId: employee.id,
-            clientId: clientAssignment.clientId,
-            date: recordDate,
-          },
-        },
-        create: {
-          employeeId: employee.id,
-          clientId: clientAssignment.clientId,
-          date: recordDate,
-          actualStart: sessionStartTime,
-          actualEnd: sessionEndTime,
-          totalMinutes,
-          breakMinutes: 0,
-          status: 'PENDING',
-        },
-        update: {
-          actualEnd: sessionEndTime,
-          totalMinutes: { increment: totalMinutes },
-        },
-      });
+      await Promise.all(
+        clientAssignments.map((assignment) =>
+          prisma.timeRecord.upsert({
+            where: {
+              employeeId_clientId_date: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: recordDate,
+              },
+            },
+            create: {
+              employeeId: employee.id,
+              clientId: assignment.clientId,
+              date: recordDate,
+              actualStart: sessionStartTime,
+              actualEnd: sessionEndTime,
+              totalMinutes,
+              breakMinutes: 0,
+              status: 'PENDING',
+            },
+            update: {
+              actualEnd: sessionEndTime,
+              totalMinutes: { increment: totalMinutes },
+            },
+          })
+        )
+      );
+    } else {
+      console.warn(`Employee ${employee.id} added manual entry but has no active client assignment. No time record created.`);
     }
 
     res.status(201).json({
@@ -1107,7 +1152,7 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       session: {
         ...workSession,
         workMinutes: totalMinutes,
-        client: clientAssignment?.clientId ? { id: clientAssignment.clientId } : null,
+        client: clientAssignments.length > 0 ? { id: clientAssignments[0].clientId } : null,
       },
     });
   } catch (error) {

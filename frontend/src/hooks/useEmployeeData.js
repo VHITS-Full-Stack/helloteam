@@ -26,22 +26,13 @@ function useEmployeeList() {
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState('');
-  const [clientGroups, setClientGroups] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [clients, setClients] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const fetchingEmployeesRef = useRef(false);
   const fetchingStatsRef = useRef(false);
-  const fetchingClientsRef = useRef(false);
 
   const fetchEmployees = useCallback(async () => {
     if (fetchingEmployeesRef.current) return;
@@ -86,21 +77,6 @@ function useEmployeeList() {
     }
   };
 
-  const fetchClients = async () => {
-    if (fetchingClientsRef.current) return;
-    fetchingClientsRef.current = true;
-    try {
-      const response = await clientService.getClients({ limit: 100 });
-      if (response.success) {
-        setClients(response.data.clients);
-      }
-    } catch (err) {
-      console.error('Failed to fetch clients:', err);
-    } finally {
-      fetchingClientsRef.current = false;
-    }
-  };
-
   // Fetch employees on mount and pagination change
   useEffect(() => {
     fetchEmployees();
@@ -125,118 +101,6 @@ function useEmployeeList() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleDeleteEmployee = async () => {
-    if (!selectedEmployee) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await employeeService.deleteEmployee(selectedEmployee.id);
-      if (response.success) {
-        setShowDeleteModal(false);
-        setSelectedEmployee(null);
-        setError('');
-        fetchEmployees();
-        fetchStats();
-      } else {
-        setError(response.error || 'Failed to delete employee');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to delete employee');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const fetchClientGroups = async (clientId) => {
-    if (!clientId) {
-      setClientGroups([]);
-      return;
-    }
-    try {
-      const response = await groupService.getGroups({ limit: 100 });
-      if (response.success) {
-        const filtered = response.data.groups.filter((group) =>
-          group.clients?.some((cg) => {
-            const cid = cg.client?.id || cg.clientId;
-            return cid === clientId;
-          })
-        );
-        setClientGroups(filtered);
-      }
-    } catch (err) {
-      console.error('Failed to fetch client groups:', err);
-      setClientGroups([]);
-    }
-  };
-
-  const handleSelectClient = (clientId) => {
-    setSelectedClientId(clientId);
-    setSelectedGroupId('');
-    fetchClientGroups(clientId);
-  };
-
-  const handleAssignToClient = async () => {
-    if (!selectedEmployee || !selectedClientId) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const response = await employeeService.assignToClient(selectedEmployee.id, selectedClientId);
-      if (response.success) {
-        // Also add to group if selected
-        if (selectedGroupId) {
-          try {
-            await groupService.addEmployees(selectedGroupId, [selectedEmployee.id]);
-          } catch (groupErr) {
-            console.error('Failed to add employee to group:', groupErr);
-          }
-        }
-        setShowAssignModal(false);
-        setSelectedEmployee(null);
-        setSelectedClientId('');
-        setSelectedGroupId('');
-        setClientGroups([]);
-        setError('');
-        fetchEmployees();
-      } else {
-        setError(response.error || 'Failed to assign employee');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to assign employee');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openDeleteModal = (employee) => {
-    setSelectedEmployee(employee);
-    setShowDeleteModal(true);
-  };
-
-  const closeDeleteModal = () => {
-    setShowDeleteModal(false);
-    setSelectedEmployee(null);
-    setError('');
-  };
-
-  const openAssignModal = (employee) => {
-    setSelectedEmployee(employee);
-    setShowAssignModal(true);
-    if (clients.length === 0) fetchClients();
-  };
-
-  const closeAssignModal = () => {
-    setShowAssignModal(false);
-    setSelectedEmployee(null);
-    setSelectedClientId('');
-    setSelectedGroupId('');
-    setClientGroups([]);
-    setError('');
-  };
-
   const refresh = () => {
     fetchEmployees();
     fetchStats();
@@ -244,30 +108,14 @@ function useEmployeeList() {
 
   return {
     employees,
-    clients,
-    clientGroups,
     stats,
     pagination,
     searchQuery,
-    selectedEmployee,
-    selectedClientId,
-    selectedGroupId,
     loading,
     error,
-    submitting,
-    showDeleteModal,
-    showAssignModal,
     setSearchQuery,
     setError,
     setPagination,
-    setSelectedGroupId,
-    openDeleteModal,
-    closeDeleteModal,
-    openAssignModal,
-    closeAssignModal,
-    handleSelectClient,
-    handleDeleteEmployee,
-    handleAssignToClient,
     refresh,
   };
 }
@@ -281,6 +129,18 @@ function useEmployeeDetail(id) {
   const [schedules, setSchedules] = useState([]);
   const [timeStats, setTimeStats] = useState(null);
   const [recentRecords, setRecentRecords] = useState([]);
+
+  // Modal states
+  const [showTerminateModal, setShowTerminateModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [terminationDate, setTerminationDate] = useState('');
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [clients, setClients] = useState([]);
+  const [clientGroups, setClientGroups] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   const fetchEmployeeDetails = useCallback(async () => {
     try {
@@ -341,8 +201,184 @@ function useEmployeeDetail(id) {
     fetchEmployeeDetails();
   }, [fetchEmployeeDetails]);
 
+  // ── Terminate ──
+  const openTerminateModal = () => {
+    setTerminationDate(new Date().toISOString().split('T')[0]);
+    setModalError('');
+    setShowTerminateModal(true);
+  };
+
+  const closeTerminateModal = () => {
+    setShowTerminateModal(false);
+    setTerminationDate('');
+    setModalError('');
+  };
+
+  const handleTerminate = async () => {
+    if (!terminationDate) {
+      setModalError('Please select a termination date');
+      return;
+    }
+    setSubmitting(true);
+    setModalError('');
+    try {
+      const response = await employeeService.terminateEmployee(id, terminationDate);
+      if (response.success) {
+        setShowTerminateModal(false);
+        setTerminationDate('');
+        setModalError('');
+        fetchEmployeeDetails();
+      } else {
+        setModalError(response.error || 'Failed to terminate employee');
+      }
+    } catch (err) {
+      setModalError(err.error || err.message || 'Failed to terminate employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Reactivate ──
+  const handleReactivate = async () => {
+    setSubmitting(true);
+    setModalError('');
+    try {
+      const response = await employeeService.reactivateEmployee(id);
+      if (response.success) {
+        fetchEmployeeDetails();
+      } else {
+        setModalError(response.error || 'Failed to reactivate employee');
+      }
+    } catch (err) {
+      setModalError(err.error || err.message || 'Failed to reactivate employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Delete ──
+  const openDeleteModal = () => {
+    setModalError('');
+    setShowDeleteModal(true);
+  };
+
+  const closeDeleteModal = () => {
+    setShowDeleteModal(false);
+    setModalError('');
+  };
+
+  const handleDelete = async () => {
+    setSubmitting(true);
+    setModalError('');
+    try {
+      const response = await employeeService.deleteEmployee(id);
+      if (response.success) {
+        setShowDeleteModal(false);
+        setModalError('');
+        // Navigate will be handled by the component
+        return true;
+      } else {
+        setModalError(response.error || 'Failed to delete employee');
+        return false;
+      }
+    } catch (err) {
+      setModalError(err.error || err.message || 'Failed to delete employee');
+      return false;
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Assign to Client ──
+  const fetchClients = async () => {
+    try {
+      const response = await clientService.getClients({ limit: 100 });
+      if (response.success) {
+        setClients(response.data.clients);
+      }
+    } catch (err) {
+      console.error('Failed to fetch clients:', err);
+    }
+  };
+
+  const fetchClientGroups = async (clientId) => {
+    if (!clientId) {
+      setClientGroups([]);
+      return;
+    }
+    try {
+      const response = await groupService.getGroups({ limit: 100 });
+      if (response.success) {
+        const filtered = response.data.groups.filter((group) =>
+          group.clients?.some((cg) => {
+            const cid = cg.client?.id || cg.clientId;
+            return cid === clientId;
+          })
+        );
+        setClientGroups(filtered);
+      }
+    } catch (err) {
+      console.error('Failed to fetch client groups:', err);
+      setClientGroups([]);
+    }
+  };
+
+  const openAssignModal = () => {
+    setSelectedClientId('');
+    setSelectedGroupId('');
+    setClientGroups([]);
+    setModalError('');
+    setShowAssignModal(true);
+    if (clients.length === 0) fetchClients();
+  };
+
+  const closeAssignModal = () => {
+    setShowAssignModal(false);
+    setSelectedClientId('');
+    setSelectedGroupId('');
+    setClientGroups([]);
+    setModalError('');
+  };
+
+  const handleSelectClient = (clientId) => {
+    setSelectedClientId(clientId);
+    setSelectedGroupId('');
+    fetchClientGroups(clientId);
+  };
+
+  const handleAssignToClient = async () => {
+    if (!selectedClientId) return;
+    setSubmitting(true);
+    setModalError('');
+    try {
+      const response = await employeeService.assignToClient(id, selectedClientId);
+      if (response.success) {
+        if (selectedGroupId) {
+          try {
+            await groupService.addEmployees(selectedGroupId, [id]);
+          } catch (groupErr) {
+            console.error('Failed to add employee to group:', groupErr);
+          }
+        }
+        setShowAssignModal(false);
+        setSelectedClientId('');
+        setSelectedGroupId('');
+        setClientGroups([]);
+        setModalError('');
+        fetchEmployeeDetails();
+      } else {
+        setModalError(response.error || 'Failed to assign employee');
+      }
+    } catch (err) {
+      setModalError(err.error || err.message || 'Failed to assign employee');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ── Utilities ──
   const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
+    if (!dateStr) return '—';
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -352,7 +388,7 @@ function useEmployeeDetail(id) {
   };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return '-';
+    if (!timeStr) return '—';
     const [hours, minutes] = timeStr.split(':');
     const hour = parseInt(hours);
     const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -374,6 +410,34 @@ function useEmployeeDetail(id) {
     formatDate,
     formatTime,
     refresh,
+    // Terminate
+    showTerminateModal,
+    terminationDate,
+    setTerminationDate,
+    openTerminateModal,
+    closeTerminateModal,
+    handleTerminate,
+    // Reactivate
+    handleReactivate,
+    // Delete
+    showDeleteModal,
+    openDeleteModal,
+    closeDeleteModal,
+    handleDelete,
+    // Assign
+    showAssignModal,
+    clients,
+    clientGroups,
+    selectedClientId,
+    selectedGroupId,
+    setSelectedGroupId,
+    openAssignModal,
+    closeAssignModal,
+    handleSelectClient,
+    handleAssignToClient,
+    // Shared modal state
+    submitting,
+    modalError,
   };
 }
 

@@ -3,6 +3,10 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 
+// Helper to get local date string from a Date (avoids timezone shift from toISOString)
+const toLocalDateStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // Helper to refresh presigned URL for profile photo
 const refreshProfilePhotoUrl = async (profilePhoto: string | null): Promise<string | null> => {
   if (!profilePhoto) return null;
@@ -583,15 +587,23 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
     const approvals: any[] = [];
 
     pendingTimeRecords.forEach(tr => {
-      const totalHours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
+      // Calculate hours from actualStart/actualEnd if totalMinutes is 0
+      let totalMinutes = tr.totalMinutes || 0;
+      if (totalMinutes === 0 && tr.actualStart && tr.actualEnd) {
+        totalMinutes = Math.round(
+          (new Date(tr.actualEnd).getTime() - new Date(tr.actualStart).getTime()) / 60000
+        ) - (tr.breakMinutes || 0);
+      }
+      const totalHours = totalMinutes / 60;
+      const overtimeMinutes = tr.overtimeMinutes || Math.max(0, totalMinutes - 480);
       approvals.push({
         id: tr.id,
-        type: tr.overtimeMinutes && tr.overtimeMinutes > 0 ? 'overtime' : 'time-entry',
+        type: overtimeMinutes > 0 ? 'overtime' : 'time-entry',
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
         hours: Math.round(totalHours * 10) / 10,
         date: tr.date,
-        description: tr.overtimeMinutes && tr.overtimeMinutes > 0
-          ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10} overtime hours`
+        description: overtimeMinutes > 0
+          ? `${Math.round(overtimeMinutes / 60 * 10) / 10} overtime hours`
           : `${Math.round(totalHours * 10) / 10} regular hours`,
         createdAt: tr.createdAt,
       });
@@ -816,7 +828,7 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
       date.setDate(startOfWeek.getDate() + i);
       return {
         day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i],
-        date: date.toISOString().split('T')[0],
+        date: toLocalDateStr(date),
         approved: 0,
         pending: 0,
         total: 0,
@@ -861,7 +873,81 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
 // TIME RECORDS ENDPOINTS
 // ============================================
 
+// Sync missing TimeRecords from completed WorkSessions for a specific client
+const syncClientTimeRecords = async (clientId: string, employeeIds: string[], dateStart: Date, dateEnd: Date): Promise<void> => {
+  try {
+    if (employeeIds.length === 0) return;
+
+    const endOfDay = new Date(dateEnd);
+    endOfDay.setUTCHours(23, 59, 59, 999);
+
+    // Find completed work sessions for assigned employees in date range
+    const completedSessions = await prisma.workSession.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: 'COMPLETED',
+        endTime: { not: null },
+        startTime: { gte: dateStart, lte: endOfDay },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    for (const session of completedSessions) {
+      // Use local date components to avoid timezone shift in PostgreSQL DATE column
+      const st = session.startTime;
+      const sessionDate = new Date(Date.UTC(st.getFullYear(), st.getMonth(), st.getDate()));
+
+      // Check if a TimeRecord already exists for this employee+client+date
+      const existingRecord = await prisma.timeRecord.findUnique({
+        where: {
+          employeeId_clientId_date: {
+            employeeId: session.employeeId,
+            clientId,
+            date: sessionDate,
+          },
+        },
+      });
+
+      if (existingRecord) continue;
+
+      const totalMinutes = session.endTime
+        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
+        : 0;
+
+      await prisma.timeRecord.create({
+        data: {
+          employeeId: session.employeeId,
+          clientId,
+          date: sessionDate,
+          actualStart: session.startTime,
+          actualEnd: session.endTime!,
+          totalMinutes,
+          breakMinutes: session.totalBreakMinutes || 0,
+          status: 'PENDING',
+        },
+      });
+    }
+  } catch (error) {
+    console.error('Sync client time records error:', error);
+  }
+};
+
+// Helper: get all dates in a range
+const getDatesInRange = (start: Date, end: Date): Date[] => {
+  const dates: Date[] = [];
+  const current = new Date(start);
+  current.setUTCHours(0, 0, 0, 0);
+  const endDate = new Date(end);
+  endDate.setUTCHours(0, 0, 0, 0);
+  while (current <= endDate) {
+    dates.push(new Date(current));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return dates;
+};
+
 // Get time records with filtering (weekly view)
+// Shows scheduled entries + actual work sessions so records always appear
 export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -869,8 +955,6 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const endDate = req.query.endDate as string | undefined;
     const status = req.query.status as string | undefined;
     const search = req.query.search as string | undefined;
-    const page = (req.query.page as string) || '1';
-    const limit = (req.query.limit as string) || '50';
 
     const client = await prisma.client.findUnique({
       where: { userId },
@@ -883,9 +967,6 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     }
 
     const clientId = client.id;
-    const pageNum = parseInt(page as string, 10);
-    const limitNum = parseInt(limit as string, 10);
-    const skip = (pageNum - 1) * limitNum;
 
     // Default to current week if no dates provided
     let start: Date;
@@ -897,12 +978,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     } else {
       const today = new Date();
       start = new Date(today);
-      start.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+      start.setDate(today.getDate() - today.getDay());
       start.setHours(0, 0, 0, 0);
       end = new Date(start);
-      end.setDate(start.getDate() + 6); // End of week (Saturday)
+      end.setDate(start.getDate() + 6);
       end.setHours(23, 59, 59, 999);
     }
+
+    const endOfDay = new Date(end);
+    endOfDay.setUTCHours(23, 59, 59, 999);
 
     // Get employee IDs assigned to this client
     const assignedEmployees = await prisma.clientEmployee.findMany({
@@ -911,110 +995,143 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     });
     const employeeIds = assignedEmployees.map(ce => ce.employeeId);
 
-    // Build where clause
-    const whereClause: any = {
-      clientId,
-      date: { gte: start, lte: end },
-    };
-
-    if (status && status !== 'all') {
-      whereClause.status = status;
+    if (employeeIds.length === 0) {
+      res.json({
+        success: true,
+        data: {
+          records: [],
+          summary: { totalEmployees: 0, totalHours: 0, regularHours: 0, overtimeHours: 0, pendingCount: 0 },
+          pagination: { page: 1, limit: 50, total: 0, totalPages: 0 },
+          dateRange: { start: toLocalDateStr(start), end: toLocalDateStr(end) },
+        },
+      });
+      return;
     }
 
+    // Get work sessions for assigned employees in date range
+    const sessionWhere: any = {
+      employeeId: { in: employeeIds },
+      status: { in: ['COMPLETED', 'ACTIVE', 'ON_BREAK'] },
+      startTime: { gte: start, lte: endOfDay },
+    };
     if (search) {
-      whereClause.employee = {
+      sessionWhere.employee = {
         OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
+          { firstName: { contains: search, mode: 'insensitive' as const } },
+          { lastName: { contains: search, mode: 'insensitive' as const } },
         ],
       };
     }
 
-    // Get time records
-    const [timeRecords, total] = await Promise.all([
-      prisma.timeRecord.findMany({
-        where: whereClause,
-        include: {
-          employee: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              profilePhoto: true,
-            },
-          },
+    const sessions = await prisma.workSession.findMany({
+      where: sessionWhere,
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, profilePhoto: true },
         },
-        orderBy: [{ date: 'desc' }, { employee: { firstName: 'asc' } }],
-        skip,
-        take: limitNum,
-      }),
-      prisma.timeRecord.count({ where: whereClause }),
-    ]);
-
-    // Group records by employee for weekly view
-    const employeeRecordsMap = new Map<string, any>();
-
-    timeRecords.forEach(record => {
-      const empId = record.employeeId;
-      if (!employeeRecordsMap.has(empId)) {
-        employeeRecordsMap.set(empId, {
-          id: empId,
-          employee: `${record.employee.firstName} ${record.employee.lastName}`,
-          firstName: record.employee.firstName,
-          lastName: record.employee.lastName,
-          profilePhoto: record.employee.profilePhoto,
-          dailyHours: {},
-          totalMinutes: 0,
-          overtimeMinutes: 0,
-          records: [],
-          hasOvertimeRecord: false,
-          hasPendingRecord: false,
-        });
-      }
-
-      const empData = employeeRecordsMap.get(empId);
-      const dayOfWeek = new Date(record.date).getDay();
-      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
-      const dayKey = dayNames[dayOfWeek];
-
-      const totalHours = ((record.totalMinutes || 0) + (record.overtimeMinutes || 0)) / 60;
-      empData.dailyHours[dayKey] = Math.round(totalHours * 10) / 10;
-      empData.totalMinutes += (record.totalMinutes || 0) + (record.overtimeMinutes || 0);
-      empData.overtimeMinutes += record.overtimeMinutes || 0;
-      empData.records.push({
-        id: record.id,
-        date: record.date,
-        totalMinutes: record.totalMinutes,
-        overtimeMinutes: record.overtimeMinutes,
-        status: record.status,
-      });
-
-      if (record.overtimeMinutes && record.overtimeMinutes > 0) {
-        empData.hasOvertimeRecord = true;
-      }
-      if (record.status === 'PENDING') {
-        empData.hasPendingRecord = true;
-      }
+      },
     });
 
-    // Convert to array and calculate totals (refresh presigned URLs)
-    const employeeWeeklyData = await Promise.all(
-      Array.from(employeeRecordsMap.values()).map(async emp => ({
+    // Build session lookup: employeeId_dateStr -> session[]
+    const sessionsByEmpDate = new Map<string, typeof sessions>();
+    for (const session of sessions) {
+      const dateStr = toLocalDateStr(session.startTime);
+      const key = `${session.employeeId}_${dateStr}`;
+      if (!sessionsByEmpDate.has(key)) sessionsByEmpDate.set(key, []);
+      sessionsByEmpDate.get(key)!.push(session);
+    }
+
+    // Track unique employees from sessions
+    const employeeMap = new Map<string, { id: string; firstName: string; lastName: string; profilePhoto: string | null }>();
+    for (const session of sessions) {
+      if (!employeeMap.has(session.employeeId)) employeeMap.set(session.employeeId, session.employee);
+    }
+
+    // Generate weekly data per employee (only from actual work sessions)
+    const allDates = getDatesInRange(start, end);
+    const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const employeeRecordsMap = new Map<string, any>();
+
+    for (const [empId, emp] of employeeMap) {
+      const empData: any = {
+        id: empId,
+        employee: `${emp.firstName} ${emp.lastName}`,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        profilePhoto: emp.profilePhoto,
+        dailyHours: {} as Record<string, number>,
+        totalMinutes: 0,
+        overtimeMinutes: 0,
+        records: [] as any[],
+        hasActiveRecord: false,
+        hasOvertimeRecord: false,
+      };
+
+      for (const date of allDates) {
+        const dayOfWeek = date.getUTCDay();
+        const dayKey = dayNames[dayOfWeek];
+        const dateStr = toLocalDateStr(date);
+        const sessionKey = `${empId}_${dateStr}`;
+        const daySessions = sessionsByEmpDate.get(sessionKey);
+
+        if (!daySessions || daySessions.length === 0) continue;
+
+        let dayMinutes = 0;
+        let hasActive = false;
+        for (const session of daySessions) {
+          if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
+          const totalMins = session.endTime
+            ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
+            : 0;
+          dayMinutes += totalMins;
+        }
+
+        const dayHours = Math.round((dayMinutes / 60) * 10) / 10;
+        empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + dayHours;
+        empData.totalMinutes += dayMinutes;
+        const dayOvertime = Math.max(0, dayMinutes - 480);
+        empData.overtimeMinutes += dayOvertime;
+
+        empData.records.push({
+          id: daySessions[0].id,
+          date,
+          totalMinutes: dayMinutes,
+          overtimeMinutes: dayOvertime,
+          status: hasActive ? 'ACTIVE' : 'PENDING',
+        });
+
+        if (hasActive) empData.hasActiveRecord = true;
+        if (dayOvertime > 0) empData.hasOvertimeRecord = true;
+      }
+
+      if (empData.records.length > 0) {
+        employeeRecordsMap.set(empId, empData);
+      }
+    }
+
+    // Convert to array
+    let employeeWeeklyData = await Promise.all(
+      Array.from(employeeRecordsMap.values()).map(async (emp: any) => ({
         ...emp,
         profilePhoto: await refreshProfilePhotoUrl(emp.profilePhoto),
         totalHours: Math.round((emp.totalMinutes / 60) * 10) / 10,
         overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
-        status: emp.hasPendingRecord ? 'pending' : 'approved',
+        status: emp.hasActiveRecord ? 'active' : 'pending',
       }))
     );
+
+    // Filter by status if requested
+    if (status && status !== 'all') {
+      employeeWeeklyData = employeeWeeklyData.filter((e: any) => e.status === status.toLowerCase());
+    }
 
     // Calculate summary
     const summary = {
       totalEmployees: employeeWeeklyData.length,
-      totalHours: Math.round(employeeWeeklyData.reduce((acc, e) => acc + e.totalHours, 0) * 10) / 10,
-      regularHours: Math.round(employeeWeeklyData.reduce((acc, e) => acc + e.totalHours - e.overtimeHours, 0) * 10) / 10,
-      overtimeHours: Math.round(employeeWeeklyData.reduce((acc, e) => acc + e.overtimeHours, 0) * 10) / 10,
-      pendingCount: employeeWeeklyData.filter(e => e.status === 'pending').length,
+      totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 10) / 10,
+      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours - e.overtimeHours, 0) * 10) / 10,
+      overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 10) / 10,
+      pendingCount: employeeWeeklyData.filter((e: any) => e.status === 'pending').length,
     };
 
     res.json({
@@ -1023,14 +1140,14 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         records: employeeWeeklyData,
         summary,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          totalPages: Math.ceil(total / limitNum),
+          page: 1,
+          limit: 50,
+          total: employeeWeeklyData.length,
+          totalPages: 1,
         },
         dateRange: {
-          start: start.toISOString().split('T')[0],
-          end: end.toISOString().split('T')[0],
+          start: toLocalDateStr(start),
+          end: toLocalDateStr(end),
         },
       },
     });
@@ -1134,8 +1251,16 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
 
     // Process time records with presigned URL refresh
     await Promise.all(timeRecords.map(async tr => {
-      const totalHours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
-      const isOvertime = (tr.overtimeMinutes || 0) > 0;
+      // Calculate hours from actualStart/actualEnd if totalMinutes is 0
+      let totalMinutes = tr.totalMinutes || 0;
+      if (totalMinutes === 0 && tr.actualStart && tr.actualEnd) {
+        totalMinutes = Math.round(
+          (new Date(tr.actualEnd).getTime() - new Date(tr.actualStart).getTime()) / 60000
+        ) - (tr.breakMinutes || 0);
+      }
+      const totalHours = totalMinutes / 60;
+      const overtimeMinutes = tr.overtimeMinutes || Math.max(0, totalMinutes - 480);
+      const isOvertime = overtimeMinutes > 0;
       const profilePhoto = await refreshProfilePhotoUrl(tr.employee.profilePhoto);
       approvals.push({
         id: tr.id,
@@ -1143,7 +1268,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
         profilePhoto,
         description: isOvertime
-          ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10}h overtime`
+          ? `${Math.round(overtimeMinutes / 60 * 10) / 10}h overtime`
           : `${Math.round(totalHours * 10) / 10}h regular work`,
         date: tr.date,
         hours: Math.round(totalHours * 10) / 10,

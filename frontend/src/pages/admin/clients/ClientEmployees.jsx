@@ -70,8 +70,8 @@ const ClientEmployees = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto" />
-          <p className="mt-4 text-gray-500">Loading employees...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="mt-3 text-gray-500 text-sm">Loading employees...</p>
         </div>
       </div>
     );
@@ -81,8 +81,8 @@ const ClientEmployees = () => {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900">Client Not Found</h3>
+          <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
+          <h3 className="font-semibold text-gray-900">Client Not Found</h3>
           <p className="text-gray-500 mb-4">The client you're looking for doesn't exist.</p>
           <Button variant="primary" onClick={() => navigate('/admin/clients')}>
             Back to Clients
@@ -93,16 +93,16 @@ const ClientEmployees = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate(`/admin/clients/${id}`)}>
-            Back
-          </Button>
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate(`/admin/clients/${id}`)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Assigned Employees</h2>
-            <p className="text-gray-500">{client.companyName}</p>
+            <h2 className="text-lg font-bold text-gray-900">Assigned Employees</h2>
+            <p className="text-xs text-gray-500">{client.companyName}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -121,7 +121,7 @@ const ClientEmployees = () => {
 
       {/* Error Alert */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="text-sm text-red-600">{error}</p>
@@ -136,7 +136,7 @@ const ClientEmployees = () => {
       {showAssignSection && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Available Employees</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Available Employees</h3>
             <button
               onClick={() => setShowAssignSection(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -157,8 +157,8 @@ const ClientEmployees = () => {
           </div>
 
           {filteredUnassigned.length === 0 ? (
-            <div className="text-center py-8">
-              <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <div className="text-center py-4">
+              <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">
                 {searchFilter ? 'No employees match your search' : 'No available employees to assign'}
               </p>
@@ -207,14 +207,14 @@ const ClientEmployees = () => {
       {/* Assigned Employees List */}
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
+          <h3 className="text-sm font-semibold text-gray-900">
             Currently Assigned ({clientEmployees.length})
           </h3>
         </div>
 
         {clientEmployees.length === 0 ? (
-          <div className="text-center py-8">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <div className="text-center py-4">
+            <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-gray-500">No employees assigned</p>
             <Button
               variant="primary"
