@@ -19,6 +19,7 @@ const Billing = () => {
   const [billingData, setBillingData] = useState(null);
   const [activeTab, setActiveTab] = useState('invoices');
   const [expandedInvoice, setExpandedInvoice] = useState(null);
+  const [downloadingId, setDownloadingId] = useState(null);
 
   const fetchBilling = useCallback(async () => {
     setLoading(true);
@@ -99,6 +100,17 @@ const Billing = () => {
     a.download = `billing-statement-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadPdf = async (invoiceId, invoiceNumber) => {
+    setDownloadingId(invoiceId);
+    try {
+      await clientPortalService.downloadInvoicePdf(invoiceId, invoiceNumber);
+    } catch (err) {
+      setError(err.error || 'Failed to download PDF');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   if (loading) {
@@ -282,19 +294,33 @@ const Billing = () => {
                       <TableCell>{formatDate(invoice.dueDate)}</TableCell>
                       <TableCell>{getStatusBadge(invoice.status)}</TableCell>
                       <TableCell>
-                        {invoice.lineItems && invoice.lineItems.length > 0 && (
+                        <div className="flex items-center gap-1">
                           <button
-                            onClick={() => setExpandedInvoice(expandedInvoice === invoice.id ? null : invoice.id)}
-                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
-                            title="View Details"
+                            onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
+                            className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                            title="Download PDF"
+                            disabled={downloadingId === invoice.id}
                           >
-                            {expandedInvoice === invoice.id ? (
-                              <ChevronUp className="w-4 h-4" />
+                            {downloadingId === invoice.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
                             ) : (
-                              <ChevronDown className="w-4 h-4" />
+                              <Download className="w-4 h-4" />
                             )}
                           </button>
-                        )}
+                          {invoice.lineItems && invoice.lineItems.length > 0 && (
+                            <button
+                              onClick={() => setExpandedInvoice(expandedInvoice === invoice.id ? null : invoice.id)}
+                              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              {expandedInvoice === invoice.id ? (
+                                <ChevronUp className="w-4 h-4" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4" />
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                     {/* Expanded line items */}

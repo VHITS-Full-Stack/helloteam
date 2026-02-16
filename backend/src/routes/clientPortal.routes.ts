@@ -28,6 +28,7 @@ import {
 import {
   getClientInvoices,
   getClientInvoiceById,
+  downloadClientInvoicePdf,
 } from '../controllers/invoice.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
@@ -114,6 +115,9 @@ router.get('/billing', getClientBilling);
 
 // Get invoices for this client
 router.get('/invoices', getClientInvoices);
+
+// Download invoice PDF
+router.get('/invoices/:invoiceId/pdf', downloadClientInvoicePdf);
 
 // Get single invoice detail
 router.get('/invoices/:invoiceId', getClientInvoiceById);

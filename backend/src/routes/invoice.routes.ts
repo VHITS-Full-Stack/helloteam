@@ -6,6 +6,7 @@ import {
   updateInvoiceStatus,
   triggerInvoiceGeneration,
   deleteInvoice,
+  downloadInvoicePdf,
 } from '../controllers/invoice.controller';
 
 const router = Router();
@@ -14,6 +15,9 @@ const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'FINANCE'];
 
 // List all invoices
 router.get('/', authenticate, authorize(...adminRoles), getInvoices);
+
+// Download invoice PDF (must be before /:invoiceId to avoid conflict)
+router.get('/:invoiceId/pdf', authenticate, authorize(...adminRoles), downloadInvoicePdf);
 
 // Get single invoice
 router.get('/:invoiceId', authenticate, authorize(...adminRoles), getInvoiceById);
