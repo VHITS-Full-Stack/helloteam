@@ -137,8 +137,8 @@ const Tasks = () => {
 
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await clientPortalService.getActiveEmployees();
-      if (response.success) setEmployees(response.data || []);
+      const response = await clientPortalService.getMyEmployees();
+      if (response.success) setEmployees(response.data?.employees || []);
     } catch (err) {
       console.error('Failed to load employees:', err);
     }

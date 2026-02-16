@@ -1,7 +1,8 @@
 import { Response } from "express";
 import prisma from "../config/database";
 import { AuthenticatedRequest } from "../types";
-import { TaskActivityAction } from "@prisma/client";
+import { TaskActivityAction, NotificationType } from "@prisma/client";
+import { createNotification } from "./notification.controller";
 
 // Helper: resolve user info (name, avatar, role) from userId
 const resolveUserInfo = async (userId: string) => {
@@ -59,6 +60,39 @@ const createTaskActivity = (
       },
     })
     .catch((err: any) => console.error("Failed to log task activity:", err));
+};
+
+// Status labels for human-readable notification messages
+const STATUS_LABELS: Record<string, string> = {
+  TODO: "To Do",
+  IN_PROGRESS: "In Progress",
+  DONE: "Done",
+};
+
+// Helper: look up the userId for the "other party" on a task
+const getTaskRecipientUserId = async (
+  task: { clientId: string; employeeId: string | null },
+  senderRole: string
+): Promise<string | null> => {
+  try {
+    if (senderRole === "CLIENT" && task.employeeId) {
+      const employee = await prisma.employee.findUnique({
+        where: { id: task.employeeId },
+        select: { userId: true },
+      });
+      return employee?.userId || null;
+    } else if (senderRole === "EMPLOYEE" && task.clientId) {
+      const client = await prisma.client.findUnique({
+        where: { id: task.clientId },
+        select: { userId: true },
+      });
+      return client?.userId || null;
+    }
+    return null;
+  } catch (err) {
+    console.error("Failed to resolve task recipient:", err);
+    return null;
+  }
 };
 
 // Get tasks (scoped by role)
@@ -364,6 +398,22 @@ export const createTask = async (
         `${task.assignee.firstName} ${task.assignee.lastName}`,
         { employeeId },
       );
+
+      // Notify the assigned employee
+      const employee = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { userId: true },
+      });
+      if (employee && employee.userId !== req.user!.userId) {
+        createNotification(
+          employee.userId,
+          NotificationType.TASK_ASSIGNED,
+          "New Task Assigned",
+          `You have been assigned a new task: ${task.title}`,
+          { taskId: task.id },
+          "/employee/tasks"
+        ).catch((err) => console.error("Failed to send task notification:", err));
+      }
     }
 
     res.status(201).json({
@@ -530,7 +580,48 @@ export const updateTask = async (
           createTaskActivity(id, userId, "ASSIGNED", oldName, newName, {
             employeeId: newEmpId,
           });
+
+          // Notify newly assigned employee
+          const newEmployee = await prisma.employee.findUnique({
+            where: { id: newEmpId },
+            select: { userId: true },
+          });
+          if (newEmployee && newEmployee.userId !== req.user!.userId) {
+            createNotification(
+              newEmployee.userId,
+              NotificationType.TASK_ASSIGNED,
+              "New Task Assigned",
+              `You have been assigned a task: ${task.title}`,
+              { taskId: id },
+              "/employee/tasks"
+            ).catch((err) => console.error("Failed to send task notification:", err));
+          }
         }
+      }
+    }
+
+    // Notify assigned employee about other task updates (title, description, priority, dueDate, status changes)
+    const hasOtherChanges =
+      (title !== undefined && title !== existing.title) ||
+      (description !== undefined && description !== existing.description) ||
+      (priority !== undefined && priority !== existing.priority) ||
+      (status !== undefined && status !== existing.status) ||
+      (dueDate !== undefined && (existing.dueDate ? existing.dueDate.toISOString().split("T")[0] : null) !== (dueDate || null));
+
+    if (hasOtherChanges && task.employeeId) {
+      const assignedEmployee = await prisma.employee.findUnique({
+        where: { id: task.employeeId },
+        select: { userId: true },
+      });
+      if (assignedEmployee && assignedEmployee.userId !== req.user!.userId) {
+        createNotification(
+          assignedEmployee.userId,
+          NotificationType.TASK_UPDATED,
+          "Task Updated",
+          `The task '${task.title}' has been updated`,
+          { taskId: id },
+          "/employee/tasks"
+        ).catch((err) => console.error("Failed to send task notification:", err));
       }
     }
 
@@ -657,6 +748,23 @@ export const updateTaskStatus = async (
     // Log activity
     if (oldStatus !== status) {
       createTaskActivity(id, req.user!.userId, "STATUS_CHANGED", oldStatus, status);
+
+      // Notify the other party about status change
+      const recipientUserId = await getTaskRecipientUserId(
+        { clientId: task.clientId, employeeId: task.employeeId },
+        userRole
+      );
+      if (recipientUserId && recipientUserId !== req.user!.userId) {
+        const actionUrl = userRole === "EMPLOYEE" ? "/client/tasks" : "/employee/tasks";
+        createNotification(
+          recipientUserId,
+          NotificationType.TASK_STATUS_CHANGED,
+          "Task Status Changed",
+          `Task '${updatedTask.title}' status changed from ${STATUS_LABELS[oldStatus] || oldStatus} to ${STATUS_LABELS[status] || status}`,
+          { taskId: id, oldStatus, newStatus: status },
+          actionUrl
+        ).catch((err) => console.error("Failed to send task notification:", err));
+      }
     }
 
     res.json({
@@ -725,8 +833,29 @@ export const addTaskComment = async (
       preview: message.trim().substring(0, 100),
     });
 
+    // Notify the other party about the comment
+    const recipientUserId = await getTaskRecipientUserId(
+      { clientId: task.clientId, employeeId: task.employeeId },
+      userRole
+    );
+
     // Get author info
     const info = await resolveUserInfo(req.user!.userId);
+
+    if (recipientUserId && recipientUserId !== req.user!.userId) {
+      const truncatedMessage = message.trim().length > 80
+        ? message.trim().substring(0, 80) + "..."
+        : message.trim();
+      const actionUrl = userRole === "EMPLOYEE" ? "/client/tasks" : "/employee/tasks";
+      createNotification(
+        recipientUserId,
+        NotificationType.TASK_COMMENTED,
+        "New Comment on Task",
+        `${info.authorName} commented on '${task.title}': ${truncatedMessage}`,
+        { taskId, commentId: comment.id },
+        actionUrl
+      ).catch((err) => console.error("Failed to send task notification:", err));
+    }
 
     res.status(201).json({
       success: true,
