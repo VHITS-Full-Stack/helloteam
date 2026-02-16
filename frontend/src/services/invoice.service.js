@@ -56,6 +56,33 @@ const invoiceService = {
       throw { error: error.message || 'Failed to delete invoice' };
     }
   },
+
+  // Download invoice as PDF
+  downloadInvoicePdf: async (invoiceId, invoiceNumber) => {
+    try {
+      const token = localStorage.getItem('token');
+      const baseUrl = import.meta.env.VITE_API_URL || 'https://office.thehelloteam.com/api';
+      const response = await fetch(`${baseUrl}/invoices/${invoiceId}/pdf`, {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to download PDF');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${invoiceNumber || 'invoice'}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw { error: error.message || 'Failed to download invoice PDF' };
+    }
+  },
 };
 
 export default invoiceService;

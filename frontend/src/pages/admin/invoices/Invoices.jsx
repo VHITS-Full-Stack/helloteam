@@ -13,6 +13,7 @@ import {
   Trash2,
   Play,
   Loader2,
+  Download,
 } from 'lucide-react';
 import {
   Card,
@@ -178,6 +179,19 @@ const Invoices = () => {
       setError(err.error || err.message || 'Failed to generate invoices');
     } finally {
       setGenerating(false);
+    }
+  };
+
+  const [downloadingId, setDownloadingId] = useState(null);
+
+  const handleDownloadPdf = async (invoiceId, invoiceNumber) => {
+    setDownloadingId(invoiceId);
+    try {
+      await invoiceService.downloadInvoicePdf(invoiceId, invoiceNumber);
+    } catch (err) {
+      setError(err.error || 'Failed to download PDF');
+    } finally {
+      setDownloadingId(null);
     }
   };
 
@@ -394,6 +408,18 @@ const Invoices = () => {
                         >
                           <Eye className="w-4 h-4" />
                         </button>
+                        <button
+                          onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
+                          className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Download PDF"
+                          disabled={downloadingId === invoice.id}
+                        >
+                          {downloadingId === invoice.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Download className="w-4 h-4" />
+                          )}
+                        </button>
                         {invoice.status === 'DRAFT' && (
                           <>
                             <button
@@ -595,6 +621,15 @@ const Invoices = () => {
 
             {/* Actions */}
             <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={downloadingId === selectedInvoice.id ? Loader2 : Download}
+                onClick={() => handleDownloadPdf(selectedInvoice.id, selectedInvoice.invoiceNumber)}
+                disabled={downloadingId === selectedInvoice.id}
+              >
+                Download PDF
+              </Button>
               {selectedInvoice.status === 'DRAFT' && (
                 <>
                   <Button
