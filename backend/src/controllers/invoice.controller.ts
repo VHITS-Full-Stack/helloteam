@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-import { generateInvoicesForPeriod } from '../jobs/invoiceGeneration.job';
+import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
 
 // ============================================
 // PDF GENERATION HELPER
@@ -320,36 +320,72 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
 };
 
 // Manual trigger: generate invoices for a specific period
+// Supports both monthly (year + month) and weekly (year + week) frequency
 export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month } = req.body;
-
-    if (!year || !month || month < 1 || month > 12) {
-      res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
-      return;
-    }
-
-    // Prevent generating invoices for future months (allow current month)
-    const now = new Date();
-    const requestedDate = new Date(year, month - 1, 1);
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    if (requestedDate >= nextMonth) {
-      res.status(400).json({ success: false, error: 'Cannot generate invoices for future months' });
-      return;
-    }
-
+    const { year, month, week, frequency = 'monthly' } = req.body;
     const io = req.app.get('io');
-    const result = await generateInvoicesForPeriod(year, month, io);
 
-    res.json({
-      success: true,
-      message: `Invoice generation completed: ${result.generated} invoices generated`,
-      data: result,
-    });
+    if (frequency === 'weekly') {
+      // Weekly invoice generation
+      if (!year || !week || week < 1 || week > 53) {
+        res.status(400).json({ success: false, error: 'Valid year and week (1-53) are required for weekly generation' });
+        return;
+      }
+
+      // Prevent generating invoices for future weeks
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentWeek = getISOWeekNumber(now);
+      if (year > currentYear || (year === currentYear && week > currentWeek)) {
+        res.status(400).json({ success: false, error: 'Cannot generate invoices for future weeks' });
+        return;
+      }
+
+      const result = await generateWeeklyInvoicesForWeek(year, week, io);
+
+      res.json({
+        success: true,
+        message: `Weekly invoice generation completed: ${result.generated} invoices generated`,
+        data: result,
+      });
+    } else {
+      // Monthly invoice generation (default)
+      if (!year || !month || month < 1 || month > 12) {
+        res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
+        return;
+      }
+
+      // Prevent generating invoices for future months (allow current month)
+      const now = new Date();
+      const requestedDate = new Date(year, month - 1, 1);
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      if (requestedDate >= nextMonth) {
+        res.status(400).json({ success: false, error: 'Cannot generate invoices for future months' });
+        return;
+      }
+
+      const result = await generateInvoicesForPeriod(year, month, io);
+
+      res.json({
+        success: true,
+        message: `Monthly invoice generation completed: ${result.generated} invoices generated`,
+        data: result,
+      });
+    }
   } catch (error) {
     console.error('Trigger invoice generation error:', error);
     res.status(500).json({ success: false, error: 'Failed to trigger invoice generation' });
   }
+};
+
+// Helper: get ISO week number (duplicated here for controller use)
+const getISOWeekNumber = (date: Date): number => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 };
 
 // Delete invoice (only DRAFT invoices)
