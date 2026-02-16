@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
+import { uploadGovernmentIdFile } from '../services/s3.service';
 
 /**
  * GET /employee-onboarding/status
@@ -188,44 +189,19 @@ export const uploadGovernmentId = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    // Upload to S3 - use custom upload since s3.service validates image-only
-    const { S3Client, PutObjectCommand, GetObjectCommand } = await import('@aws-sdk/client-s3');
-    const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-    const { v4: uuidv4 } = await import('uuid');
-
-    const s3Client = new S3Client({
-      region: process.env.AWS_S3_REGION || 'ap-south-1',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-      },
-    });
-
-    const bucketName = process.env.AWS_S3_BUCKET || 'hello-team-s3-live';
-    const fileExtension = file.originalname.split('.').pop();
-    const key = `government-ids/${uuidv4()}.${fileExtension}`;
-
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-      })
-    );
-
-    const url = await getSignedUrl(
-      s3Client,
-      new GetObjectCommand({ Bucket: bucketName, Key: key }),
-      { expiresIn: 604800 }
-    );
+    // Upload to S3 using centralized service
+    const uploadResult = await uploadGovernmentIdFile(file);
+    if (!uploadResult.success) {
+      res.status(400).json({ success: false, error: uploadResult.error });
+      return;
+    }
 
     await prisma.employee.update({
       where: { id: employee.id },
-      data: { governmentIdUrl: url },
+      data: { governmentIdUrl: uploadResult.url },
     });
 
-    res.json({ success: true, message: 'Government ID uploaded', data: { governmentIdUrl: url } });
+    res.json({ success: true, message: 'Government ID uploaded', data: { governmentIdUrl: uploadResult.url } });
   } catch (error) {
     console.error('Upload government ID error:', error);
     res.status(500).json({ success: false, error: 'Failed to upload government ID' });

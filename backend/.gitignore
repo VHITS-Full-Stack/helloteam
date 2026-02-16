@@ -5,3 +5,6 @@ dist
 package-lock.json
 
 /src/generated/prisma
+
+# Local file uploads (dev fallback for S3)
+uploads/

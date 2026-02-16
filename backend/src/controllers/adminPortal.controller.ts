@@ -507,112 +507,249 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
     const endDate = req.query.endDate as string | undefined;
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 50;
-    const skip = (page - 1) * limit;
 
-    // Build where clause
-    const where: any = {};
-
-    if (clientId && clientId !== 'all') {
-      where.clientId = clientId;
-    }
-
-    if (status && status !== 'all') {
-      where.status = status.toUpperCase();
-    }
-
+    // Determine date range
+    let rangeStart: Date;
+    let rangeEnd: Date;
     if (startDate && endDate) {
-      where.date = {
-        gte: new Date(startDate),
-        lte: new Date(endDate),
-      };
+      rangeStart = new Date(startDate as string);
+      rangeEnd = new Date(endDate as string);
+    } else {
+      const today = new Date();
+      rangeStart = new Date(today);
+      rangeStart.setDate(today.getDate() - today.getDay());
+      rangeStart.setUTCHours(0, 0, 0, 0);
+      rangeEnd = new Date(rangeStart);
+      rangeEnd.setDate(rangeStart.getDate() + 6);
     }
+    const rangeEndWithTime = new Date(rangeEnd);
+    rangeEndWithTime.setUTCHours(23, 59, 59, 999);
 
+    // Get employees (optionally filtered by client and search)
+    const employeeWhere: any = {};
     if (search) {
-      where.employee = {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-        ],
-      };
+      employeeWhere.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+      ];
     }
 
-    const [timeRecords, total] = await Promise.all([
-      prisma.timeRecord.findMany({
-        where,
-        include: {
-          employee: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              profilePhoto: true,
-            },
-          },
-          client: {
-            select: {
-              id: true,
-              companyName: true,
-            },
-          },
-        },
-        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
-        skip,
-        take: limit,
-      }),
-      prisma.timeRecord.count({ where }),
-    ]);
+    let employeeIdFilter: string[] | undefined;
+    if (clientId && clientId !== 'all') {
+      const clientEmployees = await prisma.clientEmployee.findMany({
+        where: { clientId, isActive: true },
+        select: { employeeId: true },
+      });
+      employeeIdFilter = clientEmployees.map(ce => ce.employeeId);
+      employeeWhere.id = { in: employeeIdFilter };
+    }
 
-    // Format records with presigned URLs refreshed
-    const formattedRecords = await Promise.all(
-      timeRecords.map(async (record) => ({
+    // Build employee filter for work sessions query
+    const sessionWhere: any = {
+      status: { in: ['COMPLETED', 'ACTIVE', 'ON_BREAK'] },
+      startTime: { gte: rangeStart, lte: rangeEndWithTime },
+    };
+    if (Object.keys(employeeWhere).length > 0) {
+      sessionWhere.employee = employeeWhere;
+    }
+
+    // Fetch all work sessions in date range
+    const sessions = await prisma.workSession.findMany({
+      where: sessionWhere,
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, profilePhoto: true },
+        },
+      },
+      orderBy: { startTime: 'desc' },
+    });
+
+    // Get unique employee IDs from sessions
+    const sessionEmployeeIds = [...new Set(sessions.map(s => s.employeeId))];
+
+    // Get client assignments for these employees
+    const allClientAssignments = sessionEmployeeIds.length > 0 ? await prisma.clientEmployee.findMany({
+      where: {
+        employeeId: { in: sessionEmployeeIds },
+        isActive: true,
+      },
+      include: {
+        client: { select: { id: true, companyName: true } },
+      },
+    }) : [];
+
+    const employeeClientMap = new Map<string, { clientId: string; companyName: string }>();
+    for (const a of allClientAssignments) {
+      if (!employeeClientMap.has(a.employeeId)) {
+        employeeClientMap.set(a.employeeId, { clientId: a.clientId, companyName: a.client.companyName });
+      }
+    }
+
+    // If filtering by client, only keep sessions from employees assigned to that client
+    const filteredSessions = (clientId && clientId !== 'all')
+      ? sessions.filter(s => {
+          const ci = employeeClientMap.get(s.employeeId);
+          return ci && ci.clientId === clientId;
+        })
+      : sessions;
+
+    // Helper to get local date string from a Date (avoids timezone shift from toISOString)
+    const toLocalDateStr = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    // Build session lookup: employeeId_dateStr -> session[] (all sessions per day)
+    const sessionsByEmpDate = new Map<string, typeof filteredSessions>();
+    for (const session of filteredSessions) {
+      const dateStr = toLocalDateStr(session.startTime);
+      const key = `${session.employeeId}_${dateStr}`;
+      if (!sessionsByEmpDate.has(key)) sessionsByEmpDate.set(key, []);
+      sessionsByEmpDate.get(key)!.push(session);
+    }
+
+    // Build daily records from work sessions only
+    const allRecords: any[] = [];
+
+    for (const [key, daySessions] of sessionsByEmpDate) {
+      // Sort sessions by startTime ascending to get first clock-in and last clock-out
+      daySessions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+      const firstSession = daySessions[0];
+      const lastSession = daySessions[daySessions.length - 1];
+      const emp = firstSession.employee;
+      const clientInfo = employeeClientMap.get(firstSession.employeeId);
+      const dateStr = toLocalDateStr(firstSession.startTime);
+
+      let totalWorkMinutes = 0;
+      let totalBreakMins = 0;
+      let hasActive = false;
+
+      for (const session of daySessions) {
+        if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
+        const sessionMinutes = session.endTime
+          ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
+          : 0;
+        const breakMins = session.totalBreakMinutes || 0;
+        totalWorkMinutes += Math.max(0, sessionMinutes - breakMins);
+        totalBreakMins += breakMins;
+      }
+
+      const clockIn = new Date(firstSession.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const clockOut = lastSession.endTime
+        ? new Date(lastSession.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        : null;
+      const hours = Math.round(totalWorkMinutes / 60 * 100) / 100;
+      const breakHours = Math.round(totalBreakMins / 60 * 100) / 100;
+      const recordStatus = hasActive ? 'active' : 'pending';
+      const overtimeHours = Math.max(0, Math.round((hours - 8) * 100) / 100);
+      const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
+
+      allRecords.push({
+        id: firstSession.id,
+        employee: `${emp.firstName} ${emp.lastName}`,
+        employeeId: firstSession.employeeId,
+        profilePhoto: emp.profilePhoto,
+        client: clientInfo?.companyName || 'Unassigned',
+        clientId: clientInfo?.clientId || null,
+        date: dateStr,
+        clockIn,
+        clockOut,
+        hours,
+        regularHours,
+        overtimeHours,
+        breaks: breakHours,
+        status: recordStatus,
+        notes: daySessions.map(s => s.notes).filter(Boolean).join('; ') || null,
+      });
+    }
+
+    // Group records by employee
+    const groupedMap = new Map<string, any>();
+    for (const record of allRecords) {
+      if (!groupedMap.has(record.employeeId)) {
+        groupedMap.set(record.employeeId, {
+          employeeId: record.employeeId,
+          employee: record.employee,
+          profilePhoto: record.profilePhoto,
+          client: record.client,
+          clientId: record.clientId,
+          totalHours: 0,
+          regularHours: 0,
+          overtimeHours: 0,
+          totalBreaks: 0,
+          workedDays: 0,
+          hasActive: false,
+          dailyRecords: [] as any[],
+        });
+      }
+      const group = groupedMap.get(record.employeeId);
+      group.totalHours += record.hours;
+      group.regularHours += record.regularHours;
+      group.overtimeHours += record.overtimeHours;
+      group.totalBreaks += record.breaks;
+      group.workedDays++;
+      if (record.status === 'active') group.hasActive = true;
+      group.dailyRecords.push({
         id: record.id,
-        employee: `${record.employee.firstName} ${record.employee.lastName}`,
-        employeeId: record.employee.id,
-        profilePhoto: await refreshProfilePhotoUrl(record.employee.profilePhoto),
-        client: record.client?.companyName || 'N/A',
-        clientId: record.clientId,
-        date: record.date.toISOString().split('T')[0],
-        clockIn: record.actualStart ? new Date(record.actualStart).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-        clockOut: record.actualEnd ? new Date(record.actualEnd).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-        hours: Math.round(((record.totalMinutes || 0) + (record.overtimeMinutes || 0)) / 60 * 100) / 100,
-        regularHours: Math.round((record.totalMinutes || 0) / 60 * 100) / 100,
-        overtimeHours: Math.round((record.overtimeMinutes || 0) / 60 * 100) / 100,
-        breaks: record.breakMinutes ? Math.round(record.breakMinutes / 60 * 100) / 100 : 0,
-        status: record.status.toLowerCase(),
-        notes: record.adjustmentNotes,
-        approvedAt: record.approvedAt,
+        date: record.date,
+        clockIn: record.clockIn,
+        clockOut: record.clockOut,
+        hours: record.hours,
+        regularHours: record.regularHours,
+        overtimeHours: record.overtimeHours,
+        breaks: record.breaks,
+        status: record.status,
+        notes: record.notes,
+      });
+    }
+
+    // Sort daily records by date ascending within each group
+    for (const group of groupedMap.values()) {
+      group.dailyRecords.sort((a: any, b: any) => a.date.localeCompare(b.date));
+      group.totalHours = Math.round(group.totalHours * 100) / 100;
+      group.regularHours = Math.round(group.regularHours * 100) / 100;
+      group.overtimeHours = Math.round(group.overtimeHours * 100) / 100;
+      group.totalBreaks = Math.round(group.totalBreaks * 100) / 100;
+      group.status = group.hasActive ? 'active' : 'pending';
+    }
+
+    let groupedRecords = Array.from(groupedMap.values());
+
+    // Filter by status if requested
+    if (status && status !== 'all') {
+      groupedRecords = groupedRecords.filter(r => r.status === status.toLowerCase());
+    }
+
+    // Paginate
+    const paginatedRecords = groupedRecords.slice((page - 1) * limit, page * limit);
+
+    // Refresh profile photo URLs
+    const finalRecords = await Promise.all(
+      paginatedRecords.map(async (record) => ({
+        ...record,
+        profilePhoto: await refreshProfilePhotoUrl(record.profilePhoto),
       }))
     );
 
-    // Get summary stats
-    const [totalRecords, pendingCount, adjustedCount, flaggedCount] = await Promise.all([
-      prisma.timeRecord.count({ where: clientId && clientId !== 'all' ? { clientId } : {} }),
-      prisma.timeRecord.count({ where: { ...where, status: 'PENDING' } }),
-      prisma.timeRecord.count({ where: { ...where, adjustmentNotes: { not: null } } }),
-      prisma.timeRecord.count({
-        where: {
-          ...where,
-          overtimeMinutes: { gt: 0 },
-          status: 'PENDING',
-        }
-      }),
-    ]);
+    // Summary stats
+    const activeCount = groupedRecords.filter(r => r.status === 'active').length;
+    const pendingCount = groupedRecords.filter(r => r.status === 'pending').length;
+    const flaggedCount = groupedRecords.filter(r => r.overtimeHours > 0).length;
 
     res.json({
       success: true,
       data: {
-        records: formattedRecords,
+        records: finalRecords,
         stats: {
-          totalRecords,
+          totalRecords: groupedRecords.length,
           pendingReview: pendingCount,
-          adjustments: adjustedCount,
+          adjustments: activeCount,
           flagged: flaggedCount,
         },
         pagination: {
           page,
           limit,
-          total,
-          totalPages: Math.ceil(total / limit),
+          total: groupedRecords.length,
+          totalPages: Math.ceil(groupedRecords.length / limit),
         },
       },
     });

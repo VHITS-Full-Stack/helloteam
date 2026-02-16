@@ -1,17 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
 import {
   Card,
   Button,
   Badge,
   Avatar,
   Modal,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableHeader,
-  TableCell
 } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
 import clientService from '../../services/client.service';
@@ -26,6 +20,8 @@ const TimeRecords = () => {
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [timeRecords, setTimeRecords] = useState([]);
+  const [expandedEmployees, setExpandedEmployees] = useState(new Set());
+  const [expandedClients, setExpandedClients] = useState(new Set());
   const [stats, setStats] = useState({
     totalRecords: 0,
     pendingReview: 0,
@@ -48,15 +44,13 @@ const TimeRecords = () => {
     const endOfWeek = new Date(startOfWeek);
     endOfWeek.setDate(startOfWeek.getDate() + 6);
 
-    setStartDate(startOfWeek.toISOString().split('T')[0]);
-    setEndDate(endOfWeek.toISOString().split('T')[0]);
+    const formatLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    setStartDate(formatLocal(startOfWeek));
+    setEndDate(formatLocal(endOfWeek));
   }, []);
 
   const fetchingClientsRef = useRef(false);
   const fetchingRecordsRef = useRef(false);
-  const searchTimerRef = useRef(null);
-  const searchTermRef = useRef(searchTerm);
-  searchTermRef.current = searchTerm;
 
   // Fetch clients list
   useEffect(() => {
@@ -128,6 +122,68 @@ const TimeRecords = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Group time records by client
+  const clientGroups = useMemo(() => {
+    const groups = new Map();
+    for (const record of timeRecords) {
+      const key = record.clientId || 'unassigned';
+      if (!groups.has(key)) {
+        groups.set(key, {
+          clientId: key,
+          clientName: record.client || 'Unassigned',
+          employees: [],
+          totalHours: 0,
+          overtimeHours: 0,
+          employeeCount: 0,
+        });
+      }
+      const group = groups.get(key);
+      group.employees.push(record);
+      group.totalHours += record.totalHours;
+      group.overtimeHours += record.overtimeHours;
+      group.employeeCount++;
+    }
+    for (const group of groups.values()) {
+      group.totalHours = Math.round(group.totalHours * 100) / 100;
+      group.overtimeHours = Math.round(group.overtimeHours * 100) / 100;
+    }
+    return Array.from(groups.values());
+  }, [timeRecords]);
+
+  const toggleClient = (clientId) => {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(clientId)) {
+        next.delete(clientId);
+      } else {
+        next.add(clientId);
+      }
+      return next;
+    });
+  };
+
+  const toggleEmployee = (employeeId) => {
+    setExpandedEmployees(prev => {
+      const next = new Set(prev);
+      if (next.has(employeeId)) {
+        next.delete(employeeId);
+      } else {
+        next.add(employeeId);
+      }
+      return next;
+    });
+  };
+
+  const expandAll = () => {
+    setExpandedClients(new Set(clientGroups.map(g => g.clientId)));
+    setExpandedEmployees(new Set(timeRecords.map(r => r.employeeId)));
+  };
+
+  const collapseAll = () => {
+    setExpandedClients(new Set());
+    setExpandedEmployees(new Set());
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
@@ -145,8 +201,27 @@ const TimeRecords = () => {
     }
   };
 
-  const handleAdjust = (record) => {
-    setSelectedRecord(record);
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr + 'T00:00:00');
+    return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  const formatHours = (decimalHours) => {
+    if (decimalHours === null || decimalHours === undefined || decimalHours === 0) return '0m';
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes}m`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  };
+
+  const handleAdjust = (record, employeeRecord) => {
+    setSelectedRecord({
+      ...record,
+      employee: employeeRecord.employee,
+      client: employeeRecord.client,
+    });
     setAdjustmentData({
       clockIn: record.clockIn ? record.clockIn.replace(' AM', '').replace(' PM', '') : '',
       clockOut: record.clockOut ? record.clockOut.replace(' AM', '').replace(' PM', '') : '',
@@ -172,24 +247,25 @@ const TimeRecords = () => {
   };
 
   const handleExport = () => {
-    // Create CSV content
-    const headers = ['Employee', 'Client', 'Date', 'Clock In', 'Clock Out', 'Hours', 'Status'];
-    const csvContent = [
-      headers.join(','),
-      ...timeRecords.map(record =>
-        [
-          `"${record.employee}"`,
-          `"${record.client}"`,
-          record.date,
-          record.clockIn || 'N/A',
-          record.clockOut || 'Active',
-          record.hours || 0,
-          record.status,
-        ].join(',')
-      ),
-    ].join('\n');
+    const headers = ['Employee', 'Client', 'Date', 'Clock In', 'Clock Out', 'Hours', 'OT Hours', 'Breaks', 'Status'];
+    const rows = [];
+    for (const emp of timeRecords) {
+      for (const day of emp.dailyRecords) {
+        rows.push([
+          `"${emp.employee}"`,
+          `"${emp.client}"`,
+          day.date,
+          day.clockIn || 'N/A',
+          day.clockOut || 'N/A',
+          day.hours || 0,
+          day.overtimeHours || 0,
+          day.breaks || 0,
+          day.status,
+        ].join(','));
+      }
+    }
+    const csvContent = [headers.join(','), ...rows].join('\n');
 
-    // Download
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -228,7 +304,7 @@ const TimeRecords = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.totalRecords}</p>
-              <p className="text-sm text-gray-500">Total Records</p>
+              <p className="text-sm text-gray-500">Total Employees</p>
             </div>
           </div>
         </Card>
@@ -245,12 +321,12 @@ const TimeRecords = () => {
         </Card>
         <Card padding="sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Edit className="w-5 h-5 text-purple-600" />
+            <div className="p-2 bg-green-100 rounded-lg">
+              <Clock className="w-5 h-5 text-green-600" />
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.adjustments}</p>
-              <p className="text-sm text-gray-500">Adjustments</p>
+              <p className="text-sm text-gray-500">Active Now</p>
             </div>
           </div>
         </Card>
@@ -261,7 +337,7 @@ const TimeRecords = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{stats.flagged}</p>
-              <p className="text-sm text-gray-500">Flagged</p>
+              <p className="text-sm text-gray-500">Overtime</p>
             </div>
           </div>
         </Card>
@@ -293,8 +369,7 @@ const TimeRecords = () => {
             >
               <option value="all">All Status</option>
               <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
+              <option value="active">Active</option>
             </select>
           </div>
           <div className="flex items-center gap-3">
@@ -329,87 +404,208 @@ const TimeRecords = () => {
         </div>
       </Card>
 
-      {/* Time Records Table */}
+      {/* Time Records Accordion */}
       <Card padding="none">
         {loading ? (
           <div className="p-12 text-center">
             <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto" />
             <p className="text-gray-500 mt-2">Loading time records...</p>
           </div>
-        ) : timeRecords.length > 0 ? (
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeader>Employee</TableHeader>
-                <TableHeader>Client</TableHeader>
-                <TableHeader>Date</TableHeader>
-                <TableHeader>Clock In</TableHeader>
-                <TableHeader>Clock Out</TableHeader>
-                <TableHeader>Hours</TableHeader>
-                <TableHeader>Status</TableHeader>
-                <TableHeader>Actions</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {timeRecords.map((record) => (
-                <TableRow key={record.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar name={record.employee} size="sm" src={record.profilePhoto} />
-                      <span className="font-medium text-gray-900">{record.employee}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-gray-600">{record.client}</span>
-                  </TableCell>
-                  <TableCell>{record.date}</TableCell>
-                  <TableCell>{record.clockIn || '-'}</TableCell>
-                  <TableCell>
-                    {record.clockOut || (
-                      <span className="text-green-600 flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        Active
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {record.hours !== null ? (
-                      <span className={record.hours > 8 ? 'text-orange-600 font-medium' : ''}>
-                        {record.hours}h
-                        {record.overtimeHours > 0 && (
-                          <span className="text-xs text-orange-500 ml-1">
-                            (+{record.overtimeHours}h OT)
-                          </span>
-                        )}
-                      </span>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div>
-                      {getStatusBadge(record.status)}
-                      {record.notes && (
-                        <p className="text-xs text-gray-500 mt-1 max-w-[150px] truncate" title={record.notes}>
-                          {record.notes}
-                        </p>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={Edit}
-                      onClick={() => handleAdjust(record)}
+        ) : clientGroups.length > 0 ? (
+          <div>
+            {/* Accordion Header */}
+            <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gray-50">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-medium text-gray-500">
+                  {clientGroups.length} client{clientGroups.length !== 1 ? 's' : ''} &middot; {timeRecords.length} employee{timeRecords.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={expandAll}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Expand All
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={collapseAll}
+                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Collapse All
+                </button>
+              </div>
+            </div>
+
+            {/* Client Groups */}
+            <div className="divide-y divide-gray-200">
+              {clientGroups.map((clientGroup) => {
+                const isClientExpanded = expandedClients.has(clientGroup.clientId);
+                return (
+                  <div key={clientGroup.clientId}>
+                    {/* Client Header Row */}
+                    <div
+                      className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors bg-white"
+                      onClick={() => toggleClient(clientGroup.clientId)}
                     >
-                      Adjust
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+                      <div className="flex-shrink-0 text-gray-400">
+                        {isClientExpanded ? (
+                          <ChevronDown className="w-5 h-5" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5" />
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 min-w-[200px]">
+                        <div className="p-2 bg-primary-100 rounded-lg">
+                          <Building2 className="w-5 h-5 text-primary-600" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-gray-900">{clientGroup.clientName}</p>
+                          <p className="text-sm text-gray-500">
+                            {clientGroup.employeeCount} employee{clientGroup.employeeCount !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6 flex-1 justify-end">
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-gray-900">{formatHours(clientGroup.totalHours)}</p>
+                          <p className="text-xs text-gray-500">Total</p>
+                        </div>
+                        {clientGroup.overtimeHours > 0 && (
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-orange-600">{formatHours(clientGroup.overtimeHours)}</p>
+                            <p className="text-xs text-gray-500">Overtime</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Employees under this client */}
+                    {isClientExpanded && (
+                      <div className="divide-y divide-gray-100">
+                        {clientGroup.employees.map((empRecord) => {
+                          const isEmpExpanded = expandedEmployees.has(empRecord.employeeId);
+                          return (
+                            <div key={empRecord.employeeId}>
+                              {/* Employee Summary Row */}
+                              <div
+                                className="flex items-center gap-4 px-6 py-3 cursor-pointer hover:bg-gray-50 transition-colors pl-14"
+                                onClick={() => toggleEmployee(empRecord.employeeId)}
+                              >
+                                <div className="flex-shrink-0 text-gray-400">
+                                  {isEmpExpanded ? (
+                                    <ChevronDown className="w-4 h-4" />
+                                  ) : (
+                                    <ChevronRight className="w-4 h-4" />
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 min-w-[180px]">
+                                  <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
+                                  <p className="font-medium text-gray-900">{empRecord.employee}</p>
+                                </div>
+                                <div className="flex items-center gap-6 flex-1 justify-end">
+                                  <div className="text-right">
+                                    <p className="text-sm font-semibold text-gray-900">{formatHours(empRecord.totalHours)}</p>
+                                    <p className="text-xs text-gray-500">Total</p>
+                                  </div>
+                                  {empRecord.overtimeHours > 0 && (
+                                    <div className="text-right">
+                                      <p className="text-sm font-semibold text-orange-600">{formatHours(empRecord.overtimeHours)}</p>
+                                      <p className="text-xs text-gray-500">Overtime</p>
+                                    </div>
+                                  )}
+                                  <div className="text-right">
+                                    <p className="text-sm text-gray-700">{empRecord.workedDays}d</p>
+                                    <p className="text-xs text-gray-500">Days</p>
+                                  </div>
+                                  <div className="min-w-[90px] text-right">
+                                    {getStatusBadge(empRecord.status)}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Daily Records (expanded) */}
+                              {isEmpExpanded && (
+                                <div className="bg-gray-50/50">
+                                  <div className="grid grid-cols-12 gap-2 px-6 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-t border-gray-100">
+                                    <div className="col-span-2 pl-16">Date</div>
+                                    <div className="col-span-2">Clock In</div>
+                                    <div className="col-span-2">Clock Out</div>
+                                    <div className="col-span-2">Hours</div>
+                                    <div className="col-span-1">Breaks</div>
+                                    <div className="col-span-2">Status</div>
+                                    <div className="col-span-1">Actions</div>
+                                  </div>
+                                  {empRecord.dailyRecords.map((day) => (
+                                    <div
+                                      key={day.id}
+                                      className="grid grid-cols-12 gap-2 px-6 py-3 text-sm border-t border-gray-100 hover:bg-gray-100/50 items-center"
+                                    >
+                                      <div className="col-span-2 pl-16 text-gray-700 font-medium">
+                                        {formatDate(day.date)}
+                                      </div>
+                                      <div className="col-span-2 text-gray-600">
+                                        {day.clockIn || '-'}
+                                      </div>
+                                      <div className="col-span-2 text-gray-600">
+                                        {day.clockOut || (
+                                          day.status === 'active' ? (
+                                            <span className="text-green-600 flex items-center gap-1">
+                                              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                              Active
+                                            </span>
+                                          ) : '-'
+                                        )}
+                                      </div>
+                                      <div className="col-span-2">
+                                        {day.hours !== null && day.hours !== undefined ? (
+                                          <span className={day.overtimeHours > 0 ? 'text-orange-600 font-medium' : 'text-gray-900'}>
+                                            {formatHours(day.hours)}
+                                            {day.overtimeHours > 0 && (
+                                              <span className="text-xs text-orange-500 ml-1">
+                                                (+{formatHours(day.overtimeHours)} OT)
+                                              </span>
+                                            )}
+                                          </span>
+                                        ) : '-'}
+                                      </div>
+                                      <div className="col-span-1 text-gray-600">
+                                        {day.breaks ? formatHours(day.breaks) : '-'}
+                                      </div>
+                                      <div className="col-span-2">
+                                        {getStatusBadge(day.status)}
+                                        {day.notes && (
+                                          <p className="text-xs text-gray-500 mt-1 truncate max-w-[140px]" title={day.notes}>
+                                            {day.notes}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <div className="col-span-1">
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleAdjust(day, empRecord);
+                                          }}
+                                          className="text-gray-400 hover:text-primary-600 transition-colors p-1 rounded"
+                                          title="Adjust"
+                                        >
+                                          <Edit className="w-4 h-4" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         ) : (
           <div className="p-12 text-center">
             <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -444,7 +640,7 @@ const TimeRecords = () => {
               <p className="text-sm text-gray-500 mt-2">Client</p>
               <p className="font-medium text-gray-900">{selectedRecord.client}</p>
               <p className="text-sm text-gray-500 mt-2">Date</p>
-              <p className="font-medium text-gray-900">{selectedRecord.date}</p>
+              <p className="font-medium text-gray-900">{selectedRecord.date ? formatDate(selectedRecord.date) : '-'}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   Users,
   Clock,
@@ -23,6 +24,7 @@ import clientPortalService from "../../services/clientPortal.service";
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [stats, setStats] = useState({
@@ -153,7 +155,7 @@ const ClientDashboard = () => {
       {/* Welcome Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Welcome back!</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Welcome back, {user?.client?.contactPerson?.split(' ')[0] || 'there'}!</h2>
           <p className="text-gray-500">
             Here's what's happening with your team today.
           </p>
@@ -192,36 +194,38 @@ const ClientDashboard = () => {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <StatCard
-          title="Total Employees"
-          value={stats.totalEmployees}
-          icon={Users}
-        />
-        <StatCard
-          title="Active Now"
-          value={stats.activeNow}
-          icon={Activity}
-          description={`${stats.workingNow} working, ${stats.onBreakNow} on break`}
-        />
-        <StatCard
-          title="Pending Approvals"
-          value={stats.pendingApprovals}
-          icon={AlertCircle}
-          description="Action required"
-        />
-        <StatCard
-          title="Weekly Hours"
-          value={stats.weeklyHours}
-          icon={Clock}
-          description="Total logged"
-        />
-        <StatCard
-          title="Monthly Billing"
-          value={formatCurrency(stats.monthlyBilling)}
-          icon={DollarSign}
-          description="Estimated"
-        />
+      <div className="overflow-x-auto pb-2">
+        <div className="grid grid-cols-5 gap-4 min-w-[700px]">
+          <StatCard
+            title="Total Employees"
+            value={stats.totalEmployees}
+            icon={Users}
+          />
+          <StatCard
+            title="Active Now"
+            value={stats.activeNow}
+            icon={Activity}
+            description={`${stats.workingNow} working, ${stats.onBreakNow} on break`}
+          />
+          <StatCard
+            title="Pending Approvals"
+            value={stats.pendingApprovals}
+            icon={AlertCircle}
+            description="Action required"
+          />
+          <StatCard
+            title="Weekly Hours"
+            value={stats.weeklyHours}
+            icon={Clock}
+            description="Total logged"
+          />
+          <StatCard
+            title="Monthly Billing"
+            value={formatCurrency(stats.monthlyBilling)}
+            icon={DollarSign}
+            description="Estimated"
+          />
+        </div>
       </div>
 
       {/* Main Content Grid */}

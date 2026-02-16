@@ -11,12 +11,6 @@ import {
   Plus,
   Search,
   Coffee,
-  Building2,
-  MapPin,
-  Paperclip,
-  StickyNote,
-  CheckCircle,
-  XCircle,
   X,
   Settings,
 } from 'lucide-react';
@@ -47,22 +41,6 @@ const TimeRecords = () => {
   const [selectedSession, setSelectedSession] = useState(null);
   const [sessionLogs, setSessionLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
-
-  // Collapsed date sections (stores date keys that are collapsed)
-  const [collapsedSections, setCollapsedSections] = useState(new Set());
-
-  // Toggle section collapse
-  const toggleSection = (dateKey) => {
-    setCollapsedSections(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(dateKey)) {
-        newSet.delete(dateKey);
-      } else {
-        newSet.add(dateKey);
-      }
-      return newSet;
-    });
-  };
 
   // Calculate week range
   const getWeekRange = useCallback((date) => {
@@ -109,8 +87,8 @@ const TimeRecords = () => {
       setError(null);
 
       const params = {
-        startDate: activeRange.start.toISOString().split('T')[0],
-        endDate: activeRange.end.toISOString().split('T')[0],
+        startDate: toLocalDateString(activeRange.start),
+        endDate: toLocalDateString(activeRange.end),
         limit: 100,
       };
 
@@ -157,6 +135,14 @@ const TimeRecords = () => {
     setCurrentDate(new Date());
   };
 
+  // Helper to format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
+  const toLocalDateString = (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Format helpers
   const formatTime = (dateString) => {
     if (!dateString) return '--:--';
@@ -177,21 +163,12 @@ const TimeRecords = () => {
 
   const formatDateHeader = (dateString) => {
     if (!dateString) return 'Invalid Date';
-
-    let date;
-    // Handle ISO timestamp format (e.g., "2026-02-01T09:00:00.000Z")
-    if (dateString.includes('T')) {
-      date = new Date(dateString);
-    } else {
-      // Parse the date string manually to avoid timezone issues
-      // dateString is in format "YYYY-MM-DD"
-      const [year, month, day] = dateString.split('-').map(Number);
-      date = new Date(year, month - 1, day); // month is 0-indexed
-    }
-
+    // Parse the date and extract local date components to avoid timezone shifts
+    const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Invalid Date';
-
-    return date.toLocaleDateString('en-US', {
+    // Build a date using local year/month/day to avoid any UTC-to-local shift
+    const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    return localDate.toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -223,33 +200,6 @@ const TimeRecords = () => {
   const formatDateDisplay = () => {
     return viewMode === 'week' ? formatWeekRange() : formatDayDisplay();
   };
-
-  // Group sessions by date (using local date to avoid timezone issues)
-  const groupedSessions = useMemo(() => {
-    const groups = {};
-
-    sessions.forEach(session => {
-      // Use local date to group sessions correctly
-      const sessionDate = new Date(session.startTime);
-      const year = sessionDate.getFullYear();
-      const month = String(sessionDate.getMonth() + 1).padStart(2, '0');
-      const day = String(sessionDate.getDate()).padStart(2, '0');
-      const dateKey = `${year}-${month}-${day}`;
-
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(session);
-    });
-
-    // Sort dates in descending order
-    const sortedKeys = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-
-    return sortedKeys.map(date => ({
-      date,
-      sessions: groups[date],
-    }));
-  }, [sessions]);
 
   // Check if session is currently active
   const isActiveSession = (session) => {
@@ -466,49 +416,17 @@ const TimeRecords = () => {
         {/* Content based on active tab */}
         {activeTab === 'timesheets' && (
           <div className="overflow-x-auto">
-            {/* Table Header */}
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-48">
-                    Name
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Time in - out
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Duration
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Location
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Break
-                  </th>
-                  <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Notes
-                  </th>
-                  <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-            </table>
-
             {/* Loading State */}
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
-            ) : groupedSessions.length === 0 ? (
+            ) : sessions.length === 0 ? (
               <div className="text-center py-16">
                 <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Time Entries</h3>
                 <p className="text-gray-500 mb-4">
-                  No time entries found for this week.
+                  No time entries found for this period.
                 </p>
                 <Button
                   variant="primary"
@@ -520,161 +438,146 @@ const TimeRecords = () => {
               </div>
             ) : (
               <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Time in - out
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Duration
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Break
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Notes
+                    </th>
+                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {groupedSessions.map((group) => (
-                    <>
-                      {/* Date Header Row */}
-                      <tr
-                        key={`header-${group.date}`}
-                        className="bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleSection(group.date)}
-                      >
-                        <td colSpan={8} className="py-2 px-4">
-                          <div className="flex items-center gap-2">
-                            <ChevronRight
-                              className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
-                                collapsedSections.has(group.date) ? '' : 'rotate-90'
-                              }`}
-                            />
-                            <span className="font-medium text-gray-700">
-                              {formatDateHeader(group.date)}
-                            </span>
-                            <span className="text-sm text-gray-400 ml-2">
-                              ({group.sessions.length} {group.sessions.length === 1 ? 'entry' : 'entries'})
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
+                  {sessions.map((session) => (
+                    <tr
+                      key={session.id}
+                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                    >
+                      {/* Date */}
+                      <td className="py-3 px-4">
+                        <span className="font-medium text-gray-900">
+                          {formatDateHeader(session.startTime)}
+                        </span>
+                      </td>
 
-                      {/* Session Rows - only show if not collapsed */}
-                      {!collapsedSections.has(group.date) && group.sessions.map((session) => (
-                        <tr
-                          key={session.id}
-                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                        >
-                          {/* Name */}
-                          <td className="py-3 px-4">
-                            <span className="font-medium text-gray-900">
-                              {session.employee?.firstName} {session.employee?.lastName || 'You'}
-                            </span>
-                          </td>
-
-                          {/* Time in - out */}
-                          <td className="py-3 px-4">
-                            {isActiveSession(session) ? (
-                              <span className="text-green-600 font-medium">
-                                {formatTime(session.startTime)} - Now
-                              </span>
+                      {/* Time in - out */}
+                      <td className="py-3 px-4">
+                        {isActiveSession(session) ? (
+                          <span className="text-green-600 font-medium">
+                            {formatTime(session.startTime)} - Now
+                          </span>
+                        ) : (
+                          <span className="text-gray-600">
+                            {session.endTime ? (
+                              `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
                             ) : (
-                              <span className="text-gray-600">
-                                {session.endTime ? (
-                                  `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
-                                ) : (
-                                  'Manual'
-                                )}
-                              </span>
+                              'Manual'
                             )}
-                          </td>
+                          </span>
+                        )}
+                      </td>
 
-                          {/* Duration */}
-                          <td className="py-3 px-4">
-                            {isActiveSession(session) ? (
-                              <span className="text-green-600">-</span>
-                            ) : (
-                              <span className="font-medium text-gray-900">
-                                {formatDuration(session.workMinutes)}
-                              </span>
-                            )}
-                          </td>
+                      {/* Duration */}
+                      <td className="py-3 px-4">
+                        {isActiveSession(session) ? (
+                          <span className="text-green-600">-</span>
+                        ) : (
+                          <span className="font-medium text-gray-900">
+                            {formatDuration(session.workMinutes)}
+                          </span>
+                        )}
+                      </td>
 
-                          {/* Customer */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-center gap-2">
-                              {session.client ? (
-                                <>
-                                  <Badge variant="info" size="xs">
-                                    {session.client.companyName?.substring(0, 3).toUpperCase() || 'CLI'}
-                                  </Badge>
-                                  {getStatusBadge(session)}
-                                </>
-                              ) : (
-                                <span className="text-gray-400">-</span>
-                              )}
-                            </div>
-                          </td>
+                      {/* Customer */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          {session.client ? (
+                            <>
+                              <Badge variant="info" size="xs">
+                                {session.client.companyName?.substring(0, 3).toUpperCase() || 'CLI'}
+                              </Badge>
+                              {getStatusBadge(session)}
+                            </>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </td>
 
-                          {/* Location */}
-                          <td className="py-3 px-4">
-                            {session.location ? (
-                              <div className="flex items-center gap-1 text-sm text-gray-600">
-                                <MapPin className="w-3.5 h-3.5 text-primary" />
-                                {session.location}
-                              </div>
-                            ) : (
-                              <span className="text-gray-400 text-sm">Web App</span>
-                            )}
-                          </td>
+                      {/* Break */}
+                      <td className="py-3 px-4">
+                        {session.totalBreakMinutes > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
+                            <Coffee className="w-3.5 h-3.5" />
+                            {session.totalBreakMinutes}m
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
 
-                          {/* Break */}
-                          <td className="py-3 px-4">
-                            {session.totalBreakMinutes > 0 ? (
-                              <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
-                                <Coffee className="w-3.5 h-3.5" />
-                                {session.totalBreakMinutes}m
-                              </span>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
+                      {/* Notes */}
+                      <td className="py-3 px-4">
+                        {session.notes ? (
+                          <p className="text-sm text-gray-600 max-w-xs truncate" title={session.notes}>
+                            {session.notes}
+                          </p>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
 
-                          {/* Notes */}
-                          <td className="py-3 px-4">
-                            {session.notes ? (
-                              <p className="text-sm text-gray-600 max-w-xs truncate" title={session.notes}>
-                                {session.notes}
-                              </p>
-                            ) : (
-                              <span className="text-gray-400">-</span>
-                            )}
-                          </td>
-
-                          {/* Actions */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleViewDetail(session)}
-                                className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
-                                title="View details"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
-                                title="Edit"
-                              >
-                                <FileText className="w-4 h-4" />
-                              </button>
-                              {!isActiveSession(session) && (
-                                <button
-                                  className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                              {isActiveSession(session) && (
-                                <button
-                                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                                  title="Clock history"
-                                >
-                                  <Clock className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </>
+                      {/* Actions */}
+                      <td className="py-3 px-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleViewDetail(session)}
+                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
+                            title="View details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
+                            title="Edit"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
+                          {!isActiveSession(session) && (
+                            <button
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isActiveSession(session) && (
+                            <button
+                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                              title="Clock history"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>

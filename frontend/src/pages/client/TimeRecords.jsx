@@ -5,13 +5,6 @@ import {
   Button,
   Badge,
   Avatar,
-  Table,
-  TableHead,
-  TableBody,
-  TableRow,
-  TableHeader,
-  TableCell,
-  Modal
 } from '../../components/common';
 import clientPortalService from '../../services/clientPortal.service';
 
@@ -30,7 +23,7 @@ const TimeRecords = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [, setShowFilterModal] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
 
   // Get week start/end dates
   const getWeekDates = (date) => {
@@ -66,8 +59,8 @@ const TimeRecords = () => {
     setError(null);
     try {
       const response = await clientPortalService.getTimeRecords({
-        startDate: currentWeek.start.toISOString().split('T')[0],
-        endDate: currentWeek.end.toISOString().split('T')[0],
+        startDate: `${currentWeek.start.getFullYear()}-${String(currentWeek.start.getMonth() + 1).padStart(2, '0')}-${String(currentWeek.start.getDate()).padStart(2, '0')}`,
+        endDate: `${currentWeek.end.getFullYear()}-${String(currentWeek.end.getMonth() + 1).padStart(2, '0')}-${String(currentWeek.end.getDate()).padStart(2, '0')}`,
         status: statusFilter !== 'all' ? statusFilter.toUpperCase() : undefined,
         search: searchQueryRef.current || undefined,
       });
@@ -124,12 +117,18 @@ const TimeRecords = () => {
     setCurrentWeek(getWeekDates(new Date()));
   };
 
+  const toggleRow = (id) => {
+    setExpandedRows((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
         return <Badge variant="success">Approved</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
+      case 'active':
+        return <Badge variant="info">Active</Badge>;
       case 'rejected':
         return <Badge variant="danger">Rejected</Badge>;
       default:
@@ -143,8 +142,17 @@ const TimeRecords = () => {
     return 'text-gray-900';
   };
 
+  const formatHours = (decimalHours) => {
+    if (decimalHours === null || decimalHours === undefined || decimalHours === 0) return '0m';
+    const totalMinutes = Math.round(decimalHours * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours === 0) return `${minutes}m`;
+    if (minutes === 0) return `${hours}h`;
+    return `${hours}h ${minutes}m`;
+  };
+
   const handleExport = () => {
-    // Generate CSV data
     const headers = ['Employee', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total', 'Overtime', 'Status'];
     const rows = timeRecords.map(record => [
       record.employee,
@@ -218,15 +226,15 @@ const TimeRecords = () => {
         </Card>
         <Card padding="sm">
           <p className="text-sm text-gray-500">Total Hours</p>
-          <p className="text-2xl font-bold text-gray-900">{summary.totalHours}h</p>
+          <p className="text-2xl font-bold text-gray-900">{formatHours(summary.totalHours)}</p>
         </Card>
         <Card padding="sm">
           <p className="text-sm text-gray-500">Regular Hours</p>
-          <p className="text-2xl font-bold text-green-600">{summary.regularHours}h</p>
+          <p className="text-2xl font-bold text-green-600">{formatHours(summary.regularHours)}</p>
         </Card>
         <Card padding="sm">
           <p className="text-sm text-gray-500">Overtime</p>
-          <p className="text-2xl font-bold text-orange-600">{summary.overtimeHours}h</p>
+          <p className="text-2xl font-bold text-orange-600">{formatHours(summary.overtimeHours)}</p>
         </Card>
         <Card padding="sm">
           <p className="text-sm text-gray-500">Pending</p>
@@ -286,7 +294,7 @@ const TimeRecords = () => {
         </div>
       </Card>
 
-      {/* Time Records Table */}
+      {/* Time Records Accordion */}
       <Card padding="none">
         {loading ? (
           <div className="flex items-center justify-center p-12">
@@ -299,74 +307,157 @@ const TimeRecords = () => {
             <p className="text-gray-500">No time records found for this period.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader className="text-center">Mon</TableHeader>
-                  <TableHeader className="text-center">Tue</TableHeader>
-                  <TableHeader className="text-center">Wed</TableHeader>
-                  <TableHeader className="text-center">Thu</TableHeader>
-                  <TableHeader className="text-center">Fri</TableHeader>
-                  <TableHeader className="text-center">Sat</TableHeader>
-                  <TableHeader className="text-center">Sun</TableHeader>
-                  <TableHeader className="text-center">Total</TableHeader>
-                  <TableHeader className="text-center">OT</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {timeRecords.map((record) => (
-                  <TableRow
-                    key={record.id}
-                    className="cursor-pointer hover:bg-gray-50"
-                    onClick={() => setSelectedRecord(record)}
+          <div className="divide-y divide-gray-100">
+            {/* Table Header */}
+            <div className="hidden md:grid md:grid-cols-12 gap-2 px-4 py-3 bg-gray-50 text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <div className="col-span-3">Employee</div>
+              <div className="text-center">Mon</div>
+              <div className="text-center">Tue</div>
+              <div className="text-center">Wed</div>
+              <div className="text-center">Thu</div>
+              <div className="text-center">Fri</div>
+              <div className="text-center">Sat</div>
+              <div className="text-center">Sun</div>
+              <div className="text-center">Total</div>
+              <div className="text-center">Status</div>
+            </div>
+
+            {timeRecords.map((record) => {
+              const isExpanded = expandedRows[record.id];
+              return (
+                <div key={record.id}>
+                  {/* Main Row */}
+                  <div
+                    className="grid grid-cols-1 md:grid-cols-12 gap-2 px-4 py-3 items-center cursor-pointer hover:bg-gray-50 transition-colors"
+                    onClick={() => toggleRow(record.id)}
                   >
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar name={record.employee} src={record.profilePhoto} size="sm" />
-                        <div>
-                          <p className="font-medium text-gray-900">{record.employee}</p>
-                        </div>
+                    {/* Employee */}
+                    <div className="col-span-3 flex items-center gap-3">
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                      />
+                      <Avatar name={record.employee} src={record.profilePhoto} size="sm" />
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{record.employee}</p>
                       </div>
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.mon)}`}>
-                      {record.dailyHours?.mon > 0 ? record.dailyHours.mon : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.tue)}`}>
-                      {record.dailyHours?.tue > 0 ? record.dailyHours.tue : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.wed)}`}>
-                      {record.dailyHours?.wed > 0 ? record.dailyHours.wed : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.thu)}`}>
-                      {record.dailyHours?.thu > 0 ? record.dailyHours.thu : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.fri)}`}>
-                      {record.dailyHours?.fri > 0 ? record.dailyHours.fri : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.sat)}`}>
-                      {record.dailyHours?.sat > 0 ? record.dailyHours.sat : '-'}
-                    </TableCell>
-                    <TableCell className={`text-center ${getCellClass(record.dailyHours?.sun)}`}>
-                      {record.dailyHours?.sun > 0 ? record.dailyHours.sun : '-'}
-                    </TableCell>
-                    <TableCell className="text-center font-semibold text-gray-900">
-                      {record.totalHours}h
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {record.overtimeHours > 0 ? (
-                        <span className="text-orange-600 font-medium">+{record.overtimeHours}h</span>
-                      ) : (
-                        <span className="text-gray-300">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(record.status)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+
+                    {/* Daily Hours - hidden on mobile */}
+                    {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
+                      <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day])}`}>
+                        {record.dailyHours?.[day] > 0 ? formatHours(record.dailyHours[day]) : '-'}
+                      </div>
+                    ))}
+
+                    {/* Total */}
+                    <div className="hidden md:block text-center font-semibold text-gray-900">
+                      {formatHours(record.totalHours)}
+                    </div>
+
+                    {/* Status */}
+                    <div className="hidden md:flex justify-center">
+                      {getStatusBadge(record.status)}
+                    </div>
+
+                    {/* Mobile summary */}
+                    <div className="flex md:hidden items-center justify-between mt-1">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm text-gray-500">Total: <span className="font-semibold text-gray-900">{formatHours(record.totalHours)}</span></span>
+                        {record.overtimeHours > 0 && (
+                          <span className="text-sm text-orange-600 font-medium">+{formatHours(record.overtimeHours)} OT</span>
+                        )}
+                      </div>
+                      {getStatusBadge(record.status)}
+                    </div>
+                  </div>
+
+                  {/* Expanded Detail */}
+                  {isExpanded && (
+                    <div className="bg-gray-50/70 border-t border-gray-100">
+                      {/* Desktop: table rows aligned to columns */}
+                      <div className="hidden md:block">
+                        {record.records && record.records.length > 0 && (() => {
+                          // Build day map from records: dayName -> { totalMinutes, overtimeMinutes, status }
+                          const dayMap = {};
+                          const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                          record.records.forEach((rec) => {
+                            const d = new Date(rec.date);
+                            const dayKey = dayNames[d.getUTCDay()];
+                            dayMap[dayKey] = rec;
+                          });
+
+                          return (
+                            <>
+                              {/* Work Hours row */}
+                              <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center">
+                                <div className="col-span-3 pl-11 text-xs font-medium text-gray-500">Work Hours</div>
+                                {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
+                                  const rec = dayMap[day];
+                                  const hrs = rec ? (rec.totalMinutes || 0) / 60 : 0;
+                                  return (
+                                    <div key={day} className={`text-center text-sm ${hrs > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                      {hrs > 0 ? formatHours(hrs) : '-'}
+                                    </div>
+                                  );
+                                })}
+                                <div className="text-center text-sm font-semibold text-gray-900">
+                                  {formatHours(record.totalHours - record.overtimeHours)}
+                                </div>
+                                <div />
+                              </div>
+
+                              {/* Overtime row (only if has overtime) */}
+                              {record.overtimeHours > 0 && (
+                                <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center">
+                                  <div className="col-span-3 pl-11 text-xs font-medium text-orange-500">Overtime</div>
+                                  {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
+                                    const rec = dayMap[day];
+                                    const ot = rec ? (rec.overtimeMinutes || 0) / 60 : 0;
+                                    return (
+                                      <div key={day} className={`text-center text-sm ${ot > 0 ? 'text-orange-600 font-medium' : 'text-gray-300'}`}>
+                                        {ot > 0 ? `+${formatHours(ot)}` : '-'}
+                                      </div>
+                                    );
+                                  })}
+                                  <div className="text-center text-sm font-semibold text-orange-600">
+                                    +{formatHours(record.overtimeHours)}
+                                  </div>
+                                  <div />
+                                </div>
+                              )}
+
+                            </>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Mobile: card-based breakdown */}
+                      <div className="md:hidden px-4 py-3 space-y-2">
+                        {record.records && record.records.map((rec, idx) => {
+                          const totalHrs = ((rec.totalMinutes || 0) + (rec.overtimeMinutes || 0)) / 60;
+                          return (
+                            <div key={idx} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100">
+                              <span className="text-sm text-gray-600">
+                                {new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </span>
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium text-gray-900">{formatHours(totalHrs)}</span>
+                                {rec.overtimeMinutes > 0 && (
+                                  <span className="text-xs text-orange-600 font-medium">
+                                    +{formatHours(rec.overtimeMinutes / 60)} OT
+                                  </span>
+                                )}
+                                {getStatusBadge(rec.status.toLowerCase())}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </Card>
@@ -386,70 +477,6 @@ const TimeRecords = () => {
           <span>Overtime</span>
         </div>
       </div>
-
-      {/* Record Detail Modal */}
-      <Modal
-        isOpen={!!selectedRecord}
-        onClose={() => setSelectedRecord(null)}
-        title="Time Record Details"
-        size="md"
-      >
-        {selectedRecord && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <Avatar name={selectedRecord.employee} src={selectedRecord.profilePhoto} size="lg" />
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{selectedRecord.employee}</h3>
-                <p className="text-gray-500">
-                  Week of {formatWeekDisplay(currentWeek.start, currentWeek.end)}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-              <div>
-                <p className="text-sm text-gray-500">Total Hours</p>
-                <p className="text-xl font-bold text-gray-900">{selectedRecord.totalHours}h</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Overtime</p>
-                <p className="text-xl font-bold text-orange-600">{selectedRecord.overtimeHours}h</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Regular Hours</p>
-                <p className="text-xl font-bold text-green-600">
-                  {selectedRecord.totalHours - selectedRecord.overtimeHours}h
-                </p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Status</p>
-                <div className="mt-1">{getStatusBadge(selectedRecord.status)}</div>
-              </div>
-            </div>
-
-            {selectedRecord.records && selectedRecord.records.length > 0 && (
-              <div>
-                <h4 className="font-medium text-gray-900 mb-2">Daily Breakdown</h4>
-                <div className="space-y-2">
-                  {selectedRecord.records.map((rec, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-2 bg-gray-50 rounded">
-                      <span className="text-gray-600">
-                        {new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </span>
-                      <div className="flex items-center gap-4">
-                        <span className="font-medium">
-                          {((rec.totalMinutes || 0) + (rec.overtimeMinutes || 0)) / 60}h
-                        </span>
-                        {getStatusBadge(rec.status.toLowerCase())}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };
