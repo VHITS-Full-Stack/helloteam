@@ -38,9 +38,10 @@ const invoiceService = {
   },
 
   // Trigger invoice generation for a specific period
-  generateInvoices: async (year, month) => {
+  // params: { year, month, frequency, week }
+  generateInvoices: async (params = {}) => {
     try {
-      const response = await api.post('/invoices/generate', { year, month });
+      const response = await api.post('/invoices/generate', params);
       return response;
     } catch (error) {
       throw { error: error.message || 'Failed to generate invoices' };

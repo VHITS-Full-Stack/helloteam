@@ -37,8 +37,18 @@ const Invoices = () => {
 
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generateFrequency, setGenerateFrequency] = useState('monthly');
   const [generateYear, setGenerateYear] = useState(new Date().getFullYear());
   const [generateMonth, setGenerateMonth] = useState(new Date().getMonth() || 12);
+  const [generateWeek, setGenerateWeek] = useState(() => {
+    // Calculate current ISO week number
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  });
   const [generating, setGenerating] = useState(false);
 
   // Status update
@@ -166,7 +176,13 @@ const Invoices = () => {
     setGenerating(true);
     setError('');
     try {
-      const response = await invoiceService.generateInvoices(generateYear, generateMonth);
+      const params = { year: generateYear, frequency: generateFrequency };
+      if (generateFrequency === 'weekly') {
+        params.week = generateWeek;
+      } else {
+        params.month = generateMonth;
+      }
+      const response = await invoiceService.generateInvoices(params);
       if (response.success) {
         setShowGenerateModal(false);
         setSuccess(response.message || 'Invoices generated successfully');
@@ -490,35 +506,96 @@ const Invoices = () => {
       <Modal isOpen={showGenerateModal} onClose={() => setShowGenerateModal(false)} title="Generate Invoices" size="sm">
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Generate invoices for all clients based on approved time records for the selected period.
+            Generate invoices for clients based on approved time records for the selected period.
           </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-              <select
-                value={generateMonth}
-                onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+
+          {/* Frequency Toggle */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+            <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setGenerateFrequency('monthly')}
+                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                  generateFrequency === 'monthly'
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
               >
-                {monthNames.map((name, i) => (
-                  <option key={i + 1} value={i + 1}>{name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-              <input
-                type="number"
-                value={generateYear}
-                onChange={(e) => setGenerateYear(parseInt(e.target.value))}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                min={2020}
-                max={new Date().getFullYear()}
-              />
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setGenerateFrequency('weekly')}
+                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                  generateFrequency === 'weekly'
+                    ? 'bg-primary text-white'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Weekly
+              </button>
             </div>
           </div>
+
+          {generateFrequency === 'monthly' ? (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <select
+                  value={generateMonth}
+                  onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  {monthNames.map((name, i) => (
+                    <option key={i + 1} value={i + 1}>{name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <input
+                  type="number"
+                  value={generateYear}
+                  onChange={(e) => setGenerateYear(parseInt(e.target.value))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  min={2020}
+                  max={new Date().getFullYear()}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Week Number</label>
+                <input
+                  type="number"
+                  value={generateWeek}
+                  onChange={(e) => setGenerateWeek(parseInt(e.target.value))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  min={1}
+                  max={53}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <input
+                  type="number"
+                  value={generateYear}
+                  onChange={(e) => setGenerateYear(parseInt(e.target.value))}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  min={2020}
+                  max={new Date().getFullYear()}
+                />
+              </div>
+            </div>
+          )}
+
           <p className="text-xs text-gray-400">
-            Only approved and auto-approved time records will be included. Existing invoices for the same period will be skipped.
+            {generateFrequency === 'monthly'
+              ? 'Monthly invoices will be generated for MONTHLY_ACH clients only. Existing invoices for the same period will be skipped.'
+              : 'Weekly invoices will be generated for WEEKLY_ACH clients only (Mon-Sun period). Existing invoices will be skipped.'
+            }
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={() => setShowGenerateModal(false)}>Cancel</Button>
