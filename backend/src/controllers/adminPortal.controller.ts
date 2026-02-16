@@ -119,7 +119,7 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
       prisma.timeRecord.findMany({
         where: {
           date: { gte: startOfWeek },
-          status: { in: ['APPROVED', 'PENDING'] },
+          status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
         },
         select: {
           totalMinutes: true,
@@ -137,7 +137,7 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
     const monthlyTimeRecords = await prisma.timeRecord.findMany({
       where: {
         date: { gte: startOfMonth },
-        status: 'APPROVED',
+        status: { in: ['APPROVED', 'AUTO_APPROVED'] },
       },
       select: {
         totalMinutes: true,
@@ -183,7 +183,7 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
     // Get recent time records, leave requests, support tickets in parallel
     const [recentTimeRecords, recentLeaveRequests, recentTickets, recentClients] = await Promise.all([
       prisma.timeRecord.findMany({
-        where: { status: 'APPROVED' },
+        where: { status: { in: ['APPROVED', 'AUTO_APPROVED'] } },
         orderBy: { approvedAt: 'desc' },
         take: 5,
         include: {
@@ -445,7 +445,7 @@ export const getPayrollReadiness = async (req: AuthenticatedRequest, res: Respon
       prisma.timeRecord.findMany({
         where: {
           date: { gte: startOfWeek, lt: endOfWeek },
-          status: 'APPROVED',
+          status: { in: ['APPROVED', 'AUTO_APPROVED'] },
         },
         select: { totalMinutes: true, overtimeMinutes: true },
       }),
@@ -948,7 +948,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       }),
       prisma.timeRecord.count({
         where: {
-          status: 'APPROVED',
+          status: { in: ['APPROVED', 'AUTO_APPROVED'] },
           approvedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       }),

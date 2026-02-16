@@ -247,7 +247,7 @@ export const createTimeAdjustment = async (req: AuthenticatedRequest, res: Respo
       reason: reason.trim(),
       fieldChanged: 'totalMinutes',
       oldTotalMinutes: timeRecord.totalMinutes,
-      requiresReapproval: timeRecord.status === 'APPROVED',
+      requiresReapproval: timeRecord.status === 'APPROVED' || timeRecord.status === 'AUTO_APPROVED',
     };
 
     const updateData: any = {
@@ -302,7 +302,7 @@ export const createTimeAdjustment = async (req: AuthenticatedRequest, res: Respo
     }
 
     // If previously approved, require re-approval
-    if (timeRecord.status === 'APPROVED') {
+    if (timeRecord.status === 'APPROVED' || timeRecord.status === 'AUTO_APPROVED') {
       updateData.status = 'PENDING';
       updateData.approvedBy = null;
       updateData.approvedAt = null;

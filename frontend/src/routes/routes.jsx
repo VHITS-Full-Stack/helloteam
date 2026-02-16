@@ -52,6 +52,7 @@ const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
 const Payroll = lazy(() => import('../pages/admin/Payroll'));
+const AdminInvoices = lazy(() => import('../pages/admin/invoices/Invoices'));
 const AdminSettings = lazy(() => import('../pages/admin/Settings'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile'));
 const TimeAdjustments = lazy(() => import('../pages/admin/TimeAdjustments'));
@@ -212,6 +213,7 @@ const AppRoutes = () => {
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payroll" element={<Payroll />} />
+          <Route path="invoices" element={<AdminInvoices />} />
           <Route path="reports" element={<AdminAnalytics />} />
           <Route path="time-adjustments" element={<TimeAdjustments />} />
           <Route path="audit-log" element={<AuditLog />} />

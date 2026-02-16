@@ -742,6 +742,36 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       },
     });
 
+    // Fetch time records for these sessions to get approval status
+    const sessionDates = sessions
+      .filter(s => s.startTime)
+      .map(s => {
+        const d = new Date(s.startTime);
+        d.setUTCHours(0, 0, 0, 0);
+        return d;
+      });
+
+    const timeRecords = sessionDates.length > 0
+      ? await prisma.timeRecord.findMany({
+          where: {
+            employeeId: employee.id,
+            date: { in: sessionDates },
+          },
+          select: {
+            date: true,
+            status: true,
+            approvedAt: true,
+          },
+        })
+      : [];
+
+    // Build a lookup: date string -> time record
+    const timeRecordMap = new Map<string, typeof timeRecords[0]>();
+    for (const tr of timeRecords) {
+      const dateKey = tr.date.toISOString().split('T')[0];
+      timeRecordMap.set(dateKey, tr);
+    }
+
     // Calculate work minutes for each session
     const sessionsWithStats = sessions.map(session => {
       const totalMinutes = session.endTime
@@ -749,11 +779,17 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         : 0;
       const workMinutes = totalMinutes - (session.totalBreakMinutes || 0);
 
+      // Match time record by date
+      const sessionDateKey = session.startTime.toISOString().split('T')[0];
+      const timeRecord = timeRecordMap.get(sessionDateKey);
+
       return {
         ...session,
         totalMinutes,
         workMinutes,
         client: clientAssignment?.client || null,
+        approvalStatus: timeRecord?.status || null,
+        approvedAt: timeRecord?.approvedAt || null,
       };
     });
 

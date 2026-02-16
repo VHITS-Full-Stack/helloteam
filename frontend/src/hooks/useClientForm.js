@@ -35,6 +35,8 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     requireTwoWeeksNotice: true,
     allowOvertime: true,
     overtimeRequiresApproval: true,
+    autoApproveTimesheets: false,
+    autoApproveMinutes: 15,
     defaultHourlyRate: 0,
     defaultOvertimeRate: 0,
     currency: 'USD',
@@ -77,6 +79,8 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
               requireTwoWeeksNotice: client.clientPolicies?.requireTwoWeeksNotice ?? true,
               allowOvertime: client.clientPolicies?.allowOvertime ?? true,
               overtimeRequiresApproval: client.clientPolicies?.overtimeRequiresApproval ?? true,
+              autoApproveTimesheets: client.clientPolicies?.autoApproveTimesheets ?? false,
+              autoApproveMinutes: client.clientPolicies?.autoApproveMinutes ?? 15,
               defaultHourlyRate: client.clientPolicies?.defaultHourlyRate || 0,
               defaultOvertimeRate: client.clientPolicies?.defaultOvertimeRate || 0,
               currency: client.clientPolicies?.currency || 'USD',
@@ -106,6 +110,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
         response = await clientService.updateClient(id, {
           ...updateData,
           annualPaidLeaveDays: parseInt(updateData.annualPaidLeaveDays),
+          autoApproveMinutes: parseInt(updateData.autoApproveMinutes) || 15,
           defaultHourlyRate: parseFloat(updateData.defaultHourlyRate) || 0,
           defaultOvertimeRate: parseFloat(updateData.defaultOvertimeRate) || 0,
         });

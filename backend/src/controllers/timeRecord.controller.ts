@@ -37,7 +37,7 @@ export const getMyTimeRecords = async (req: AuthenticatedRequest, res: Response)
     if (endDate) {
       where.date = { ...where.date, lte: new Date(endDate as string) };
     }
-    if (status && ['PENDING', 'APPROVED', 'REJECTED'].includes(status as string)) {
+    if (status && ['PENDING', 'APPROVED', 'AUTO_APPROVED', 'REJECTED'].includes(status as string)) {
       where.status = status;
     }
 
@@ -165,7 +165,7 @@ export const getMyTimeRecordSummary = async (req: AuthenticatedRequest, res: Res
       summary.totalBreakMinutes += record.breakMinutes;
       summary.totalOvertimeMinutes += record.overtimeMinutes;
 
-      if (record.status === 'APPROVED') {
+      if (record.status === 'APPROVED' || record.status === 'AUTO_APPROVED') {
         summary.approvedMinutes += record.totalMinutes - record.breakMinutes;
       } else if (record.status === 'PENDING') {
         summary.pendingMinutes += record.totalMinutes - record.breakMinutes;
@@ -234,7 +234,7 @@ export const getMyPayrollSummary = async (req: AuthenticatedRequest, res: Respon
           gte: startDate,
           lte: endDate,
         },
-        status: 'APPROVED',
+        status: { in: ['APPROVED', 'AUTO_APPROVED'] },
       },
       include: {
         client: {

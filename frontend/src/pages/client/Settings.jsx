@@ -29,6 +29,8 @@ const Settings = () => {
     requireTwoWeeksNotice: true,
     allowOvertime: true,
     overtimeRequiresApproval: true,
+    autoApproveTimesheets: false,
+    autoApproveMinutes: 15,
   });
 
   const [assignedEmployees, setAssignedEmployees] = useState([]);
@@ -483,6 +485,50 @@ const Settings = () => {
                           />
                           <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                         </label>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Timesheet Approval */}
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4">Timesheet Approval</h4>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                      <div>
+                        <p className="font-medium text-gray-900">Auto-Approve Timesheets</p>
+                        <p className="text-sm text-gray-500">Automatically approve pending time entries after a set period</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={policies.autoApproveTimesheets}
+                          onChange={(e) => handlePolicyChange('autoApproveTimesheets', e.target.checked)}
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+                      </label>
+                    </div>
+
+                    {policies.autoApproveTimesheets && (
+                      <div className="p-4 bg-gray-50 rounded-xl">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Auto-Approve After
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            className="input w-24"
+                            value={policies.autoApproveMinutes}
+                            onChange={(e) => handlePolicyChange('autoApproveMinutes', parseInt(e.target.value) || 15)}
+                            min={1}
+                            max={1440}
+                          />
+                          <span className="text-gray-500">minutes</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-2">
+                          Pending time entries will be automatically approved if not reviewed within this time.
+                        </p>
                       </div>
                     )}
                   </div>

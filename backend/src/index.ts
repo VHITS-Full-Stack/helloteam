@@ -3,6 +3,7 @@ import app from './app';
 import { config } from './config';
 import prisma from './config/database';
 import { initializeSocket } from './socket';
+import { initializeJobs } from './jobs';
 
 const startServer = async (): Promise<void> => {
   try {
@@ -16,6 +17,9 @@ const startServer = async (): Promise<void> => {
 
     // Store io on app so controllers can emit events
     app.set('io', io);
+
+    // Initialize cron jobs (auto-approval, invoice generation)
+    initializeJobs(io);
 
     // Start the server
     httpServer.listen(config.port, () => {
