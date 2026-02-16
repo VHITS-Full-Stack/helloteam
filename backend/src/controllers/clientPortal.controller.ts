@@ -161,7 +161,7 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
           gte: startOfWeek,
           lt: endOfWeek,
         },
-        status: { in: ['APPROVED', 'PENDING'] },
+        status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
       },
       select: {
         totalMinutes: true,
@@ -183,7 +183,7 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
           gte: startOfMonth,
           lte: endOfMonth,
         },
-        status: { in: ['APPROVED', 'PENDING'] },
+        status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
       },
       select: {
         totalMinutes: true,
@@ -1308,7 +1308,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       prisma.timeRecord.count({
         where: {
           clientId,
-          status: 'APPROVED',
+          status: { in: ['APPROVED', 'AUTO_APPROVED'] },
           approvedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         },
       }),
@@ -1532,7 +1532,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
         where: {
           clientId,
           date: { gte: startDate, lte: now },
-          status: { in: ['APPROVED', 'PENDING'] },
+          status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
         },
         include: {
           employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true } },
@@ -1542,7 +1542,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
         where: {
           clientId,
           date: { gte: previousStartDate, lt: startDate },
-          status: { in: ['APPROVED', 'PENDING'] },
+          status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
         },
       }),
     ]);
@@ -1559,7 +1559,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
 
     // Calculate productivity (approved / total)
     const approvedHours = currentTimeRecords
-      .filter(tr => tr.status === 'APPROVED')
+      .filter(tr => tr.status === 'APPROVED' || tr.status === 'AUTO_APPROVED')
       .reduce((acc, tr) => acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0) / 60;
     const productivity = currentHours > 0 ? Math.round((approvedHours / currentHours) * 1000) / 10 : 0;
 
@@ -1579,7 +1579,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
       const emp = employeeHoursMap.get(empId);
       const hours = ((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60;
       emp.hours += hours;
-      if (tr.status === 'APPROVED') emp.approvedHours += hours;
+      if (tr.status === 'APPROVED' || tr.status === 'AUTO_APPROVED') emp.approvedHours += hours;
     });
 
     const topPerformersRaw = Array.from(employeeHoursMap.values())
@@ -1724,6 +1724,8 @@ export const getClientSettings = async (req: AuthenticatedRequest, res: Response
           requireTwoWeeksNotice: client.clientPolicies.requireTwoWeeksNotice,
           allowOvertime: client.clientPolicies.allowOvertime,
           overtimeRequiresApproval: client.clientPolicies.overtimeRequiresApproval,
+          autoApproveTimesheets: client.clientPolicies.autoApproveTimesheets,
+          autoApproveMinutes: client.clientPolicies.autoApproveMinutes,
         } : {
           allowPaidLeave: false,
           paidLeaveEntitlementType: null,
@@ -1732,6 +1734,8 @@ export const getClientSettings = async (req: AuthenticatedRequest, res: Response
           requireTwoWeeksNotice: true,
           allowOvertime: true,
           overtimeRequiresApproval: true,
+          autoApproveTimesheets: false,
+          autoApproveMinutes: 15,
         },
         notifications: client.clientPolicies ? {
           timeEntrySubmissions: client.clientPolicies.notifyTimeEntrySubmissions,
@@ -1780,6 +1784,8 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
       requireTwoWeeksNotice,
       allowOvertime,
       overtimeRequiresApproval,
+      autoApproveTimesheets,
+      autoApproveMinutes,
       // Notification fields
       notifications,
       // Preference fields
@@ -1807,6 +1813,8 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
     if (requireTwoWeeksNotice !== undefined) updateData.requireTwoWeeksNotice = requireTwoWeeksNotice;
     if (allowOvertime !== undefined) updateData.allowOvertime = allowOvertime;
     if (overtimeRequiresApproval !== undefined) updateData.overtimeRequiresApproval = overtimeRequiresApproval;
+    if (autoApproveTimesheets !== undefined) updateData.autoApproveTimesheets = autoApproveTimesheets;
+    if (autoApproveMinutes !== undefined) updateData.autoApproveMinutes = parseInt(autoApproveMinutes, 10) || 15;
 
     // Notification fields
     if (notifications) {
@@ -1842,6 +1850,8 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
           allowOvertime: allowOvertime ?? true,
           overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+          autoApproveTimesheets: autoApproveTimesheets ?? false,
+          autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 15,
           notifyTimeEntrySubmissions: notifications?.timeEntrySubmissions ?? true,
           notifyOvertimeAlerts: notifications?.overtimeAlerts ?? true,
           notifyLeaveRequests: notifications?.leaveRequests ?? true,
@@ -1873,6 +1883,8 @@ export const updateClientSettings = async (req: AuthenticatedRequest, res: Respo
           requireTwoWeeksNotice: updatedClient.clientPolicies.requireTwoWeeksNotice,
           allowOvertime: updatedClient.clientPolicies.allowOvertime,
           overtimeRequiresApproval: updatedClient.clientPolicies.overtimeRequiresApproval,
+          autoApproveTimesheets: updatedClient.clientPolicies.autoApproveTimesheets,
+          autoApproveMinutes: updatedClient.clientPolicies.autoApproveMinutes,
         } : null,
         notifications: updatedClient?.clientPolicies ? {
           timeEntrySubmissions: updatedClient.clientPolicies.notifyTimeEntrySubmissions,
@@ -1913,6 +1925,9 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         user: {
           select: { email: true },
         },
+        clientPolicies: {
+          select: { defaultHourlyRate: true },
+        },
       },
     });
 
@@ -1926,15 +1941,14 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    // Get hourly rate (placeholder - should come from client contract)
-    const hourlyRate = 35;
+    const hourlyRate = client.clientPolicies ? Number(client.clientPolicies.defaultHourlyRate) || 0 : 0;
 
     // Current period (this month so far)
     const currentMonthRecords = await prisma.timeRecord.findMany({
       where: {
         clientId,
         date: { gte: startOfMonth, lte: now },
-        status: { in: ['APPROVED', 'PENDING'] },
+        status: { in: ['APPROVED', 'AUTO_APPROVED', 'PENDING'] },
       },
     });
 
@@ -1951,55 +1965,27 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
       where: { clientId, isActive: true },
     });
 
-    // YTD totals
-    const ytdRecords = await prisma.timeRecord.findMany({
+    // YTD totals from real invoices
+    const ytdInvoices = await prisma.invoice.findMany({
       where: {
         clientId,
-        date: { gte: startOfYear, lte: now },
-        status: 'APPROVED',
+        periodStart: { gte: startOfYear },
+        status: { in: ['DRAFT', 'SENT', 'PAID'] },
       },
     });
 
-    const ytdMinutes = ytdRecords.reduce((acc, tr) =>
-      acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0);
-    const ytdHours = ytdMinutes / 60;
-    const ytdTotal = ytdHours * hourlyRate;
-
-    // Monthly average
+    const ytdTotal = ytdInvoices.reduce((acc, inv) => acc + Number(inv.total), 0);
+    const ytdHours = ytdInvoices.reduce((acc, inv) => acc + Number(inv.totalHours), 0);
     const monthsElapsed = now.getMonth() + 1;
-    const avgMonthly = ytdTotal / monthsElapsed;
+    const avgMonthly = monthsElapsed > 0 ? ytdTotal / monthsElapsed : 0;
 
-    // Generate invoice history (last 6 months - simulated)
-    const invoices: any[] = [];
-    for (let i = 1; i <= 6; i++) {
-      const invoiceMonth = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const invoiceEndMonth = new Date(invoiceMonth.getFullYear(), invoiceMonth.getMonth() + 1, 0);
-
-      const monthRecords = await prisma.timeRecord.findMany({
-        where: {
-          clientId,
-          date: { gte: invoiceMonth, lte: invoiceEndMonth },
-          status: 'APPROVED',
-        },
-      });
-
-      const monthMinutes = monthRecords.reduce((acc, tr) =>
-        acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0);
-      const monthHours = monthMinutes / 60;
-
-      if (monthHours > 0) {
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        invoices.push({
-          id: `INV-${invoiceMonth.getFullYear()}-${String(invoiceMonth.getMonth() + 1).padStart(2, '0')}`,
-          period: `${monthNames[invoiceMonth.getMonth()]} ${invoiceMonth.getFullYear()}`,
-          hours: Math.round(monthHours * 10) / 10,
-          amount: Math.round(monthHours * hourlyRate * 100) / 100,
-          status: 'paid',
-          dueDate: new Date(invoiceMonth.getFullYear(), invoiceMonth.getMonth() + 1, 15).toISOString().split('T')[0],
-          paidDate: new Date(invoiceMonth.getFullYear(), invoiceMonth.getMonth() + 1, 12).toISOString().split('T')[0],
-        });
-      }
-    }
+    // Fetch real invoices from database
+    const invoices = await prisma.invoice.findMany({
+      where: { clientId },
+      include: { lineItems: true },
+      orderBy: { periodStart: 'desc' },
+      take: 24,
+    });
 
     res.json({
       success: true,

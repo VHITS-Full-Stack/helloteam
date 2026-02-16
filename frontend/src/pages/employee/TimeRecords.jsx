@@ -261,7 +261,17 @@ const TimeRecords = () => {
     if (session.status === 'ON_BREAK') {
       return <Badge variant="warning" size="xs">On Break</Badge>;
     }
-    if (session.status === 'PENDING' || !session.approvedAt) {
+    // Show approval status from time record
+    if (session.approvalStatus === 'APPROVED') {
+      return <Badge variant="success" size="xs">Approved</Badge>;
+    }
+    if (session.approvalStatus === 'AUTO_APPROVED') {
+      return <Badge variant="success" size="xs">Auto-Approved</Badge>;
+    }
+    if (session.approvalStatus === 'REJECTED') {
+      return <Badge variant="danger" size="xs">Rejected</Badge>;
+    }
+    if (session.approvalStatus === 'PENDING' || !session.approvedAt) {
       return <Badge variant="warning" size="xs">Pending</Badge>;
     }
     return null;

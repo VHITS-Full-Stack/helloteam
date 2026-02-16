@@ -233,11 +233,22 @@ const ClientDetail = () => {
                   </Badge>
                 </div>
               </div>
-              <div className="flex items-center justify-between py-2">
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-xs text-gray-500">Notice Period</span>
                 <Badge variant={pol?.requireTwoWeeksNotice ? 'info' : 'default'} size="sm">
                   {pol?.requireTwoWeeksNotice ? '2 Weeks' : 'Flexible'}
                 </Badge>
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <span className="text-xs text-gray-500">Auto-Approve Timesheets</span>
+                <div className="flex items-center gap-2">
+                  {pol?.autoApproveTimesheets && (
+                    <span className="text-xs text-gray-400">{pol.autoApproveMinutes || 15} min</span>
+                  )}
+                  <Badge variant={pol?.autoApproveTimesheets ? 'success' : 'warning'} size="sm">
+                    {pol?.autoApproveTimesheets ? 'Yes' : 'No'}
+                  </Badge>
+                </div>
               </div>
             </div>
           </Card>

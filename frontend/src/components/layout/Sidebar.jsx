@@ -116,6 +116,12 @@ const Sidebar = ({
       permission: PERMISSIONS.PAYROLL.VIEW
     },
     {
+      to: '/admin/invoices',
+      icon: FileText,
+      label: 'Invoices',
+      permission: PERMISSIONS.PAYROLL.VIEW
+    },
+    {
       to: '/admin/settings',
       icon: Settings,
       label: 'Settings',

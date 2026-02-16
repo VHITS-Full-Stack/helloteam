@@ -41,6 +41,7 @@ enum WorkSessionStatus {
 enum ApprovalStatus {
   PENDING
   APPROVED
+  AUTO_APPROVED
   REJECTED
 }
 
@@ -207,6 +208,7 @@ model Employee {
   emergencyContacts EmergencyContact[]
   tasks             Task[]
   conversations     Conversation[]
+  autoApprovalLogs  AutoApprovalLog[]
 
   @@map("employees")
 }
@@ -239,6 +241,8 @@ model Client {
   agreement      ClientAgreement?
   tasks          Task[]
   conversations  Conversation[]
+  invoices         Invoice[]
+  autoApprovalLogs AutoApprovalLog[]
 
   @@map("clients")
 }
@@ -333,6 +337,10 @@ model ClientPolicy {
   requireTwoWeeksNotice    Boolean @default(true)
   allowOvertime            Boolean @default(true)
   overtimeRequiresApproval Boolean @default(true)
+
+  // Auto-approve configuration
+  autoApproveTimesheets Boolean @default(false)
+  autoApproveMinutes    Int     @default(15)
 
   // Notification preferences
   notifyTimeEntrySubmissions Boolean @default(true)
@@ -490,6 +498,33 @@ model TimeAdjustment {
   @@index([adjustedBy])
   @@index([adjustedAt])
   @@map("time_adjustments")
+}
+
+// ============================================
+// AUTO-APPROVAL LOG
+// ============================================
+
+model AutoApprovalLog {
+  id             String   @id @default(uuid())
+  timeRecordId   String
+  employeeId     String
+  clientId       String
+  recordDate     DateTime @db.Date
+  scheduledEnd   String   // The schedule endTime that was used (HH:MM)
+  approvalDelay  Int      // autoApproveMinutes setting at time of approval
+  approvedAt     DateTime @default(now())
+  actualStart    DateTime?
+  actualEnd      DateTime?
+  totalMinutes   Int      @default(0)
+  clientTimezone String   @default("UTC")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([employeeId])
+  @@index([approvedAt])
+  @@map("auto_approval_logs")
 }
 
 // ============================================
@@ -710,6 +745,8 @@ enum NotificationType {
   TASK_COMMENTED
   TASK_UPDATED
   CHAT_MESSAGE
+  TIMESHEET_AUTO_APPROVED
+  INVOICE_GENERATED
 }
 
 enum MessageType {
@@ -1008,4 +1045,59 @@ model EmergencyContact {
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@map("emergency_contacts")
+}
+
+// ============================================
+// INVOICES
+// ============================================
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  clientId      String
+  invoiceNumber String        @unique
+  periodStart   DateTime      @db.Date
+  periodEnd     DateTime      @db.Date
+  totalHours    Decimal       @default(0) @db.Decimal(10, 2)
+  overtimeHours Decimal       @default(0) @db.Decimal(10, 2)
+  subtotal      Decimal       @default(0) @db.Decimal(10, 2)
+  total         Decimal       @default(0) @db.Decimal(10, 2)
+  currency      String        @default("USD")
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime      @db.Date
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  lineItems InvoiceLineItem[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id           String  @id @default(uuid())
+  invoiceId    String
+  employeeId   String
+  employeeName String
+  hours        Decimal @default(0) @db.Decimal(10, 2)
+  overtimeHours Decimal @default(0) @db.Decimal(10, 2)
+  rate         Decimal @default(0) @db.Decimal(10, 2)
+  overtimeRate Decimal @default(0) @db.Decimal(10, 2)
+  amount       Decimal @default(0) @db.Decimal(10, 2)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_line_items")
 }

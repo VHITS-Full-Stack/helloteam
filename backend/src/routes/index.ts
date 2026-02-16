@@ -23,6 +23,7 @@ import taskRoutes from './task.routes';
 import chatRoutes from './chat.routes';
 import onboardingRoutes from './onboarding.routes';
 import employeeOnboardingRoutes from './employeeOnboarding.routes';
+import invoiceRoutes from './invoice.routes';
 
 const router = Router();
 
@@ -60,6 +61,7 @@ router.use('/tasks', taskRoutes);
 router.use('/chat', chatRoutes);
 router.use('/onboarding', onboardingRoutes);
 router.use('/employee-onboarding', employeeOnboardingRoutes);
+router.use('/invoices', invoiceRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 
 export default router;

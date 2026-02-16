@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CreditCard, Download, FileText, Calendar, DollarSign, Clock, TrendingUp, Loader2 } from 'lucide-react';
+import { CreditCard, Download, FileText, Calendar, DollarSign, Clock, TrendingUp, Loader2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Card,
   Button,
@@ -18,6 +18,7 @@ const Billing = () => {
   const [error, setError] = useState(null);
   const [billingData, setBillingData] = useState(null);
   const [activeTab, setActiveTab] = useState('invoices');
+  const [expandedInvoice, setExpandedInvoice] = useState(null);
 
   const fetchBilling = useCallback(async () => {
     setLoading(true);
@@ -43,15 +44,28 @@ const Billing = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'paid':
-        return <Badge variant="success">Paid</Badge>;
-      case 'pending':
-        return <Badge variant="warning">Pending</Badge>;
-      case 'overdue':
-        return <Badge variant="danger">Overdue</Badge>;
-      default:
-        return <Badge variant="default">{status}</Badge>;
+      case 'PAID': return <Badge variant="success">Paid</Badge>;
+      case 'SENT': return <Badge variant="info">Sent</Badge>;
+      case 'OVERDUE': return <Badge variant="warning">Overdue</Badge>;
+      case 'CANCELLED': return <Badge variant="danger">Cancelled</Badge>;
+      case 'DRAFT': return <Badge variant="default">Draft</Badge>;
+      default: return <Badge variant="default">{status}</Badge>;
     }
+  };
+
+  const formatCurrency = (amount, currency = 'USD') => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
+  };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const formatPeriod = (periodStart) => {
+    if (!periodStart) return '—';
+    const d = new Date(periodStart);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   };
 
   const tabs = [
@@ -60,18 +74,17 @@ const Billing = () => {
   ];
 
   const handleExportStatement = () => {
-    // Generate CSV statement
     if (!billingData?.invoices) return;
 
-    const headers = ['Invoice ID', 'Period', 'Hours', 'Amount', 'Due Date', 'Status', 'Paid Date'];
+    const headers = ['Invoice #', 'Period', 'Hours', 'Overtime Hours', 'Amount', 'Due Date', 'Status'];
     const rows = billingData.invoices.map(inv => [
-      inv.id,
-      inv.period,
-      inv.hours,
-      `$${inv.amount.toLocaleString()}`,
-      inv.dueDate,
+      inv.invoiceNumber,
+      formatPeriod(inv.periodStart),
+      Number(inv.totalHours || 0).toFixed(1),
+      Number(inv.overtimeHours || 0).toFixed(1),
+      formatCurrency(inv.total, inv.currency),
+      formatDate(inv.dueDate),
       inv.status,
-      inv.paidDate || '-',
     ]);
 
     const csvContent = [
@@ -152,10 +165,12 @@ const Billing = () => {
                 <Calendar className="w-4 h-4 text-primary-200" />
                 <span>{currentPeriod.daysRemaining} days remaining</span>
               </div>
-              <div className="flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-primary-200" />
-                <span>${currentPeriod.hourlyRate}/hr rate</span>
-              </div>
+              {currentPeriod.hourlyRate > 0 && (
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-primary-200" />
+                  <span>${currentPeriod.hourlyRate}/hr rate</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="text-right">
@@ -175,7 +190,7 @@ const Billing = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">YTD Total</p>
-              <p className="text-2xl font-bold text-gray-900">${billingStats.ytdTotal.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(billingStats.ytdTotal)}</p>
             </div>
           </div>
         </Card>
@@ -186,7 +201,7 @@ const Billing = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Avg Monthly</p>
-              <p className="text-2xl font-bold text-gray-900">${billingStats.avgMonthly.toLocaleString()}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatCurrency(billingStats.avgMonthly)}</p>
             </div>
           </div>
         </Card>
@@ -242,30 +257,81 @@ const Billing = () => {
               </TableHead>
               <TableBody>
                 {invoices.map((invoice) => (
-                  <TableRow key={invoice.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-gray-100 rounded-lg">
-                          <FileText className="w-5 h-5 text-gray-500" />
+                  <>
+                    <TableRow key={invoice.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gray-100 rounded-lg">
+                            <FileText className="w-5 h-5 text-gray-500" />
+                          </div>
+                          <span className="font-medium text-gray-900">{invoice.invoiceNumber}</span>
                         </div>
-                        <span className="font-medium text-gray-900">{invoice.id}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{invoice.period}</TableCell>
-                    <TableCell>{invoice.hours}h</TableCell>
-                    <TableCell>
-                      <span className="font-semibold text-gray-900">
-                        ${invoice.amount.toLocaleString()}
-                      </span>
-                    </TableCell>
-                    <TableCell>{invoice.dueDate}</TableCell>
-                    <TableCell>{getStatusBadge(invoice.status)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm" icon={Download}>
-                        PDF
-                      </Button>
-                    </TableCell>
-                  </TableRow>
+                      </TableCell>
+                      <TableCell>{formatPeriod(invoice.periodStart)}</TableCell>
+                      <TableCell>
+                        <span>{Number(invoice.totalHours || 0).toFixed(1)}h</span>
+                        {Number(invoice.overtimeHours) > 0 && (
+                          <span className="text-xs text-orange-500 ml-1">+{Number(invoice.overtimeHours).toFixed(1)} OT</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-gray-900">
+                          {formatCurrency(invoice.total, invoice.currency)}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatDate(invoice.dueDate)}</TableCell>
+                      <TableCell>{getStatusBadge(invoice.status)}</TableCell>
+                      <TableCell>
+                        {invoice.lineItems && invoice.lineItems.length > 0 && (
+                          <button
+                            onClick={() => setExpandedInvoice(expandedInvoice === invoice.id ? null : invoice.id)}
+                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            {expandedInvoice === invoice.id ? (
+                              <ChevronUp className="w-4 h-4" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4" />
+                            )}
+                          </button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                    {/* Expanded line items */}
+                    {expandedInvoice === invoice.id && invoice.lineItems && (
+                      <tr key={`${invoice.id}-details`}>
+                        <td colSpan={7} className="px-4 py-3 bg-gray-50">
+                          <div className="ml-12">
+                            <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Line Items</p>
+                            <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
+                              <table className="w-full">
+                                <thead>
+                                  <tr className="bg-gray-50 border-b border-gray-200">
+                                    <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Employee</th>
+                                    <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Hours</th>
+                                    <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT Hours</th>
+                                    <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Rate</th>
+                                    <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Amount</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {invoice.lineItems.map((item) => (
+                                    <tr key={item.id}>
+                                      <td className="px-3 py-2 text-sm text-gray-900">{item.employeeName}</td>
+                                      <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(1)}</td>
+                                      <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours).toFixed(1)}</td>
+                                      <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}/hr</td>
+                                      <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.amount)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </TableBody>
             </Table>

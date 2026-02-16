@@ -804,7 +804,7 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
         gte: new Date(periodStart as string),
         lte: new Date(periodEnd as string),
       },
-      status: 'APPROVED', // Only export approved records
+      status: { in: ['APPROVED', 'AUTO_APPROVED'] }, // Export all approved records
     };
 
     if (clientId) {

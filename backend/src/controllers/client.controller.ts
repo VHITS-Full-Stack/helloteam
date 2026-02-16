@@ -308,6 +308,8 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       requireTwoWeeksNotice,
       allowOvertime,
       overtimeRequiresApproval,
+      autoApproveTimesheets,
+      autoApproveMinutes,
     } = req.body;
 
     // Validate required fields
@@ -387,6 +389,8 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
           allowOvertime: allowOvertime ?? true,
           overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+          autoApproveTimesheets: autoApproveTimesheets ?? false,
+          autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 15,
         },
       });
 
@@ -507,6 +511,8 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       requireTwoWeeksNotice,
       allowOvertime,
       overtimeRequiresApproval,
+      autoApproveTimesheets,
+      autoApproveMinutes,
       // Rate fields
       defaultHourlyRate,
       defaultOvertimeRate,
@@ -579,6 +585,8 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(requireTwoWeeksNotice !== undefined && { requireTwoWeeksNotice }),
             ...(allowOvertime !== undefined && { allowOvertime }),
             ...(overtimeRequiresApproval !== undefined && { overtimeRequiresApproval }),
+            ...(autoApproveTimesheets !== undefined && { autoApproveTimesheets }),
+            ...(autoApproveMinutes !== undefined && { autoApproveMinutes: parseInt(autoApproveMinutes, 10) || 15 }),
             ...(defaultHourlyRate !== undefined && { defaultHourlyRate: parseFloat(defaultHourlyRate) || 0 }),
             ...(defaultOvertimeRate !== undefined && { defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0 }),
             ...(currency !== undefined && { currency }),
@@ -595,6 +603,8 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
             allowOvertime: allowOvertime ?? true,
             overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+            autoApproveTimesheets: autoApproveTimesheets ?? false,
+            autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 15,
             defaultHourlyRate: parseFloat(defaultHourlyRate) || 0,
             defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0,
             currency: currency ?? 'USD',

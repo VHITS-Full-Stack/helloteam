@@ -268,6 +268,35 @@ const AddClient = () => {
                   />
                 </div>
               )}
+              <div className="flex items-center justify-between">
+                <div>
+                  <label className="text-sm text-gray-700">Auto-Approve Timesheets</label>
+                  <p className="text-xs text-gray-400">Auto-approve pending time entries after a set period</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.autoApproveTimesheets}
+                  onChange={(e) => setFormData({ ...formData, autoApproveTimesheets: e.target.checked })}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+              </div>
+              {formData.autoApproveTimesheets && (
+                <div className="pl-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Auto-Approve After (minutes)</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      max="1440"
+                      value={formData.autoApproveMinutes}
+                      onChange={(e) => setFormData({ ...formData, autoApproveMinutes: parseInt(e.target.value) || 15 })}
+                      className="w-24 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    />
+                    <span className="text-sm text-gray-500">minutes</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Default: 15 minutes</p>
+                </div>
+              )}
             </div>
           </div>
 

@@ -25,6 +25,10 @@ import {
   removeEmployeeFromClientGroup,
   getClientEmployeesList,
 } from '../controllers/clientPortal.controller';
+import {
+  getClientInvoices,
+  getClientInvoiceById,
+} from '../controllers/invoice.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
 
@@ -103,6 +107,16 @@ router.get('/analytics', getClientAnalytics);
 
 // Get billing summary
 router.get('/billing', getClientBilling);
+
+// ============================================
+// INVOICE ROUTES
+// ============================================
+
+// Get invoices for this client
+router.get('/invoices', getClientInvoices);
+
+// Get single invoice detail
+router.get('/invoices/:invoiceId', getClientInvoiceById);
 
 // ============================================
 // SETTINGS ROUTES
