@@ -2,6 +2,8 @@ import { Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { createNotification, notifyOvertimeRequest } from './notification.controller';
+import { sendOvertimeRequestEmail } from '../services/email.service';
+import { sendSMS } from '../services/sms.service';
 
 const prisma = new PrismaClient();
 
@@ -124,13 +126,21 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
   try {
     const userId = req.user?.userId;
     const role = req.user?.role;
-    const { employeeId, clientId, date, requestedMinutes, reason } = req.body;
+    const { employeeId, clientId, date, requestedMinutes, estimatedEndTime, reason } = req.body;
 
     // Validate required fields
     if (!date || !requestedMinutes || !reason) {
       return res.status(400).json({
         success: false,
         error: 'Date, requested minutes, and reason are required',
+      });
+    }
+
+    // Validate estimatedEndTime format if provided (HH:MM)
+    if (estimatedEndTime && !/^\d{1,2}:\d{2}$/.test(estimatedEndTime)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Estimated end time must be in HH:MM format',
       });
     }
 
@@ -173,14 +183,21 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
         clientId: finalClientId,
         date: new Date(date),
         requestedMinutes: Number(requestedMinutes),
+        estimatedEndTime: estimatedEndTime || null,
         reason,
       },
     });
 
-    // Notify the client
+    // Notify the client — 3 simultaneous notifications: in-app, email, SMS
     const client = await prisma.client.findUnique({
       where: { id: finalClientId },
-      select: { userId: true },
+      select: {
+        userId: true,
+        companyName: true,
+        contactPerson: true,
+        phone: true,
+        user: { select: { email: true } },
+      },
     });
     const employee = await prisma.employee.findUnique({
       where: { id: finalEmployeeId },
@@ -188,12 +205,45 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
     });
 
     if (client && employee) {
+      const hours = Math.round(requestedMinutes / 60 * 10) / 10;
+      const dateStr = new Date(date).toLocaleDateString();
+      const employeeName = `${employee.firstName} ${employee.lastName}`;
+      const timeInfo = estimatedEndTime ? ` ${estimatedEndTime}` : '';
+
+      // 1. In-app notification
       await notifyOvertimeRequest(
         client.userId,
-        `${employee.firstName} ${employee.lastName}`,
-        Math.round(requestedMinutes / 60 * 10) / 10,
-        new Date(date).toLocaleDateString()
+        employeeName,
+        hours,
+        dateStr,
+        estimatedEndTime || undefined
       );
+
+      // 2. Email notification
+      try {
+        await sendOvertimeRequestEmail(
+          client.user.email,
+          client.contactPerson || client.companyName,
+          employeeName,
+          hours,
+          dateStr,
+          reason
+        );
+      } catch (emailErr) {
+        console.error('[OT] Failed to send email notification:', emailErr);
+      }
+
+      // 3. SMS notification
+      if (client.phone) {
+        try {
+          await sendSMS(
+            client.phone,
+            `OT request pending for ${employeeName} ${dateStr}${timeInfo} — Approve / Deny. Log in to review.`
+          );
+        } catch (smsErr) {
+          console.error('[OT] Failed to send SMS notification:', smsErr);
+        }
+      }
     }
 
     res.status(201).json({
@@ -232,6 +282,28 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
         approvedAt: new Date(),
       },
     });
+
+    // If there's already a PENDING time record with overtime for this date, auto-approve it
+    const existingTimeRecord = await prisma.timeRecord.findFirst({
+      where: {
+        employeeId: request.employeeId,
+        clientId: request.clientId,
+        date: request.date,
+        status: 'PENDING',
+        overtimeMinutes: { gt: 0 },
+      },
+    });
+
+    if (existingTimeRecord) {
+      await prisma.timeRecord.update({
+        where: { id: existingTimeRecord.id },
+        data: {
+          status: 'APPROVED',
+          approvedBy: userId,
+          approvedAt: new Date(),
+        },
+      });
+    }
 
     // Notify the employee
     const employee = await prisma.employee.findUnique({

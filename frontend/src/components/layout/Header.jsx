@@ -134,6 +134,10 @@ const Header = ({
         return 'bg-accent';
       case 'CHAT_MESSAGE':
         return 'bg-primary';
+      case 'SHIFT_ENDING':
+        return 'bg-warning';
+      case 'AUTO_CLOCK_OUT':
+        return 'bg-info';
       default:
         return 'bg-primary';
     }

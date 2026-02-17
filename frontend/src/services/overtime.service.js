@@ -37,6 +37,7 @@ const overtimeService = {
     };
     if (data.employeeId) payload.employeeId = data.employeeId;
     if (data.clientId) payload.clientId = data.clientId;
+    if (data.estimatedEndTime) payload.estimatedEndTime = data.estimatedEndTime;
 
     return await api.post('/overtime-requests', payload);
   },

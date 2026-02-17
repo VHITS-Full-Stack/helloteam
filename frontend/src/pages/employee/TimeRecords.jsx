@@ -253,7 +253,7 @@ const TimeRecords = () => {
     }
   };
 
-  // Get status badge
+  // Get status badge - uses distinct OT colors when session has overtime
   const getStatusBadge = (session) => {
     if (session.status === 'ACTIVE') {
       return null; // Active sessions show time in green instead
@@ -261,18 +261,39 @@ const TimeRecords = () => {
     if (session.status === 'ON_BREAK') {
       return <Badge variant="warning" size="xs">On Break</Badge>;
     }
+
+    const isOT = session.overtimeMinutes > 0;
+
     // Show approval status from time record
     if (session.approvalStatus === 'APPROVED') {
-      return <Badge variant="success" size="xs">Approved</Badge>;
+      return isOT ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-green-100 text-green-800 ring-1 ring-green-300">
+          Approved
+        </span>
+      ) : (
+        <Badge variant="success" size="xs">Approved</Badge>
+      );
     }
     if (session.approvalStatus === 'AUTO_APPROVED') {
       return <Badge variant="success" size="xs">Auto-Approved</Badge>;
     }
     if (session.approvalStatus === 'REJECTED') {
-      return <Badge variant="danger" size="xs">Rejected</Badge>;
+      return isOT ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-800 ring-1 ring-red-300">
+          Denied
+        </span>
+      ) : (
+        <Badge variant="danger" size="xs">Rejected</Badge>
+      );
     }
     if (session.approvalStatus === 'PENDING' || !session.approvedAt) {
-      return <Badge variant="warning" size="xs">Pending</Badge>;
+      return isOT ? (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 ring-1 ring-amber-300">
+          Pending
+        </span>
+      ) : (
+        <Badge variant="warning" size="xs">Pending</Badge>
+      );
     }
     return null;
   };
@@ -474,10 +495,16 @@ const TimeRecords = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((session) => (
+                  {sessions.map((session) => {
+                    const isOT = session.overtimeMinutes > 0;
+                    return (
                     <tr
                       key={session.id}
-                      className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      className={`border-b border-gray-100 transition-colors ${
+                        isOT
+                          ? 'bg-amber-50/60 hover:bg-amber-100/60'
+                          : 'hover:bg-gray-50'
+                      }`}
                     >
                       {/* Date */}
                       <td className="py-3 px-4">
@@ -508,9 +535,16 @@ const TimeRecords = () => {
                         {isActiveSession(session) ? (
                           <span className="text-green-600">-</span>
                         ) : (
-                          <span className="font-medium text-gray-900">
-                            {formatDuration(session.workMinutes)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`font-medium ${isOT ? 'text-amber-700' : 'text-gray-900'}`}>
+                              {formatDuration(session.workMinutes)}
+                            </span>
+                            {isOT && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-200 text-amber-800">
+                                OT +{formatDuration(session.overtimeMinutes)}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
 
@@ -588,7 +622,8 @@ const TimeRecords = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             )}

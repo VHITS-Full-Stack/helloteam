@@ -2,6 +2,9 @@ import { Response, Request } from 'express';
 import { AuthenticatedRequest } from '../types';
 import prisma from '../config/database';
 import { WorkSessionStatus } from '@prisma/client';
+import { sendOTWorkedEmail } from '../services/email.service';
+import { sendSMS } from '../services/sms.service';
+import { createNotification } from './notification.controller';
 
 // Helper function to get client IP address
 const getClientIp = (req: Request): string => {
@@ -104,6 +107,15 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         ],
       },
     });
+
+    // Block clock-in if no schedule is assigned for today
+    if (!schedule) {
+      res.status(400).json({
+        success: false,
+        message: 'You do not have a schedule assigned for today. Please contact your administrator.',
+      });
+      return;
+    }
 
     // Get client IP
     const clientIp = getClientIp(req);
@@ -285,6 +297,23 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       // Create/update time record for each assigned client
       await Promise.all(
         clientAssignments.map(async (assignment) => {
+          // Check if there's a pre-approved OvertimeRequest for this employee/client/date
+          let status: 'PENDING' | 'APPROVED' = 'PENDING';
+          if (overtimeMinutes > 0) {
+            const approvedOT = await prisma.overtimeRequest.findFirst({
+              where: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                status: 'APPROVED',
+              },
+            });
+            if (approvedOT) {
+              // Pre-approved OT → auto-approve the time record immediately
+              status = 'APPROVED';
+            }
+          }
+
           const existing = await prisma.timeRecord.findUnique({
             where: {
               employeeId_clientId_date: {
@@ -299,14 +328,22 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             const newTotal = existing.totalMinutes + totalWorkMinutes;
             const newBreak = existing.breakMinutes + totalBreakMinutes;
             const newOvertime = Math.max(0, newTotal - 480);
+
+            // If overtime was added and pre-approved, update status
+            const updateData: any = {
+              actualEnd: endTime,
+              totalMinutes: newTotal,
+              breakMinutes: newBreak,
+              overtimeMinutes: newOvertime,
+            };
+            if (newOvertime > 0 && status === 'APPROVED' && existing.status === 'PENDING') {
+              updateData.status = 'APPROVED';
+              updateData.approvedAt = new Date();
+            }
+
             await prisma.timeRecord.update({
               where: { id: existing.id },
-              data: {
-                actualEnd: endTime,
-                totalMinutes: newTotal,
-                breakMinutes: newBreak,
-                overtimeMinutes: newOvertime,
-              },
+              data: updateData,
             });
           } else {
             await prisma.timeRecord.create({
@@ -319,12 +356,75 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 totalMinutes: totalWorkMinutes,
                 breakMinutes: totalBreakMinutes,
                 overtimeMinutes,
-                status: 'PENDING',
+                status,
+                approvedAt: status === 'APPROVED' ? new Date() : undefined,
               },
             });
           }
         })
       );
+      // --- Send OT notifications to client(s) if overtime was worked ---
+      if (overtimeMinutes > 0) {
+        const employeeName = `${employee.firstName} ${employee.lastName}`;
+        const now2 = new Date();
+        const dateStr = now2.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+        const otHrs = Math.floor(overtimeMinutes / 60);
+        const otMins = overtimeMinutes % 60;
+        const overtimeHoursStr = otMins > 0 ? `${otHrs}h ${otMins}m` : `${otHrs}h`;
+        const totalHrs = Math.floor(totalWorkMinutes / 60);
+        const totalMins = totalWorkMinutes % 60;
+        const totalHoursStr = totalMins > 0 ? `${totalHrs}h ${totalMins}m` : `${totalHrs}h`;
+
+        for (const assignment of clientAssignments) {
+          try {
+            const client = await prisma.client.findUnique({
+              where: { id: assignment.clientId },
+              include: {
+                user: { select: { id: true, email: true } },
+              },
+            });
+            if (!client) continue;
+
+            const clientName = client.contactPerson || client.companyName;
+
+            // 1. In-app notification
+            try {
+              await createNotification(
+                client.userId,
+                'OVERTIME_REQUEST',
+                'Employee Worked Overtime',
+                `${employeeName} worked ${overtimeHoursStr} overtime on ${dateStr}. Approve or deny.`,
+                { employeeId: employee.id, date: dateStr },
+                '/client/approvals?tab=overtime'
+              );
+            } catch (e) { console.error('[OT-Notify] In-app failed:', e); }
+
+            // 2. Email notification
+            try {
+              await sendOTWorkedEmail(
+                client.user.email,
+                clientName,
+                employeeName,
+                dateStr,
+                overtimeHoursStr,
+                totalHoursStr
+              );
+            } catch (e) { console.error('[OT-Notify] Email failed:', e); }
+
+            // 3. SMS notification
+            if (client.phone) {
+              try {
+                await sendSMS(
+                  client.phone,
+                  `${employeeName} worked OT on ${dateStr} (${overtimeHoursStr}). Approve or deny. Log in to review.`
+                );
+              } catch (e) { console.error('[OT-Notify] SMS failed:', e); }
+            }
+          } catch (e) {
+            console.error(`[OT-Notify] Failed for client ${assignment.clientId}:`, e);
+          }
+        }
+      }
     } else {
       console.warn(`Employee ${employee.id} clocked out but has no active client assignment. No time record created.`);
     }

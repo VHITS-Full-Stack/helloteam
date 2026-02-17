@@ -38,6 +38,7 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
       where.OR = [
         { companyName: { contains: search as string, mode: 'insensitive' } },
         { contactPerson: { contains: search as string, mode: 'insensitive' } },
+        { contacts: { some: { name: { contains: search as string, mode: 'insensitive' } } } },
         { user: { email: { contains: search as string, mode: 'insensitive' } } },
       ];
     }
@@ -63,6 +64,7 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
               createdAt: true,
             },
           },
+          contacts: true,
           employees: {
             where: { isActive: true },
             include: {
@@ -174,6 +176,7 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
             createdAt: true,
           },
         },
+        contacts: true,
         employees: {
           where: { isActive: true },
           include: {
@@ -265,9 +268,9 @@ export const downloadAgreementPdf = async (req: AuthenticatedRequest, res: Respo
 
     // Fall back to template PDF
     const fileName =
-      client.agreementType === 'WEEKLY_ACH'
-        ? 'weekly-ach-agreement.pdf'
-        : 'monthly-ach-agreement.pdf';
+      client.agreementType === 'MONTHLY'
+        ? 'monthly-agreement.pdf'
+        : 'weekly-agreement.pdf';
 
     const filePath = path.join(__dirname, '../../public/agreements', fileName);
 
@@ -292,9 +295,9 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
   try {
     const {
       email,
-      password,
       companyName,
       contactPerson,
+      contacts,
       phone,
       address,
       timezone,
@@ -306,17 +309,23 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       annualPaidLeaveDays,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
+      requireTwoWeeksNoticePaidLeave,
+      requireTwoWeeksNoticeUnpaidLeave,
       allowOvertime,
       overtimeRequiresApproval,
       autoApproveTimesheets,
       autoApproveMinutes,
     } = req.body;
 
+    // Derive primary contact name from contacts array or legacy contactPerson field
+    const contactsList = Array.isArray(contacts) && contacts.length > 0 ? contacts : (contactPerson ? [{ name: contactPerson }] : []);
+    const primaryContactName = contactsList[0]?.name || '';
+
     // Validate required fields
-    if (!email || !password || !companyName || !contactPerson) {
+    if (!email || !companyName || !primaryContactName) {
       res.status(400).json({
         success: false,
-        error: 'Email, password, company name, and contact person are required',
+        error: 'Email, company name, and at least one contact person are required',
       });
       return;
     }
@@ -334,7 +343,8 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
-    // Hash password
+    // Auto-generate password (TODO: use stronger generation in production)
+    const password = 'Welcome@123';
     const hashedPassword = await hashPassword(password);
 
     // Create user, client, and policies in transaction
@@ -354,14 +364,14 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       });
 
       // Determine agreement type
-      const clientAgreementType = agreementType || 'WEEKLY_ACH';
+      const clientAgreementType = agreementType || 'WEEKLY';
 
       // Create client
       const client = await tx.client.create({
         data: {
           userId: user.id,
           companyName,
-          contactPerson,
+          contactPerson: primaryContactName,
           phone,
           address,
           timezone: timezone || 'UTC',
@@ -369,6 +379,21 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           agreementType: clientAgreementType,
         },
       });
+
+      // Create contact person records
+      for (let i = 0; i < contactsList.length; i++) {
+        const c = contactsList[i];
+        await tx.clientContact.create({
+          data: {
+            clientId: client.id,
+            name: c.name?.trim(),
+            position: c.position?.trim() || null,
+            phone: c.phone?.trim() || null,
+            email: c.email?.trim() || null,
+            isPrimary: i === 0,
+          },
+        });
+      }
 
       // Create client agreement record (unsigned)
       await tx.clientAgreement.create({
@@ -387,10 +412,12 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           annualPaidLeaveDays: parseInt(annualPaidLeaveDays, 10) || 0,
           allowUnpaidLeave: allowUnpaidLeave ?? true,
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
+          requireTwoWeeksNoticePaidLeave: requireTwoWeeksNoticePaidLeave ?? true,
+          requireTwoWeeksNoticeUnpaidLeave: requireTwoWeeksNoticeUnpaidLeave ?? true,
           allowOvertime: allowOvertime ?? true,
           overtimeRequiresApproval: overtimeRequiresApproval ?? true,
           autoApproveTimesheets: autoApproveTimesheets ?? false,
-          autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 15,
+          autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
         },
       });
 
@@ -452,6 +479,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       const completeClient = await tx.client.findUnique({
         where: { id: client.id },
         include: {
+          contacts: true,
           user: {
             select: {
               id: true,
@@ -471,9 +499,9 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
     sendClientOnboardingEmail(
       email,
       companyName,
-      contactPerson,
+      primaryContactName,
       password, // plain-text password before hashing
-      agreementType || 'WEEKLY_ACH'
+      agreementType || 'WEEKLY'
     ).catch((err) => console.error('Failed to send onboarding email:', err));
 
     res.status(201).json({
@@ -498,6 +526,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       email,
       companyName,
       contactPerson,
+      contacts,
       phone,
       address,
       timezone,
@@ -509,6 +538,8 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       annualPaidLeaveDays,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
+      requireTwoWeeksNoticePaidLeave,
+      requireTwoWeeksNoticeUnpaidLeave,
       allowOvertime,
       overtimeRequiresApproval,
       autoApproveTimesheets,
@@ -561,17 +592,44 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
         });
       }
 
+      // Determine primary contact name from contacts array
+      const contactsList = Array.isArray(contacts) ? contacts : null;
+      const updatedContactPerson = contactsList && contactsList.length > 0
+        ? contactsList[0].name
+        : contactPerson;
+
       // Update client
       const client = await tx.client.update({
         where: { id },
         data: {
           ...(companyName && { companyName }),
-          ...(contactPerson && { contactPerson }),
+          ...(updatedContactPerson && { contactPerson: updatedContactPerson }),
           ...(phone !== undefined && { phone }),
           ...(address !== undefined && { address }),
           ...(timezone && { timezone }),
         },
       });
+
+      // Update contacts if provided
+      if (contactsList) {
+        // Delete existing contacts and recreate
+        await tx.clientContact.deleteMany({ where: { clientId: id } });
+        for (let i = 0; i < contactsList.length; i++) {
+          const c = contactsList[i];
+          if (c.name?.trim()) {
+            await tx.clientContact.create({
+              data: {
+                clientId: id,
+                name: c.name.trim(),
+                position: c.position?.trim() || null,
+                phone: c.phone?.trim() || null,
+                email: c.email?.trim() || null,
+                isPrimary: i === 0,
+              },
+            });
+          }
+        }
+      }
 
       // Update or create policy
       if (existingClient.clientPolicies) {
@@ -583,10 +641,12 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(annualPaidLeaveDays !== undefined && { annualPaidLeaveDays: parseInt(annualPaidLeaveDays, 10) || 0 }),
             ...(allowUnpaidLeave !== undefined && { allowUnpaidLeave }),
             ...(requireTwoWeeksNotice !== undefined && { requireTwoWeeksNotice }),
+            ...(requireTwoWeeksNoticePaidLeave !== undefined && { requireTwoWeeksNoticePaidLeave }),
+            ...(requireTwoWeeksNoticeUnpaidLeave !== undefined && { requireTwoWeeksNoticeUnpaidLeave }),
             ...(allowOvertime !== undefined && { allowOvertime }),
             ...(overtimeRequiresApproval !== undefined && { overtimeRequiresApproval }),
             ...(autoApproveTimesheets !== undefined && { autoApproveTimesheets }),
-            ...(autoApproveMinutes !== undefined && { autoApproveMinutes: parseInt(autoApproveMinutes, 10) || 15 }),
+            ...(autoApproveMinutes !== undefined && { autoApproveMinutes: parseInt(autoApproveMinutes, 10) || 1440 }),
             ...(defaultHourlyRate !== undefined && { defaultHourlyRate: parseFloat(defaultHourlyRate) || 0 }),
             ...(defaultOvertimeRate !== undefined && { defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0 }),
             ...(currency !== undefined && { currency }),
@@ -601,10 +661,12 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             annualPaidLeaveDays: parseInt(annualPaidLeaveDays, 10) || 0,
             allowUnpaidLeave: allowUnpaidLeave ?? true,
             requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
+            requireTwoWeeksNoticePaidLeave: requireTwoWeeksNoticePaidLeave ?? true,
+            requireTwoWeeksNoticeUnpaidLeave: requireTwoWeeksNoticeUnpaidLeave ?? true,
             allowOvertime: allowOvertime ?? true,
             overtimeRequiresApproval: overtimeRequiresApproval ?? true,
             autoApproveTimesheets: autoApproveTimesheets ?? false,
-            autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 15,
+            autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
             defaultHourlyRate: parseFloat(defaultHourlyRate) || 0,
             defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0,
             currency: currency ?? 'USD',
@@ -654,6 +716,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       const completeClient = await tx.client.findUnique({
         where: { id },
         include: {
+          contacts: true,
           user: {
             select: {
               id: true,

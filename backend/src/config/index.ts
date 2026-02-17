@@ -35,6 +35,12 @@ export const config = {
     from: process.env.EMAIL_FROM || 'Hello Team <noreply@thehelloteam.com>',
   },
 
+  sms: {
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    fromNumber: process.env.TWILIO_FROM_NUMBER || '',
+  },
+
   logging: {
     level: process.env.LOG_LEVEL || 'debug',
   },

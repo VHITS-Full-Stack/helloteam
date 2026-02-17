@@ -33,7 +33,6 @@ const Onboarding = () => {
     businessEIN: '',
     signerName: '',
     signerAddress: '',
-    signerSSN: '',
     // Step 2: Payment
     paymentMethod: '', // 'credit_card', 'ach', 'both'
     useCreditCard: false,
@@ -84,7 +83,6 @@ const Onboarding = () => {
             businessEIN: a.businessEIN || '',
             signerName: a.signerName || '',
             signerAddress: a.signerAddress || '',
-            signerSSN: a.signerSSN || '',
             paymentMethod: a.paymentMethod || '',
             useCreditCard: a.paymentMethod === 'credit_card' || a.paymentMethod === 'both',
             useACH: a.paymentMethod === 'ach' || a.paymentMethod === 'both',
@@ -127,18 +125,6 @@ const Onboarding = () => {
       raw = raw.slice(0, 2) + '/' + raw.slice(2);
     }
     updateField('ccExpiration', raw);
-  };
-
-  // Auto-format SSN: XXX-XX-XXXX
-  const handleSSNChange = (e) => {
-    const raw = e.target.value.replace(/\D/g, '').slice(0, 9);
-    let formatted = raw;
-    if (raw.length > 5) {
-      formatted = raw.slice(0, 3) + '-' + raw.slice(3, 5) + '-' + raw.slice(5);
-    } else if (raw.length > 3) {
-      formatted = raw.slice(0, 3) + '-' + raw.slice(3);
-    }
-    updateField('signerSSN', formatted);
   };
 
   // Auto-format EIN: XX-XXXXXXX
@@ -206,7 +192,6 @@ const Onboarding = () => {
         businessEIN: formData.businessEIN,
         signerName: formData.signerName,
         signerAddress: formData.signerAddress,
-        signerSSN: formData.signerSSN,
       };
 
       if (includePayment) {
@@ -467,7 +452,7 @@ const Onboarding = () => {
     );
   }
 
-  const agreementLabel = agreement?.agreementType === 'WEEKLY_ACH' ? 'Weekly ACH' : 'Monthly ACH';
+  const agreementLabel = agreement?.agreementType === 'WEEKLY' ? 'Weekly' : agreement?.agreementType === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -636,17 +621,6 @@ const Onboarding = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">SSN (optional)</label>
-                <input
-                  type="text"
-                  value={formData.signerSSN}
-                  onChange={handleSSNChange}
-                  placeholder="XXX-XX-XXXX"
-                  maxLength={11}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
             </div>
 
             <div className="flex justify-end mt-6">

@@ -336,10 +336,13 @@ const Approvals = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  const currentItems = activeType === 'time' ? approvals : overtimeRequests;
   const selectableItems = activeType === 'time'
     ? approvals.filter(a => a.type !== 'leave')
     : overtimeRequests;
+
+  // Split time entries into regular and unapproved overtime
+  const regularTimeEntries = approvals.filter(a => a.type !== 'overtime');
+  const unapprovedOvertimeEntries = approvals.filter(a => a.type === 'overtime');
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -557,114 +560,262 @@ const Approvals = () => {
       </div>
 
       {/* Approval Items */}
-      <Card padding="none">
-        {loading ? (
+      {loading ? (
+        <Card padding="none">
           <div className="flex items-center justify-center p-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : currentItems.length > 0 ? (
-          <Table>
-            <TableHead>
-              <TableRow>
-                {activeTab === 'pending' && (
-                  <TableHeader className="w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.length === selectableItems.length && selectableItems.length > 0}
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300"
-                    />
-                  </TableHeader>
-                )}
-                <TableHeader>Employee</TableHeader>
-                {activeType === 'time' && <TableHeader>Type</TableHeader>}
-                <TableHeader>{activeType === 'time' ? 'Description' : 'Reason'}</TableHeader>
-                <TableHeader>Date</TableHeader>
-                <TableHeader>{activeType === 'time' ? 'Hours/Days' : 'Hours'}</TableHeader>
-                <TableHeader>Submitted</TableHeader>
-                {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
-                {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
-                {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {activeType === 'time' ? (
-                // Time Entry Approvals
-                approvals.map((item) => (
-                  <TableRow key={`${item.type}-${item.id}`}>
-                    {activeTab === 'pending' && (
-                      <TableCell>
-                        {item.type !== 'leave' && (
+        </Card>
+      ) : activeType === 'time' ? (
+        /* Time Entries — split into Regular + Unapproved Overtime */
+        <div className="space-y-6">
+          {/* Unapproved Overtime Section */}
+          {unapprovedOvertimeEntries.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-amber-100 rounded-lg">
+                  <AlertCircle className="w-4 h-4 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900">Unapproved Overtime</h3>
+                <Badge variant="warning">{unapprovedOvertimeEntries.length}</Badge>
+                <span className="text-xs text-amber-600 font-medium ml-1">Requires manual approval</span>
+              </div>
+              <Card padding="none" className="border-amber-200 ring-1 ring-amber-100">
+                <Table>
+                  <TableHead>
+                    <TableRow className="bg-amber-50/50">
+                      {activeTab === 'pending' && (
+                        <TableHeader className="w-12">
                           <input
                             type="checkbox"
-                            checked={selectedItems.includes(item.id)}
-                            onChange={() => handleSelectItem(item.id)}
+                            checked={unapprovedOvertimeEntries.every(i => selectedItems.includes(i.id))}
+                            onChange={() => {
+                              const otIds = unapprovedOvertimeEntries.map(i => i.id);
+                              const allSelected = otIds.every(id => selectedItems.includes(id));
+                              if (allSelected) {
+                                setSelectedItems(prev => prev.filter(id => !otIds.includes(id)));
+                              } else {
+                                setSelectedItems(prev => [...new Set([...prev, ...otIds])]);
+                              }
+                            }}
                             className="rounded border-gray-300"
                           />
+                        </TableHeader>
+                      )}
+                      <TableHeader>Employee</TableHeader>
+                      <TableHeader>Description</TableHeader>
+                      <TableHeader>Date</TableHeader>
+                      <TableHeader>Hours</TableHeader>
+                      <TableHeader>Submitted</TableHeader>
+                      {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
+                      {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
+                      {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {unapprovedOvertimeEntries.map((item) => (
+                      <TableRow key={`ot-${item.id}`} className="bg-amber-50/30">
+                        {activeTab === 'pending' && (
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.includes(item.id)}
+                              onChange={() => handleSelectItem(item.id)}
+                              className="rounded border-gray-300"
+                            />
+                          </TableCell>
                         )}
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar name={item.employee} src={item.profilePhoto} size="sm" />
-                        <span className="font-medium">{item.employee}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getTypeBadge(item.type)}</TableCell>
-                    <TableCell>
-                      <div>
-                        <p className="text-gray-900">{item.description}</p>
-                        {item.reason && (
-                          <p className="text-xs text-gray-500 mt-1">Reason: {item.reason}</p>
+                        <TableCell>
+                          <div className="flex items-center gap-3">
+                            <Avatar name={item.employee} src={item.profilePhoto} size="sm" />
+                            <span className="font-medium">{item.employee}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="warning" size="xs">OT</Badge>
+                            <p className="text-gray-900">{item.description}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{formatDate(item.date)}</TableCell>
+                        <TableCell>
+                          <span className="font-medium text-amber-700">{item.hours}h</span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-gray-500">{formatDateTime(item.submittedAt)}</span>
+                        </TableCell>
+                        {activeTab === 'pending' && (
+                          <TableCell>
+                            <div className="flex gap-2">
+                              <Button variant="success" size="sm" icon={CheckCircle} onClick={() => handleApprove(item)} disabled={actionLoading}>
+                                Approve
+                              </Button>
+                              <Button variant="ghost" size="sm" icon={XCircle} onClick={() => handleReject(item)} disabled={actionLoading}>
+                                Reject
+                              </Button>
+                            </div>
+                          </TableCell>
                         )}
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatDate(item.date)}</TableCell>
-                    <TableCell>
-                      {item.hours !== undefined ? `${item.hours}h` : `${item.days} days`}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-500">{formatDateTime(item.submittedAt)}</span>
-                    </TableCell>
+                        {activeTab === 'approved' && (
+                          <TableCell>
+                            <span className="text-sm text-green-600">{formatDateTime(item.approvedAt)}</span>
+                          </TableCell>
+                        )}
+                        {activeTab === 'rejected' && (
+                          <TableCell>
+                            <span className="text-sm text-red-600">{item.rejectionReason || '-'}</span>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          )}
+
+          {/* Regular Time Entries */}
+          <Card padding="none">
+            {regularTimeEntries.length > 0 ? (
+              <Table>
+                <TableHead>
+                  <TableRow>
                     {activeTab === 'pending' && (
+                      <TableHeader className="w-12">
+                        <input
+                          type="checkbox"
+                          checked={regularTimeEntries.filter(a => a.type !== 'leave').every(i => selectedItems.includes(i.id)) && regularTimeEntries.filter(a => a.type !== 'leave').length > 0}
+                          onChange={() => {
+                            const regIds = regularTimeEntries.filter(a => a.type !== 'leave').map(i => i.id);
+                            const allSelected = regIds.every(id => selectedItems.includes(id));
+                            if (allSelected) {
+                              setSelectedItems(prev => prev.filter(id => !regIds.includes(id)));
+                            } else {
+                              setSelectedItems(prev => [...new Set([...prev, ...regIds])]);
+                            }
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                      </TableHeader>
+                    )}
+                    <TableHeader>Employee</TableHeader>
+                    <TableHeader>Type</TableHeader>
+                    <TableHeader>Description</TableHeader>
+                    <TableHeader>Date</TableHeader>
+                    <TableHeader>Hours/Days</TableHeader>
+                    <TableHeader>Submitted</TableHeader>
+                    {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
+                    {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
+                    {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {regularTimeEntries.map((item) => (
+                    <TableRow key={`${item.type}-${item.id}`}>
+                      {activeTab === 'pending' && (
+                        <TableCell>
+                          {item.type !== 'leave' && (
+                            <input
+                              type="checkbox"
+                              checked={selectedItems.includes(item.id)}
+                              onChange={() => handleSelectItem(item.id)}
+                              className="rounded border-gray-300"
+                            />
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="success"
-                            size="sm"
-                            icon={CheckCircle}
-                            onClick={() => handleApprove(item)}
-                            disabled={actionLoading}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={XCircle}
-                            onClick={() => handleReject(item)}
-                            disabled={actionLoading}
-                          >
-                            Reject
-                          </Button>
+                        <div className="flex items-center gap-3">
+                          <Avatar name={item.employee} src={item.profilePhoto} size="sm" />
+                          <span className="font-medium">{item.employee}</span>
                         </div>
                       </TableCell>
-                    )}
-                    {activeTab === 'approved' && (
+                      <TableCell>{getTypeBadge(item.type)}</TableCell>
                       <TableCell>
-                        <span className="text-sm text-green-600">{formatDateTime(item.approvedAt)}</span>
+                        <div>
+                          <p className="text-gray-900">{item.description}</p>
+                          {item.reason && (
+                            <p className="text-xs text-gray-500 mt-1">Reason: {item.reason}</p>
+                          )}
+                        </div>
                       </TableCell>
-                    )}
-                    {activeTab === 'rejected' && (
+                      <TableCell>{formatDate(item.date)}</TableCell>
                       <TableCell>
-                        <span className="text-sm text-red-600">{item.rejectionReason || '-'}</span>
+                        {item.hours !== undefined ? `${item.hours}h` : `${item.days} days`}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))
-              ) : (
-                // Overtime Approvals
-                overtimeRequests.map((request) => (
+                      <TableCell>
+                        <span className="text-sm text-gray-500">{formatDateTime(item.submittedAt)}</span>
+                      </TableCell>
+                      {activeTab === 'pending' && (
+                        <TableCell>
+                          <div className="flex gap-2">
+                            <Button variant="success" size="sm" icon={CheckCircle} onClick={() => handleApprove(item)} disabled={actionLoading}>
+                              Approve
+                            </Button>
+                            <Button variant="ghost" size="sm" icon={XCircle} onClick={() => handleReject(item)} disabled={actionLoading}>
+                              Reject
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                      {activeTab === 'approved' && (
+                        <TableCell>
+                          <span className="text-sm text-green-600">{formatDateTime(item.approvedAt)}</span>
+                        </TableCell>
+                      )}
+                      {activeTab === 'rejected' && (
+                        <TableCell>
+                          <span className="text-sm text-red-600">{item.rejectionReason || '-'}</span>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : unapprovedOvertimeEntries.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No items</h3>
+                <p className="text-gray-500">
+                  {activeTab === 'pending'
+                    ? 'All caught up! No pending time entries.'
+                    : `No ${activeTab} time entries to show.`}
+                </p>
+              </div>
+            ) : null}
+          </Card>
+        </div>
+      ) : (
+        /* Overtime Requests tab */
+        <Card padding="none">
+          {overtimeRequests.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  {activeTab === 'pending' && (
+                    <TableHeader className="w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.length === selectableItems.length && selectableItems.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                    </TableHeader>
+                  )}
+                  <TableHeader>Employee</TableHeader>
+                  <TableHeader>Reason</TableHeader>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader>Hours</TableHeader>
+                  <TableHeader>Submitted</TableHeader>
+                  {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
+                  {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
+                  {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {overtimeRequests.map((request) => (
                   <TableRow key={request.id}>
                     {activeTab === 'pending' && (
                       <TableCell>
@@ -703,22 +854,10 @@ const Approvals = () => {
                     {activeTab === 'pending' && (
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            variant="success"
-                            size="sm"
-                            icon={CheckCircle}
-                            onClick={() => handleApprove(request)}
-                            disabled={actionLoading}
-                          >
+                          <Button variant="success" size="sm" icon={CheckCircle} onClick={() => handleApprove(request)} disabled={actionLoading}>
                             Approve
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={XCircle}
-                            onClick={() => handleReject(request)}
-                            disabled={actionLoading}
-                          >
+                          <Button variant="ghost" size="sm" icon={XCircle} onClick={() => handleReject(request)} disabled={actionLoading}>
                             Reject
                           </Button>
                         </div>
@@ -745,24 +884,24 @@ const Approvals = () => {
                       </TableCell>
                     )}
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        ) : (
-          <div className="p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-gray-400" />
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="p-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-1">No items</h3>
+              <p className="text-gray-500">
+                {activeTab === 'pending'
+                  ? 'All caught up! No pending overtime requests.'
+                  : `No ${activeTab} overtime requests to show.`}
+              </p>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-1">No items</h3>
-            <p className="text-gray-500">
-              {activeTab === 'pending'
-                ? `All caught up! No pending ${activeType === 'time' ? 'time entries' : 'overtime requests'}.`
-                : `No ${activeTab} ${activeType === 'time' ? 'time entries' : 'overtime requests'} to show.`}
-            </p>
-          </div>
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
 
       {/* Approval Modal */}
       <Modal

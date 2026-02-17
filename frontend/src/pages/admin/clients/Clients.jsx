@@ -206,7 +206,7 @@ const Clients = () => {
                         )}
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-gray-900 truncate">{client.companyName}</p>
-                          <p className="text-xs text-gray-500 truncate">{client.contactPerson}</p>
+                          <p className="text-xs text-gray-500 truncate">{client.contacts?.[0]?.name || client.contactPerson}</p>
                         </div>
                       </div>
                     </td>
