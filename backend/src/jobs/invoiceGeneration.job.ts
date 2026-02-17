@@ -97,6 +97,7 @@ const generateInvoiceForClient = async (
       clientId: client.id,
       status: { in: ['APPROVED', 'AUTO_APPROVED'] },
       date: { gte: periodStart, lte: periodEnd },
+      invoiceId: null, // Not already invoiced
     },
     include: {
       employee: {
@@ -105,11 +106,35 @@ const generateInvoiceForClient = async (
     },
   });
 
-  if (timeRecords.length === 0) return false;
+  // Also pick up late-approved OT from previous periods that haven't been invoiced yet.
+  // These are OT records approved after their billing cycle's invoice was already generated.
+  const lateApprovedOT = await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      overtimeMinutes: { gt: 0 },
+      invoiceId: null,
+      date: { lt: periodStart }, // From a previous period
+    },
+    include: {
+      employee: {
+        select: { id: true, firstName: true, lastName: true },
+      },
+    },
+  });
+
+  if (lateApprovedOT.length > 0) {
+    console.log(`[Invoice] Including ${lateApprovedOT.length} late-approved OT record(s) for ${client.companyName}`);
+  }
+
+  // Merge both sets
+  const allRecords = [...timeRecords, ...lateApprovedOT];
+
+  if (allRecords.length === 0) return false;
 
   // Aggregate by employee
   const employeeAgg = new Map<string, EmployeeTimeAggregation>();
-  for (const record of timeRecords) {
+  for (const record of allRecords) {
     const key = record.employeeId;
     if (!employeeAgg.has(key)) {
       employeeAgg.set(key, {
@@ -179,9 +204,9 @@ const generateInvoiceForClient = async (
     });
   }
 
-  // Create invoice with line items in a transaction
+  // Create invoice with line items and mark time records as invoiced — all in one transaction
   const invoice = await prisma.$transaction(async (tx) => {
-    return tx.invoice.create({
+    const inv = await tx.invoice.create({
       data: {
         clientId: client.id,
         invoiceNumber,
@@ -200,6 +225,17 @@ const generateInvoiceForClient = async (
       },
       include: { lineItems: true },
     });
+
+    // Mark all included time records with this invoice ID
+    const recordIds = allRecords.map((r) => r.id);
+    if (recordIds.length > 0) {
+      await tx.timeRecord.updateMany({
+        where: { id: { in: recordIds } },
+        data: { invoiceId: inv.id },
+      });
+    }
+
+    return inv;
   });
 
   // Notify the client
@@ -270,7 +306,7 @@ const generateInvoiceForClient = async (
 
 /**
  * Generate monthly invoices for a specific month/year.
- * Only processes clients with MONTHLY_ACH agreement type (or null for backward compatibility).
+ * Only processes clients with MONTHLY agreement type (or null for backward compatibility).
  */
 export const generateInvoicesForPeriod = async (
   year: number,
@@ -285,11 +321,11 @@ export const generateInvoicesForPeriod = async (
     const periodEnd = new Date(Date.UTC(year, month, 0)); // Last day of month
     const dueDate = new Date(Date.UTC(year, month, 15)); // Due 15th of next month
 
-    // Only monthly clients (MONTHLY_ACH or null/unset — backward compatible)
+    // Only monthly clients (MONTHLY or null/unset — backward compatible)
     const clients = await prisma.client.findMany({
       where: {
         user: { status: 'ACTIVE' },
-        agreementType: { not: 'WEEKLY_ACH' },
+        agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
       },
       include: {
         clientPolicies: true,
@@ -336,7 +372,7 @@ export const generateInvoicesForPeriod = async (
 
 /**
  * Generate weekly invoices for a specific week.
- * Only processes clients with WEEKLY_ACH agreement type.
+ * Only processes clients with WEEKLY or BI_WEEKLY agreement type.
  */
 export const generateWeeklyInvoicesForWeek = async (
   year: number,
@@ -354,11 +390,11 @@ export const generateWeeklyInvoicesForWeek = async (
     const dueDate = new Date(sunday);
     dueDate.setUTCDate(sunday.getUTCDate() + 7); // Due 7 days after period end
 
-    // Only weekly clients
+    // Only weekly and bi-weekly clients
     const clients = await prisma.client.findMany({
       where: {
         user: { status: 'ACTIVE' },
-        agreementType: 'WEEKLY_ACH',
+        agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
       },
       include: {
         clientPolicies: true,
@@ -400,7 +436,7 @@ export const generateWeeklyInvoicesForWeek = async (
 };
 
 /**
- * Weekly cron handler: generates invoices for the previous week (Mon–Sun) for WEEKLY_ACH clients.
+ * Weekly cron handler: generates invoices for the previous week (Mon–Sun) for WEEKLY and BI_WEEKLY clients.
  */
 export const runWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => {
   const now = new Date();
@@ -417,7 +453,7 @@ export const runWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => 
 };
 
 /**
- * Monthly cron handler: generates invoices for the previous month for MONTHLY_ACH clients.
+ * Monthly cron handler: generates invoices for the previous month for MONTHLY clients.
  */
 export const runMonthlyInvoiceGeneration = async (io?: Server): Promise<void> => {
   const now = new Date();

@@ -5,36 +5,65 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 
+// Reliable date formatting — avoids toLocaleDateString locale inconsistencies
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+/** Long-form date for agreement text: "February 17, 2026" */
+function formatAgreementDate(date: Date): string {
+  return `${MONTH_NAMES[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+}
+
+/** Compact date for tables (Exhibit A): "02/17/2026" */
+function formatCompactDate(date: Date): string {
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${m}/${d}/${date.getFullYear()}`;
+}
+
 // PDF field coordinates for US Letter (612x792 points, bottom-left origin)
+// Coordinates calibrated against template grid overlay (Feb 2026)
 const PDF_FIELDS = {
-  // Page 0 (Cover)
-  coverClientName: { page: 0, x: 72, y: 595, size: 14 },
-  coverDate: { page: 0, x: 430, y: 720, size: 11 },
-  // Page 1 (Parties)
-  businessName: { page: 1, x: 250, y: 485, size: 10 },
-  businessAddress: { page: 1, x: 250, y: 465, size: 10 },
-  businessEIN: { page: 1, x: 250, y: 445, size: 10 },
-  signerName: { page: 1, x: 250, y: 425, size: 10 },
-  signerAddress: { page: 1, x: 250, y: 405, size: 10 },
-  signerSSN: { page: 1, x: 215, y: 365, size: 10 },
-  partiesDate: { page: 1, x: 430, y: 505, size: 10 },
-  // Page 6 (Signatures)
-  sigRecipientName: { page: 6, x: 72, y: 565, size: 10 },
-  sigSignerName: { page: 6, x: 72, y: 540, size: 10 },
-  sigDate: { page: 6, x: 300, y: 540, size: 10 },
+  // Page 0 (Cover) — over yellow placeholder text
+  coverClientName: { page: 0, x: 72, y: 617, size: 14 },
+  coverEmployeeNames: { page: 0, x: 72, y: 595, size: 11 },
+  coverDate: { page: 0, x: 459, y: 732, size: 12 },
+  // Page 1 (Parties) — on underline blanks
+  partiesDate: { page: 1, x: 372, y: 677, size: 11 },
+  businessName: { page: 1, x: 312, y: 502, size: 11 },
+  businessAddress: { page: 1, x: 120, y: 478, size: 11 },
+  businessEIN: { page: 1, x: 168, y: 455, size: 11 },
+  signerName: { page: 1, x: 263, y: 432, size: 11 },
+  signerAddress: { page: 1, x: 120, y: 410, size: 11 },
+  // Page 6 (Signatures) — fields near top of page
+  sigRecipientName: { page: 6, x: 110, y: 598, size: 11 },
+  sigSignerName: { page: 6, x: 355, y: 598, size: 11 },
+  sigDate: { page: 6, x: 345, y: 575, size: 11 },
   // Page 8 (Exhibit B - Payment)
-  ccCardholderName: { page: 8, x: 200, y: 610, size: 9 },
-  ccBillingAddress: { page: 8, x: 200, y: 595, size: 9 },
-  ccCityStateZip: { page: 8, x: 200, y: 580, size: 9 },
-  ccCardNumber: { page: 8, x: 200, y: 550, size: 9 },
-  ccExpiration: { page: 8, x: 200, y: 535, size: 9 },
-  ccCVV: { page: 8, x: 350, y: 535, size: 9 },
-  achAccountHolder: { page: 8, x: 300, y: 375, size: 9 },
-  achBankName: { page: 8, x: 300, y: 360, size: 9 },
-  achRoutingNumber: { page: 8, x: 300, y: 345, size: 9 },
-  achAccountNumber: { page: 8, x: 300, y: 330, size: 9 },
-  consentSignerName: { page: 8, x: 200, y: 270, size: 9 },
-  consentDate: { page: 8, x: 400, y: 270, size: 9 },
+  ccCardholderName: { page: 8, x: 175, y: 618, size: 10 },
+  ccBillingAddress: { page: 8, x: 165, y: 593, size: 10 },
+  ccCityStateZip: { page: 8, x: 155, y: 570, size: 10 },
+  ccCardNumber: { page: 8, x: 162, y: 522, size: 10 },
+  ccExpiration: { page: 8, x: 220, y: 498, size: 10 },
+  ccCVV: { page: 8, x: 360, y: 498, size: 10 },
+  achAccountHolder: { page: 8, x: 200, y: 400, size: 10 },
+  achBankName: { page: 8, x: 72, y: 377, size: 10 },
+  achRoutingNumber: { page: 8, x: 72, y: 355, size: 10 },
+  achAccountNumber: { page: 8, x: 72, y: 332, size: 10 },
+  consentSignerName: { page: 8, x: 210, y: 225, size: 10 },
+  consentDate: { page: 8, x: 415, y: 200, size: 10 },
+};
+
+// Exhibit A (Page 7) — Personnel & Rates table
+const EXHIBIT_A = {
+  page: 7,
+  startY: 653,
+  rowSpacing: 25,
+  maxRows: 6,
+  columns: { name: 72, position: 195, rate: 310, startDate: 380, notes: 450 },
+  size: 10,
 };
 
 // GET /api/onboarding/agreement - Returns agreement details & status
@@ -72,7 +101,6 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
               businessEIN: client.agreement.businessEIN,
               signerName: client.agreement.signerName,
               signerAddress: client.agreement.signerAddress,
-              signerSSN: client.agreement.signerSSN,
               // Payment info
               paymentMethod: client.agreement.paymentMethod,
               ccCardholderName: client.agreement.ccCardholderName,
@@ -114,9 +142,9 @@ export const getAgreementPdf = async (req: AuthenticatedRequest, res: Response):
     }
 
     const fileName =
-      client.agreementType === 'WEEKLY_ACH'
-        ? 'weekly-ach-agreement.pdf'
-        : 'monthly-ach-agreement.pdf';
+      client.agreementType === 'MONTHLY'
+        ? 'monthly-agreement.pdf'
+        : 'weekly-agreement.pdf';
 
     const filePath = path.join(__dirname, '../../public/agreements', fileName);
 
@@ -136,13 +164,22 @@ export const getAgreementPdf = async (req: AuthenticatedRequest, res: Response):
 
 // Helper: get template PDF path for a client
 function getTemplatePath(agreementType: string | null): string {
-  const fileName = agreementType === 'WEEKLY_ACH'
-    ? 'weekly-ach-agreement.pdf'
-    : 'monthly-ach-agreement.pdf';
+  const fileName = agreementType === 'MONTHLY'
+    ? 'monthly-agreement.pdf'
+    : 'weekly-agreement.pdf';
   return path.join(__dirname, '../../public/agreements', fileName);
 }
 
-// Helper: fill PDF with business/payment data
+// Employee data for Exhibit A
+type EmployeeForPdf = {
+  name: string;
+  position?: string;
+  hourlyRate?: string;
+  startDate?: string;
+  notes?: string;
+};
+
+// Helper: fill PDF with business/payment/employee data
 async function fillPdfWithData(
   pdfBytes: Buffer,
   data: {
@@ -151,7 +188,6 @@ async function fillPdfWithData(
     businessEIN?: string | null;
     signerName?: string | null;
     signerAddress?: string | null;
-    signerSSN?: string | null;
     paymentMethod?: string | null;
     ccCardholderName?: string | null;
     ccBillingAddress?: string | null;
@@ -166,12 +202,13 @@ async function fillPdfWithData(
     achAccountNumber?: string | null;
     achAccountType?: string | null;
     companyName?: string;
+    employees?: EmployeeForPdf[];
   }
 ): Promise<PDFDocument> {
   const pdfDoc = await PDFDocument.load(pdfBytes);
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
-  const today = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  const today = formatAgreementDate(new Date());
 
   const drawText = (fieldKey: keyof typeof PDF_FIELDS, text: string | null | undefined) => {
     if (!text) return;
@@ -186,23 +223,62 @@ async function fillPdfWithData(
     });
   };
 
-  // Page 0 - Cover
+  // Page 0 - Cover: white-out yellow placeholders then draw values
+  if (pages.length > 0) {
+    // Cover "Insert Client Name" placeholder (yellow highlight)
+    pages[0].drawRectangle({ x: 66, y: 604, width: 210, height: 30, color: rgb(1, 1, 1) });
+    // Cover "Insert Date" placeholder (yellow highlight)
+    pages[0].drawRectangle({ x: 438, y: 724, width: 135, height: 22, color: rgb(1, 1, 1) });
+  }
   drawText('coverClientName', data.companyName || data.businessName);
+  // Employee names on cover page
+  if (data.employees && data.employees.length > 0) {
+    const names = data.employees.map((e) => e.name).join(', ');
+    drawText('coverEmployeeNames', names);
+  }
   drawText('coverDate', today);
 
   // Page 1 - Parties
+  drawText('partiesDate', today);
   drawText('businessName', data.businessName);
   drawText('businessAddress', data.businessAddress);
   drawText('businessEIN', data.businessEIN);
   drawText('signerName', data.signerName);
   drawText('signerAddress', data.signerAddress);
-  drawText('signerSSN', data.signerSSN);
-  drawText('partiesDate', today);
 
   // Page 6 - Signatures
   drawText('sigRecipientName', data.businessName);
   drawText('sigSignerName', data.signerName);
   drawText('sigDate', today);
+
+  // Page 7 - Exhibit A (Personnel & Rates)
+  if (data.employees && data.employees.length > 0 && EXHIBIT_A.page < pages.length) {
+    const exhibitPage = pages[EXHIBIT_A.page];
+    const cols = EXHIBIT_A.columns;
+    const rows = Math.min(data.employees.length, EXHIBIT_A.maxRows);
+
+    for (let i = 0; i < rows; i++) {
+      const emp = data.employees[i];
+      const y = EXHIBIT_A.startY - i * EXHIBIT_A.rowSpacing;
+      const sz = EXHIBIT_A.size;
+
+      if (emp.name) {
+        exhibitPage.drawText(emp.name, { x: cols.name, y, size: sz, font, color: rgb(0, 0, 0) });
+      }
+      if (emp.position) {
+        exhibitPage.drawText(emp.position, { x: cols.position, y, size: sz, font, color: rgb(0, 0, 0) });
+      }
+      if (emp.hourlyRate) {
+        exhibitPage.drawText(emp.hourlyRate, { x: cols.rate, y, size: sz, font, color: rgb(0, 0, 0) });
+      }
+      if (emp.startDate) {
+        exhibitPage.drawText(emp.startDate, { x: cols.startDate, y, size: sz, font, color: rgb(0, 0, 0) });
+      }
+      if (emp.notes) {
+        exhibitPage.drawText(emp.notes, { x: cols.notes, y, size: sz, font, color: rgb(0, 0, 0) });
+      }
+    }
+  }
 
   // Page 8 - Exhibit B (Payment)
   const pm = data.paymentMethod;
@@ -214,19 +290,19 @@ async function fillPdfWithData(
     drawText('ccExpiration', data.ccExpiration);
     drawText('ccCVV', data.ccCVV);
 
-    // Card type checkmark
+    // Card type checkmark (X inside ☐)
     if (data.ccCardType) {
       const cardTypePositions: Record<string, number> = {
-        'Visa': 200,
-        'MasterCard': 260,
-        'American Express': 340,
-        'Discover': 440,
+        'Visa': 142,
+        'MasterCard': 234,
+        'American Express': 367,
+        'Discover': 510,
       };
       const xPos = cardTypePositions[data.ccCardType];
       if (xPos && PDF_FIELDS.ccCardholderName.page < pages.length) {
         pages[PDF_FIELDS.ccCardholderName.page].drawText('X', {
           x: xPos,
-          y: 565,
+          y: 549,
           size: 10,
           font,
           color: rgb(0, 0, 0),
@@ -241,17 +317,17 @@ async function fillPdfWithData(
     drawText('achRoutingNumber', data.achRoutingNumber);
     drawText('achAccountNumber', data.achAccountNumber);
 
-    // Account type checkmark
+    // Account type checkmark (X inside ☐)
     if (data.achAccountType) {
       const accountTypePositions: Record<string, number> = {
-        'Checking': 300,
-        'Savings': 380,
+        'Checking': 174,
+        'Savings': 292,
       };
       const xPos = accountTypePositions[data.achAccountType];
       if (xPos && PDF_FIELDS.achAccountHolder.page < pages.length) {
         pages[PDF_FIELDS.achAccountHolder.page].drawText('X', {
           x: xPos,
-          y: 315,
+          y: 313,
           size: 10,
           font,
           color: rgb(0, 0, 0),
@@ -260,7 +336,7 @@ async function fillPdfWithData(
     }
   }
 
-  // Consent line
+  // Consent line (Section 3)
   drawText('consentSignerName', data.signerName);
   drawText('consentDate', today);
 
@@ -277,7 +353,7 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
 
     const {
       businessName, businessAddress, businessEIN,
-      signerName, signerAddress, signerSSN,
+      signerName, signerAddress,
       paymentMethod,
       ccCardholderName, ccBillingAddress, ccCityStateZip, ccCardType,
       ccCardNumber, ccExpiration, ccCVV,
@@ -327,7 +403,6 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       businessEIN: businessEIN?.trim() || null,
       signerName: signerName?.trim(),
       signerAddress: signerAddress?.trim() || null,
-      signerSSN: signerSSN?.trim() || null,
     };
 
     // Only update payment fields if paymentMethod is provided
@@ -357,7 +432,7 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       await prisma.clientAgreement.create({
         data: {
           clientId: client.id,
-          agreementType: client.agreementType || 'WEEKLY_ACH',
+          agreementType: client.agreementType || 'WEEKLY',
           ...updateData,
         },
       });
@@ -380,7 +455,17 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
 
     const client = await prisma.client.findUnique({
       where: { userId: req.user.userId },
-      include: { agreement: true },
+      include: {
+        agreement: true,
+        employees: {
+          where: { isActive: true },
+          include: {
+            employee: {
+              select: { firstName: true, lastName: true, billingRate: true, hireDate: true },
+            },
+          },
+        },
+      },
     });
 
     if (!client) {
@@ -397,13 +482,25 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
     const templateBytes = fs.readFileSync(templatePath);
     const agreement = client.agreement;
 
+    // Build employee list for Exhibit A
+    const employees: EmployeeForPdf[] = (client.employees || []).map((ce) => ({
+      name: `${ce.employee.firstName} ${ce.employee.lastName}`,
+      hourlyRate: ce.hourlyRate
+        ? `$${Number(ce.hourlyRate).toFixed(2)}`
+        : ce.employee.billingRate
+          ? `$${Number(ce.employee.billingRate).toFixed(2)}`
+          : '',
+      startDate: ce.assignedAt
+        ? formatCompactDate(new Date(ce.assignedAt))
+        : '',
+    }));
+
     const pdfDoc = await fillPdfWithData(templateBytes, {
       businessName: agreement?.businessName,
       businessAddress: agreement?.businessAddress,
       businessEIN: agreement?.businessEIN,
       signerName: agreement?.signerName,
       signerAddress: agreement?.signerAddress,
-      signerSSN: agreement?.signerSSN,
       paymentMethod: agreement?.paymentMethod,
       ccCardholderName: agreement?.ccCardholderName,
       ccBillingAddress: agreement?.ccBillingAddress,
@@ -418,6 +515,7 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
       achAccountNumber: agreement?.achAccountNumber,
       achAccountType: agreement?.achAccountType,
       companyName: client.companyName,
+      employees,
     });
 
     const pdfOutputBytes = await pdfDoc.save();
@@ -461,7 +559,17 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
 
     const client = await prisma.client.findUnique({
       where: { userId: req.user.userId },
-      include: { agreement: true },
+      include: {
+        agreement: true,
+        employees: {
+          where: { isActive: true },
+          include: {
+            employee: {
+              select: { firstName: true, lastName: true, billingRate: true, hireDate: true },
+            },
+          },
+        },
+      },
     });
 
     if (!client) {
@@ -490,13 +598,25 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
         const templateBytes = fs.readFileSync(templatePath);
         const agreement = client.agreement;
 
+        // Build employee list for Exhibit A
+        const employees: EmployeeForPdf[] = (client.employees || []).map((ce) => ({
+          name: `${ce.employee.firstName} ${ce.employee.lastName}`,
+          hourlyRate: ce.hourlyRate
+            ? `$${Number(ce.hourlyRate).toFixed(2)}`
+            : ce.employee.billingRate
+              ? `$${Number(ce.employee.billingRate).toFixed(2)}`
+              : '',
+          startDate: ce.assignedAt
+            ? new Date(ce.assignedAt).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' })
+            : '',
+        }));
+
         const pdfDoc = await fillPdfWithData(templateBytes, {
           businessName: agreement?.businessName,
           businessAddress: agreement?.businessAddress,
           businessEIN: agreement?.businessEIN,
           signerName: agreement?.signerName,
           signerAddress: agreement?.signerAddress,
-          signerSSN: agreement?.signerSSN,
           paymentMethod: agreement?.paymentMethod,
           ccCardholderName: agreement?.ccCardholderName,
           ccBillingAddress: agreement?.ccBillingAddress,
@@ -511,9 +631,10 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
           achAccountNumber: agreement?.achAccountNumber,
           achAccountType: agreement?.achAccountType,
           companyName: client.companyName,
+          employees,
         });
 
-        // Embed signature image on page 6 (signatures) and page 8 (Exhibit B)
+        // Embed signature image on page 6 (signatures) and page 8 (Exhibit B consent)
         if (signatureImage) {
           const pages = pdfDoc.getPages();
           const base64Data = signatureImage.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
@@ -529,21 +650,21 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
           const sigWidth = 150;
           const sigHeight = (embeddedImage.height / embeddedImage.width) * sigWidth;
 
-          // Page 6 - Signature area
+          // Page 6 - Recipient signature area (on "Signature: ____" line at y≈575)
           if (pages.length > 6) {
             pages[6].drawImage(embeddedImage, {
               x: 72,
-              y: 480,
+              y: 548,
               width: sigWidth,
               height: sigHeight,
             });
           }
 
-          // Page 8 - Exhibit B consent signature
+          // Page 8 - Exhibit B consent signature (on "Signature: ____" line at y≈200)
           if (pages.length > 8) {
             pages[8].drawImage(embeddedImage, {
               x: 72,
-              y: 220,
+              y: 175,
               width: sigWidth * 0.8,
               height: sigHeight * 0.8,
             });
@@ -576,7 +697,7 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
         await tx.clientAgreement.create({
           data: {
             clientId: client.id,
-            agreementType: client.agreementType || 'WEEKLY_ACH',
+            agreementType: client.agreementType || 'WEEKLY',
             signedAt: new Date(),
             signedByName: signedByName.trim(),
             signedByIP: clientIp,

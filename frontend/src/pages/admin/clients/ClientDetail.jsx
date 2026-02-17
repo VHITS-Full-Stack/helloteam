@@ -93,7 +93,7 @@ const ClientDetail = () => {
     if (success) navigate('/admin/clients');
   };
 
-  const agreementLabel = client?.agreementType === 'WEEKLY_ACH' ? 'Weekly ACH' : client?.agreementType === 'MONTHLY_ACH' ? 'Monthly ACH' : client?.agreementType || 'N/A';
+  const agreementLabel = client?.agreementType === 'WEEKLY' ? 'Weekly' : client?.agreementType === 'BI_WEEKLY' ? 'Bi-Weekly' : client?.agreementType === 'MONTHLY' ? 'Monthly' : client?.agreementType || 'N/A';
 
   if (loading) {
     return (
@@ -145,7 +145,7 @@ const ClientDetail = () => {
                 {client.user?.status}
               </Badge>
             </div>
-            <p className="text-xs text-gray-500">{client.contactPerson} &middot; {client.user?.email}</p>
+            <p className="text-xs text-gray-500">{client.contacts?.[0]?.name || client.contactPerson} &middot; {client.user?.email}</p>
           </div>
         </div>
         <div className="flex gap-1.5">
@@ -193,13 +193,37 @@ const ClientDetail = () => {
         <div className="space-y-4">
           {/* Contact Info */}
           <Card>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Company Info</h3>
             <InfoRow label="Email" value={client.user?.email} icon={Mail} />
             <InfoRow label="Phone" value={client.phone || 'Not provided'} icon={Phone} />
             <InfoRow label="Address" value={client.address || 'Not provided'} icon={MapPin} />
             <InfoRow label="Timezone" value={client.timezone || 'UTC'} icon={Clock} />
             <InfoRow label="Member Since" value={new Date(client.createdAt).toLocaleDateString()} icon={Calendar} />
           </Card>
+
+          {/* Contact Persons */}
+          {client.contacts && client.contacts.length > 0 && (
+            <Card>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact Persons</h3>
+              <div className="space-y-2">
+                {client.contacts.map((contact, idx) => (
+                  <div key={contact.id || idx} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">
+                        {contact.name}
+                        {idx === 0 && <span className="ml-1.5 text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded-full font-medium">Primary</span>}
+                      </p>
+                      {contact.position && <p className="text-xs text-gray-500">{contact.position}</p>}
+                    </div>
+                    <div className="text-right">
+                      {contact.phone && <p className="text-xs text-gray-500">{contact.phone}</p>}
+                      {contact.email && <p className="text-xs text-gray-500">{contact.email}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Policies */}
           <Card>

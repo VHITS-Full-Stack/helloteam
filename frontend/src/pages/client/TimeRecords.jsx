@@ -343,11 +343,18 @@ const TimeRecords = () => {
                     </div>
 
                     {/* Daily Hours - hidden on mobile */}
-                    {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => (
-                      <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day])}`}>
-                        {record.dailyHours?.[day] > 0 ? formatHours(record.dailyHours[day]) : '-'}
-                      </div>
-                    ))}
+                    {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
+                      const hasOTDay = record.dailyOvertimeHours?.[day] > 0;
+                      return (
+                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day])}`}>
+                          {record.dailyHours?.[day] > 0 ? (
+                            <span className={hasOTDay ? 'text-amber-700 font-semibold' : ''}>
+                              {formatHours(record.dailyHours[day])}
+                            </span>
+                          ) : '-'}
+                        </div>
+                      );
+                    })}
 
                     {/* Total */}
                     <div className="hidden md:block text-center font-semibold text-gray-900">
@@ -408,18 +415,36 @@ const TimeRecords = () => {
 
                               {/* Overtime row (only if has overtime) */}
                               {record.overtimeHours > 0 && (
-                                <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center">
-                                  <div className="col-span-3 pl-11 text-xs font-medium text-orange-500">Overtime</div>
+                                <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center bg-amber-50/50 border-l-2 border-amber-400">
+                                  <div className="col-span-3 pl-11 text-xs font-medium text-amber-600">
+                                    Overtime
+                                  </div>
                                   {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
                                     const rec = dayMap[day];
                                     const ot = rec ? (rec.overtimeMinutes || 0) / 60 : 0;
+                                    const otStatus = rec && rec.overtimeMinutes > 0 ? (rec.status || '').toLowerCase() : null;
                                     return (
-                                      <div key={day} className={`text-center text-sm ${ot > 0 ? 'text-orange-600 font-medium' : 'text-gray-300'}`}>
-                                        {ot > 0 ? `+${formatHours(ot)}` : '-'}
+                                      <div key={day} className="text-center">
+                                        {ot > 0 ? (
+                                          <div className="flex flex-col items-center gap-0.5">
+                                            <span className="text-sm text-amber-700 font-medium">+{formatHours(ot)}</span>
+                                            {otStatus && (
+                                              <span className={`text-[9px] font-bold uppercase px-1 py-px rounded ${
+                                                otStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                                                otStatus === 'rejected' ? 'bg-red-100 text-red-700' :
+                                                'bg-amber-100 text-amber-700'
+                                              }`}>
+                                                {otStatus === 'rejected' ? 'Denied' : otStatus === 'approved' ? 'Approved' : 'Pending'}
+                                              </span>
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <span className="text-sm text-gray-300">-</span>
+                                        )}
                                       </div>
                                     );
                                   })}
-                                  <div className="text-center text-sm font-semibold text-orange-600">
+                                  <div className="text-center text-sm font-semibold text-amber-700">
                                     +{formatHours(record.overtimeHours)}
                                   </div>
                                   <div />
@@ -435,19 +460,33 @@ const TimeRecords = () => {
                       <div className="md:hidden px-4 py-3 space-y-2">
                         {record.records && record.records.map((rec, idx) => {
                           const totalHrs = ((rec.totalMinutes || 0) + (rec.overtimeMinutes || 0)) / 60;
+                          const hasOT = rec.overtimeMinutes > 0;
+                          const otStatus = (rec.status || '').toLowerCase();
                           return (
-                            <div key={idx} className="flex items-center justify-between bg-white rounded-lg px-3 py-2 border border-gray-100">
+                            <div key={idx} className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
+                              hasOT ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'
+                            }`}>
                               <span className="text-sm text-gray-600">
                                 {new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                               </span>
                               <div className="flex items-center gap-3">
                                 <span className="text-sm font-medium text-gray-900">{formatHours(totalHrs)}</span>
-                                {rec.overtimeMinutes > 0 && (
-                                  <span className="text-xs text-orange-600 font-medium">
+                                {hasOT && (
+                                  <span className="text-xs text-amber-700 font-bold">
                                     +{formatHours(rec.overtimeMinutes / 60)} OT
                                   </span>
                                 )}
-                                {getStatusBadge(rec.status.toLowerCase())}
+                                {hasOT ? (
+                                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
+                                    otStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                                    otStatus === 'rejected' ? 'bg-red-100 text-red-700' :
+                                    'bg-amber-100 text-amber-700'
+                                  }`}>
+                                    {otStatus === 'rejected' ? 'Denied' : otStatus === 'approved' ? 'Approved' : 'Pending'}
+                                  </span>
+                                ) : (
+                                  getStatusBadge(otStatus)
+                                )}
                               </div>
                             </div>
                           );
@@ -463,7 +502,7 @@ const TimeRecords = () => {
       </Card>
 
       {/* Legend */}
-      <div className="flex items-center gap-6 text-sm text-gray-500">
+      <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />
           <span>Approved</span>
@@ -473,8 +512,14 @@ const TimeRecords = () => {
           <span>Pending</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-orange-500" />
-          <span>Overtime</span>
+          <div className="w-3 h-3 rounded bg-amber-200 border border-amber-400" />
+          <span>Overtime Entry</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Pending</span>
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-100 text-green-700">Approved</span>
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-700">Denied</span>
+          <span>OT Status</span>
         </div>
       </div>
     </div>

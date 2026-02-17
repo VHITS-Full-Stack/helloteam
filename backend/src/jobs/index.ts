@@ -1,10 +1,18 @@
 import cron from 'node-cron';
 import { runAutoApproval } from './autoApproval.job';
 import { runMonthlyInvoiceGeneration, runWeeklyInvoiceGeneration } from './invoiceGeneration.job';
+import { runShiftEndJob } from './shiftEnd.job';
+import { runOTBillingReminder } from './otBillingReminder.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
   console.log('[Jobs] Initializing cron jobs...');
+
+  // Shift end: runs every minute to check for ending shifts and auto-clock-out
+  cron.schedule('* * * * *', async () => {
+    await runShiftEndJob(io);
+  });
+  console.log('[Jobs] Shift-end job scheduled (every minute)');
 
   // Auto-approval: runs every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
@@ -24,8 +32,17 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Weekly invoice generation scheduled (Monday, 00:10 UTC)');
 
+  // OT billing cycle reminder: runs daily at 09:00 UTC
+  // Notifies clients 3 days before billing cycle ends about unapproved OT
+  cron.schedule('0 9 * * *', async () => {
+    await runOTBillingReminder(io);
+  });
+  console.log('[Jobs] OT billing reminder scheduled (daily, 09:00 UTC)');
+
   console.log('[Jobs] All cron jobs initialized');
 };
 
 export { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek } from './invoiceGeneration.job';
 export { runAutoApproval } from './autoApproval.job';
+export { runShiftEndJob } from './shiftEnd.job';
+export { runOTBillingReminder } from './otBillingReminder.job';

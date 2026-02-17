@@ -51,8 +51,9 @@ enum LeaveType {
 }
 
 enum AgreementType {
-  WEEKLY_ACH
-  MONTHLY_ACH
+  WEEKLY
+  BI_WEEKLY
+  MONTHLY
 }
 
 enum OnboardingStatus {
@@ -233,6 +234,7 @@ model Client {
 
   // Relations
   user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts       ClientContact[]
   employees      ClientEmployee[]
   groups         ClientGroup[]
   clientPolicies ClientPolicy?
@@ -245,6 +247,20 @@ model Client {
   autoApprovalLogs AutoApprovalLog[]
 
   @@map("clients")
+}
+
+model ClientContact {
+  id        String  @id @default(uuid())
+  clientId  String
+  name      String
+  position  String?
+  phone     String?
+  email     String?
+  isPrimary Boolean @default(false)
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_contacts")
 }
 
 model ClientAgreement {
@@ -264,7 +280,6 @@ model ClientAgreement {
   // Signer Individual Info
   signerName    String?
   signerAddress String?
-  signerSSN     String?
 
   // Payment method: 'credit_card', 'ach', 'both'
   paymentMethod String?
@@ -333,14 +348,16 @@ model ClientPolicy {
   maxCarryoverDays         Int                      @default(0) // Max days to carry to next year
   carryoverExpiryMonths    Int? // Months until carryover expires
 
-  allowUnpaidLeave         Boolean @default(true)
-  requireTwoWeeksNotice    Boolean @default(true)
+  allowUnpaidLeave                  Boolean @default(true)
+  requireTwoWeeksNotice             Boolean @default(true)
+  requireTwoWeeksNoticePaidLeave    Boolean @default(true)
+  requireTwoWeeksNoticeUnpaidLeave  Boolean @default(true)
   allowOvertime            Boolean @default(true)
   overtimeRequiresApproval Boolean @default(true)
 
   // Auto-approve configuration
   autoApproveTimesheets Boolean @default(false)
-  autoApproveMinutes    Int     @default(15)
+  autoApproveMinutes    Int     @default(1440)
 
   // Notification preferences
   notifyTimeEntrySubmissions Boolean @default(true)
@@ -388,16 +405,17 @@ model Admin {
 // ============================================
 
 model WorkSession {
-  id                String            @id @default(uuid())
-  employeeId        String
-  startTime         DateTime
-  endTime           DateTime?
-  status            WorkSessionStatus @default(ACTIVE)
-  totalBreakMinutes Int               @default(0)
-  notes             String?
-  ipAddress         String? // IP address at clock in
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  id                   String            @id @default(uuid())
+  employeeId           String
+  startTime            DateTime
+  endTime              DateTime?
+  status               WorkSessionStatus @default(ACTIVE)
+  totalBreakMinutes    Int               @default(0)
+  notes                String?
+  ipAddress            String? // IP address at clock in
+  shiftEndNotifiedAt   DateTime? // When the 5-min shift-ending warning was sent
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   breaks   Break[]
@@ -455,6 +473,7 @@ model TimeRecord {
   adjustedAt      DateTime?
   adjustmentNotes String?
   originalMinutes Int?
+  invoiceId       String?        // Set when this record is included in an invoice; null = not yet invoiced
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -463,6 +482,7 @@ model TimeRecord {
   adjustments TimeAdjustment[]
 
   @@unique([employeeId, clientId, date])
+  @@index([invoiceId])
   @@map("time_records")
 }
 
@@ -747,6 +767,8 @@ enum NotificationType {
   CHAT_MESSAGE
   TIMESHEET_AUTO_APPROVED
   INVOICE_GENERATED
+  SHIFT_ENDING
+  AUTO_CLOCK_OUT
 }
 
 enum MessageType {
@@ -790,6 +812,7 @@ model OvertimeRequest {
   clientId         String
   date             DateTime       @db.Date
   requestedMinutes Int
+  estimatedEndTime String?        // HH:MM format — when the employee expects to finish OT
   reason           String
   status           OvertimeStatus @default(PENDING)
   approvedBy       String?

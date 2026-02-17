@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import clientService from '../services/client.service';
 import groupService from '../services/group.service';
 
@@ -19,28 +19,51 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     companyName: '',
-    contactPerson: '',
+    contacts: [{ name: '', position: '', phone: '', email: '' }],
     phone: '',
     address: '',
     timezone: 'UTC',
     status: 'ACTIVE',
     groupId: '',
-    agreementType: 'WEEKLY_ACH',
+    agreementType: 'WEEKLY',
     allowPaidLeave: false,
     paidLeaveType: 'fixed',
     annualPaidLeaveDays: 0,
     allowUnpaidLeave: true,
     requireTwoWeeksNotice: true,
+    requireTwoWeeksNoticePaidLeave: true,
+    requireTwoWeeksNoticeUnpaidLeave: true,
     allowOvertime: true,
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
-    autoApproveMinutes: 15,
+    autoApproveMinutes: 1440,
     defaultHourlyRate: 0,
     defaultOvertimeRate: 0,
     currency: 'USD',
   });
+
+  // Contact person helpers
+  const addContact = useCallback(() => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: [...prev.contacts, { name: '', position: '', phone: '', email: '' }],
+    }));
+  }, []);
+
+  const removeContact = useCallback((index) => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: prev.contacts.filter((_, i) => i !== index),
+    }));
+  }, []);
+
+  const updateContact = useCallback((index, field, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      contacts: prev.contacts.map((c, i) => (i === index ? { ...c, [field]: value } : c)),
+    }));
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -62,11 +85,19 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
           const clientRes = await clientService.getClient(id);
           if (clientRes.success) {
             const client = clientRes.data;
+            const clientContacts = client.contacts && client.contacts.length > 0
+              ? client.contacts.map((c) => ({
+                  name: c.name || '',
+                  position: c.position || '',
+                  phone: c.phone || '',
+                  email: c.email || '',
+                }))
+              : [{ name: client.contactPerson || '', position: '', phone: '', email: '' }];
+
             setFormData({
               email: client.user?.email || '',
-              password: '',
               companyName: client.companyName,
-              contactPerson: client.contactPerson,
+              contacts: clientContacts,
               phone: client.phone || '',
               address: client.address || '',
               timezone: client.timezone || 'UTC',
@@ -77,10 +108,12 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
               annualPaidLeaveDays: client.clientPolicies?.annualPaidLeaveDays || 0,
               allowUnpaidLeave: client.clientPolicies?.allowUnpaidLeave ?? true,
               requireTwoWeeksNotice: client.clientPolicies?.requireTwoWeeksNotice ?? true,
+              requireTwoWeeksNoticePaidLeave: client.clientPolicies?.requireTwoWeeksNoticePaidLeave ?? true,
+              requireTwoWeeksNoticeUnpaidLeave: client.clientPolicies?.requireTwoWeeksNoticeUnpaidLeave ?? true,
               allowOvertime: client.clientPolicies?.allowOvertime ?? true,
               overtimeRequiresApproval: client.clientPolicies?.overtimeRequiresApproval ?? true,
               autoApproveTimesheets: client.clientPolicies?.autoApproveTimesheets ?? false,
-              autoApproveMinutes: client.clientPolicies?.autoApproveMinutes ?? 15,
+              autoApproveMinutes: client.clientPolicies?.autoApproveMinutes ?? 1440,
               defaultHourlyRate: client.clientPolicies?.defaultHourlyRate || 0,
               defaultOvertimeRate: client.clientPolicies?.defaultOvertimeRate || 0,
               currency: client.clientPolicies?.currency || 'USD',
@@ -103,19 +136,30 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     setSubmitting(true);
     setError('');
 
+    // Validate at least one contact with a name
+    const validContacts = formData.contacts.filter((c) => c.name.trim());
+    if (validContacts.length === 0) {
+      setError('At least one contact person is required');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       let response;
       if (isEdit) {
-        const { password, ...updateData } = formData;
         response = await clientService.updateClient(id, {
-          ...updateData,
-          annualPaidLeaveDays: parseInt(updateData.annualPaidLeaveDays),
-          autoApproveMinutes: parseInt(updateData.autoApproveMinutes) || 15,
-          defaultHourlyRate: parseFloat(updateData.defaultHourlyRate) || 0,
-          defaultOvertimeRate: parseFloat(updateData.defaultOvertimeRate) || 0,
+          ...formData,
+          contacts: validContacts,
+          annualPaidLeaveDays: parseInt(formData.annualPaidLeaveDays),
+          autoApproveMinutes: parseInt(formData.autoApproveMinutes) || 1440,
+          defaultHourlyRate: parseFloat(formData.defaultHourlyRate) || 0,
+          defaultOvertimeRate: parseFloat(formData.defaultOvertimeRate) || 0,
         });
       } else {
-        response = await clientService.createClient(formData);
+        response = await clientService.createClient({
+          ...formData,
+          contacts: validContacts,
+        });
       }
 
       if (response.success) {
@@ -140,6 +184,9 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     setError,
     submitting,
     handleSubmit,
+    addContact,
+    removeContact,
+    updateContact,
   };
 };
 

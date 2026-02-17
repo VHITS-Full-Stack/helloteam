@@ -16,8 +16,9 @@ interface EmailResult {
 
 // Create reusable transporter
 let transporter: nodemailer.Transporter | null = null;
+let etherealReady = false;
 
-function getTransporter(): nodemailer.Transporter | null {
+async function getTransporter(): Promise<nodemailer.Transporter> {
   if (transporter) return transporter;
 
   if (config.email.user && config.email.pass) {
@@ -33,7 +34,28 @@ function getTransporter(): nodemailer.Transporter | null {
     return transporter;
   }
 
-  return null;
+  // Fallback: create Ethereal test account (free fake SMTP)
+  if (!etherealReady) {
+    const testAccount = await nodemailer.createTestAccount();
+    transporter = nodemailer.createTransport({
+      host: 'smtp.ethereal.email',
+      port: 587,
+      secure: false,
+      auth: {
+        user: testAccount.user,
+        pass: testAccount.pass,
+      },
+    });
+    etherealReady = true;
+    console.log('================================================');
+    console.log('📧 Using Ethereal Email (test/dev mode)');
+    console.log(`   User: ${testAccount.user}`);
+    console.log(`   Pass: ${testAccount.pass}`);
+    console.log('   View emails at: https://ethereal.email/login');
+    console.log('================================================');
+  }
+
+  return transporter!;
 }
 
 /**
@@ -43,44 +65,29 @@ function getTransporter(): nodemailer.Transporter | null {
 export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => {
   const { to, subject, html, text } = options;
 
-  const mailer = getTransporter();
+  try {
+    const mailer = await getTransporter();
+    const info = await mailer.sendMail({
+      from: config.email.from,
+      to,
+      subject,
+      text,
+      html,
+    });
 
-  if (mailer) {
-    try {
-      const info = await mailer.sendMail({
-        from: config.email.from,
-        to,
-        subject,
-        text,
-        html,
-      });
-      return { success: true, messageId: info.messageId };
-    } catch (err: any) {
-      console.error('Email send error:', err);
-      return { success: false, error: err.message };
+    // Log Ethereal preview URL if available
+    const previewUrl = nodemailer.getTestMessageUrl(info);
+    if (previewUrl) {
+      console.log(`📧 Email sent to ${to} — Preview: ${previewUrl}`);
+    } else {
+      console.log(`📧 Email sent to ${to} — MessageId: ${info.messageId}`);
     }
-  }
 
-  // Fallback: log to console in development
-  console.log('====================================');
-  console.log('📧 EMAIL SERVICE (Development Mode)');
-  console.log('====================================');
-  console.log(`To: ${to}`);
-  console.log(`Subject: ${subject}`);
-  console.log('------------------------------------');
-  console.log('HTML Content:');
-  console.log(html);
-  if (text) {
-    console.log('------------------------------------');
-    console.log('Text Content:');
-    console.log(text);
+    return { success: true, messageId: info.messageId };
+  } catch (err: any) {
+    console.error('Email send error:', err);
+    return { success: false, error: err.message };
   }
-  console.log('====================================');
-
-  return {
-    success: true,
-    messageId: `dev-${Date.now()}`,
-  };
 };
 
 /**
@@ -508,7 +515,7 @@ export const sendClientOnboardingEmail = async (
   agreementType: string
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
-  const agreementLabel = agreementType === 'WEEKLY_ACH' ? 'Weekly ACH' : 'Monthly ACH';
+  const agreementLabel = agreementType === 'WEEKLY' ? 'Weekly' : agreementType === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly';
 
   const html = `
     <!DOCTYPE html>
@@ -674,6 +681,133 @@ Please change your password after your first login.
   });
 };
 
+/**
+ * Send notification to client that an employee worked overtime
+ * Sent immediately after OT shift ends (clock-out)
+ */
+export const sendOTWorkedEmail = async (
+  email: string,
+  clientName: string,
+  employeeName: string,
+  date: string,
+  overtimeHours: string,
+  totalHours: string
+): Promise<EmailResult> => {
+  const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Employee Worked Overtime</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background-color: #f59e0b; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Employee Worked Overtime</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Hi ${clientName},
+          </p>
+          <p style="color: #4b5563; line-height: 1.6;">
+            <strong>${employeeName}</strong> worked overtime today. Please approve or deny the overtime hours.
+          </p>
+          <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
+            <p style="margin: 0 0 8px 0;"><strong>Total Hours:</strong> ${totalHours}</p>
+            <p style="margin: 0; color: #d97706; font-weight: 600;"><strong>Overtime:</strong> ${overtimeHours}</p>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${actionUrl}" style="background-color: #f59e0b; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Approve / Deny
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `${employeeName} worked overtime on ${date} — Approve or Deny`,
+    html,
+    text: `Hi ${clientName}, ${employeeName} worked overtime on ${date}. Total: ${totalHours}, Overtime: ${overtimeHours}. Please approve or deny at: ${actionUrl}`,
+  });
+};
+
+/**
+ * Send billing cycle reminder for unapproved OT hours
+ */
+export const sendOTBillingReminderEmail = async (
+  email: string,
+  clientName: string,
+  daysUntilEnd: number,
+  unapprovedCount: number,
+  unapprovedHours: string
+): Promise<EmailResult> => {
+  const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Unapproved Overtime Hours</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background-color: #ef4444; padding: 30px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
+        </div>
+        <div style="padding: 40px 30px;">
+          <h2 style="color: #1f2937; margin-top: 0;">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? 's' : ''}</h2>
+          <p style="color: #4b5563; line-height: 1.6;">
+            Hi ${clientName},
+          </p>
+          <p style="color: #4b5563; line-height: 1.6;">
+            You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? 'y' : 'ies'} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
+          </p>
+          <div style="background-color: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; padding: 16px; margin: 20px 0;">
+            <p style="margin: 0 0 8px 0; color: #991b1b;"><strong>Unapproved OT Entries:</strong> ${unapprovedCount}</p>
+            <p style="margin: 0 0 8px 0; color: #991b1b;"><strong>Total Unapproved Hours:</strong> ${unapprovedHours}</p>
+            <p style="margin: 0; color: #991b1b; font-weight: 600;">Billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}.</p>
+          </div>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${actionUrl}" style="background-color: #ef4444; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
+              Review Unapproved Overtime
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
+          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
+            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to: email,
+    subject: `Action Required: Unapproved overtime hours — billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}`,
+    html,
+    text: `Hi ${clientName}, You have ${unapprovedCount} unapproved overtime entries (${unapprovedHours}). Unapproved hours won't appear on this billing cycle's invoice. Billing cycle ends in ${daysUntilEnd} days. Review at: ${actionUrl}`,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -684,4 +818,6 @@ export default {
   sendPayrollReminderEmail,
   sendClientOnboardingEmail,
   sendEmployeeOnboardingEmail,
+  sendOTWorkedEmail,
+  sendOTBillingReminderEmail,
 };

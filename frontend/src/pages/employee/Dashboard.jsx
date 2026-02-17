@@ -41,10 +41,12 @@ import workSessionService from '../../services/workSession.service';
 import overtimeService from '../../services/overtime.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
 import { useAuth } from '../../context/AuthContext';
+import { useSocket } from '../../context/SocketContext';
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { socket } = useSocket();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [quoteIndex, setQuoteIndex] = useState(0);
 
@@ -66,6 +68,18 @@ const EmployeeDashboard = () => {
   const [overtimeLoading, setOvertimeLoading] = useState(false);
   const [overtimeError, setOvertimeError] = useState('');
   const [overtimeSuccess, setOvertimeSuccess] = useState('');
+
+  // Shift end / Stay Clocked In modal state
+  const [showShiftEndModal, setShowShiftEndModal] = useState(false);
+  const [shiftEndData, setShiftEndData] = useState(null);
+  const [shiftEndForm, setShiftEndForm] = useState({
+    duration: '',
+    customMinutes: '',
+    reason: ''
+  });
+  const [shiftEndLoading, setShiftEndLoading] = useState(false);
+  const [shiftEndError, setShiftEndError] = useState('');
+  const [shiftEndSuccess, setShiftEndSuccess] = useState('');
 
   // My overtime requests state
   const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
@@ -330,6 +344,79 @@ const EmployeeDashboard = () => {
       setOvertimeError(err.error || err.message || 'Failed to submit overtime request');
     } finally {
       setOvertimeLoading(false);
+    }
+  };
+
+  // Listen for SHIFT_ENDING socket events
+  useEffect(() => {
+    if (!socket || !user?.id) return;
+
+    const handleShiftEnding = (data) => {
+      setShiftEndData(data.data || data);
+      setShowShiftEndModal(true);
+    };
+
+    const handleAutoClockOut = () => {
+      // Refresh session data — the employee has been auto-clocked out
+      fetchWorkSessionData();
+    };
+
+    socket.on(`notification:${user.id}`, (data) => {
+      if (data.type === 'SHIFT_ENDING') {
+        handleShiftEnding(data);
+      } else if (data.type === 'AUTO_CLOCK_OUT') {
+        handleAutoClockOut();
+      }
+    });
+
+    return () => {
+      socket.off(`notification:${user.id}`);
+    };
+  }, [socket, user?.id]);
+
+  // Handle "Stay Clocked In" OT request submission
+  const handleShiftEndSubmit = async (e) => {
+    e.preventDefault();
+    setShiftEndError('');
+    setShiftEndSuccess('');
+
+    const minutes = shiftEndForm.duration === 'custom'
+      ? parseInt(shiftEndForm.customMinutes)
+      : parseInt(shiftEndForm.duration);
+
+    if (!minutes || minutes <= 0) {
+      setShiftEndError('Please select a duration');
+      return;
+    }
+    if (!shiftEndForm.reason.trim()) {
+      setShiftEndError('Please provide a reason');
+      return;
+    }
+
+    // Calculate estimated end time (current time + duration)
+    const endTime = new Date(Date.now() + minutes * 60000);
+    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+
+    try {
+      setShiftEndLoading(true);
+      await overtimeService.createOvertimeRequest({
+        date: new Date().toISOString().split('T')[0],
+        requestedHours: minutes / 60,
+        reason: shiftEndForm.reason,
+        estimatedEndTime,
+        clientId: shiftEndData?.clientId,
+      });
+      setShiftEndSuccess('Overtime request submitted! You will stay clocked in.');
+      fetchOvertimeRequests();
+      setTimeout(() => {
+        setShowShiftEndModal(false);
+        setShiftEndSuccess('');
+        setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+      }, 2000);
+    } catch (err) {
+      setShiftEndError(err.error || err.message || 'Failed to submit overtime request');
+    } finally {
+      setShiftEndLoading(false);
     }
   };
 
@@ -1173,6 +1260,146 @@ const EmployeeDashboard = () => {
                   className="flex-1"
                 >
                   Submit Request
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Shift End — Stay Clocked In Modal */}
+      {showShiftEndModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-100">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Shift Ending</h2>
+                  <p className="text-sm text-gray-500">Stay clocked in?</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowShiftEndModal(false);
+                  setShiftEndError('');
+                  setShiftEndSuccess('');
+                  setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleShiftEndSubmit} className="p-6 space-y-4">
+              {/* Risk Warning */}
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800 text-sm font-medium">
+                  Overtime should ideally be requested earlier. Hours may not be approved or paid.
+                </p>
+              </div>
+
+              {shiftEndError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <p className="text-red-700 text-sm">{shiftEndError}</p>
+                </div>
+              )}
+
+              {shiftEndSuccess && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                  <p className="text-green-700 text-sm">{shiftEndSuccess}</p>
+                </div>
+              )}
+
+              {/* Duration Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  How long do you need?
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { value: '15', label: '15 min' },
+                    { value: '30', label: '30 min' },
+                    { value: '60', label: '1 hour' },
+                    { value: 'custom', label: 'Custom' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setShiftEndForm({ ...shiftEndForm, duration: opt.value })}
+                      className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
+                        shiftEndForm.duration === opt.value
+                          ? 'border-primary bg-primary-50 text-primary ring-2 ring-primary/20'
+                          : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Custom duration input */}
+              {shiftEndForm.duration === 'custom' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Custom Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="480"
+                    placeholder="e.g., 45"
+                    value={shiftEndForm.customMinutes}
+                    onChange={(e) => setShiftEndForm({ ...shiftEndForm, customMinutes: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Reason */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Why do you need to stay clocked in?"
+                  value={shiftEndForm.reason}
+                  onChange={(e) => setShiftEndForm({ ...shiftEndForm, reason: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                  required
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    setShowShiftEndModal(false);
+                    setShiftEndError('');
+                    setShiftEndSuccess('');
+                    setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                  }}
+                  className="flex-1"
+                >
+                  Clock Out
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  loading={shiftEndLoading}
+                  disabled={!shiftEndForm.duration}
+                  className="flex-1"
+                >
+                  Stay Clocked In
                 </Button>
               </div>
             </form>

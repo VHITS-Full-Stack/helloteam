@@ -593,8 +593,8 @@ const Invoices = () => {
 
           <p className="text-xs text-gray-400">
             {generateFrequency === 'monthly'
-              ? 'Monthly invoices will be generated for MONTHLY_ACH clients only. Existing invoices for the same period will be skipped.'
-              : 'Weekly invoices will be generated for WEEKLY_ACH clients only (Mon-Sun period). Existing invoices will be skipped.'
+              ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
+              : 'Weekly invoices will be generated for Weekly and Bi-Weekly agreement clients only (Mon-Sun period). Existing invoices will be skipped.'
             }
           </p>
           <div className="flex justify-end gap-2 pt-2">
