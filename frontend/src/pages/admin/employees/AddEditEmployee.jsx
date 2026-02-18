@@ -102,7 +102,7 @@ const AddEmployee = () => {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
               />
-              {isEdit ? (
+              {isEdit && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                   <select
@@ -115,15 +115,6 @@ const AddEmployee = () => {
                     <option value="SUSPENDED">Suspended</option>
                   </select>
                 </div>
-              ) : (
-                <Input
-                  label="Password"
-                  type="password"
-                  placeholder="Enter password (min 8 characters)"
-                  value={formData.password}
-                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  required
-                />
               )}
             </div>
           </div>

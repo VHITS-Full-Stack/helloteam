@@ -22,7 +22,6 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
 
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     firstName: '',
     lastName: '',
     phone: '',
@@ -50,7 +49,14 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
   };
 
   const handleClientChange = (clientId) => {
-    setFormData((prev) => ({ ...prev, clientId, groupId: '' }));
+    const filtered = allGroups.filter((group) =>
+      group.clients?.some((cg) => {
+        const cid = cg.client?.id || cg.clientId;
+        return cid === clientId;
+      })
+    );
+    const defaultGroup = filtered.find((g) => g.name.toLowerCase() === 'default');
+    setFormData((prev) => ({ ...prev, clientId, groupId: defaultGroup?.id || '' }));
     filterGroupsByClient(allGroups, clientId);
   };
 
@@ -78,7 +84,6 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
             const emp = response.data;
             setFormData({
               email: emp.user?.email || '',
-              password: '',
               firstName: emp.firstName,
               lastName: emp.lastName,
               phone: emp.phone || '',
@@ -110,7 +115,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     try {
       let response;
       if (isEdit) {
-        const { password, clientId, groupId, ...updateData } = formData;
+        const { clientId, groupId, ...updateData } = formData;
         response = await employeeService.updateEmployee(id, updateData);
       } else {
         const { groupId, ...createData } = formData;
