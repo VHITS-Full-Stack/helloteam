@@ -1,4 +1,4 @@
-import twilio from 'twilio';
+import axios from 'axios';
 import { config } from '../config';
 
 interface SMSResult {
@@ -7,45 +7,50 @@ interface SMSResult {
   error?: string;
 }
 
-let twilioClient: twilio.Twilio | null = null;
+const BANDWIDTH_API_URL = 'https://messaging.bandwidth.com/api/v2/users/5002369/messages';
 
-function getClient(): twilio.Twilio | null {
-  if (twilioClient) return twilioClient;
+export const sendSMS = async (to: string, message: string, tag: string = ''): Promise<SMSResult> => {
+  const { messagingAuth, applicationId, fromNumber } = config.sms;
 
-  const { accountSid, authToken } = config.sms;
-  if (accountSid && authToken) {
-    twilioClient = twilio(accountSid, authToken);
-    return twilioClient;
-  }
-
-  return null;
-}
-
-export const sendSMS = async (to: string, message: string): Promise<SMSResult> => {
-  const client = getClient();
-
-  if (!client || !config.sms.fromNumber) {
-    // No Twilio credentials configured — log to console
+  if (!messagingAuth || !applicationId || !fromNumber) {
     console.log('================================================');
-    console.log(`📱 SMS (not sent — Twilio not configured)`);
+    console.log(`📱 SMS (not sent — Bandwidth not configured)`);
     console.log(`   To: ${to}`);
     console.log(`   Message: ${message}`);
     console.log('================================================');
     return { success: true, messageId: 'not-configured' };
   }
 
+  // Strip dashes and ensure + prefix
+  const cleanTo = to.replace(/-/g, '');
+  const formattedTo = cleanTo.startsWith('+') ? cleanTo : `+1${cleanTo.replace(/\D/g, '')}`;
+  const formattedFrom = fromNumber.startsWith('+') ? fromNumber : `+1${fromNumber}`;
+
   try {
-    const result = await client.messages.create({
-      body: message,
-      from: config.sms.fromNumber,
-      to,
+    const response = await axios({
+      method: 'post',
+      url: BANDWIDTH_API_URL,
+      headers: {
+        Authorization: `Basic ${messagingAuth}`,
+        'Content-Type': 'application/json',
+      },
+      data: {
+        to: [formattedTo],
+        from: formattedFrom,
+        text: message,
+        applicationId,
+        tag,
+      },
+      timeout: 30000,
     });
 
-    console.log(`📱 SMS sent to ${to} — SID: ${result.sid}`);
-    return { success: true, messageId: result.sid };
+    const messageId = response.data?.id || response.data?.messageId || 'sent';
+    console.log(`📱 SMS sent to ${to} — ID: ${messageId}`);
+    return { success: true, messageId };
   } catch (err: any) {
-    console.error(`📱 SMS failed to ${to}:`, err.message);
-    return { success: false, error: err.message };
+    const errorMsg = err.response?.data?.message || err.message || 'Unknown error';
+    console.error(`📱 SMS failed to ${to}:`, errorMsg);
+    return { success: false, error: errorMsg };
   }
 };
 

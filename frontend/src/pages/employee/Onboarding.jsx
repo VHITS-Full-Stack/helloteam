@@ -264,16 +264,16 @@ const Onboarding = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <ImpersonationBanner />
-      <div className="py-8 px-4">
+      <div className="py-4 px-4">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Employee Onboarding</h1>
-          <p className="text-gray-600 mt-2">Complete the following steps to set up your profile</p>
+        <div className="text-center mb-4">
+          <h1 className="text-2xl font-bold text-gray-900">Employee Onboarding</h1>
+          <p className="text-gray-600 mt-1 text-sm">Complete the following steps to set up your profile</p>
         </div>
 
         {/* Step Indicator */}
-        <div className="flex items-center justify-center mb-8">
+        <div className="flex items-center justify-center mb-5">
           {STEPS.map((step, i) => {
             const Icon = step.icon;
             const isActive = i === currentStep;

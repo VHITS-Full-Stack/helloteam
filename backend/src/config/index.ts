@@ -27,18 +27,18 @@ export const config = {
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
 
   email: {
-    host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.EMAIL_PORT || '587', 10),
-    secure: process.env.EMAIL_SECURE === 'true',
-    user: process.env.EMAIL_USER || '',
-    pass: process.env.EMAIL_PASS || '',
-    from: process.env.EMAIL_FROM || 'Hello Team <noreply@thehelloteam.com>',
+    host: process.env.MAIL_HOST || 'smtp.mailgun.org',
+    port: parseInt(process.env.MAIL_PORT || '587', 10),
+    secure: process.env.MAIL_ENCRYPTION === 'ssl',
+    user: process.env.MAIL_USERNAME || '',
+    pass: process.env.MAIL_PASSWORD || '',
+    from: `${process.env.MAIL_FROM_NAME || 'Hello Team Notifications'} <${process.env.MAIL_FROM_ADDRESS || 'notifications@thehelloteam.com'}>`,
   },
 
   sms: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
-    authToken: process.env.TWILIO_AUTH_TOKEN || '',
-    fromNumber: process.env.TWILIO_FROM_NUMBER || '',
+    messagingAuth: process.env.BANDWIDTH_MESSAGING_AUTH || '',
+    applicationId: process.env.BANDWIDTH_APPLICATION_ID || '',
+    fromNumber: process.env.BANDWIDTH_FROM_NUMBER || '',
   },
 
   logging: {

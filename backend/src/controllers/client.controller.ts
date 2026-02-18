@@ -436,20 +436,6 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         data: { clientId: client.id, groupId: defaultGroup.id },
       });
 
-      // Also assign Default group employees to this client (1-client-per-employee)
-      const defaultGroupEmployees = await tx.groupEmployee.findMany({
-        where: { groupId: defaultGroup.id },
-        select: { employeeId: true },
-      });
-      for (const ge of defaultGroupEmployees) {
-        await deactivateOtherClientAssignments(ge.employeeId, client.id, tx);
-        await tx.clientEmployee.upsert({
-          where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
-          create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
-          update: { isActive: true },
-        });
-      }
-
       // If additional groupId provided (and it's not the Default group), assign it too
       if (groupId && groupId !== defaultGroup.id) {
         // Create the ClientGroup link
