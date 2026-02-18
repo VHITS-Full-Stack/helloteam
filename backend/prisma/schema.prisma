@@ -352,6 +352,15 @@ model ClientPolicy {
   requireTwoWeeksNotice             Boolean @default(true)
   requireTwoWeeksNoticePaidLeave    Boolean @default(true)
   requireTwoWeeksNoticeUnpaidLeave  Boolean @default(true)
+
+  // Holiday settings
+  allowPaidHolidays       Boolean @default(false)
+  paidHolidayType         String  @default("federal")
+  numberOfPaidHolidays    Int     @default(0)
+  allowUnpaidHolidays     Boolean @default(false)
+  unpaidHolidayType       String  @default("federal")
+  numberOfUnpaidHolidays  Int     @default(0)
+
   allowOvertime            Boolean @default(true)
   overtimeRequiresApproval Boolean @default(true)
 

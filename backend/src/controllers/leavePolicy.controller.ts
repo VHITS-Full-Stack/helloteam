@@ -150,6 +150,12 @@ export const updateClientPolicy = async (req: AuthenticatedRequest, res: Respons
       carryoverExpiryMonths,
       allowUnpaidLeave,
       requireTwoWeeksNotice,
+      allowPaidHolidays,
+      paidHolidayType,
+      numberOfPaidHolidays,
+      allowUnpaidHolidays,
+      unpaidHolidayType,
+      numberOfUnpaidHolidays,
       allowOvertime,
       overtimeRequiresApproval,
       overtimeThreshold,
@@ -183,6 +189,12 @@ export const updateClientPolicy = async (req: AuthenticatedRequest, res: Respons
     if (carryoverExpiryMonths !== undefined) policyData.carryoverExpiryMonths = carryoverExpiryMonths !== null ? parseInt(carryoverExpiryMonths, 10) : null;
     if (allowUnpaidLeave !== undefined) policyData.allowUnpaidLeave = allowUnpaidLeave;
     if (requireTwoWeeksNotice !== undefined) policyData.requireTwoWeeksNotice = requireTwoWeeksNotice;
+    if (allowPaidHolidays !== undefined) policyData.allowPaidHolidays = allowPaidHolidays;
+    if (paidHolidayType !== undefined) policyData.paidHolidayType = paidHolidayType;
+    if (numberOfPaidHolidays !== undefined) policyData.numberOfPaidHolidays = parseInt(numberOfPaidHolidays, 10) || 0;
+    if (allowUnpaidHolidays !== undefined) policyData.allowUnpaidHolidays = allowUnpaidHolidays;
+    if (unpaidHolidayType !== undefined) policyData.unpaidHolidayType = unpaidHolidayType;
+    if (numberOfUnpaidHolidays !== undefined) policyData.numberOfUnpaidHolidays = parseInt(numberOfUnpaidHolidays, 10) || 0;
     if (allowOvertime !== undefined) policyData.allowOvertime = allowOvertime;
     if (overtimeRequiresApproval !== undefined) policyData.overtimeRequiresApproval = overtimeRequiresApproval;
     if (overtimeThreshold !== undefined) policyData.overtimeThreshold = parseInt(overtimeThreshold, 10) || 40;
