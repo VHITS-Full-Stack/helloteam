@@ -310,6 +310,48 @@ const AddClient = () => {
                 </div>
               )}
               <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">Allow Paid Holidays</label>
+                <input
+                  type="checkbox"
+                  checked={formData.allowPaidHolidays}
+                  onChange={(e) => setFormData({ ...formData, allowPaidHolidays: e.target.checked })}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+              </div>
+              {formData.allowPaidHolidays && (
+                <div className="grid grid-cols-2 gap-4 pl-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Type</label>
+                    <select
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                      value={formData.paidHolidayType}
+                      onChange={(e) => setFormData({ ...formData, paidHolidayType: e.target.value })}
+                    >
+                      <option value="federal">Federal Holidays</option>
+                      <option value="state">State Holidays</option>
+                      <option value="company">Company Specific</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </div>
+                  <Input
+                    label={`${formData.paidHolidayType === 'federal' ? 'Federal Holidays' : formData.paidHolidayType === 'state' ? 'State Holidays' : formData.paidHolidayType === 'company' ? 'Company Holidays' : 'Custom Holidays'} Per Year`}
+                    type="number"
+                    min="0"
+                    value={formData.numberOfPaidHolidays}
+                    onChange={(e) => setFormData({ ...formData, numberOfPaidHolidays: parseInt(e.target.value, 10) || 0 })}
+                  />
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-gray-700">Allow Unpaid Holidays</label>
+                <input
+                  type="checkbox"
+                  checked={formData.allowUnpaidHolidays}
+                  onChange={(e) => setFormData({ ...formData, allowUnpaidHolidays: e.target.checked })}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+              </div>
+              <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">Allow Overtime</label>
                 <input
                   type="checkbox"

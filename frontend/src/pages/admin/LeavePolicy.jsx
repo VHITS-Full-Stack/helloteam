@@ -108,6 +108,10 @@ const LeavePolicy = () => {
       carryoverExpiryMonths: null,
       allowUnpaidLeave: true,
       requireTwoWeeksNotice: true,
+      allowPaidHolidays: false,
+      numberOfPaidHolidays: 0,
+      allowUnpaidHolidays: false,
+      numberOfUnpaidHolidays: 0,
       allowOvertime: true,
       overtimeRequiresApproval: true,
       overtimeThreshold: 40,
@@ -1005,6 +1009,61 @@ const LeavePolicy = () => {
                 className="rounded border-gray-300"
               />
               <span>Require 2 Weeks Notice (warn for short notice requests)</span>
+            </label>
+          </div>
+
+          {/* Holiday Section */}
+          <div className="space-y-4">
+            <h4 className="font-medium text-gray-900 border-b pb-2">Holiday Settings</h4>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={policyForm.allowPaidHolidays || false}
+                onChange={(e) => setPolicyForm({ ...policyForm, allowPaidHolidays: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span>Allow Paid Holidays</span>
+            </label>
+
+            {policyForm.allowPaidHolidays && (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Type</label>
+                  <select
+                    value={policyForm.paidHolidayType || 'federal'}
+                    onChange={(e) => setPolicyForm({ ...policyForm, paidHolidayType: e.target.value })}
+                    className="input w-full"
+                  >
+                    <option value="federal">Federal Holidays</option>
+                    <option value="state">State Holidays</option>
+                    <option value="company">Company Specific</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {policyForm.paidHolidayType === 'federal' ? 'Federal Holidays' : policyForm.paidHolidayType === 'state' ? 'State Holidays' : policyForm.paidHolidayType === 'company' ? 'Company Holidays' : 'Custom Holidays'} Per Year
+                  </label>
+                  <input
+                    type="number"
+                    value={policyForm.numberOfPaidHolidays || 0}
+                    onChange={(e) => setPolicyForm({ ...policyForm, numberOfPaidHolidays: parseInt(e.target.value, 10) || 0 })}
+                    className="input w-full"
+                    min="0"
+                  />
+                </div>
+              </div>
+            )}
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={policyForm.allowUnpaidHolidays || false}
+                onChange={(e) => setPolicyForm({ ...policyForm, allowUnpaidHolidays: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span>Allow Unpaid Holidays</span>
             </label>
           </div>
 

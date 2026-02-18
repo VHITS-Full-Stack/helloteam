@@ -1,5 +1,13 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
+import {
+  colors,
+  styles,
+  emailLayout,
+  buttonHtml,
+  infoBoxHtml,
+  detailBoxHtml,
+} from './email.styles';
 
 interface EmailOptions {
   to: string;
@@ -60,7 +68,6 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
 
 /**
  * Send an email
- * Uses Nodemailer if configured, falls back to console logging in development
  */
 export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => {
   const { to, subject, html, text } = options;
@@ -75,7 +82,6 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => 
       html,
     });
 
-    // Log Ethereal preview URL if available
     const previewUrl = nodemailer.getTestMessageUrl(info);
     if (previewUrl) {
       console.log(`📧 Email sent to ${to} — Preview: ${previewUrl}`);
@@ -100,53 +106,29 @@ export const sendPasswordResetEmail = async (
 ): Promise<EmailResult> => {
   const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Reset Your Password</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Reset Your Password</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi${userName ? ` ${userName}` : ''},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            We received a request to reset your password. Click the button below to create a new password:
-          </p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Reset Password
-            </a>
-          </div>
-          <p style="color: #4b5563; line-height: 1.6;">
-            This link will expire in 1 hour for security reasons.
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
-          </p>
-          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
-          <p style="color: #9ca3af; font-size: 12px; line-height: 1.5;">
-            If the button doesn't work, copy and paste this link into your browser:<br>
-            <a href="${resetUrl}" style="color: #2563eb;">${resetUrl}</a>
-          </p>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Reset Your Password</h2>
+    <p style="${styles.paragraph}">
+      Hi${userName ? ` ${userName}` : ''},
+    </p>
+    <p style="${styles.paragraph}">
+      We received a request to reset your password. Click the button below to create a new password:
+    </p>
+    ${buttonHtml(resetUrl, 'Reset Password')}
+    <p style="${styles.paragraph}">
+      This link will expire in 1 hour for security reasons.
+    </p>
+    <p style="${styles.paragraph}">
+      If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
+    </p>
+    <hr style="${styles.hr}">
+    <p style="color: ${colors.muted}; font-size: 12px; line-height: 1.5;">
+      If the button doesn't work, copy and paste this link into your browser:<br>
+      <a href="${resetUrl}" style="${styles.link}">${resetUrl}</a>
+    </p>
   `;
+
+  const html = emailLayout('Reset Your Password', content);
 
   const text = `
 Hello${userName ? ` ${userName}` : ''},
@@ -181,52 +163,28 @@ export const sendWelcomeEmail = async (
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to Hello Team</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Welcome to Hello Team!</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${userName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Your account has been created successfully. You can now access the Hello Team Workforce Hub.
-          </p>
-          ${temporaryPassword ? `
-          <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="color: #92400e; margin: 0; font-weight: 600;">Your temporary password:</p>
-            <p style="color: #92400e; margin: 8px 0 0 0; font-family: monospace; font-size: 16px;">${temporaryPassword}</p>
-            <p style="color: #92400e; margin: 8px 0 0 0; font-size: 12px;">Please change this password after your first login.</p>
-          </div>
-          ` : ''}
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Login to Your Account
-            </a>
-          </div>
-          <p style="color: #4b5563; line-height: 1.6;">
-            If you have any questions, please contact your administrator or our support team.
-          </p>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Welcome to Hello Team!</h2>
+    <p style="${styles.paragraph}">
+      Hi ${userName},
+    </p>
+    <p style="${styles.paragraph}">
+      Your account has been created successfully. You can now access the Hello Team Workforce Hub.
+    </p>
+    ${temporaryPassword ? `
+    ${infoBoxHtml(`
+      <p style="${styles.infoBoxText(colors.warningText)}; margin: 0; font-weight: 600;">Your temporary password:</p>
+      <p style="${styles.infoBoxText(colors.warningText)}; margin: 8px 0 0 0; font-family: monospace; font-size: 16px;">${temporaryPassword}</p>
+      <p style="${styles.infoBoxText(colors.warningText)}; margin: 8px 0 0 0; font-size: 12px;">Please change this password after your first login.</p>
+    `, colors.warningBg, colors.warning)}
+    ` : ''}
+    ${buttonHtml(loginUrl, 'Login to Your Account')}
+    <p style="${styles.paragraph}">
+      If you have any questions, please contact your administrator or our support team.
+    </p>
   `;
+
+  const html = emailLayout('Welcome to Hello Team', content);
 
   const text = `
 Welcome to Hello Team!
@@ -261,41 +219,15 @@ export const sendNotificationEmail = async (
   actionUrl?: string,
   actionText?: string
 ): Promise<EmailResult> => {
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>${subject}</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">${subject}</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            ${message}
-          </p>
-          ${actionUrl && actionText ? `
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              ${actionText}
-            </a>
-          </div>
-          ` : ''}
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">${subject}</h2>
+    <p style="${styles.paragraph}">
+      ${message}
+    </p>
+    ${actionUrl && actionText ? buttonHtml(actionUrl, actionText) : ''}
   `;
+
+  const html = emailLayout(subject, content);
 
   return sendEmail({
     to: email,
@@ -317,51 +249,27 @@ export const sendTimeApprovalEmail = async (
   reason?: string
 ): Promise<EmailResult> => {
   const status = approved ? 'Approved' : 'Rejected';
-  const statusColor = approved ? '#10b981' : '#ef4444';
+  const statusColor = approved ? colors.success : colors.danger;
   const actionUrl = `${config.frontendUrl}/employee/time-records`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Time Entry ${status}</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Time Entry ${status}</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${employeeName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Your time entry has been <span style="color: ${statusColor}; font-weight: 600;">${status.toLowerCase()}</span>.
-          </p>
-          <div style="background-color: #f9fafb; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Hours:</strong> ${hours}</p>
-            <p style="margin: 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${status}</span></p>
-            ${reason ? `<p style="margin: 8px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              View Time Records
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Time Entry ${status}</h2>
+    <p style="${styles.paragraph}">
+      Hi ${employeeName},
+    </p>
+    <p style="${styles.paragraph}">
+      Your time entry has been <span style="color: ${statusColor}; font-weight: 600;">${status.toLowerCase()}</span>.
+    </p>
+    ${detailBoxHtml(`
+      <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Hours:</strong> ${hours}</p>
+      <p style="margin: 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${status}</span></p>
+      ${reason ? `<p style="margin: 8px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
+    `)}
+    ${buttonHtml(actionUrl, 'View Time Records')}
   `;
+
+  const html = emailLayout(`Time Entry ${status}`, content);
 
   return sendEmail({
     to: email,
@@ -384,48 +292,24 @@ export const sendOvertimeRequestEmail = async (
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Overtime Request</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">New Overtime Request</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${clientName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            ${employeeName} has submitted an overtime request that requires your approval.
-          </p>
-          <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Hours Requested:</strong> ${hours}</p>
-            <p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Review Request
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">New Overtime Request</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      ${employeeName} has submitted an overtime request that requires your approval.
+    </p>
+    ${infoBoxHtml(`
+      <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Hours Requested:</strong> ${hours}</p>
+      <p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>
+    `, colors.warningBg, colors.warning)}
+    ${buttonHtml(actionUrl, 'Review Request')}
   `;
+
+  const html = emailLayout('Overtime Request', content);
 
   return sendEmail({
     to: email,
@@ -447,54 +331,31 @@ export const sendPayrollReminderEmail = async (
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals`;
   const urgency = daysRemaining <= 1 ? 'urgent' : daysRemaining <= 3 ? 'warning' : 'info';
-  const urgencyColor = urgency === 'urgent' ? '#ef4444' : urgency === 'warning' ? '#f59e0b' : '#2563eb';
+  const urgencyColor = urgency === 'urgent' ? colors.danger : urgency === 'warning' ? colors.warning : colors.primary;
+  const urgencyBg = urgency === 'urgent' ? colors.dangerBg : urgency === 'warning' ? colors.warningBg : colors.primaryLight;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Payroll Deadline Reminder</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: ${urgencyColor}; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Payroll Deadline ${urgency === 'urgent' ? 'Today!' : 'Approaching'}</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${clientName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            ${daysRemaining === 0
-              ? 'The payroll cutoff is <strong>today</strong>!'
-              : daysRemaining === 1
-                ? 'The payroll cutoff is <strong>tomorrow</strong>!'
-                : `The payroll cutoff is in <strong>${daysRemaining} days</strong>.`
-            }
-          </p>
-          <div style="background-color: ${urgency === 'urgent' ? '#fef2f2' : urgency === 'warning' ? '#fef3c7' : '#eff6ff'}; border: 1px solid ${urgencyColor}; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Cutoff Date:</strong> ${cutoffDate}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Pending Approvals:</strong> ${pendingCount} time entries</p>
-            ${pendingCount > 0 ? `<p style="margin: 0; color: ${urgencyColor}; font-weight: 600;">Please review and approve pending time entries before the cutoff.</p>` : ''}
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: ${urgencyColor}; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Review Pending Approvals
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            © ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Payroll Deadline ${urgency === 'urgent' ? 'Today!' : 'Approaching'}</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      ${daysRemaining === 0
+        ? 'The payroll cutoff is <strong>today</strong>!'
+        : daysRemaining === 1
+          ? 'The payroll cutoff is <strong>tomorrow</strong>!'
+          : `The payroll cutoff is in <strong>${daysRemaining} days</strong>.`
+      }
+    </p>
+    ${infoBoxHtml(`
+      <p style="margin: 0 0 8px 0;"><strong>Cutoff Date:</strong> ${cutoffDate}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Pending Approvals:</strong> ${pendingCount} time entries</p>
+      ${pendingCount > 0 ? `<p style="margin: 0; color: ${urgencyColor}; font-weight: 600;">Please review and approve pending time entries before the cutoff.</p>` : ''}
+    `, urgencyBg, urgencyColor)}
+    ${buttonHtml(actionUrl, 'Review Pending Approvals', urgencyColor)}
   `;
+
+  const html = emailLayout('Payroll Deadline Reminder', content, urgencyColor);
 
   return sendEmail({
     to: email,
@@ -517,54 +378,30 @@ export const sendClientOnboardingEmail = async (
   const loginUrl = `${config.frontendUrl}/login`;
   const agreementLabel = agreementType === 'WEEKLY' ? 'Weekly' : agreementType === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly';
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to Hello Team - Action Required</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Welcome to Hello Team, ${contactPerson}!</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Your account for <strong>${companyName}</strong> has been created. Before you can access your client portal, you'll need to review and sign your <strong>${agreementLabel} Service Agreement</strong>.
-          </p>
-          <div style="background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="color: #1e40af; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
-            <p style="color: #1e40af; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
-            <p style="color: #1e40af; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
-            <p style="color: #1e40af; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
-          </div>
-          <div style="background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="color: #166534; margin: 0; font-weight: 600;">Steps to get started:</p>
-            <ol style="color: #166534; margin: 8px 0 0 0; padding-left: 20px;">
-              <li>Log in with the credentials above</li>
-              <li>Review the ${agreementLabel} Service Agreement</li>
-              <li>Type your full name and click "I Accept" to sign</li>
-              <li>Your client portal will be unlocked immediately</li>
-            </ol>
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Log In & Sign Agreement
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Welcome to Hello Team, ${contactPerson}!</h2>
+    <p style="${styles.paragraph}">
+      Your account for <strong>${companyName}</strong> has been created. Before you can access your client portal, you'll need to review and sign your <strong>${agreementLabel} Service Agreement</strong>.
+    </p>
+    ${infoBoxHtml(`
+      <p style="${styles.infoBoxText()}; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
+      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+      <p style="${styles.infoBoxText()}; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
+    `)}
+    ${infoBoxHtml(`
+      <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to get started:</p>
+      <ol style="color: ${colors.successText}; margin: 8px 0 0 0; padding-left: 20px;">
+        <li>Log in with the credentials above</li>
+        <li>Review the ${agreementLabel} Service Agreement</li>
+        <li>Type your full name and click "I Accept" to sign</li>
+        <li>Your client portal will be unlocked immediately</li>
+      </ol>
+    `, colors.successBg, colors.success)}
+    ${buttonHtml(loginUrl, 'Log In & Sign Agreement')}
   `;
+
+  const html = emailLayout('Welcome to Hello Team - Action Required', content);
 
   const text = `
 Welcome to Hello Team, ${contactPerson}!
@@ -604,54 +441,30 @@ export const sendEmployeeOnboardingEmail = async (
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Welcome to Hello Team - Complete Your Onboarding</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #2563eb; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Welcome to the team, ${name}!</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Your employee account has been created. Before you can access your portal, you'll need to complete a quick onboarding process.
-          </p>
-          <div style="background-color: #eff6ff; border: 1px solid #2563eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="color: #1e40af; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
-            <p style="color: #1e40af; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
-            <p style="color: #1e40af; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
-            <p style="color: #1e40af; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
-          </div>
-          <div style="background-color: #f0fdf4; border: 1px solid #22c55e; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="color: #166534; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
-            <ol style="color: #166534; margin: 8px 0 0 0; padding-left: 20px;">
-              <li>Log in with the credentials above</li>
-              <li>Enter your personal information (phone, address, email)</li>
-              <li>Add 3 emergency contacts</li>
-              <li>Upload a government-issued ID</li>
-            </ol>
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${loginUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Log In & Complete Onboarding
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Welcome to the team, ${name}!</h2>
+    <p style="${styles.paragraph}">
+      Your employee account has been created. Before you can access your portal, you'll need to complete a quick onboarding process.
+    </p>
+    ${infoBoxHtml(`
+      <p style="${styles.infoBoxText()}; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
+      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
+      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
+      <p style="${styles.infoBoxText()}; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
+    `)}
+    ${infoBoxHtml(`
+      <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
+      <ol style="color: ${colors.successText}; margin: 8px 0 0 0; padding-left: 20px;">
+        <li>Log in with the credentials above</li>
+        <li>Enter your personal information (phone, address, email)</li>
+        <li>Add 3 emergency contacts</li>
+        <li>Upload a government-issued ID</li>
+      </ol>
+    `, colors.successBg, colors.success)}
+    ${buttonHtml(loginUrl, 'Log In & Complete Onboarding')}
   `;
+
+  const html = emailLayout('Welcome to Hello Team - Complete Your Onboarding', content);
 
   const text = `
 Welcome to the team, ${name}!
@@ -683,7 +496,6 @@ Please change your password after your first login.
 
 /**
  * Send notification to client that an employee worked overtime
- * Sent immediately after OT shift ends (clock-out)
  */
 export const sendOTWorkedEmail = async (
   email: string,
@@ -695,48 +507,24 @@ export const sendOTWorkedEmail = async (
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Employee Worked Overtime</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #f59e0b; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Employee Worked Overtime</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${clientName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            <strong>${employeeName}</strong> worked overtime today. Please approve or deny the overtime hours.
-          </p>
-          <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
-            <p style="margin: 0 0 8px 0;"><strong>Total Hours:</strong> ${totalHours}</p>
-            <p style="margin: 0; color: #d97706; font-weight: 600;"><strong>Overtime:</strong> ${overtimeHours}</p>
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: #f59e0b; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Approve / Deny
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Employee Worked Overtime</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      <strong>${employeeName}</strong> worked overtime today. Please approve or deny the overtime hours.
+    </p>
+    ${infoBoxHtml(`
+      <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Total Hours:</strong> ${totalHours}</p>
+      <p style="margin: 0; color: ${colors.warningText}; font-weight: 600;"><strong>Overtime:</strong> ${overtimeHours}</p>
+    `, colors.warningBg, colors.warning)}
+    ${buttonHtml(actionUrl, 'Approve / Deny', colors.warning)}
   `;
+
+  const html = emailLayout('Employee Worked Overtime', content, colors.warning);
 
   return sendEmail({
     to: email,
@@ -758,47 +546,23 @@ export const sendOTBillingReminderEmail = async (
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Unapproved Overtime Hours</title>
-    </head>
-    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5; margin: 0; padding: 20px;">
-      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <div style="background-color: #ef4444; padding: 30px; text-align: center;">
-          <h1 style="color: #ffffff; margin: 0; font-size: 24px;">Hello Team</h1>
-        </div>
-        <div style="padding: 40px 30px;">
-          <h2 style="color: #1f2937; margin-top: 0;">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? 's' : ''}</h2>
-          <p style="color: #4b5563; line-height: 1.6;">
-            Hi ${clientName},
-          </p>
-          <p style="color: #4b5563; line-height: 1.6;">
-            You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? 'y' : 'ies'} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
-          </p>
-          <div style="background-color: #fef2f2; border: 1px solid #ef4444; border-radius: 6px; padding: 16px; margin: 20px 0;">
-            <p style="margin: 0 0 8px 0; color: #991b1b;"><strong>Unapproved OT Entries:</strong> ${unapprovedCount}</p>
-            <p style="margin: 0 0 8px 0; color: #991b1b;"><strong>Total Unapproved Hours:</strong> ${unapprovedHours}</p>
-            <p style="margin: 0; color: #991b1b; font-weight: 600;">Billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}.</p>
-          </div>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${actionUrl}" style="background-color: #ef4444; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">
-              Review Unapproved Overtime
-            </a>
-          </div>
-        </div>
-        <div style="background-color: #f9fafb; padding: 20px 30px; text-align: center;">
-          <p style="color: #9ca3af; font-size: 12px; margin: 0;">
-            &copy; ${new Date().getFullYear()} Hello Team. All rights reserved.
-          </p>
-        </div>
-      </div>
-    </body>
-    </html>
+  const content = `
+    <h2 style="${styles.h2}">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? 's' : ''}</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? 'y' : 'ies'} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
+    </p>
+    ${infoBoxHtml(`
+      <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Unapproved OT Entries:</strong> ${unapprovedCount}</p>
+      <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Total Unapproved Hours:</strong> ${unapprovedHours}</p>
+      <p style="margin: 0; color: ${colors.dangerText}; font-weight: 600;">Billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}.</p>
+    `, colors.dangerBg, colors.danger)}
+    ${buttonHtml(actionUrl, 'Review Unapproved Overtime', colors.danger)}
   `;
+
+  const html = emailLayout('Unapproved Overtime Hours', content, colors.danger);
 
   return sendEmail({
     to: email,
