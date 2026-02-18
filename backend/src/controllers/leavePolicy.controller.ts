@@ -1,7 +1,14 @@
 import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-import { PaidLeaveEntitlementType, Prisma } from '@prisma/client';
+import { PaidLeaveEntitlementType, Prisma, NotificationType } from '@prisma/client';
+import { createNotification } from './notification.controller';
+
+// Helper: Convert date to UTC midnight for DATE column
+const toUtcDate = (dateStr: string): Date => {
+  const d = new Date(dateStr);
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+};
 
 // ============================================
 // LEAVE POLICY CONFIGURATION
@@ -56,6 +63,10 @@ export const getClientsWithPolicies = async (req: AuthenticatedRequest, res: Res
         carryoverExpiryMonths: client.clientPolicies.carryoverExpiryMonths,
         allowUnpaidLeave: client.clientPolicies.allowUnpaidLeave,
         requireTwoWeeksNotice: client.clientPolicies.requireTwoWeeksNotice,
+        allowPaidHolidays: client.clientPolicies.allowPaidHolidays,
+        paidHolidayType: client.clientPolicies.paidHolidayType,
+        numberOfPaidHolidays: client.clientPolicies.numberOfPaidHolidays,
+        allowUnpaidHolidays: client.clientPolicies.allowUnpaidHolidays,
         allowOvertime: client.clientPolicies.allowOvertime,
         overtimeRequiresApproval: client.clientPolicies.overtimeRequiresApproval,
         overtimeThreshold: client.clientPolicies.overtimeThreshold,
@@ -122,6 +133,11 @@ export const getClientPolicy = async (req: AuthenticatedRequest, res: Response):
           carryoverExpiryMonths: client.clientPolicies.carryoverExpiryMonths,
           allowUnpaidLeave: client.clientPolicies.allowUnpaidLeave,
           requireTwoWeeksNotice: client.clientPolicies.requireTwoWeeksNotice,
+          // Holiday settings
+          allowPaidHolidays: client.clientPolicies.allowPaidHolidays,
+          paidHolidayType: client.clientPolicies.paidHolidayType,
+          numberOfPaidHolidays: client.clientPolicies.numberOfPaidHolidays,
+          allowUnpaidHolidays: client.clientPolicies.allowUnpaidHolidays,
           // Overtime settings
           allowOvertime: client.clientPolicies.allowOvertime,
           overtimeRequiresApproval: client.clientPolicies.overtimeRequiresApproval,
@@ -1046,29 +1062,33 @@ export const adminApproveLeave = async (req: AuthenticatedRequest, res: Response
 
     // Update leave balance - move from pending to used
     const currentYear = new Date().getFullYear();
+    const balanceKey = {
+      employeeId_clientId_year: {
+        employeeId: leaveRequest.employeeId,
+        clientId: leaveRequest.clientId,
+        year: currentYear,
+      },
+    };
+
     if (leaveRequest.leaveType === 'PAID') {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: leaveRequest.employeeId,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
+        where: balanceKey,
         data: {
           paidLeavePending: { decrement: days },
           paidLeaveUsed: { increment: days },
         },
       });
+    } else if (leaveRequest.leaveType === 'PAID_HOLIDAY') {
+      await prisma.leaveBalance.update({
+        where: balanceKey,
+        data: {
+          paidHolidayPending: { decrement: days },
+          paidHolidayUsed: { increment: days },
+        },
+      });
     } else {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: leaveRequest.employeeId,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
+        where: balanceKey,
         data: {
           unpaidLeavePending: { decrement: days },
           unpaidLeaveTaken: { increment: days },
@@ -1086,6 +1106,26 @@ export const adminApproveLeave = async (req: AuthenticatedRequest, res: Response
         description: `Approved ${leaveRequest.leaveType} leave for ${leaveRequest.employee.firstName} ${leaveRequest.employee.lastName} (${days} days)`,
       },
     });
+
+    // Notify employee about approval
+    try {
+      const employeeUser = await prisma.user.findFirst({
+        where: { employee: { id: leaveRequest.employeeId } },
+      });
+      if (employeeUser) {
+        const typeLabel = leaveRequest.leaveType === 'PAID_HOLIDAY' ? 'Paid Holiday' : leaveRequest.leaveType === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+        await createNotification(
+          employeeUser.id,
+          'LEAVE_APPROVED' as NotificationType,
+          `${typeLabel} Request Approved`,
+          `Your ${typeLabel.toLowerCase()} request for ${days} day(s) from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()} has been approved.`,
+          { leaveRequestId: requestId, leaveType: leaveRequest.leaveType, days },
+          '/employee/leave'
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send leave approval notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -1143,31 +1183,28 @@ export const adminRejectLeave = async (req: AuthenticatedRequest, res: Response)
 
     // Update leave balance - remove from pending
     const currentYear = new Date().getFullYear();
+    const balanceKey = {
+      employeeId_clientId_year: {
+        employeeId: leaveRequest.employeeId,
+        clientId: leaveRequest.clientId,
+        year: currentYear,
+      },
+    };
+
     if (leaveRequest.leaveType === 'PAID') {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: leaveRequest.employeeId,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
-        data: {
-          paidLeavePending: { decrement: days },
-        },
+        where: balanceKey,
+        data: { paidLeavePending: { decrement: days } },
+      });
+    } else if (leaveRequest.leaveType === 'PAID_HOLIDAY') {
+      await prisma.leaveBalance.update({
+        where: balanceKey,
+        data: { paidHolidayPending: { decrement: days } },
       });
     } else {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: leaveRequest.employeeId,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
-        data: {
-          unpaidLeavePending: { decrement: days },
-        },
+        where: balanceKey,
+        data: { unpaidLeavePending: { decrement: days } },
       });
     }
 
@@ -1181,6 +1218,26 @@ export const adminRejectLeave = async (req: AuthenticatedRequest, res: Response)
         description: `Rejected ${leaveRequest.leaveType} leave for ${leaveRequest.employee.firstName} ${leaveRequest.employee.lastName}. Reason: ${reason.trim()}`,
       },
     });
+
+    // Notify employee about rejection
+    try {
+      const employeeUser = await prisma.user.findFirst({
+        where: { employee: { id: leaveRequest.employeeId } },
+      });
+      if (employeeUser) {
+        const typeLabel = leaveRequest.leaveType === 'PAID_HOLIDAY' ? 'Paid Holiday' : leaveRequest.leaveType === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+        await createNotification(
+          employeeUser.id,
+          'LEAVE_REJECTED' as NotificationType,
+          `${typeLabel} Request Rejected`,
+          `Your ${typeLabel.toLowerCase()} request for ${days} day(s) from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()} was rejected. Reason: ${reason.trim()}`,
+          { leaveRequestId: requestId, leaveType: leaveRequest.leaveType, days, rejectionReason: reason.trim() },
+          '/employee/leave'
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send leave rejection notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -1232,29 +1289,33 @@ export const bulkApproveLeave = async (req: AuthenticatedRequest, res: Response)
 
       // Update balance
       const currentYear = new Date().getFullYear();
+      const balanceKey = {
+        employeeId_clientId_year: {
+          employeeId: leaveRequest.employeeId,
+          clientId: leaveRequest.clientId,
+          year: currentYear,
+        },
+      };
+
       if (leaveRequest.leaveType === 'PAID') {
         await prisma.leaveBalance.update({
-          where: {
-            employeeId_clientId_year: {
-              employeeId: leaveRequest.employeeId,
-              clientId: leaveRequest.clientId,
-              year: currentYear,
-            },
-          },
+          where: balanceKey,
           data: {
             paidLeavePending: { decrement: days },
             paidLeaveUsed: { increment: days },
           },
         });
+      } else if (leaveRequest.leaveType === 'PAID_HOLIDAY') {
+        await prisma.leaveBalance.update({
+          where: balanceKey,
+          data: {
+            paidHolidayPending: { decrement: days },
+            paidHolidayUsed: { increment: days },
+          },
+        });
       } else {
         await prisma.leaveBalance.update({
-          where: {
-            employeeId_clientId_year: {
-              employeeId: leaveRequest.employeeId,
-              clientId: leaveRequest.clientId,
-              year: currentYear,
-            },
-          },
+          where: balanceKey,
           data: {
             unpaidLeavePending: { decrement: days },
             unpaidLeaveTaken: { increment: days },
@@ -1273,5 +1334,180 @@ export const bulkApproveLeave = async (req: AuthenticatedRequest, res: Response)
   } catch (error) {
     console.error('Bulk approve leave error:', error);
     res.status(500).json({ success: false, error: 'Failed to bulk approve leave requests' });
+  }
+};
+
+// ============================================
+// HOLIDAY MANAGEMENT
+// ============================================
+
+// Get holidays by client and year
+export const getHolidays = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const clientId = req.query.clientId as string | undefined;
+    const year = parseInt(req.query.year as string, 10) || new Date().getFullYear();
+
+    const where: any = { year };
+    if (clientId && clientId !== 'all') {
+      where.clientId = clientId;
+    }
+
+    const holidays = await prisma.holiday.findMany({
+      where,
+      include: {
+        client: {
+          select: { id: true, companyName: true },
+        },
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    const formattedHolidays = holidays.map(h => ({
+      id: h.id,
+      clientId: h.clientId,
+      clientName: h.client.companyName,
+      name: h.name,
+      date: h.date,
+      isPaid: h.isPaid,
+      year: h.year,
+    }));
+
+    res.json({
+      success: true,
+      data: { holidays: formattedHolidays },
+    });
+  } catch (error) {
+    console.error('Get holidays error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch holidays' });
+  }
+};
+
+// Create a holiday
+export const createHoliday = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { clientId, name, date, isPaid } = req.body;
+
+    if (!clientId || !name || !date) {
+      res.status(400).json({ success: false, error: 'Client, name, and date are required' });
+      return;
+    }
+
+    const utcDate = toUtcDate(date);
+    const year = new Date(date).getFullYear();
+
+    // Check client exists
+    const client = await prisma.client.findUnique({ where: { id: clientId } });
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Check for duplicate
+    const existing = await prisma.holiday.findUnique({
+      where: { clientId_date: { clientId, date: utcDate } },
+    });
+    if (existing) {
+      res.status(400).json({ success: false, error: 'A holiday already exists on this date for this client' });
+      return;
+    }
+
+    const holiday = await prisma.holiday.create({
+      data: {
+        clientId,
+        name: name.trim(),
+        date: utcDate,
+        isPaid: isPaid !== false,
+        year,
+      },
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'CREATE',
+        entityType: 'Holiday',
+        entityId: holiday.id,
+        description: `Created holiday "${name}" for ${client.companyName} on ${date}`,
+      },
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Holiday created successfully',
+      data: holiday,
+    });
+  } catch (error) {
+    console.error('Create holiday error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create holiday' });
+  }
+};
+
+// Update a holiday
+export const updateHoliday = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const holidayId = req.params.holidayId as string;
+    const { name, date, isPaid } = req.body;
+
+    const existing = await prisma.holiday.findUnique({ where: { id: holidayId } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Holiday not found' });
+      return;
+    }
+
+    const updateData: any = {};
+    if (name !== undefined) updateData.name = name.trim();
+    if (isPaid !== undefined) updateData.isPaid = isPaid;
+    if (date !== undefined) {
+      updateData.date = toUtcDate(date);
+      updateData.year = new Date(date).getFullYear();
+    }
+
+    const holiday = await prisma.holiday.update({
+      where: { id: holidayId },
+      data: updateData,
+    });
+
+    res.json({
+      success: true,
+      message: 'Holiday updated successfully',
+      data: holiday,
+    });
+  } catch (error) {
+    console.error('Update holiday error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update holiday' });
+  }
+};
+
+// Delete a holiday
+export const deleteHoliday = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const holidayId = req.params.holidayId as string;
+
+    const existing = await prisma.holiday.findUnique({ where: { id: holidayId } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: 'Holiday not found' });
+      return;
+    }
+
+    await prisma.holiday.delete({ where: { id: holidayId } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user!.userId,
+        action: 'DELETE',
+        entityType: 'Holiday',
+        entityId: holidayId,
+        description: `Deleted holiday "${existing.name}" (${existing.date.toISOString().split('T')[0]})`,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Holiday deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete holiday error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete holiday' });
   }
 };

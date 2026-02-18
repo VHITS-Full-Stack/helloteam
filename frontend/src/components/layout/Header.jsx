@@ -111,6 +111,7 @@ const Header = ({
     switch (type) {
       case 'APPROVAL_REQUIRED':
       case 'OVERTIME_REQUEST':
+      case 'LEAVE_REQUEST':
         return 'bg-accent';
       case 'TIME_APPROVED':
       case 'LEAVE_APPROVED':

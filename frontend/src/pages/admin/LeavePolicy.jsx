@@ -16,6 +16,8 @@ import {
   Loader2,
   RefreshCw,
   FileText,
+  Gift,
+  Trash2,
 } from 'lucide-react';
 import {
   Card,
@@ -70,6 +72,20 @@ const LeavePolicy = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [processingApproval, setProcessingApproval] = useState(false);
   const [selectedRequests, setSelectedRequests] = useState([]);
+
+  // Holidays tab state
+  const [holidays, setHolidays] = useState([]);
+  const [holidayClientFilter, setHolidayClientFilter] = useState('all');
+  const [holidayYear, setHolidayYear] = useState(new Date().getFullYear());
+  const [showHolidayModal, setShowHolidayModal] = useState(false);
+  const [editingHoliday, setEditingHoliday] = useState(null);
+  const [holidayForm, setHolidayForm] = useState({
+    clientId: '',
+    name: '',
+    date: '',
+    isPaid: true,
+  });
+  const [savingHoliday, setSavingHoliday] = useState(false);
 
   // Run accrual state
   const [runningAccrual, setRunningAccrual] = useState(false);
@@ -328,6 +344,91 @@ const LeavePolicy = () => {
   };
 
   // ============================================
+  // HOLIDAYS TAB
+  // ============================================
+
+  const fetchHolidays = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await leavePolicyService.getHolidays({
+        clientId: holidayClientFilter !== 'all' ? holidayClientFilter : undefined,
+        year: holidayYear,
+      });
+      if (response.success) {
+        setHolidays(response.data.holidays || []);
+      }
+    } catch (err) {
+      console.error('Error fetching holidays:', err);
+      setError('Failed to load holidays');
+    } finally {
+      setLoading(false);
+    }
+  }, [holidayClientFilter, holidayYear]);
+
+  const handleAddHoliday = () => {
+    setEditingHoliday(null);
+    setHolidayForm({ clientId: '', name: '', date: '', isPaid: true });
+    setShowHolidayModal(true);
+  };
+
+  const handleEditHoliday = (holiday) => {
+    setEditingHoliday(holiday);
+    setHolidayForm({
+      clientId: holiday.clientId,
+      name: holiday.name,
+      date: new Date(holiday.date).toISOString().split('T')[0],
+      isPaid: holiday.isPaid,
+    });
+    setShowHolidayModal(true);
+  };
+
+  const handleSaveHoliday = async () => {
+    if (!holidayForm.clientId || !holidayForm.name || !holidayForm.date) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    setSavingHoliday(true);
+    try {
+      let response;
+      if (editingHoliday) {
+        response = await leavePolicyService.updateHoliday(editingHoliday.id, {
+          name: holidayForm.name,
+          date: holidayForm.date,
+          isPaid: holidayForm.isPaid,
+        });
+      } else {
+        response = await leavePolicyService.createHoliday(holidayForm);
+      }
+      if (response.success) {
+        setShowHolidayModal(false);
+        setEditingHoliday(null);
+        setError('');
+        fetchHolidays();
+      } else {
+        setError(response.error || 'Failed to save holiday');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to save holiday');
+    } finally {
+      setSavingHoliday(false);
+    }
+  };
+
+  const handleDeleteHoliday = async (holiday) => {
+    if (!window.confirm(`Delete holiday "${holiday.name}"?`)) return;
+    try {
+      const response = await leavePolicyService.deleteHoliday(holiday.id);
+      if (response.success) {
+        fetchHolidays();
+      } else {
+        setError(response.error || 'Failed to delete holiday');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to delete holiday');
+    }
+  };
+
+  // ============================================
   // EFFECTS
   // ============================================
 
@@ -338,8 +439,11 @@ const LeavePolicy = () => {
       fetchEmployeeBalances();
     } else if (activeTab === 'approvals') {
       fetchLeaveRequests();
+    } else if (activeTab === 'holidays') {
+      fetchHolidays();
+      if (clients.length === 0) fetchClients();
     }
-  }, [activeTab, fetchClients, fetchEmployeeBalances, fetchLeaveRequests]);
+  }, [activeTab, fetchClients, fetchEmployeeBalances, fetchLeaveRequests, fetchHolidays]);
 
   // ============================================
   // HELPERS
@@ -445,6 +549,17 @@ const LeavePolicy = () => {
                 {approvalStats.pending}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setActiveTab('holidays')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'holidays'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Gift className="w-4 h-4" />
+            Holidays
           </button>
         </nav>
       </div>
@@ -795,8 +910,8 @@ const LeavePolicy = () => {
                       </TableCell>
                       <TableCell>{request.client.name}</TableCell>
                       <TableCell>
-                        <Badge variant={request.leaveType === 'PAID' ? 'success' : 'default'}>
-                          {request.leaveType}
+                        <Badge variant={request.leaveType === 'PAID' ? 'success' : request.leaveType === 'PAID_HOLIDAY' ? 'info' : 'default'}>
+                          {request.leaveType === 'PAID' ? 'Paid Leave' : request.leaveType === 'PAID_HOLIDAY' ? 'Paid Holiday' : 'Unpaid Leave'}
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -1195,6 +1310,156 @@ const LeavePolicy = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* HOLIDAYS TAB */}
+      {activeTab === 'holidays' && (
+        <Card padding="md">
+          {/* Filters & Add Button */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <select
+              value={holidayClientFilter}
+              onChange={(e) => setHolidayClientFilter(e.target.value)}
+              className="input"
+            >
+              <option value="all">All Clients</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{c.companyName}</option>
+              ))}
+            </select>
+            <select
+              value={holidayYear}
+              onChange={(e) => setHolidayYear(parseInt(e.target.value, 10))}
+              className="input"
+            >
+              {[2024, 2025, 2026, 2027].map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <Button variant="primary" icon={Plus} onClick={handleAddHoliday}>
+              Add Holiday
+            </Button>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : holidays.length > 0 ? (
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableHeader>Date</TableHeader>
+                  <TableHeader>Holiday Name</TableHeader>
+                  <TableHeader>Client</TableHeader>
+                  <TableHeader>Type</TableHeader>
+                  <TableHeader>Actions</TableHeader>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {holidays.map((holiday) => (
+                  <TableRow key={holiday.id}>
+                    <TableCell>{formatDate(holiday.date)}</TableCell>
+                    <TableCell>
+                      <span className="font-medium">{holiday.name}</span>
+                    </TableCell>
+                    <TableCell>{holiday.clientName}</TableCell>
+                    <TableCell>
+                      {holiday.isPaid ? (
+                        <Badge variant="success">Paid</Badge>
+                      ) : (
+                        <Badge variant="default">Unpaid</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" icon={Edit3} onClick={() => handleEditHoliday(holiday)}>
+                          Edit
+                        </Button>
+                        <Button variant="ghost" size="sm" icon={Trash2} onClick={() => handleDeleteHoliday(holiday)} className="text-red-600 hover:text-red-700">
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              No holidays declared for {holidayYear}. Click "Add Holiday" to create one.
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Holiday Modal */}
+      <Modal
+        isOpen={showHolidayModal}
+        onClose={() => setShowHolidayModal(false)}
+        title={editingHoliday ? 'Edit Holiday' : 'Add Holiday'}
+        size="md"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowHolidayModal(false)} disabled={savingHoliday}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveHoliday} disabled={savingHoliday}>
+              {savingHoliday ? 'Saving...' : editingHoliday ? 'Update Holiday' : 'Add Holiday'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {!editingHoliday && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client <span className="text-red-500">*</span></label>
+              <select
+                value={holidayForm.clientId}
+                onChange={(e) => setHolidayForm({ ...holidayForm, clientId: e.target.value })}
+                className="input w-full"
+              >
+                <option value="">Select Client</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.companyName}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Name <span className="text-red-500">*</span></label>
+            <input
+              type="text"
+              value={holidayForm.name}
+              onChange={(e) => setHolidayForm({ ...holidayForm, name: e.target.value })}
+              className="input w-full"
+              placeholder="e.g., Christmas Day"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Date <span className="text-red-500">*</span></label>
+            <input
+              type="date"
+              value={holidayForm.date}
+              onChange={(e) => setHolidayForm({ ...holidayForm, date: e.target.value })}
+              className="input w-full"
+            />
+          </div>
+          <div>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={holidayForm.isPaid}
+                onChange={(e) => setHolidayForm({ ...holidayForm, isPaid: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm font-medium text-gray-700">Paid Holiday</span>
+            </label>
+            <p className="text-xs text-gray-500 mt-1">
+              {holidayForm.isPaid ? 'Employee will be paid for this day off' : 'Unpaid day off'}
+            </p>
+          </div>
+        </div>
       </Modal>
 
       {/* Reject Modal */}

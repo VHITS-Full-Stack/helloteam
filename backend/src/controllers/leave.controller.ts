@@ -1,6 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient, LeaveType, LeaveStatus } from '@prisma/client';
+import { PrismaClient, LeaveType, LeaveStatus, NotificationType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
+import { createNotification } from './notification.controller';
 
 const prisma = new PrismaClient();
 
@@ -39,6 +40,7 @@ const getOrCreateLeaveBalance = async (employeeId: string, clientId: string) => 
     });
 
     const initialEntitlement = policy?.allowPaidLeave ? policy.annualPaidLeaveDays : 0;
+    const holidayEntitlement = policy?.allowPaidHolidays ? policy.numberOfPaidHolidays : 0;
 
     balance = await prisma.leaveBalance.create({
       data: {
@@ -51,6 +53,9 @@ const getOrCreateLeaveBalance = async (employeeId: string, clientId: string) => 
         paidLeavePending: 0,
         unpaidLeaveTaken: 0,
         unpaidLeavePending: 0,
+        paidHolidayEntitled: holidayEntitlement,
+        paidHolidayUsed: 0,
+        paidHolidayPending: 0,
       },
     });
   }
@@ -187,6 +192,10 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
       Number(balance.paidLeaveUsed) -
       Number(balance.paidLeavePending);
 
+    const paidHolidayAvailable = Number(balance.paidHolidayEntitled) -
+      Number(balance.paidHolidayUsed) -
+      Number(balance.paidHolidayPending);
+
     res.json({
       success: true,
       data: {
@@ -203,9 +212,16 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
           taken: Number(balance.unpaidLeaveTaken),
           pending: Number(balance.unpaidLeavePending),
         },
+        paidHoliday: {
+          entitled: Number(balance.paidHolidayEntitled),
+          used: Number(balance.paidHolidayUsed),
+          pending: Number(balance.paidHolidayPending),
+          available: paidHolidayAvailable,
+        },
         policy: {
           allowPaidLeave: policy?.allowPaidLeave ?? false,
           allowUnpaidLeave: policy?.allowUnpaidLeave ?? true,
+          allowPaidHolidays: policy?.allowPaidHolidays ?? false,
           requiresTwoWeeksNotice: policy?.requireTwoWeeksNotice ?? true,
         },
       },
@@ -349,32 +365,69 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     });
 
     // Update pending balance
+    const balanceKey = {
+      employeeId_clientId_year: {
+        employeeId: employee.id,
+        clientId: assignment.clientId,
+        year: new Date().getFullYear(),
+      },
+    };
+
     if (leaveType === 'PAID') {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: employee.id,
-            clientId: assignment.clientId,
-            year: new Date().getFullYear(),
-          },
-        },
-        data: {
-          paidLeavePending: { increment: requestedDays },
-        },
+        where: balanceKey,
+        data: { paidLeavePending: { increment: requestedDays } },
       });
     } else {
       await prisma.leaveBalance.update({
+        where: balanceKey,
+        data: { unpaidLeavePending: { increment: requestedDays } },
+      });
+    }
+
+    // Notify client and admin about the leave request
+    try {
+      const employeeName = `${employee.firstName} ${employee.lastName}`;
+      const typeLabel = leaveType === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+      const notifMessage = `${employeeName} has requested ${requestedDays} day(s) of ${typeLabel.toLowerCase()} from ${start.toLocaleDateString()} to ${end.toLocaleDateString()}.`;
+      const notifData = { leaveRequestId: leaveRequest.id, leaveType, requestedDays };
+
+      // Notify client
+      const clientUser = await prisma.user.findFirst({
         where: {
-          employeeId_clientId_year: {
-            employeeId: employee.id,
-            clientId: assignment.clientId,
-            year: new Date().getFullYear(),
-          },
-        },
-        data: {
-          unpaidLeavePending: { increment: requestedDays },
+          client: { id: assignment.clientId },
+          role: 'CLIENT',
         },
       });
+
+      if (clientUser && policy?.notifyLeaveRequests !== false) {
+        await createNotification(
+          clientUser.id,
+          'LEAVE_REQUEST' as NotificationType,
+          `${typeLabel} Request from ${employeeName}`,
+          notifMessage,
+          notifData,
+          '/client/approvals'
+        );
+      }
+
+      // Notify all admins
+      const adminUsers = await prisma.user.findMany({
+        where: { role: 'ADMIN' },
+      });
+
+      for (const admin of adminUsers) {
+        await createNotification(
+          admin.id,
+          'LEAVE_REQUEST' as NotificationType,
+          `${typeLabel} Request from ${employeeName}`,
+          notifMessage,
+          notifData,
+          '/admin/leave-policy'
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send leave notification:', notifError);
     }
 
     res.status(201).json({
@@ -512,31 +565,28 @@ export const cancelLeaveRequest = async (req: AuthenticatedRequest, res: Respons
 
     // Update balance
     const currentYear = new Date().getFullYear();
+    const balanceKey = {
+      employeeId_clientId_year: {
+        employeeId: employee.id,
+        clientId: leaveRequest.clientId,
+        year: currentYear,
+      },
+    };
+
     if (leaveRequest.leaveType === 'PAID') {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: employee.id,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
-        data: {
-          paidLeavePending: { decrement: requestedDays },
-        },
+        where: balanceKey,
+        data: { paidLeavePending: { decrement: requestedDays } },
+      });
+    } else if (leaveRequest.leaveType === 'PAID_HOLIDAY') {
+      await prisma.leaveBalance.update({
+        where: balanceKey,
+        data: { paidHolidayPending: { decrement: requestedDays } },
       });
     } else {
       await prisma.leaveBalance.update({
-        where: {
-          employeeId_clientId_year: {
-            employeeId: employee.id,
-            clientId: leaveRequest.clientId,
-            year: currentYear,
-          },
-        },
-        data: {
-          unpaidLeavePending: { decrement: requestedDays },
-        },
+        where: balanceKey,
+        data: { unpaidLeavePending: { decrement: requestedDays } },
       });
     }
 

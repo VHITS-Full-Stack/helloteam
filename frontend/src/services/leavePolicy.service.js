@@ -110,6 +110,32 @@ const leavePolicyService = {
   async bulkApproveLeaveRequests(requestIds) {
     return await api.post('/leave-policy/requests/bulk-approve', { requestIds });
   },
+
+  // ============================================
+  // HOLIDAY MANAGEMENT
+  // ============================================
+
+  async getHolidays(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.clientId) queryParams.append('clientId', params.clientId);
+    if (params.year) queryParams.append('year', params.year.toString());
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/leave-policy/holidays?${queryString}` : '/leave-policy/holidays';
+    return await api.get(url);
+  },
+
+  async createHoliday(data) {
+    return await api.post('/leave-policy/holidays', data);
+  },
+
+  async updateHoliday(holidayId, data) {
+    return await api.put(`/leave-policy/holidays/${holidayId}`, data);
+  },
+
+  async deleteHoliday(holidayId) {
+    return await api.delete(`/leave-policy/holidays/${holidayId}`);
+  },
 };
 
 export default leavePolicyService;

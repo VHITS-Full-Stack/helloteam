@@ -48,6 +48,7 @@ enum ApprovalStatus {
 enum LeaveType {
   PAID
   UNPAID
+  PAID_HOLIDAY
 }
 
 enum AgreementType {
@@ -245,6 +246,7 @@ model Client {
   conversations  Conversation[]
   invoices         Invoice[]
   autoApprovalLogs AutoApprovalLog[]
+  holidays         Holiday[]
 
   @@map("clients")
 }
@@ -387,6 +389,27 @@ model ClientPolicy {
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@map("client_policies")
+}
+
+// ============================================
+// COMPANY HOLIDAYS
+// ============================================
+
+model Holiday {
+  id        String   @id @default(uuid())
+  clientId  String
+  name      String
+  date      DateTime @db.Date
+  isPaid    Boolean  @default(true)
+  year      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, date])
+  @@index([clientId, year])
+  @@map("holidays")
 }
 
 // ============================================
@@ -640,6 +663,11 @@ model LeaveBalance {
   // Unpaid leave tracking
   unpaidLeaveTaken   Decimal @default(0) @db.Decimal(5, 2) // Unpaid days taken
   unpaidLeavePending Decimal @default(0) @db.Decimal(5, 2) // Pending approval
+
+  // Paid holiday tracking
+  paidHolidayEntitled Decimal @default(0) @db.Decimal(5, 2) // Total entitled holidays
+  paidHolidayUsed     Decimal @default(0) @db.Decimal(5, 2) // Holidays used
+  paidHolidayPending  Decimal @default(0) @db.Decimal(5, 2) // Pending approval
 
   // Accrual tracking (for ACCRUED type)
   lastAccrualDate DateTime?

@@ -17,6 +17,11 @@ import {
   adminApproveLeave,
   adminRejectLeave,
   bulkApproveLeave,
+  // Holiday Management
+  getHolidays,
+  createHoliday,
+  updateHoliday,
+  deleteHoliday,
 } from '../controllers/leavePolicy.controller';
 
 const router = Router();
@@ -43,5 +48,11 @@ router.get('/requests', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), getAllPe
 router.post('/requests/:requestId/approve', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), adminApproveLeave);
 router.post('/requests/:requestId/reject', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), adminRejectLeave);
 router.post('/requests/bulk-approve', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), bulkApproveLeave);
+
+// Holiday Management - Admin only
+router.get('/holidays', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), getHolidays);
+router.post('/holidays', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), createHoliday);
+router.put('/holidays/:holidayId', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), updateHoliday);
+router.delete('/holidays/:holidayId', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), deleteHoliday);
 
 export default router;

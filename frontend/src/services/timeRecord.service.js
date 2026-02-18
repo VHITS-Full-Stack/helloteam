@@ -35,6 +35,17 @@ const timeRecordService = {
   async getRecordDetail(recordId) {
     return await api.get(`/time-records/${recordId}`);
   },
+
+  // Get holidays for my assigned client
+  async getMyHolidays(params = {}) {
+    const queryParams = new URLSearchParams();
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
+
+    const queryString = queryParams.toString();
+    const url = queryString ? `/time-records/my-holidays?${queryString}` : '/time-records/my-holidays';
+    return await api.get(url);
+  },
 };
 
 export default timeRecordService;

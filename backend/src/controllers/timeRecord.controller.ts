@@ -390,3 +390,65 @@ export const getTimeRecordDetail = async (req: AuthenticatedRequest, res: Respon
     res.status(500).json({ success: false, message: 'Failed to get time record detail' });
   }
 };
+
+// Get holidays for the employee's assigned client within a date range
+export const getMyHolidays = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { startDate, endDate } = req.query;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    // Get employee's active client assignments
+    const clientAssignments = await prisma.clientEmployee.findMany({
+      where: { employeeId: employee.id, isActive: true },
+    });
+
+    const clientIds = clientAssignments.map(ca => ca.clientId);
+    if (clientIds.length === 0) {
+      res.json({ success: true, holidays: [] });
+      return;
+    }
+
+    const where: any = {
+      clientId: { in: clientIds },
+    };
+
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) where.date.lte = new Date(endDate as string);
+    }
+
+    const holidays = await prisma.holiday.findMany({
+      where,
+      orderBy: { date: 'asc' },
+    });
+
+    res.json({
+      success: true,
+      holidays: holidays.map(h => ({
+        id: h.id,
+        clientId: h.clientId,
+        name: h.name,
+        date: h.date,
+        isPaid: h.isPaid,
+      })),
+    });
+  } catch (error) {
+    console.error('Get my holidays error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get holidays' });
+  }
+};

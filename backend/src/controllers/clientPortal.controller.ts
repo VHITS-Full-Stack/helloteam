@@ -1,7 +1,9 @@
 import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
+import { NotificationType } from '@prisma/client';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { createNotification } from './notification.controller';
 
 // Helper to get local date string from a Date (avoids timezone shift from toISOString)
 const toLocalDateStr = (d: Date) =>
@@ -2040,6 +2042,7 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
     // Get the leave request and verify it belongs to this client
     const request = await prisma.leaveRequest.findUnique({
       where: { id: requestId },
+      include: { employee: true },
     });
 
     if (!request) {
@@ -2062,6 +2065,29 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
         status: 'APPROVED',
       },
     });
+
+    // Notify employee about approval
+    try {
+      const employeeUser = await prisma.user.findFirst({
+        where: { employee: { id: request.employeeId } },
+      });
+      if (employeeUser) {
+        const startDate = new Date(request.startDate);
+        const endDate = new Date(request.endDate);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const typeLabel = request.leaveType === 'PAID_HOLIDAY' ? 'Paid Holiday' : request.leaveType === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+        await createNotification(
+          employeeUser.id,
+          'LEAVE_APPROVED' as NotificationType,
+          `${typeLabel} Request Approved`,
+          `Your ${typeLabel.toLowerCase()} request for ${days} day(s) from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()} has been approved by ${client.companyName}.`,
+          { leaveRequestId: requestId, leaveType: request.leaveType, days },
+          '/employee/leave'
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send leave approval notification:', notifError);
+    }
 
     res.json({
       success: true,
@@ -2099,6 +2125,7 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     // Get the leave request and verify it belongs to this client
     const request = await prisma.leaveRequest.findUnique({
       where: { id: requestId },
+      include: { employee: true },
     });
 
     if (!request) {
@@ -2122,6 +2149,29 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
         rejectionReason: reason,
       },
     });
+
+    // Notify employee about rejection
+    try {
+      const employeeUser = await prisma.user.findFirst({
+        where: { employee: { id: request.employeeId } },
+      });
+      if (employeeUser) {
+        const startDate = new Date(request.startDate);
+        const endDate = new Date(request.endDate);
+        const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+        const typeLabel = request.leaveType === 'PAID_HOLIDAY' ? 'Paid Holiday' : request.leaveType === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+        await createNotification(
+          employeeUser.id,
+          'LEAVE_REJECTED' as NotificationType,
+          `${typeLabel} Request Rejected`,
+          `Your ${typeLabel.toLowerCase()} request for ${days} day(s) from ${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()} was rejected by ${client.companyName}. Reason: ${reason.trim()}`,
+          { leaveRequestId: requestId, leaveType: request.leaveType, days, rejectionReason: reason.trim() },
+          '/employee/leave'
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send leave rejection notification:', notifError);
+    }
 
     res.json({
       success: true,

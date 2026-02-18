@@ -203,7 +203,8 @@ const Leave = () => {
 
   // Get leave type label
   const getLeaveTypeLabel = (type) => {
-    return type === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+    if (type === 'PAID') return 'Paid Leave';
+    return 'Unpaid Leave';
   };
 
   const tabs = [
@@ -257,7 +258,8 @@ const Leave = () => {
 
       {/* Balance Cards */}
       {leaveBalance && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Note: grid-cols-4 accommodates: Paid Leave, Unpaid Leave, Paid Holidays, Policy Info */}
           {/* Paid Leave Balance */}
           {leaveBalance.policy?.allowPaidLeave && (
             <Card>
@@ -322,6 +324,29 @@ const Leave = () => {
               )}
             </CardContent>
           </Card>
+
+          {/* Paid Holidays Info */}
+          {leaveBalance.policy?.allowPaidHolidays && leaveBalance.paidHoliday && (
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Paid Holidays</p>
+                    <p className="text-3xl font-bold text-primary mt-1">
+                      {leaveBalance.paidHoliday.entitled}
+                      <span className="text-lg font-normal text-gray-400"> days/year</span>
+                    </p>
+                  </div>
+                  <div className="p-2 bg-primary-50 rounded-lg">
+                    <Calendar className="w-5 h-5 text-primary" />
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-500">
+                  Company-designated paid holidays
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Policy Info */}
           <Card>

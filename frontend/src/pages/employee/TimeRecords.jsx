@@ -13,15 +13,18 @@ import {
   Coffee,
   X,
   Settings,
+  Gift,
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
+import timeRecordService from '../../services/timeRecord.service';
 
 const TimeRecords = () => {
   const [activeTab, setActiveTab] = useState('timesheets');
   const [viewMode, setViewMode] = useState('week'); // 'week' or 'day'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [sessions, setSessions] = useState([]);
+  const [holidays, setHolidays] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -92,10 +95,19 @@ const TimeRecords = () => {
         limit: 100,
       };
 
-      const result = await workSessionService.getSessionHistory(params);
+      const [result, holidaysResult] = await Promise.all([
+        workSessionService.getSessionHistory(params),
+        timeRecordService.getMyHolidays({
+          startDate: toLocalDateString(activeRange.start),
+          endDate: toLocalDateString(activeRange.end),
+        }),
+      ]);
 
       if (result?.success) {
         setSessions(result.sessions || []);
+      }
+      if (holidaysResult?.success) {
+        setHolidays(holidaysResult.holidays || []);
       }
     } catch (err) {
       console.error('Failed to fetch sessions:', err);
@@ -109,6 +121,54 @@ const TimeRecords = () => {
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  // Build a map of date string -> holiday for quick lookup
+  const holidayMap = useMemo(() => {
+    const map = new Map();
+    for (const h of holidays) {
+      const dateKey = new Date(h.date).toISOString().split('T')[0];
+      map.set(dateKey, h);
+    }
+    return map;
+  }, [holidays]);
+
+  // Build combined entries: sessions + holiday-only rows for dates without sessions
+  const combinedEntries = useMemo(() => {
+    const sessionDates = new Set();
+    for (const s of sessions) {
+      const dateKey = new Date(s.startTime).toISOString().split('T')[0];
+      sessionDates.add(dateKey);
+    }
+
+    const entries = sessions.map(s => {
+      const dateKey = new Date(s.startTime).toISOString().split('T')[0];
+      return { ...s, entryType: 'session', holiday: holidayMap.get(dateKey) || null };
+    });
+
+    // Add holiday-only entries for dates that have no sessions
+    for (const h of holidays) {
+      const dateKey = new Date(h.date).toISOString().split('T')[0];
+      if (!sessionDates.has(dateKey)) {
+        entries.push({
+          id: `holiday-${h.id}`,
+          entryType: 'holiday',
+          holiday: h,
+          startTime: h.date,
+          endTime: null,
+          status: 'COMPLETED',
+          workMinutes: 0,
+          totalBreakMinutes: 0,
+          overtimeMinutes: 0,
+          notes: null,
+          client: null,
+          breaks: [],
+        });
+      }
+    }
+
+    entries.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+    return entries;
+  }, [sessions, holidays, holidayMap]);
 
   // Navigation handlers
   const goToPrevious = () => {
@@ -452,7 +512,7 @@ const TimeRecords = () => {
               <div className="flex items-center justify-center py-16">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
-            ) : sessions.length === 0 ? (
+            ) : combinedEntries.length === 0 ? (
               <div className="text-center py-16">
                 <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No Time Entries</h3>
@@ -495,7 +555,38 @@ const TimeRecords = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {sessions.map((session) => {
+                  {combinedEntries.map((session) => {
+                    // Holiday-only row
+                    if (session.entryType === 'holiday') {
+                      return (
+                        <tr key={session.id} className="border-b border-gray-100 bg-blue-50/60">
+                          <td className="py-3 px-4">
+                            <span className="font-medium text-gray-900">
+                              {formatDateHeader(session.startTime)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4" colSpan={2}>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                <Gift className="w-3 h-3" />
+                                Holiday
+                              </span>
+                              <span className="font-medium text-blue-800">{session.holiday.name}</span>
+                              {session.holiday.isPaid ? (
+                                <Badge variant="success" size="xs">Paid</Badge>
+                              ) : (
+                                <Badge variant="default" size="xs">Unpaid</Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4"><span className="text-gray-400">-</span></td>
+                          <td className="py-3 px-4"><span className="text-gray-400">-</span></td>
+                          <td className="py-3 px-4"><span className="text-gray-400">-</span></td>
+                          <td className="py-3 px-4"></td>
+                        </tr>
+                      );
+                    }
+
                     const isOT = session.overtimeMinutes > 0;
                     return (
                     <tr
@@ -503,14 +594,24 @@ const TimeRecords = () => {
                       className={`border-b border-gray-100 transition-colors ${
                         isOT
                           ? 'bg-amber-50/60 hover:bg-amber-100/60'
-                          : 'hover:bg-gray-50'
+                          : session.holiday
+                            ? 'bg-blue-50/30 hover:bg-blue-50/60'
+                            : 'hover:bg-gray-50'
                       }`}
                     >
                       {/* Date */}
                       <td className="py-3 px-4">
-                        <span className="font-medium text-gray-900">
-                          {formatDateHeader(session.startTime)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {formatDateHeader(session.startTime)}
+                          </span>
+                          {session.holiday && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded bg-blue-100 text-blue-700">
+                              <Gift className="w-2.5 h-2.5" />
+                              Holiday
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Time in - out */}
