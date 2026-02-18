@@ -288,7 +288,6 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
   try {
     const {
       email,
-      password,
       firstName,
       lastName,
       phone,
@@ -300,10 +299,10 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
     } = req.body;
 
     // Validate required fields
-    if (!email || !password || !firstName || !lastName) {
+    if (!email || !firstName || !lastName) {
       res.status(400).json({
         success: false,
-        error: 'Email, password, first name, and last name are required',
+        error: 'Email, first name, and last name are required',
       });
       return;
     }
@@ -321,7 +320,8 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Hash password
+    // Auto-generate password (same as client creation)
+    const password = 'Welcome@123';
     const hashedPassword = await hashPassword(password);
 
     // Create user and employee in transaction

@@ -442,7 +442,7 @@ const EmployeeDetail = () => {
                           <span className="text-gray-600">{formatDate(record.date)}</span>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">
-                              {Math.round(record.totalMinutes / 60 * 10) / 10}h
+                              {Math.round((record.totalMinutes || 0) / 60 * 10) / 10}h
                             </span>
                             <Badge
                               variant={

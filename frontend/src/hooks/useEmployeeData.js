@@ -174,17 +174,21 @@ function useEmployeeDetail(id) {
           const records = timeResponse.data?.records || timeResponse.records || [];
           setRecentRecords(records.slice(0, 10));
 
-          const totalMinutes = records.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
-          const overtimeMinutes = records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0);
-          const workDays = records.length;
-          const avgMinutesPerDay = workDays > 0 ? Math.round(totalMinutes / workDays) : 0;
+          if (records.length > 0) {
+            const totalMinutes = records.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
+            const overtimeMinutes = records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0);
+            const workDays = records.length;
+            const avgMinutesPerDay = Math.round(totalMinutes / workDays);
 
-          setTimeStats({
-            totalHours: Math.round(totalMinutes / 60 * 10) / 10,
-            overtimeHours: Math.round(overtimeMinutes / 60 * 10) / 10,
-            workDays,
-            avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 10) / 10,
-          });
+            setTimeStats({
+              totalHours: Math.round(totalMinutes / 60 * 10) / 10,
+              overtimeHours: Math.round(overtimeMinutes / 60 * 10) / 10,
+              workDays,
+              avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 10) / 10,
+            });
+          } else {
+            setTimeStats(null);
+          }
         }
       } catch (timeErr) {
         console.error('Error fetching time records:', timeErr);
@@ -316,6 +320,12 @@ function useEmployeeDetail(id) {
           })
         );
         setClientGroups(filtered);
+
+        // Auto-select the "Default" group if one exists
+        const defaultGroup = filtered.find((g) => g.name.toLowerCase() === 'default');
+        if (defaultGroup) {
+          setSelectedGroupId(defaultGroup.id);
+        }
       }
     } catch (err) {
       console.error('Failed to fetch client groups:', err);
