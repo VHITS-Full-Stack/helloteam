@@ -612,7 +612,7 @@ const Tasks = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
-              <input type="date" value={form.dueDate} onChange={(e) => setForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+              <input type="date" value={form.dueDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
             </div>
           </div>
           <div>
@@ -729,7 +729,7 @@ const Tasks = () => {
                 <Button variant="outline" size="sm" onClick={() => { setShowDetailModal(false); openEdit(selectedTask); }}>
                   <Edit2 className="w-3.5 h-3.5 mr-1.5" />Edit
                 </Button>
-                <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200" onClick={() => { setShowDeleteModal(true); }}>
+                <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200" onClick={() => { setShowDetailModal(false); setShowDeleteModal(true); }}>
                   <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete
                 </Button>
               </div>

@@ -416,6 +416,7 @@ const ScheduleManagement = () => {
               type="date"
               value={effectiveFrom}
               onChange={(e) => setEffectiveFrom(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
               className="input"
             />
           </div>

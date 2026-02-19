@@ -90,6 +90,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           ],
         },
         select: {
+          startTime: true,
           endTime: true,
         },
       });
@@ -101,19 +102,36 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       const shiftEndUTC = toUTCDate(recordDate, schedule.endTime, clientTimezone);
       const minutesUntilEnd = (shiftEndUTC.getTime() - now.getTime()) / 60000;
 
-      // --- 5-minute warning ---
-      if (minutesUntilEnd <= 5 && minutesUntilEnd > 0 && !session.shiftEndNotifiedAt) {
+      // --- 30-minute warning ---
+      if (minutesUntilEnd <= 30 && minutesUntilEnd > 0 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
+
+        // Check if employee already has an approved OT request for today
+        const approvedOT = await prisma.overtimeRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            date: recordDate,
+            status: 'APPROVED',
+          },
+        });
+
+        const notificationType = approvedOT ? 'SHIFT_ENDING_OT_APPROVED' : 'SHIFT_ENDING';
+        const notificationTitle = approvedOT ? 'Approved Overtime Available' : 'Shift Ending Soon';
+        const notificationMessage = approvedOT
+          ? `You have approved overtime. Do you want to use it? Your shift ends at ${schedule.endTime}.`
+          : `You will be automatically clocked out at ${schedule.endTime}. If you need overtime, please request it now.`;
 
         await createNotification(
           employee.userId,
-          'SHIFT_ENDING',
-          'Shift Ending Soon',
-          `Your shift ends in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}. Stay clocked in to request overtime.`,
+          notificationType,
+          notificationTitle,
+          notificationMessage,
           {
             sessionId: session.id,
             shiftEnd: schedule.endTime,
             clientId: assignment.clientId,
+            hasApprovedOT: !!approvedOT,
           },
           '/employee/dashboard'
         );
@@ -127,17 +145,18 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         // Real-time socket event
         if (io) {
           io.emit(`notification:${employee.userId}`, {
-            type: 'SHIFT_ENDING',
-            message: `Your shift ends in ${minutesLeft} minute${minutesLeft !== 1 ? 's' : ''}`,
+            type: notificationType,
+            message: notificationMessage,
             data: {
               sessionId: session.id,
               shiftEnd: schedule.endTime,
               clientId: assignment.clientId,
+              hasApprovedOT: !!approvedOT,
             },
           });
         }
 
-        console.log(`[Shift-End] Notified ${employee.firstName} ${employee.lastName} — shift ends in ${minutesLeft} min`);
+        console.log(`[Shift-End] Notified ${employee.firstName} ${employee.lastName} — shift ends at ${schedule.endTime} (${minutesLeft} min)${approvedOT ? ' [OT approved]' : ''}`);
       }
 
       // --- Auto-clock-out at shift end ---
@@ -158,7 +177,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         }
 
         // Auto-clock out the employee
-        await autoClockOut(session, employee, now, io);
+        await autoClockOut(session, employee, now, schedule, io);
       }
     }
   } catch (error) {
@@ -173,6 +192,7 @@ async function autoClockOut(
   session: any,
   employee: any,
   endTime: Date,
+  schedule: { startTime: string; endTime: string },
   io?: Server
 ): Promise<void> {
   try {
@@ -219,11 +239,37 @@ async function autoClockOut(
 
     const today = new Date(Date.UTC(endTime.getFullYear(), endTime.getMonth(), endTime.getDate()));
 
+    // Calculate early overtime (pre-schedule minutes)
+    let earlyOvertimeMinutes = 0;
+    let scheduledStart: Date | null = null;
+    let scheduledEnd: Date | null = null;
+
+    if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+      const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+      scheduledStart = new Date(endTime);
+      scheduledStart.setHours(startHour, startMinute, 0, 0);
+
+      if (session.startTime < scheduledStart) {
+        earlyOvertimeMinutes = Math.round(
+          (scheduledStart.getTime() - session.startTime.getTime()) / 60000
+        );
+      }
+    }
+
+    if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+      const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+      scheduledEnd = new Date(endTime);
+      scheduledEnd.setHours(endHour, endMinute, 0, 0);
+    }
+
+    // Overtime = early pre-schedule minutes + hours beyond 8h regular work
+    const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
+    const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - 480);
+    const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
+
     // Create/update time records for each client assignment
     const clientAssignments = employee.clientAssignments || [];
     for (const assignment of clientAssignments) {
-      const overtimeMinutes = Math.max(0, totalWorkMinutes - 480);
-
       const existing = await prisma.timeRecord.findUnique({
         where: {
           employeeId_clientId_date: {
@@ -237,7 +283,9 @@ async function autoClockOut(
       if (existing) {
         const newTotal = existing.totalMinutes + totalWorkMinutes;
         const newBreak = existing.breakMinutes + totalBreakMinutes;
-        const newOvertime = Math.max(0, newTotal - 480);
+        const newRegular = newTotal - earlyOvertimeMinutes;
+        const newLateOT = Math.max(0, newRegular - 480);
+        const newOvertime = earlyOvertimeMinutes + newLateOT;
         await prisma.timeRecord.update({
           where: { id: existing.id },
           data: {
@@ -245,6 +293,8 @@ async function autoClockOut(
             totalMinutes: newTotal,
             breakMinutes: newBreak,
             overtimeMinutes: newOvertime,
+            scheduledStart: scheduledStart || existing.scheduledStart,
+            scheduledEnd: scheduledEnd || existing.scheduledEnd,
           },
         });
       } else {
@@ -253,6 +303,8 @@ async function autoClockOut(
             employeeId: employee.id,
             clientId: assignment.clientId,
             date: today,
+            scheduledStart,
+            scheduledEnd,
             actualStart: session.startTime,
             actualEnd: endTime,
             totalMinutes: totalWorkMinutes,
@@ -265,8 +317,7 @@ async function autoClockOut(
     }
 
     // --- Notify client(s) if overtime was worked ---
-    if (totalWorkMinutes > 480) {
-      const overtimeMinutes = totalWorkMinutes - 480;
+    if (overtimeMinutes > 0) {
       const employeeName = `${employee.firstName} ${employee.lastName}`;
       const dateStr = endTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       const otHrs = Math.floor(overtimeMinutes / 60);

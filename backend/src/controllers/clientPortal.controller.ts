@@ -222,6 +222,83 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
   }
 };
 
+// Get pending unapproved overtime summary for dashboard alert / login blocker
+export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const unapprovedOT = await prisma.timeRecord.findMany({
+      where: {
+        clientId: client.id,
+        overtimeMinutes: { gt: 0 },
+        status: 'PENDING',
+      },
+      select: {
+        id: true,
+        overtimeMinutes: true,
+        date: true,
+        createdAt: true,
+        employee: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    if (unapprovedOT.length === 0) {
+      res.json({
+        success: true,
+        data: { count: 0, totalHours: '0h', employees: [], entries: [] },
+      });
+      return;
+    }
+
+    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.overtimeMinutes, 0);
+    const hrs = Math.floor(totalMinutes / 60);
+    const mins = totalMinutes % 60;
+    const totalHours = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+
+    // Unique employees with their total unapproved OT
+    const empMap: Record<string, { name: string; minutes: number; count: number }> = {};
+    for (const r of unapprovedOT) {
+      const name = `${r.employee.firstName} ${r.employee.lastName}`;
+      if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
+      empMap[name].minutes += r.overtimeMinutes;
+      empMap[name].count += 1;
+    }
+    const employees = Object.values(empMap).map(e => ({
+      name: e.name,
+      hours: `${Math.floor(e.minutes / 60)}h ${e.minutes % 60 > 0 ? `${e.minutes % 60}m` : ''}`.trim(),
+      entries: e.count,
+    }));
+
+    // Oldest entry date for urgency
+    const oldestDate = unapprovedOT[0].createdAt;
+
+    res.json({
+      success: true,
+      data: {
+        count: unapprovedOT.length,
+        totalHours,
+        totalMinutes,
+        employees,
+        oldestDate,
+      },
+    });
+  } catch (error) {
+    console.error('Get pending overtime summary error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch pending overtime' });
+  }
+};
+
 // Get client's workforce with live status
 export const getClientWorkforce = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -1047,6 +1124,33 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       if (!employeeMap.has(session.employeeId)) employeeMap.set(session.employeeId, session.employee);
     }
 
+    // Fetch actual TimeRecords for the date range to get approval statuses
+    const startUTC = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+    const endUTC = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+    const timeRecords = await prisma.timeRecord.findMany({
+      where: {
+        clientId,
+        employeeId: { in: employeeIds },
+        date: { gte: startUTC, lte: endUTC },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        date: true,
+        totalMinutes: true,
+        overtimeMinutes: true,
+        status: true,
+      },
+    });
+
+    // Build TimeRecord lookup: employeeId_dateStr -> timeRecord
+    const timeRecordMap = new Map<string, typeof timeRecords[0]>();
+    for (const tr of timeRecords) {
+      const dateStr = toLocalDateStr(tr.date);
+      const key = `${tr.employeeId}_${dateStr}`;
+      timeRecordMap.set(key, tr);
+    }
+
     // Generate weekly data per employee (only from actual work sessions)
     const allDates = getDatesInRange(start, end);
     const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -1060,8 +1164,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         lastName: emp.lastName,
         profilePhoto: emp.profilePhoto,
         dailyHours: {} as Record<string, number>,
+        dailyOvertimeHours: {} as Record<string, number>,
         totalMinutes: 0,
         overtimeMinutes: 0,
+        approvedOvertimeMinutes: 0,
+        unapprovedOvertimeMinutes: 0,
         records: [] as any[],
         hasActiveRecord: false,
         hasOvertimeRecord: false,
@@ -1086,18 +1193,36 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           dayMinutes += totalMins;
         }
 
+        // Look up the actual TimeRecord for this day to get approval status
+        const trKey = `${empId}_${dateStr}`;
+        const timeRecord = timeRecordMap.get(trKey);
+        const dayOvertime = timeRecord ? (timeRecord.overtimeMinutes || 0) : Math.max(0, dayMinutes - 480);
+        const dayOvertimeStatus = timeRecord ? timeRecord.status : 'PENDING';
+
         const dayHours = Math.round((dayMinutes / 60) * 10) / 10;
         empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + dayHours;
+        if (dayOvertime > 0) {
+          empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((dayOvertime / 60) * 10) / 10;
+        }
         empData.totalMinutes += dayMinutes;
-        const dayOvertime = Math.max(0, dayMinutes - 480);
         empData.overtimeMinutes += dayOvertime;
 
+        if (dayOvertime > 0) {
+          if (dayOvertimeStatus === 'APPROVED' || dayOvertimeStatus === 'AUTO_APPROVED') {
+            empData.approvedOvertimeMinutes += dayOvertime;
+          } else {
+            empData.unapprovedOvertimeMinutes += dayOvertime;
+          }
+        }
+
         empData.records.push({
-          id: daySessions[0].id,
+          id: timeRecord ? timeRecord.id : daySessions[0].id,
+          timeRecordId: timeRecord ? timeRecord.id : null,
           date,
           totalMinutes: dayMinutes,
           overtimeMinutes: dayOvertime,
-          status: hasActive ? 'ACTIVE' : 'PENDING',
+          status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
+          overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
         });
 
         if (hasActive) empData.hasActiveRecord = true;
@@ -1116,6 +1241,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         profilePhoto: await refreshProfilePhotoUrl(emp.profilePhoto),
         totalHours: Math.round((emp.totalMinutes / 60) * 10) / 10,
         overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
+        approvedOvertimeHours: Math.round((emp.approvedOvertimeMinutes / 60) * 10) / 10,
+        unapprovedOvertimeHours: Math.round((emp.unapprovedOvertimeMinutes / 60) * 10) / 10,
         status: emp.hasActiveRecord ? 'active' : 'pending',
       }))
     );
@@ -1131,6 +1258,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 10) / 10,
       regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours - e.overtimeHours, 0) * 10) / 10,
       overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 10) / 10,
+      approvedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.approvedOvertimeHours || 0), 0) * 10) / 10,
+      unapprovedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.unapprovedOvertimeHours || 0), 0) * 10) / 10,
       pendingCount: employeeWeeklyData.filter((e: any) => e.status === 'pending').length,
     };
 
@@ -1196,29 +1325,33 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
     };
     const dbStatus = statusMap[status] || 'PENDING';
 
-    // Get time records based on filter
-    const timeRecordWhere: any = { clientId, status: dbStatus };
-    if (type === 'overtime') {
-      timeRecordWhere.overtimeMinutes = { gt: 0 };
-    } else if (type === 'time-entry') {
-      timeRecordWhere.OR = [
-        { overtimeMinutes: null },
-        { overtimeMinutes: 0 },
-      ];
-    }
+    // Get time records based on filter (skip when type is 'leave' — leave-only requests don't need time records)
+    let timeRecords: any[] = [];
+    let timeRecordCount = 0;
+    if (type !== 'leave') {
+      const timeRecordWhere: any = { clientId, status: dbStatus };
+      if (type === 'overtime') {
+        timeRecordWhere.overtimeMinutes = { gt: 0 };
+      } else if (type === 'time-entry') {
+        timeRecordWhere.OR = [
+          { overtimeMinutes: null },
+          { overtimeMinutes: 0 },
+        ];
+      }
 
-    const [timeRecords, timeRecordCount] = await Promise.all([
-      prisma.timeRecord.findMany({
-        where: timeRecordWhere,
-        include: {
-          employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limitNum,
-      }),
-      prisma.timeRecord.count({ where: timeRecordWhere }),
-    ]);
+      [timeRecords, timeRecordCount] = await Promise.all([
+        prisma.timeRecord.findMany({
+          where: timeRecordWhere,
+          include: {
+            employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limitNum,
+        }),
+        prisma.timeRecord.count({ where: timeRecordWhere }),
+      ]);
+    }
 
     // Get leave requests
     const leaveRequestWhere: any = {

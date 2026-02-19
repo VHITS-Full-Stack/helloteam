@@ -126,14 +126,41 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
   try {
     const userId = req.user?.userId;
     const role = req.user?.role;
-    const { employeeId, clientId, date, requestedMinutes, estimatedEndTime, reason } = req.body;
+    const { employeeId, clientId, date, requestedMinutes, estimatedEndTime, requestedStartTime, requestedEndTime, reason, type } = req.body;
+
+    // Determine overtime type (default to SHIFT_EXTENSION for backward compat)
+    const overtimeType = type === 'OFF_SHIFT' ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
 
     // Validate required fields
-    if (!date || !requestedMinutes || !reason) {
+    if (!date || !reason) {
       return res.status(400).json({
         success: false,
-        error: 'Date, requested minutes, and reason are required',
+        error: 'Date and reason are required',
       });
+    }
+
+    // Validate based on type
+    if (overtimeType === 'OFF_SHIFT') {
+      if (!requestedStartTime || !requestedEndTime) {
+        return res.status(400).json({
+          success: false,
+          error: 'Start time and end time are required for off-shift overtime',
+        });
+      }
+      // Validate time formats (HH:MM)
+      if (!/^\d{1,2}:\d{2}$/.test(requestedStartTime) || !/^\d{1,2}:\d{2}$/.test(requestedEndTime)) {
+        return res.status(400).json({
+          success: false,
+          error: 'Start time and end time must be in HH:MM format',
+        });
+      }
+    } else {
+      if (!requestedMinutes) {
+        return res.status(400).json({
+          success: false,
+          error: 'Requested minutes are required for shift extension',
+        });
+      }
     }
 
     // Validate estimatedEndTime format if provided (HH:MM)
@@ -142,6 +169,16 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
         success: false,
         error: 'Estimated end time must be in HH:MM format',
       });
+    }
+
+    // Calculate requestedMinutes for OFF_SHIFT from start/end times
+    let finalRequestedMinutes = Number(requestedMinutes) || 0;
+    if (overtimeType === 'OFF_SHIFT' && requestedStartTime && requestedEndTime) {
+      const [startH, startM] = requestedStartTime.split(':').map(Number);
+      const [endH, endM] = requestedEndTime.split(':').map(Number);
+      let diffMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+      if (diffMinutes <= 0) diffMinutes += 24 * 60; // Handle overnight (e.g., 10 PM - 1 AM)
+      finalRequestedMinutes = diffMinutes;
     }
 
     let finalEmployeeId = employeeId;
@@ -182,8 +219,11 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
         employeeId: finalEmployeeId,
         clientId: finalClientId,
         date: new Date(date),
-        requestedMinutes: Number(requestedMinutes),
+        type: overtimeType,
+        requestedMinutes: finalRequestedMinutes,
         estimatedEndTime: estimatedEndTime || null,
+        requestedStartTime: overtimeType === 'OFF_SHIFT' ? requestedStartTime : null,
+        requestedEndTime: overtimeType === 'OFF_SHIFT' ? requestedEndTime : null,
         reason,
       },
     });
@@ -205,10 +245,12 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
     });
 
     if (client && employee) {
-      const hours = Math.round(requestedMinutes / 60 * 10) / 10;
+      const hours = Math.round(finalRequestedMinutes / 60 * 10) / 10;
       const dateStr = new Date(date).toLocaleDateString();
       const employeeName = `${employee.firstName} ${employee.lastName}`;
-      const timeInfo = estimatedEndTime ? ` ${estimatedEndTime}` : '';
+      const timeInfo = overtimeType === 'OFF_SHIFT'
+        ? ` (${requestedStartTime}–${requestedEndTime})`
+        : estimatedEndTime ? ` until ${estimatedEndTime}` : '';
 
       // 1. In-app notification
       await notifyOvertimeRequest(

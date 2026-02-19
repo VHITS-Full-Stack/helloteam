@@ -1,6 +1,6 @@
 # HelloTeam — Product Roadmap
 
-> Last updated: 2026-02-17
+> Last updated: 2026-02-19
 
 ---
 
@@ -73,7 +73,7 @@ Full employee lifecycle: **Onboard Employee → Assign to Client → Client Port
 
 ---
 
-## 4. Chat System `[ ]`
+## 4. Chat System `[x]`
 
 **Goal:** Real-time communication between client and employee.
 
@@ -89,7 +89,7 @@ Full employee lifecycle: **Onboard Employee → Assign to Client → Client Port
 
 ---
 
-## 5. Task Management `[ ]`
+## 5. Task Management `[x]`
 
 **Goal:** Clients create and assign tasks to their employees.
 
@@ -99,10 +99,13 @@ Full employee lifecycle: **Onboard Employee → Assign to Client → Client Port
 - Due date
 - Status (todo / in progress / done)
 - Assigned employee
+- Comments
 
 **Views:**
-- Task list with filters (status, employee, priority)
-- Employee can update task status
+- Board view (Kanban-style drag & drop)
+- Table list view
+- Filter by employee, priority
+- Employee can update task status, change details
 
 ---
 
@@ -204,10 +207,10 @@ Approved Timesheets → Generate Invoice → Charge CC on file → Done
 ## Build Order
 
 ```
-Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase 3 — Communication
-─────────────────                 ──────────────────────                ───────────────────────
-1. Employee Onboarding  ✓   ───▶  6. Timesheet Auto-Approval  ✓        4. Chat System
-2. Client Access Control ✓  ───▶  7. Auto Billing & Invoicing ✓        5. Task Management
+Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase 3 — Communication [DONE]
+─────────────────                 ──────────────────────                ──────────────────────────────
+1. Employee Onboarding  ✓   ───▶  6. Timesheet Auto-Approval  ✓        4. Chat System  ✓
+2. Client Access Control ✓  ───▶  7. Auto Billing & Invoicing ✓        5. Task Management  ✓
 3. Client Portal ✓                8. Employee Termination
 
                                   Phase 4 — Integrations
@@ -317,3 +320,111 @@ Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase
 - [x] Fix **date fields** — new `formatPdfDate` helper avoids `toLocaleDateString` locale inconsistencies
 - [x] Add **employee name** to contract — Exhibit A (Page 7) personnel table + cover page names
 - [x] Overall layout and field placement rework — white-out rectangles for yellow placeholders, all coordinates recalibrated
+
+---
+
+## Meeting Notes — 2026-02-18
+
+### 1. Employee-Client Assignment (Mandatory)
+
+- [x] **Cannot create a client without assigning at least one employee** — employee name must appear in the contract
+- [x] One employee works for **one client only** at a time
+- [x] Employees can be **switched/reassigned** from one client to another (remove from old, assign to new)
+
+### 2. PTO — Per Client & Per Employee
+
+- [ ] PTO must be configurable **per client** (client allows or disallows PTO)
+- [ ] PTO schedule must also be configurable **per employee** under a client
+  - Example: Employee A → 3 days every 6 months
+  - Example: Employee B → 14 days/year
+  - Example: Employee C → no PTO
+- [ ] Different employees under the same client can have **different PTO schedules**
+
+### 3. Rate Change History (New Dedicated Page)
+
+- [ ] Track all changes to employee **billing rate** and **payment rate**
+- [ ] Record the **date of each change**
+- [ ] Must be a **separate, dedicated page** — not buried in general activity history
+- [ ] Page name: **"Billing & Pay Raise History"**
+- [ ] Purpose: Quick lookup of when last rate change was made
+
+### 4. Auto Clock-Out & Overtime System (Rework)
+
+#### 4a. Automatic Clock-Out
+- [x] System **automatically clocks out** employee at end of scheduled shift
+- [x] **30 minutes before** shift ends → notification: "You will be automatically clocked out at [time]. If you need overtime, please request it now."
+- [x] Gives client time to review and approve/deny before shift ends
+
+#### 4b. Pre-Approved Overtime
+- [x] If overtime is approved before shift ends → system **does NOT auto-clock-out**
+- [x] System asks: "You have approved overtime. Do you want to use it?"
+- [x] If **Yes** → stays clocked in seamlessly (no separate clock-in needed for shift extensions)
+
+#### 4c. No Approved Overtime
+- [x] System **auto-clocks out** at shift end
+- [x] Employee **can still clock back in** with a warning:
+  - "No approved overtime. You may not get paid. This requires special approval at client's discretion."
+- [x] Employee can choose to proceed or not
+
+#### 4d. Early Clock-In (Before Schedule)
+- [x] Employees allowed to clock in early (e.g., 7 AM for a 9 AM shift)
+- [x] System warns: "Your shift hasn't started. You may not get paid for these hours."
+- [x] Early hours logged as **overtime** within the **same timesheet** (one continuous entry)
+- [x] Early hours shown in **red/orange** as overtime needing separate approval
+- [x] **Remove the current 15-minute buffer** — all pre-schedule time is overtime
+
+#### 4e. Two Types of Overtime `[x]`
+
+| Type | Description | Flow | Status |
+|------|------------|------|--------|
+| **Shift Extension** | Continue past scheduled shift end | Requested 30 min before shift ends. Pick extension time (e.g., to 7 PM). If approved, no auto clock-out. | Done |
+| **Off-Shift Hours** | Work at a different time outside schedule | Request specific date + time range (e.g., 10 PM–1 AM). If approved, treated as scheduled block. Separate clock-in/out. | Done |
+
+### 5. Timesheet Display & Color Coding
+
+- [x] **Weekly timesheet** broken down by day (default view), filterable by specific date
+- [x] Show three totals: **Regular Hours**, **Approved Overtime**, **Unapproved Overtime**
+- [x] Color coding:
+  - **Green** → Scheduled hours AND approved overtime (both payable)
+  - **Red/Orange** → Unapproved overtime (needs client approval)
+- [x] Once overtime is approved → turns green
+- [x] **Regular timesheets cannot be denied** — client can only **request revisions**
+- [x] **Overtime can be approved or denied**
+
+### 6. Approvals Page vs Time Records Page (Clarification)
+
+#### Time Records Page
+- [x] For viewing and approving **actual worked hours** (timesheets)
+- [x] Shows regular hours + overtime hours with color coding
+- [x] Overtime approval/denial happens here
+
+#### Approvals Page
+- [x] For **future requests only**: PTO/VTO leave requests + future overtime requests
+- [x] Two types of overtime requests:
+  1. **Overtime Work Requests** — pre-approval for upcoming overtime (if approved, system treats as scheduled block)
+  2. **Overtime Approval Requests** — retroactive approval for already-worked unapproved overtime
+
+### 7. Aggressive Overtime Approval Notifications
+
+- [x] **Dashboard**: Prominent "Pending Actions" section showing unapproved overtime count
+- [x] **Login Blocker**: Large popup before accessing app — "Your employees have worked unapproved overtime. Approve or deny. Employees will NOT get paid until resolved."
+- [x] **Daily Email** to client about pending unapproved overtime
+- [x] **Daily SMS** to client about pending unapproved overtime
+- [x] Messaging tone: urgent, clear — "We cannot pay your employee for these hours until you approve or deny"
+- [x] Continue notifications **daily** until all overtime is resolved
+
+### 8. Employee Personal Tasks
+
+- [x] Employees can **create their own personal tasks**
+- [x] Personal tasks are **private** — client cannot see them
+- [x] Separate from client-assigned tasks (already implemented)
+
+### 9. Invoice Page
+
+- [ ] Invoice page must be **fully functional** — marked as the **most important** deliverable
+- [ ] Details TBD
+
+### Confirmed Working (Feb 18)
+
+- [x] **Chat** — Client can message their assigned employees
+- [x] **Tasks (Client-side)** — Create tasks with title, description, priority, due date, employee assignment, status management, comments, board view, table view, filtering

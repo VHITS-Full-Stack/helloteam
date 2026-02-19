@@ -1,10 +1,12 @@
 import { useNavigate, useParams } from 'react-router-dom';
+import { useState } from 'react';
 import {
   ArrowLeft,
   AlertCircle,
   X,
   Plus,
   Trash2,
+  Search,
 } from 'lucide-react';
 import {
   Card,
@@ -21,6 +23,7 @@ const AddClient = () => {
     formData,
     setFormData,
     groups,
+    employees,
     isEdit,
     loading,
     error,
@@ -31,6 +34,43 @@ const AddClient = () => {
     removeContact,
     updateContact,
   } = useClientForm({ id, onSuccess: () => navigate('/admin/clients') });
+
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+
+  const toggleEmployee = (emp) => {
+    setFormData((prev) => ({
+      ...prev,
+      employeeIds: prev.employeeIds.includes(emp.id)
+        ? prev.employeeIds.filter((id) => id !== emp.id)
+        : [...prev.employeeIds, emp.id],
+    }));
+  };
+
+  const removeEmployee = (empId) => {
+    setFormData((prev) => ({
+      ...prev,
+      employeeIds: prev.employeeIds.filter((id) => id !== empId),
+    }));
+  };
+
+  // Only show unassigned employees (no active client assignment)
+  const availableEmployees = employees.filter((emp) => !emp.clientAssignments?.[0]?.client);
+
+  // Show filtered results when searching, or all available employees (max 10) when focused
+  const searchResults = (() => {
+    if (employeeSearch.trim()) {
+      const q = employeeSearch.toLowerCase();
+      return availableEmployees.filter((emp) =>
+        `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q) ||
+        (emp.user?.email || '').toLowerCase().includes(q)
+      ).slice(0, 10);
+    }
+    return availableEmployees.slice(0, 10);
+  })();
+
+  // Get full employee objects for selected IDs (for displaying chips)
+  const selectedEmployees = employees.filter((emp) => formData.employeeIds.includes(emp.id));
 
   if (loading) {
     return (
@@ -240,6 +280,87 @@ const AddClient = () => {
               )}
             </div>
           </div>
+
+          {/* Assign Employees (create mode only) */}
+          {!isEdit && (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">
+                Assign Employees <span className="text-red-500">*</span>
+              </h3>
+              <p className="text-xs text-gray-400 mb-3">Search and select employees to assign to this client</p>
+
+              {/* Selected employees chips */}
+              {selectedEmployees.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {selectedEmployees.map((emp) => (
+                    <span
+                      key={emp.id}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary-50 text-primary-700 rounded-full text-sm font-medium"
+                    >
+                      {emp.firstName} {emp.lastName}
+                      <button
+                        type="button"
+                        onClick={() => removeEmployee(emp.id)}
+                        className="hover:text-primary-900 transition-colors"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Search input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Type to search employees..."
+                  value={employeeSearch}
+                  onChange={(e) => { setEmployeeSearch(e.target.value); setShowEmployeeDropdown(true); }}
+                  onFocus={() => setShowEmployeeDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowEmployeeDropdown(false), 200)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+
+                {/* Dropdown results */}
+                {showEmployeeDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-[240px] overflow-y-auto">
+                    {searchResults.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-4">No employees found</p>
+                    ) : (
+                      <>
+                        {searchResults.map((emp) => {
+                          const isSelected = formData.employeeIds.includes(emp.id);
+                          return (
+                            <button
+                              key={emp.id}
+                              type="button"
+                              onClick={() => { toggleEmployee(emp); setEmployeeSearch(''); }}
+                              className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${isSelected ? 'bg-primary-50/50' : ''}`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
+                                <p className="text-xs text-gray-400">{emp.user?.email}</p>
+                              </div>
+                              {isSelected && (
+                                <span className="text-xs text-primary-600 font-medium">Selected</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {!employeeSearch.trim() && availableEmployees.length > 10 && (
+                          <p className="text-xs text-gray-400 text-center py-2 border-t border-gray-100">
+                            Showing 10 of {availableEmployees.length} available — type to search more
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Policy Configuration */}
           <div>

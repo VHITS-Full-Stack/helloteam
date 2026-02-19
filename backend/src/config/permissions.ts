@@ -348,6 +348,9 @@ export const ROLE_PERMISSIONS: Record<string, string[]> = {
     PERMISSIONS.DASHBOARD.VIEW,
     PERMISSIONS.SUPPORT.VIEW, // Create/view support tickets
     PERMISSIONS.TASKS.VIEW, // View assigned tasks
+    PERMISSIONS.TASKS.CREATE, // Create personal tasks
+    PERMISSIONS.TASKS.EDIT, // Edit assigned task details
+    PERMISSIONS.TASKS.DELETE, // Delete personal tasks
   ],
 };
 

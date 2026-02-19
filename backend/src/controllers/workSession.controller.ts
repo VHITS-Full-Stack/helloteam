@@ -117,6 +117,55 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       return;
     }
 
+    // Check early clock-in (before schedule start) and post-shift clock-in (after schedule end)
+    if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+      const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+      const shiftStart = new Date(today);
+      shiftStart.setHours(startHour, startMinute, 0, 0);
+
+      if (today < shiftStart && !req.body?.confirmEarlyClockIn) {
+        // Before schedule start — warn employee about early clock-in
+        res.status(200).json({
+          success: false,
+          requiresConfirmation: true,
+          confirmationType: 'EARLY_CLOCK_IN',
+          message: 'Your shift hasn\'t started. You may not get paid for these hours.',
+          scheduledStart: schedule.startTime,
+        });
+        return;
+      }
+    }
+
+    if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+      const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+      const shiftEnd = new Date(today);
+      shiftEnd.setHours(endHour, endMinute, 0, 0);
+
+      if (today > shiftEnd) {
+        // Check if employee has an approved OT request for today
+        const recordDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
+        const approvedOT = await prisma.overtimeRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            clientId: clientAssignment.clientId,
+            date: recordDate,
+            status: 'APPROVED',
+          },
+        });
+
+        if (!approvedOT && !req.body?.confirmPostShift) {
+          // Return confirmation required — employee must acknowledge the warning
+          res.status(200).json({
+            success: false,
+            requiresConfirmation: true,
+            confirmationType: 'POST_SHIFT',
+            message: 'No approved overtime. You may not get paid. This requires special approval at client\'s discretion.',
+          });
+          return;
+        }
+      }
+    }
+
     // Get client IP
     const clientIp = getClientIp(req);
 
@@ -160,7 +209,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
       const timeDiffMinutes = Math.round((workSession.startTime.getTime() - scheduledStart.getTime()) / 60000);
 
-      if (timeDiffMinutes <= -5) {
+      if (timeDiffMinutes < 0) {
         arrivalStatus = 'Early';
       } else if (timeDiffMinutes <= 5) {
         arrivalStatus = 'On Time';
@@ -292,7 +341,49 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
     });
 
     if (clientAssignments.length > 0) {
-      const overtimeMinutes = Math.max(0, totalWorkMinutes - 480); // Over 8 hours
+      // Look up today's schedule to calculate early overtime
+      const dayOfWeek = now.getDay();
+      const schedule = await prisma.schedule.findFirst({
+        where: {
+          employeeId: employee.id,
+          dayOfWeek,
+          isActive: true,
+          effectiveFrom: { lte: now },
+          OR: [
+            { effectiveTo: null },
+            { effectiveTo: { gte: now } },
+          ],
+        },
+      });
+
+      // Calculate early overtime (pre-schedule minutes)
+      let earlyOvertimeMinutes = 0;
+      let scheduledStart: Date | null = null;
+      let scheduledEnd: Date | null = null;
+
+      if (schedule?.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+        const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
+        scheduledStart = new Date(now);
+        scheduledStart.setHours(startHour, startMinute, 0, 0);
+
+        // If employee clocked in before schedule start, those minutes are overtime
+        if (activeSession.startTime < scheduledStart) {
+          earlyOvertimeMinutes = Math.round(
+            (scheduledStart.getTime() - activeSession.startTime.getTime()) / 60000
+          );
+        }
+      }
+
+      if (schedule?.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+        const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
+        scheduledEnd = new Date(now);
+        scheduledEnd.setHours(endHour, endMinute, 0, 0);
+      }
+
+      // Overtime = early pre-schedule minutes + any hours beyond 8h of regular work
+      const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
+      const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - 480);
+      const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
 
       // Create/update time record for each assigned client
       await Promise.all(
@@ -327,7 +418,10 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           if (existing) {
             const newTotal = existing.totalMinutes + totalWorkMinutes;
             const newBreak = existing.breakMinutes + totalBreakMinutes;
-            const newOvertime = Math.max(0, newTotal - 480);
+            // Recalculate overtime with early minutes considered
+            const newRegular = newTotal - earlyOvertimeMinutes;
+            const newLateOT = Math.max(0, newRegular - 480);
+            const newOvertime = earlyOvertimeMinutes + newLateOT;
 
             // If overtime was added and pre-approved, update status
             const updateData: any = {
@@ -335,6 +429,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               totalMinutes: newTotal,
               breakMinutes: newBreak,
               overtimeMinutes: newOvertime,
+              scheduledStart: scheduledStart || existing.scheduledStart,
+              scheduledEnd: scheduledEnd || existing.scheduledEnd,
             };
             if (newOvertime > 0 && status === 'APPROVED' && existing.status === 'PENDING') {
               updateData.status = 'APPROVED';
@@ -351,6 +447,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 employeeId: employee.id,
                 clientId: assignment.clientId,
                 date: today,
+                scheduledStart,
+                scheduledEnd,
                 actualStart: activeSession.startTime,
                 actualEnd: endTime,
                 totalMinutes: totalWorkMinutes,
