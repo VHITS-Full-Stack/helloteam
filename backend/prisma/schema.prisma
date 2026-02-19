@@ -777,6 +777,7 @@ enum NotificationType {
   TIMESHEET_AUTO_APPROVED
   INVOICE_GENERATED
   SHIFT_ENDING
+  SHIFT_ENDING_OT_APPROVED
   AUTO_CLOCK_OUT
 }
 
@@ -815,22 +816,30 @@ enum OvertimeStatus {
   REJECTED
 }
 
+enum OvertimeType {
+  SHIFT_EXTENSION
+  OFF_SHIFT
+}
+
 model OvertimeRequest {
-  id               String         @id @default(uuid())
-  employeeId       String
-  clientId         String
-  date             DateTime       @db.Date
-  requestedMinutes Int
-  estimatedEndTime String?        // HH:MM format — when the employee expects to finish OT
-  reason           String
-  status           OvertimeStatus @default(PENDING)
-  approvedBy       String?
-  approvedAt       DateTime?
-  rejectedBy       String?
-  rejectedAt       DateTime?
-  rejectionReason  String?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  id                 String         @id @default(uuid())
+  employeeId         String
+  clientId           String
+  date               DateTime       @db.Date
+  type               OvertimeType   @default(SHIFT_EXTENSION)
+  requestedMinutes   Int
+  estimatedEndTime   String?        // HH:MM format — shift extension end time
+  requestedStartTime String?        // HH:MM format — off-shift start time
+  requestedEndTime   String?        // HH:MM format — off-shift end time
+  reason             String
+  status             OvertimeStatus @default(PENDING)
+  approvedBy         String?
+  approvedAt         DateTime?
+  rejectedBy         String?
+  rejectedAt         DateTime?
+  rejectionReason    String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([clientId, status])
   @@index([employeeId, date])
@@ -889,19 +898,20 @@ enum TaskPriority {
 
 model Task {
   id          String       @id @default(uuid())
-  clientId    String
+  clientId    String?
   employeeId  String?
   createdById String
   title       String
   description String?
   status      TaskStatus   @default(TODO)
   priority    TaskPriority @default(MEDIUM)
+  isPersonal  Boolean      @default(false)
   dueDate     DateTime?    @db.Date
   completedAt DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  client     Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  client     Client?        @relation(fields: [clientId], references: [id], onDelete: Cascade)
   assignee   Employee?      @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   createdBy  User           @relation(fields: [createdById], references: [id])
   comments   TaskComment[]
@@ -910,6 +920,7 @@ model Task {
   @@index([clientId])
   @@index([employeeId])
   @@index([status])
+  @@index([isPersonal, employeeId])
   @@map("tasks")
 }
 

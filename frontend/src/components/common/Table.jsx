@@ -37,8 +37,8 @@ export const TableHeader = ({ children, className = '' }) => (
   </th>
 );
 
-export const TableCell = ({ children, className = '' }) => (
-  <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${className}`}>
+export const TableCell = ({ children, className = '', onClick }) => (
+  <td className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${className}`} onClick={onClick}>
     {children}
   </td>
 );

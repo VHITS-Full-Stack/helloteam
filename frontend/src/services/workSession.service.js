@@ -2,8 +2,8 @@ import api from './api';
 
 const workSessionService = {
   // Clock in - Start a new work session
-  async clockIn() {
-    return await api.post('/work-sessions/clock-in');
+  async clockIn(data = {}) {
+    return await api.post('/work-sessions/clock-in', data);
   },
 
   // Clock out - End current work session

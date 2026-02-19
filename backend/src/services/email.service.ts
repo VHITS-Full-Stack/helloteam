@@ -572,6 +572,53 @@ export const sendOTBillingReminderEmail = async (
   });
 };
 
+/**
+ * Send aggressive daily reminder to client about pending unapproved overtime.
+ * Urgent tone — employees won't get paid until resolved.
+ */
+export const sendAggressiveOTReminderEmail = async (
+  email: string,
+  clientName: string,
+  unapprovedCount: number,
+  unapprovedHours: string,
+  employeeNames: string[]
+): Promise<EmailResult> => {
+  const actionUrl = `${config.frontendUrl}/client/time-records`;
+  const employeeList = employeeNames.slice(0, 5).join(', ') + (employeeNames.length > 5 ? ` and ${employeeNames.length - 5} more` : '');
+
+  const content = `
+    <h2 style="${styles.h2}; color: ${colors.danger};">URGENT: Unapproved Overtime Requires Your Action</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      Your employees have worked overtime that has <strong>not been approved or denied</strong>. We cannot pay your employees for these hours until you take action.
+    </p>
+    ${infoBoxHtml(`
+      <p style="margin: 0 0 8px 0; color: ${colors.dangerText}; font-weight: 700; font-size: 16px;">Pending Overtime Summary</p>
+      <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Unapproved Entries:</strong> ${unapprovedCount}</p>
+      <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Total Hours:</strong> ${unapprovedHours}</p>
+      <p style="margin: 0; color: ${colors.dangerText};"><strong>Employees:</strong> ${employeeList}</p>
+    `, colors.dangerBg, colors.danger)}
+    <p style="${styles.paragraph}; font-weight: 600; color: ${colors.dangerText};">
+      Employees will NOT get paid for these hours until you approve or deny them. Please take action now.
+    </p>
+    ${buttonHtml(actionUrl, 'Review & Approve Now', colors.danger)}
+    <p style="${styles.paragraph}; color: ${colors.muted}; font-size: 13px;">
+      You will continue to receive daily reminders until all overtime entries are resolved.
+    </p>
+  `;
+
+  const html = emailLayout('URGENT: Unapproved Overtime', content, colors.danger);
+
+  return sendEmail({
+    to: email,
+    subject: `URGENT: ${unapprovedCount} unapproved overtime entries — employees cannot be paid`,
+    html,
+    text: `URGENT: Hi ${clientName}, You have ${unapprovedCount} unapproved overtime entries (${unapprovedHours}) for: ${employeeList}. We cannot pay your employees for these hours until you approve or deny. Please log in to review: ${actionUrl}`,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -584,4 +631,5 @@ export default {
   sendEmployeeOnboardingEmail,
   sendOTWorkedEmail,
   sendOTBillingReminderEmail,
+  sendAggressiveOTReminderEmail,
 };

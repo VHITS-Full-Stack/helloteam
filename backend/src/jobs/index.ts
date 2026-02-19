@@ -3,6 +3,7 @@ import { runAutoApproval } from './autoApproval.job';
 import { runMonthlyInvoiceGeneration, runWeeklyInvoiceGeneration } from './invoiceGeneration.job';
 import { runShiftEndJob } from './shiftEnd.job';
 import { runOTBillingReminder } from './otBillingReminder.job';
+import { runAggressiveOTReminder } from './aggressiveOTReminder.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -39,6 +40,13 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] OT billing reminder scheduled (daily, 09:00 UTC)');
 
+  // Aggressive OT approval reminder: runs daily at 14:00 UTC (10 AM ET)
+  // Sends urgent notifications to clients with any pending unapproved overtime
+  cron.schedule('0 14 * * *', async () => {
+    await runAggressiveOTReminder(io);
+  });
+  console.log('[Jobs] Aggressive OT reminder scheduled (daily, 14:00 UTC)');
+
   console.log('[Jobs] All cron jobs initialized');
 };
 
@@ -46,3 +54,4 @@ export { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek } from './invo
 export { runAutoApproval } from './autoApproval.job';
 export { runShiftEndJob } from './shiftEnd.job';
 export { runOTBillingReminder } from './otBillingReminder.job';
+export { runAggressiveOTReminder } from './aggressiveOTReminder.job';

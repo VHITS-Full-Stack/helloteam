@@ -29,12 +29,21 @@ const overtimeService = {
 
   // Create overtime request
   async createOvertimeRequest(data) {
-    // Convert requestedHours to requestedMinutes for the API
     const payload = {
       date: data.date,
       reason: data.reason,
-      requestedMinutes: Math.round((data.requestedHours || 0) * 60),
+      type: data.type || 'SHIFT_EXTENSION',
     };
+
+    if (data.type === 'OFF_SHIFT') {
+      // Off-shift: send start/end times, backend calculates minutes
+      payload.requestedStartTime = data.requestedStartTime;
+      payload.requestedEndTime = data.requestedEndTime;
+    } else {
+      // Shift extension: convert requestedHours to requestedMinutes
+      payload.requestedMinutes = Math.round((data.requestedHours || 0) * 60);
+    }
+
     if (data.employeeId) payload.employeeId = data.employeeId;
     if (data.clientId) payload.clientId = data.clientId;
     if (data.estimatedEndTime) payload.estimatedEndTime = data.estimatedEndTime;

@@ -71,7 +71,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 // Helper: look up the userId for the "other party" on a task
 const getTaskRecipientUserId = async (
-  task: { clientId: string; employeeId: string | null },
+  task: { clientId: string | null; employeeId: string | null },
   senderRole: string
 ): Promise<string | null> => {
   try {
@@ -128,6 +128,7 @@ export const getTasks = async (
         return;
       }
       where.clientId = client.id;
+      where.isPersonal = false;
     } else if (userRole === "EMPLOYEE") {
       const employee = await prisma.employee.findUnique({
         where: { userId: req.user!.userId },
@@ -137,8 +138,10 @@ export const getTasks = async (
         return;
       }
       where.employeeId = employee.id;
+    } else {
+      // Admin roles: see all non-personal tasks
+      where.isPersonal = false;
     }
-    // Admin roles: no scoping, see all tasks
 
     // Filters
     if (status) {
@@ -314,52 +317,72 @@ export const getTask = async (
   }
 };
 
-// Create task (CLIENT only)
+// Create task (CLIENT + EMPLOYEE)
 export const createTask = async (
   req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
     const { title, description, priority, dueDate, employeeId } = req.body;
+    const userRole = req.user!.role;
 
     if (!title) {
       res.status(400).json({ success: false, error: "Title is required" });
       return;
     }
 
-    const client = await prisma.client.findUnique({
-      where: { userId: req.user!.userId },
-    });
+    let taskData: any = {
+      title,
+      description: description || null,
+      priority: priority || "MEDIUM",
+      dueDate: dueDate ? new Date(dueDate) : null,
+      createdById: req.user!.userId,
+    };
 
-    if (!client) {
-      res.status(404).json({ success: false, error: "Client not found" });
+    if (userRole === "CLIENT") {
+      const client = await prisma.client.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!client) {
+        res.status(404).json({ success: false, error: "Client not found" });
+        return;
+      }
+
+      // Validate employee belongs to this client
+      if (employeeId) {
+        const assignment = await prisma.clientEmployee.findFirst({
+          where: { clientId: client.id, employeeId, isActive: true },
+        });
+        if (!assignment) {
+          res.status(400).json({
+            success: false,
+            error: "Employee is not assigned to your organization",
+          });
+          return;
+        }
+      }
+
+      taskData.clientId = client.id;
+      taskData.employeeId = employeeId || null;
+      taskData.isPersonal = false;
+    } else if (userRole === "EMPLOYEE") {
+      const employee = await prisma.employee.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!employee) {
+        res.status(404).json({ success: false, error: "Employee not found" });
+        return;
+      }
+      taskData.clientId = null;
+      taskData.employeeId = employee.id;
+      taskData.isPersonal = true;
+    } else {
+      res.status(403).json({ success: false, error: "Access denied" });
       return;
     }
 
-    // Validate employee belongs to this client
-    if (employeeId) {
-      const assignment = await prisma.clientEmployee.findFirst({
-        where: { clientId: client.id, employeeId, isActive: true },
-      });
-      if (!assignment) {
-        res.status(400).json({
-          success: false,
-          error: "Employee is not assigned to your organization",
-        });
-        return;
-      }
-    }
-
     const task = await prisma.task.create({
-      data: {
-        title,
-        description: description || null,
-        priority: priority || "MEDIUM",
-        dueDate: dueDate ? new Date(dueDate) : null,
-        clientId: client.id,
-        employeeId: employeeId || null,
-        createdById: req.user!.userId,
-      },
+      data: taskData,
       include: {
         assignee: {
           select: {
@@ -388,8 +411,8 @@ export const createTask = async (
       { title: task.title },
     );
 
-    // Log activity: ASSIGNED (if employee was set)
-    if (employeeId && task.assignee) {
+    // Log activity: ASSIGNED + notify (only for client-assigned tasks)
+    if (!task.isPersonal && employeeId && task.assignee) {
       createTaskActivity(
         task.id,
         req.user!.userId,
@@ -399,7 +422,6 @@ export const createTask = async (
         { employeeId },
       );
 
-      // Notify the assigned employee
       const employee = await prisma.employee.findUnique({
         where: { id: employeeId },
         select: { userId: true },
@@ -427,7 +449,7 @@ export const createTask = async (
   }
 };
 
-// Update task (CLIENT only)
+// Update task (CLIENT + EMPLOYEE)
 export const updateTask = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -437,14 +459,7 @@ export const updateTask = async (
     const { title, description, priority, dueDate, employeeId, status } =
       req.body;
 
-    const client = await prisma.client.findUnique({
-      where: { userId: req.user!.userId },
-    });
-
-    if (!client) {
-      res.status(404).json({ success: false, error: "Client not found" });
-      return;
-    }
+    const userRole = req.user!.role;
 
     const existing = await prisma.task.findUnique({
       where: { id },
@@ -454,23 +469,53 @@ export const updateTask = async (
         },
       },
     });
-    if (!existing || existing.clientId !== client.id) {
+
+    if (!existing) {
       res.status(404).json({ success: false, error: "Task not found" });
       return;
     }
 
-    // Validate employee if changing assignment
-    if (employeeId !== undefined && employeeId !== null && employeeId !== "") {
-      const assignment = await prisma.clientEmployee.findFirst({
-        where: { clientId: client.id, employeeId, isActive: true },
+    if (userRole === "CLIENT") {
+      const client = await prisma.client.findUnique({
+        where: { userId: req.user!.userId },
       });
-      if (!assignment) {
-        res.status(400).json({
+      if (!client || existing.clientId !== client.id) {
+        res.status(404).json({ success: false, error: "Task not found" });
+        return;
+      }
+
+      // Validate employee if changing assignment
+      if (employeeId !== undefined && employeeId !== null && employeeId !== "") {
+        const assignment = await prisma.clientEmployee.findFirst({
+          where: { clientId: client.id, employeeId, isActive: true },
+        });
+        if (!assignment) {
+          res.status(400).json({
+            success: false,
+            error: "Employee is not assigned to your organization",
+          });
+          return;
+        }
+      }
+    } else if (userRole === "EMPLOYEE") {
+      const employee = await prisma.employee.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!employee || existing.employeeId !== employee.id) {
+        res.status(403).json({ success: false, error: "Access denied" });
+        return;
+      }
+      // Employees cannot change task assignment on client-assigned tasks
+      if (!existing.isPersonal && employeeId !== undefined) {
+        res.status(403).json({
           success: false,
-          error: "Employee is not assigned to your organization",
+          error: "Employees cannot change task assignment",
         });
         return;
       }
+    } else {
+      res.status(403).json({ success: false, error: "Access denied" });
+      return;
     }
 
     const updateData: any = {};
@@ -600,7 +645,7 @@ export const updateTask = async (
       }
     }
 
-    // Notify assigned employee about other task updates (title, description, priority, dueDate, status changes)
+    // Notify the other party about task updates (title, description, priority, dueDate, status changes)
     const hasOtherChanges =
       (title !== undefined && title !== existing.title) ||
       (description !== undefined && description !== existing.description) ||
@@ -608,19 +653,20 @@ export const updateTask = async (
       (status !== undefined && status !== existing.status) ||
       (dueDate !== undefined && (existing.dueDate ? existing.dueDate.toISOString().split("T")[0] : null) !== (dueDate || null));
 
-    if (hasOtherChanges && task.employeeId) {
-      const assignedEmployee = await prisma.employee.findUnique({
-        where: { id: task.employeeId },
-        select: { userId: true },
-      });
-      if (assignedEmployee && assignedEmployee.userId !== req.user!.userId) {
+    if (hasOtherChanges && !existing.isPersonal) {
+      const recipientUserId = await getTaskRecipientUserId(
+        { clientId: existing.clientId, employeeId: existing.employeeId },
+        userRole
+      );
+      if (recipientUserId && recipientUserId !== req.user!.userId) {
+        const actionUrl = userRole === "EMPLOYEE" ? "/client/tasks" : "/employee/tasks";
         createNotification(
-          assignedEmployee.userId,
+          recipientUserId,
           NotificationType.TASK_UPDATED,
           "Task Updated",
           `The task '${task.title}' has been updated`,
           { taskId: id },
-          "/employee/tasks"
+          actionUrl
         ).catch((err) => console.error("Failed to send task notification:", err));
       }
     }
@@ -636,26 +682,37 @@ export const updateTask = async (
   }
 };
 
-// Delete task (CLIENT only)
+// Delete task (CLIENT + EMPLOYEE for personal tasks)
 export const deleteTask = async (
   req: AuthenticatedRequest,
   res: Response,
 ): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const userRole = req.user!.role;
 
-    const client = await prisma.client.findUnique({
-      where: { userId: req.user!.userId },
-    });
-
-    if (!client) {
-      res.status(404).json({ success: false, error: "Client not found" });
+    const existing = await prisma.task.findUnique({ where: { id } });
+    if (!existing) {
+      res.status(404).json({ success: false, error: "Task not found" });
       return;
     }
 
-    const existing = await prisma.task.findUnique({ where: { id } });
-    if (!existing || existing.clientId !== client.id) {
-      res.status(404).json({ success: false, error: "Task not found" });
+    if (userRole === "CLIENT") {
+      const client = await prisma.client.findUnique({
+        where: { userId: req.user!.userId },
+      });
+      if (!client || existing.clientId !== client.id) {
+        res.status(404).json({ success: false, error: "Task not found" });
+        return;
+      }
+    } else if (userRole === "EMPLOYEE") {
+      // Employees can only delete their own personal tasks
+      if (!existing.isPersonal || existing.createdById !== req.user!.userId) {
+        res.status(403).json({ success: false, error: "Access denied" });
+        return;
+      }
+    } else {
+      res.status(403).json({ success: false, error: "Access denied" });
       return;
     }
 
@@ -749,11 +806,11 @@ export const updateTaskStatus = async (
     if (oldStatus !== status) {
       createTaskActivity(id, req.user!.userId, "STATUS_CHANGED", oldStatus, status);
 
-      // Notify the other party about status change
-      const recipientUserId = await getTaskRecipientUserId(
+      // Notify the other party about status change (skip for personal tasks)
+      const recipientUserId = !task.isPersonal ? await getTaskRecipientUserId(
         { clientId: task.clientId, employeeId: task.employeeId },
         userRole
-      );
+      ) : null;
       if (recipientUserId && recipientUserId !== req.user!.userId) {
         const actionUrl = userRole === "EMPLOYEE" ? "/client/tasks" : "/employee/tasks";
         createNotification(
@@ -833,14 +890,14 @@ export const addTaskComment = async (
       preview: message.trim().substring(0, 100),
     });
 
-    // Notify the other party about the comment
-    const recipientUserId = await getTaskRecipientUserId(
-      { clientId: task.clientId, employeeId: task.employeeId },
-      userRole
-    );
-
     // Get author info
     const info = await resolveUserInfo(req.user!.userId);
+
+    // Notify the other party about the comment (skip for personal tasks)
+    const recipientUserId = !task.isPersonal ? await getTaskRecipientUserId(
+      { clientId: task.clientId, employeeId: task.employeeId },
+      userRole
+    ) : null;
 
     if (recipientUserId && recipientUserId !== req.user!.userId) {
       const truncatedMessage = message.trim().length > 80

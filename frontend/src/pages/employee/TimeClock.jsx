@@ -16,6 +16,7 @@ import {
   Moon,
   Building2,
   StickyNote,
+  X,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
@@ -32,6 +33,8 @@ const TimeClock = () => {
   const [showClockOutModal, setShowClockOutModal] = useState(false);
   const [clockOutNotes, setClockOutNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
+  const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
 
   // Fetch current session and summaries
   const fetchData = useCallback(async () => {
@@ -127,7 +130,45 @@ const TimeClock = () => {
   const handleClockIn = async () => {
     try {
       setActionLoading(true);
-      await workSessionService.clockIn();
+      const response = await workSessionService.clockIn();
+      if (response.requiresConfirmation) {
+        if (response.confirmationType === 'EARLY_CLOCK_IN') {
+          setShowEarlyClockInWarning(true);
+        } else {
+          setShowPostShiftWarning(true);
+        }
+        return;
+      }
+      playClockInSound();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle confirmed early clock-in
+  const handleEarlyClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setShowEarlyClockInWarning(false);
+      await workSessionService.clockIn({ confirmEarlyClockIn: true });
+      playClockInSound();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle confirmed post-shift clock-in
+  const handlePostShiftClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setShowPostShiftWarning(false);
+      await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
       await fetchData();
     } catch (err) {
@@ -774,6 +815,116 @@ const TimeClock = () => {
           </div>
         </div>
       </Modal>
+
+      {/* Post-Shift Clock-In Warning Modal */}
+      {showPostShiftWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-red-100">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">No Approved Overtime</h2>
+                  <p className="text-sm text-gray-500">Your shift has ended</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPostShiftWarning(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  No approved overtime. You may not get paid.
+                </p>
+                <p className="text-sm text-red-700">
+                  This requires special approval at client's discretion. Hours worked outside your schedule without prior overtime approval may not be compensated.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you still want to clock in?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowPostShiftWarning(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  onClick={handlePostShiftClockIn}
+                  loading={actionLoading}
+                  className="flex-1"
+                >
+                  Clock In Anyway
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Early Clock-In Warning Modal */}
+      {showEarlyClockInWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-100">
+                  <AlertCircle className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Early Clock-In</h2>
+                  <p className="text-sm text-gray-500">Your shift hasn't started yet</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowEarlyClockInWarning(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
+                <p className="text-sm text-amber-800 font-medium mb-2">
+                  Your shift hasn't started. You may not get paid for these hours.
+                </p>
+                <p className="text-sm text-amber-700">
+                  Hours worked before your scheduled start time will be logged as overtime and require separate approval from your client.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you still want to clock in early?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEarlyClockInWarning(false)}
+                  className="flex-1"
+                >
+                  Wait for Shift
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleEarlyClockIn}
+                  loading={actionLoading}
+                  className="flex-1"
+                >
+                  Clock In Early
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

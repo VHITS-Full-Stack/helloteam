@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  Plus,
   Search,
   MessageSquare,
   Calendar,
@@ -23,6 +24,8 @@ import {
   GripVertical,
   ClipboardList,
   User,
+  Edit2,
+  Trash2,
 } from 'lucide-react';
 import {
   Card,
@@ -84,6 +87,9 @@ const Tasks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState('assigned');
+
   // View
   const [viewMode, setViewMode] = useState('board');
 
@@ -100,6 +106,22 @@ const Tasks = () => {
   const [newComment, setNewComment] = useState('');
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
+
+  // Edit modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
+  const [editingTask, setEditingTask] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  // Create modal (personal tasks)
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createForm, setCreateForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
+  const [createSubmitting, setCreateSubmitting] = useState(false);
+  const [createError, setCreateError] = useState('');
+
+  // Delete modal (personal tasks)
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Drag state
   const [draggedTask, setDraggedTask] = useState(null);
@@ -120,9 +142,14 @@ const Tasks = () => {
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
 
+  // Split tasks by type
+  const assignedTasks = useMemo(() => allTasks.filter(t => !t.isPersonal), [allTasks]);
+  const personalTasks = useMemo(() => allTasks.filter(t => t.isPersonal), [allTasks]);
+  const activeTasks = activeTab === 'assigned' ? assignedTasks : personalTasks;
+
   // Client-side filtering
   const filteredTasks = useMemo(() => {
-    return allTasks.filter(task => {
+    return activeTasks.filter(task => {
       if (search) {
         const q = search.toLowerCase();
         if (!task.title.toLowerCase().includes(q) && !(task.description || '').toLowerCase().includes(q)) return false;
@@ -130,7 +157,7 @@ const Tasks = () => {
       if (priorityFilter && task.priority !== priorityFilter) return false;
       return true;
     });
-  }, [allTasks, search, priorityFilter]);
+  }, [activeTasks, search, priorityFilter]);
 
   // Stats
   const stats = useMemo(() => {
@@ -195,6 +222,89 @@ const Tasks = () => {
     }
   };
 
+  const openEdit = (task) => {
+    setEditForm({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      dueDate: task.dueDate ? task.dueDate.split('T')[0] : '',
+    });
+    setEditingTask(task);
+    setFormError('');
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e) => {
+    e.preventDefault();
+    if (!editForm.title.trim()) { setFormError('Title is required'); return; }
+    setSubmitting(true);
+    setFormError('');
+    try {
+      const payload = { title: editForm.title.trim(), description: editForm.description.trim() || null, priority: editForm.priority, dueDate: editForm.dueDate || null };
+      const response = await taskService.updateTask(editingTask.id, payload);
+      if (response.success) {
+        setShowEditModal(false);
+        setShowDetailModal(false);
+        setEditingTask(null);
+        setFormError('');
+        fetchTasks();
+      } else {
+        setFormError(response.error || 'Failed to update task');
+      }
+    } catch (err) {
+      setFormError(err.error || err.message || 'Failed to update task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openCreate = () => {
+    setCreateForm({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
+    setCreateError('');
+    setShowCreateModal(true);
+  };
+
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    if (!createForm.title.trim()) { setCreateError('Title is required'); return; }
+    setCreateSubmitting(true);
+    setCreateError('');
+    try {
+      const payload = { title: createForm.title.trim(), description: createForm.description.trim() || null, priority: createForm.priority, dueDate: createForm.dueDate || null };
+      const response = await taskService.createTask(payload);
+      if (response.success) {
+        setShowCreateModal(false);
+        setCreateForm({ title: '', description: '', priority: 'MEDIUM', dueDate: '' });
+        setCreateError('');
+        fetchTasks();
+      } else {
+        setCreateError(response.error || 'Failed to create task');
+      }
+    } catch (err) {
+      setCreateError(err.error || err.message || 'Failed to create task');
+    } finally {
+      setCreateSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedTask) return;
+    setSubmitting(true);
+    try {
+      const response = await taskService.deleteTask(selectedTask.id);
+      if (response.success) {
+        setShowDeleteModal(false);
+        setShowDetailModal(false);
+        setSelectedTask(null);
+        fetchTasks();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to delete task');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // Drag and drop
   const handleDragStart = (e, task) => { setDraggedTask(task); e.dataTransfer.effectAllowed = 'move'; e.target.style.opacity = '0.5'; };
   const handleDragEnd = (e) => { e.target.style.opacity = '1'; setDraggedTask(null); setDragOverColumn(null); };
@@ -234,9 +344,37 @@ const Tasks = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
-        <p className="text-sm text-gray-500 mt-1">Tasks assigned to you by your manager</p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">My Tasks</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {activeTab === 'assigned' ? 'Tasks assigned to you by your manager' : 'Your personal private tasks'}
+          </p>
+        </div>
+        {activeTab === 'personal' && (
+          <Button onClick={openCreate} className="flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            New Task
+          </Button>
+        )}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => { setActiveTab('assigned'); setSearch(''); setPriorityFilter(''); }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'assigned' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+        >
+          Assigned Tasks
+          <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100">{assignedTasks.length}</span>
+        </button>
+        <button
+          onClick={() => { setActiveTab('personal'); setSearch(''); setPriorityFilter(''); }}
+          className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'personal' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+        >
+          Personal Tasks
+          <span className="ml-2 px-2 py-0.5 text-xs rounded-full bg-gray-100">{personalTasks.length}</span>
+        </button>
       </div>
 
       {/* Stats Row */}
@@ -300,8 +438,15 @@ const Tasks = () => {
       ) : filteredTasks.length === 0 ? (
         <Card className="p-12 text-center">
           <div className="text-gray-400 mb-4"><ClipboardList className="w-12 h-12 mx-auto" /></div>
-          <h3 className="text-lg font-medium text-gray-900">No tasks assigned</h3>
-          <p className="text-gray-500 mt-1">You don't have any tasks yet</p>
+          <h3 className="text-lg font-medium text-gray-900">
+            {activeTab === 'assigned' ? 'No tasks assigned' : 'No personal tasks'}
+          </h3>
+          <p className="text-gray-500 mt-1">
+            {activeTab === 'assigned' ? "You don't have any assigned tasks yet" : 'Create a personal task to get started'}
+          </p>
+          {activeTab === 'personal' && (
+            <Button onClick={openCreate} className="mt-4"><Plus className="w-4 h-4 mr-2" />Create Task</Button>
+          )}
         </Card>
       ) : viewMode === 'board' ? (
         /* ===== BOARD VIEW ===== */
@@ -346,7 +491,7 @@ const Tasks = () => {
                         </h4>
                         {task.description && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{task.description}</p>}
                         <div className="flex items-center gap-3 mt-2">
-                          {task.client && (
+                          {activeTab === 'assigned' && task.client && (
                             <span className="text-[11px] text-gray-500 flex items-center gap-0.5">
                               <User className="w-3 h-3" />{task.client.companyName}
                             </span>
@@ -378,10 +523,11 @@ const Tasks = () => {
             <TableHead>
               <TableRow>
                 <TableHeader>Task</TableHeader>
-                <TableHeader>Client</TableHeader>
+                {activeTab === 'assigned' && <TableHeader>Client</TableHeader>}
                 <TableHeader>Priority</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>Due Date</TableHeader>
+                <TableHeader>Actions</TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -398,9 +544,11 @@ const Tasks = () => {
                       )}
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <span className="text-sm text-gray-600">{task.client?.companyName || '-'}</span>
-                  </TableCell>
+                  {activeTab === 'assigned' && (
+                    <TableCell>
+                      <span className="text-sm text-gray-600">{task.client?.companyName || '-'}</span>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_CONFIG[task.priority].color}`}>
                       {PRIORITY_CONFIG[task.priority].label}
@@ -422,6 +570,18 @@ const Tasks = () => {
                       {formatDate(task.dueDate)}
                       {isOverdue(task) && ' (Overdue)'}
                     </span>
+                  </TableCell>
+                  <TableCell onClick={e => e.stopPropagation()}>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openEdit(task)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      {task.isPersonal && (
+                        <button onClick={() => { setSelectedTask(task); setShowDeleteModal(true); }} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -460,8 +620,8 @@ const Tasks = () => {
 
               <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
                 <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Client</p>
-                  <p className="font-medium text-gray-900">{selectedTask.client?.companyName || '-'}</p>
+                  <p className="text-xs text-gray-500 mb-1">{selectedTask.isPersonal ? 'Type' : 'Client'}</p>
+                  <p className="font-medium text-gray-900">{selectedTask.isPersonal ? 'Personal Task' : selectedTask.client?.companyName || '-'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">Due Date</p>
@@ -488,6 +648,18 @@ const Tasks = () => {
                     {STATUS_CONFIG[status].label}
                   </button>
                 ))}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-4 pt-4 border-t">
+                <Button variant="outline" size="sm" onClick={() => { setShowDetailModal(false); openEdit(selectedTask); }}>
+                  <Edit2 className="w-3.5 h-3.5 mr-1.5" />Edit
+                </Button>
+                {selectedTask.isPersonal && (
+                  <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200" onClick={() => { setShowDetailModal(false); setShowDeleteModal(true); }}>
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete
+                  </Button>
+                )}
               </div>
             </div>
 
@@ -567,6 +739,94 @@ const Tasks = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Edit Task Modal */}
+      <Modal isOpen={showEditModal} onClose={() => setShowEditModal(false)} title="Edit Task">
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          {formError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{formError}</div>}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <input type="text" value={editForm.title} onChange={(e) => setEditForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter task title" autoFocus />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea value={editForm.description} onChange={(e) => setEditForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" rows={3} placeholder="Enter task description" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select value={editForm.priority} onChange={(e) => setEditForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <input type="date" value={editForm.dueDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setEditForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowEditModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Update Task
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Create Personal Task Modal */}
+      <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="New Personal Task">
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          {createError && <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">{createError}</div>}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
+            <input type="text" value={createForm.title} onChange={(e) => setCreateForm(f => ({ ...f, title: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" placeholder="Enter task title" autoFocus />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <textarea value={createForm.description} onChange={(e) => setCreateForm(f => ({ ...f, description: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" rows={3} placeholder="Enter task description" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+              <select value={createForm.priority} onChange={(e) => setCreateForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+                <option value="URGENT">Urgent</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+              <input type="date" value={createForm.dueDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setCreateForm(f => ({ ...f, dueDate: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={createSubmitting}>
+              {createSubmitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Create Task
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Task Modal */}
+      <Modal isOpen={showDeleteModal && !!selectedTask} onClose={() => setShowDeleteModal(false)} title="Delete Task">
+        <p className="text-gray-600 mb-6">
+          Are you sure you want to delete <strong>"{selectedTask?.title}"</strong>? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <Button variant="outline" onClick={() => setShowDeleteModal(false)}>Cancel</Button>
+          <Button variant="danger" onClick={handleDelete} disabled={submitting}>
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            Delete
+          </Button>
+        </div>
       </Modal>
     </div>
   );

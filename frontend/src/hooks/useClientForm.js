@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import clientService from '../services/client.service';
 import groupService from '../services/group.service';
+import employeeService from '../services/employee.service';
 
 /**
  * Custom hook for client add/edit form logic
@@ -13,6 +14,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
   const isEdit = Boolean(id);
 
   const [groups, setGroups] = useState([]);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +28,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     timezone: 'UTC',
     status: 'ACTIVE',
     groupId: '',
+    employeeIds: [],
     agreementType: 'WEEKLY',
     allowPaidLeave: false,
     paidLeaveType: 'fixed',
@@ -76,7 +79,11 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
       try {
         if (isEdit) setLoading(true);
 
-        const groupsRes = await groupService.getGroups({ limit: 100 });
+        const [groupsRes, employeesRes] = await Promise.all([
+          groupService.getGroups({ limit: 100 }),
+          !isEdit ? employeeService.getEmployees({ limit: 200 }) : Promise.resolve(null),
+        ]);
+
         if (groupsRes.success) {
           setGroups(groupsRes.data.groups);
           if (!isEdit) {
@@ -85,6 +92,10 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
               setFormData((prev) => ({ ...prev, groupId: defaultGroup.id }));
             }
           }
+        }
+
+        if (employeesRes?.success) {
+          setEmployees(employeesRes.data.employees || []);
         }
 
         if (isEdit) {
@@ -109,6 +120,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
               timezone: client.timezone || 'UTC',
               status: client.user?.status || 'ACTIVE',
               groupId: '',
+              employeeIds: [],
               allowPaidLeave: client.clientPolicies?.allowPaidLeave || false,
               paidLeaveType: client.clientPolicies?.paidLeaveType || 'fixed',
               annualPaidLeaveDays: client.clientPolicies?.annualPaidLeaveDays || 0,
@@ -150,6 +162,13 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
       return;
     }
 
+    // Validate at least one employee is assigned (create only)
+    if (!isEdit && formData.employeeIds.length === 0) {
+      setError('At least one employee must be assigned to the client');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       let response;
       if (isEdit) {
@@ -184,6 +203,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     formData,
     setFormData,
     groups,
+    employees,
     isEdit,
     loading,
     error,

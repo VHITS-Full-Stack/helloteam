@@ -39,6 +39,7 @@ const ClientDashboard = () => {
   const [activeEmployees, setActiveEmployees] = useState([]);
   const [pendingItems, setPendingItems] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
+  const [pendingOT, setPendingOT] = useState(null);
   const [error, setError] = useState(null);
 
   // Action modals
@@ -56,12 +57,13 @@ const ClientDashboard = () => {
       else setLoading(true);
       setError(null);
 
-      const [statsRes, activeRes, pendingRes, weeklyRes] =
+      const [statsRes, activeRes, pendingRes, weeklyRes, pendingOTRes] =
         await Promise.allSettled([
           clientPortalService.getDashboardStats(),
           clientPortalService.getActiveEmployees(),
           clientPortalService.getPendingApprovals(5),
           clientPortalService.getWeeklyHoursOverview(),
+          clientPortalService.getPendingOvertimeSummary(),
         ]);
 
       if (statsRes.status === "fulfilled" && statsRes.value.success) {
@@ -78,6 +80,10 @@ const ClientDashboard = () => {
 
       if (weeklyRes.status === "fulfilled" && weeklyRes.value.success) {
         setWeeklyData(weeklyRes.value.data || []);
+      }
+
+      if (pendingOTRes.status === "fulfilled" && pendingOTRes.value.success) {
+        setPendingOT(pendingOTRes.value.data.count > 0 ? pendingOTRes.value.data : null);
       }
     } catch (err) {
       console.error("Error fetching dashboard data:", err);
@@ -190,6 +196,44 @@ const ClientDashboard = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
           {error}
+        </div>
+      )}
+
+      {/* Pending Actions — Unapproved Overtime Alert */}
+      {pendingOT && pendingOT.count > 0 && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-red-100 rounded-full flex-shrink-0">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-red-800">
+                Pending Actions: {pendingOT.count} Unapproved Overtime{pendingOT.count !== 1 ? ' Entries' : ' Entry'}
+              </h3>
+              <p className="text-red-700 mt-1">
+                Your employees have worked <strong>{pendingOT.totalHours}</strong> of unapproved overtime.
+                We cannot pay your employees for these hours until you approve or deny.
+              </p>
+              {pendingOT.employees && pendingOT.employees.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {pendingOT.employees.map((emp, i) => (
+                    <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
+                      {emp.name} — {emp.hours} ({emp.entries} {emp.entries === 1 ? 'entry' : 'entries'})
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="mt-4">
+                <Button
+                  variant="danger"
+                  icon={AlertCircle}
+                  onClick={() => navigate("/client/time-records")}
+                >
+                  Review & Approve Now
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

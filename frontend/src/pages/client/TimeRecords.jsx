@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import {
   Card,
   Button,
@@ -24,6 +24,7 @@ const TimeRecords = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [, setShowFilterModal] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Get week start/end dates
   const getWeekDates = (date) => {
@@ -136,10 +137,10 @@ const TimeRecords = () => {
     }
   };
 
-  const getCellClass = (hours) => {
+  const getCellClass = (hours, hasUnapprovedOT) => {
     if (!hours || hours === 0) return 'text-gray-300';
-    if (hours > 8) return 'text-orange-600 font-medium';
-    return 'text-gray-900';
+    if (hasUnapprovedOT) return 'text-orange-600 font-medium';
+    return 'text-green-700 font-medium';
   };
 
   const formatHours = (decimalHours) => {
@@ -182,6 +183,37 @@ const TimeRecords = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  // Handle overtime approval directly from time records page
+  const handleApproveOvertime = async (timeRecordId) => {
+    if (!timeRecordId) return;
+    try {
+      setActionLoading(true);
+      const response = await clientPortalService.approveTimeRecord(timeRecordId);
+      if (response.success) {
+        fetchTimeRecords();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to approve');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDenyOvertime = async (timeRecordId, reason = 'Overtime denied by client') => {
+    if (!timeRecordId) return;
+    try {
+      setActionLoading(true);
+      const response = await clientPortalService.rejectTimeRecord(timeRecordId, reason);
+      if (response.success) {
+        fetchTimeRecords();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to deny');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading && timeRecords.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -221,10 +253,6 @@ const TimeRecords = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card padding="sm">
-          <p className="text-sm text-gray-500">Employees</p>
-          <p className="text-2xl font-bold text-gray-900">{summary.totalEmployees}</p>
-        </Card>
-        <Card padding="sm">
           <p className="text-sm text-gray-500">Total Hours</p>
           <p className="text-2xl font-bold text-gray-900">{formatHours(summary.totalHours)}</p>
         </Card>
@@ -233,11 +261,15 @@ const TimeRecords = () => {
           <p className="text-2xl font-bold text-green-600">{formatHours(summary.regularHours)}</p>
         </Card>
         <Card padding="sm">
-          <p className="text-sm text-gray-500">Overtime</p>
-          <p className="text-2xl font-bold text-orange-600">{formatHours(summary.overtimeHours)}</p>
+          <p className="text-sm text-gray-500">Approved OT</p>
+          <p className="text-2xl font-bold text-green-600">{formatHours(summary.approvedOvertimeHours || 0)}</p>
         </Card>
         <Card padding="sm">
-          <p className="text-sm text-gray-500">Pending</p>
+          <p className="text-sm text-gray-500">Unapproved OT</p>
+          <p className="text-2xl font-bold text-orange-600">{formatHours(summary.unapprovedOvertimeHours || 0)}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-sm text-gray-500">Pending Review</p>
           <p className="text-2xl font-bold text-yellow-600">{summary.pendingCount}</p>
         </Card>
       </div>
@@ -344,14 +376,15 @@ const TimeRecords = () => {
 
                     {/* Daily Hours - hidden on mobile */}
                     {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
-                      const hasOTDay = record.dailyOvertimeHours?.[day] > 0;
+                      const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+                      const dayRec = record.records?.find((r) => {
+                        const d = new Date(r.date);
+                        return dayNames[d.getUTCDay()] === day;
+                      });
+                      const hasUnapprovedOT = dayRec?.overtimeMinutes > 0 && dayRec?.overtimeStatus !== 'APPROVED' && dayRec?.overtimeStatus !== 'AUTO_APPROVED';
                       return (
-                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day])}`}>
-                          {record.dailyHours?.[day] > 0 ? (
-                            <span className={hasOTDay ? 'text-amber-700 font-semibold' : ''}>
-                              {formatHours(record.dailyHours[day])}
-                            </span>
-                          ) : '-'}
+                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day], hasUnapprovedOT)}`}>
+                          {record.dailyHours?.[day] > 0 ? formatHours(record.dailyHours[day]) : '-'}
                         </div>
                       );
                     })}
@@ -415,26 +448,31 @@ const TimeRecords = () => {
 
                               {/* Overtime row (only if has overtime) */}
                               {record.overtimeHours > 0 && (
-                                <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center bg-amber-50/50 border-l-2 border-amber-400">
-                                  <div className="col-span-3 pl-11 text-xs font-medium text-amber-600">
+                                <div className={`grid grid-cols-12 gap-2 px-4 py-2 items-center border-l-2 ${
+                                  record.unapprovedOvertimeHours > 0 ? 'bg-orange-50/50 border-orange-400' : 'bg-green-50/50 border-green-400'
+                                }`}>
+                                  <div className={`col-span-3 pl-11 text-xs font-medium ${
+                                    record.unapprovedOvertimeHours > 0 ? 'text-orange-600' : 'text-green-600'
+                                  }`}>
                                     Overtime
                                   </div>
                                   {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
                                     const rec = dayMap[day];
                                     const ot = rec ? (rec.overtimeMinutes || 0) / 60 : 0;
-                                    const otStatus = rec && rec.overtimeMinutes > 0 ? (rec.status || '').toLowerCase() : null;
+                                    const otStatus = rec?.overtimeStatus ? rec.overtimeStatus.toLowerCase() : (rec && rec.overtimeMinutes > 0 ? (rec.status || '').toLowerCase() : null);
+                                    const isApproved = otStatus === 'approved' || otStatus === 'auto_approved';
                                     return (
                                       <div key={day} className="text-center">
                                         {ot > 0 ? (
                                           <div className="flex flex-col items-center gap-0.5">
-                                            <span className="text-sm text-amber-700 font-medium">+{formatHours(ot)}</span>
+                                            <span className={`text-sm font-medium ${isApproved ? 'text-green-700' : 'text-orange-700'}`}>+{formatHours(ot)}</span>
                                             {otStatus && (
                                               <span className={`text-[9px] font-bold uppercase px-1 py-px rounded ${
-                                                otStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                                                isApproved ? 'bg-green-100 text-green-700' :
                                                 otStatus === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                'bg-amber-100 text-amber-700'
+                                                'bg-orange-100 text-orange-700'
                                               }`}>
-                                                {otStatus === 'rejected' ? 'Denied' : otStatus === 'approved' ? 'Approved' : 'Pending'}
+                                                {otStatus === 'rejected' ? 'Denied' : isApproved ? 'Approved' : 'Pending'}
                                               </span>
                                             )}
                                           </div>
@@ -444,10 +482,45 @@ const TimeRecords = () => {
                                       </div>
                                     );
                                   })}
-                                  <div className="text-center text-sm font-semibold text-amber-700">
-                                    +{formatHours(record.overtimeHours)}
+                                  <div className="text-center text-sm font-semibold">
+                                    <span className={record.approvedOvertimeHours > 0 ? 'text-green-700' : ''}>
+                                      {record.approvedOvertimeHours > 0 ? `+${formatHours(record.approvedOvertimeHours)}` : ''}
+                                    </span>
+                                    {record.approvedOvertimeHours > 0 && record.unapprovedOvertimeHours > 0 && ' / '}
+                                    <span className={record.unapprovedOvertimeHours > 0 ? 'text-orange-700' : ''}>
+                                      {record.unapprovedOvertimeHours > 0 ? `+${formatHours(record.unapprovedOvertimeHours)}` : ''}
+                                    </span>
                                   </div>
-                                  <div />
+                                  <div className="flex justify-center gap-1">
+                                    {record.records?.filter(r => r.overtimeMinutes > 0 && r.overtimeStatus !== 'APPROVED' && r.overtimeStatus !== 'AUTO_APPROVED' && r.overtimeStatus !== 'REJECTED' && r.timeRecordId).length > 0 && (
+                                      <>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const pendingIds = record.records.filter(r => r.overtimeMinutes > 0 && r.overtimeStatus !== 'APPROVED' && r.overtimeStatus !== 'AUTO_APPROVED' && r.overtimeStatus !== 'REJECTED' && r.timeRecordId);
+                                            pendingIds.forEach(r => handleApproveOvertime(r.timeRecordId));
+                                          }}
+                                          disabled={actionLoading}
+                                          className="p-1 rounded hover:bg-green-100 text-green-600 transition-colors"
+                                          title="Approve overtime"
+                                        >
+                                          <CheckCircle className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const pendingIds = record.records.filter(r => r.overtimeMinutes > 0 && r.overtimeStatus !== 'APPROVED' && r.overtimeStatus !== 'AUTO_APPROVED' && r.overtimeStatus !== 'REJECTED' && r.timeRecordId);
+                                            pendingIds.forEach(r => handleDenyOvertime(r.timeRecordId));
+                                          }}
+                                          disabled={actionLoading}
+                                          className="p-1 rounded hover:bg-red-100 text-red-600 transition-colors"
+                                          title="Deny overtime"
+                                        >
+                                          <XCircle className="w-4 h-4" />
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
                               )}
 
@@ -459,33 +532,52 @@ const TimeRecords = () => {
                       {/* Mobile: card-based breakdown */}
                       <div className="md:hidden px-4 py-3 space-y-2">
                         {record.records && record.records.map((rec, idx) => {
-                          const totalHrs = ((rec.totalMinutes || 0) + (rec.overtimeMinutes || 0)) / 60;
+                          const totalHrs = (rec.totalMinutes || 0) / 60;
                           const hasOT = rec.overtimeMinutes > 0;
-                          const otStatus = (rec.status || '').toLowerCase();
+                          const otStatus = rec.overtimeStatus ? rec.overtimeStatus.toLowerCase() : (rec.status || '').toLowerCase();
+                          const isOTApproved = otStatus === 'approved' || otStatus === 'auto_approved';
                           return (
                             <div key={idx} className={`flex items-center justify-between rounded-lg px-3 py-2 border ${
-                              hasOT ? 'bg-amber-50 border-amber-200' : 'bg-white border-gray-100'
+                              hasOT ? (isOTApproved ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200') : 'bg-white border-gray-100'
                             }`}>
                               <span className="text-sm text-gray-600">
                                 {new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                               </span>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-gray-900">{formatHours(totalHrs)}</span>
+                                <span className="text-sm font-medium text-green-700">{formatHours(totalHrs)}</span>
                                 {hasOT && (
-                                  <span className="text-xs text-amber-700 font-bold">
+                                  <span className={`text-xs font-bold ${isOTApproved ? 'text-green-700' : 'text-orange-700'}`}>
                                     +{formatHours(rec.overtimeMinutes / 60)} OT
                                   </span>
                                 )}
-                                {hasOT ? (
+                                {hasOT && (
                                   <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                                    otStatus === 'approved' ? 'bg-green-100 text-green-700' :
+                                    isOTApproved ? 'bg-green-100 text-green-700' :
                                     otStatus === 'rejected' ? 'bg-red-100 text-red-700' :
-                                    'bg-amber-100 text-amber-700'
+                                    'bg-orange-100 text-orange-700'
                                   }`}>
-                                    {otStatus === 'rejected' ? 'Denied' : otStatus === 'approved' ? 'Approved' : 'Pending'}
+                                    {otStatus === 'rejected' ? 'Denied' : isOTApproved ? 'Approved' : 'Pending'}
                                   </span>
-                                ) : (
-                                  getStatusBadge(otStatus)
+                                )}
+                                {hasOT && otStatus === 'pending' && rec.timeRecordId && (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleApproveOvertime(rec.timeRecordId); }}
+                                      disabled={actionLoading}
+                                      className="p-1 rounded hover:bg-green-100 text-green-600"
+                                      title="Approve"
+                                    >
+                                      <CheckCircle className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleDenyOvertime(rec.timeRecordId); }}
+                                      disabled={actionLoading}
+                                      className="p-1 rounded hover:bg-red-100 text-red-600"
+                                      title="Deny"
+                                    >
+                                      <XCircle className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -505,18 +597,14 @@ const TimeRecords = () => {
       <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span>Approved</span>
+          <span>Scheduled / Approved OT (payable)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-yellow-500" />
-          <span>Pending</span>
+          <div className="w-3 h-3 rounded-full bg-orange-500" />
+          <span>Unapproved OT (needs approval)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-3 h-3 rounded bg-amber-200 border border-amber-400" />
-          <span>Overtime Entry</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Pending</span>
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">Pending</span>
           <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-100 text-green-700">Approved</span>
           <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-700">Denied</span>
           <span>OT Status</span>

@@ -273,11 +273,13 @@ const LeaveRequests = () => {
               label="Start Date"
               type="date"
               placeholder="Select date"
+              min={new Date().toISOString().split('T')[0]}
             />
             <Input
               label="End Date"
               type="date"
               placeholder="Select date"
+              min={new Date().toISOString().split('T')[0]}
             />
           </div>
 

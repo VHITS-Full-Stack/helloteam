@@ -24,6 +24,7 @@ import {
   addEmployeesToClientGroup,
   removeEmployeeFromClientGroup,
   getClientEmployeesList,
+  getPendingOvertimeSummary,
 } from '../controllers/clientPortal.controller';
 import {
   getClientInvoices,
@@ -52,6 +53,9 @@ router.get('/dashboard/weekly-hours', getWeeklyHoursOverview);
 
 // Get pending approvals
 router.get('/dashboard/pending-approvals', getPendingApprovals);
+
+// Get pending unapproved overtime summary (for dashboard alert / login blocker)
+router.get('/dashboard/pending-overtime', getPendingOvertimeSummary);
 
 // ============================================
 // WORKFORCE ROUTES

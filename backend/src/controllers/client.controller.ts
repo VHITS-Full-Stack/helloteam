@@ -302,6 +302,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       address,
       timezone,
       groupId,
+      employeeIds,
       agreementType,
       // Policy fields
       allowPaidLeave,
@@ -332,6 +333,15 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       res.status(400).json({
         success: false,
         error: 'Email, company name, and at least one contact person are required',
+      });
+      return;
+    }
+
+    // Validate at least one employee must be assigned
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'At least one employee must be assigned to the client',
       });
       return;
     }
@@ -471,6 +481,16 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
             update: { isActive: true },
           });
         }
+      }
+
+      // Assign selected employees to this client
+      for (const empId of employeeIds) {
+        await deactivateOtherClientAssignments(empId, client.id, tx);
+        await tx.clientEmployee.upsert({
+          where: { clientId_employeeId: { clientId: client.id, employeeId: empId } },
+          create: { clientId: client.id, employeeId: empId, isActive: true },
+          update: { isActive: true },
+        });
       }
 
       // Fetch complete client data

@@ -19,6 +19,11 @@ const clientPortalService = {
     return response;
   },
 
+  getPendingOvertimeSummary: async () => {
+    const response = await api.get('/client-portal/dashboard/pending-overtime');
+    return response;
+  },
+
   // Workforce APIs
   getWorkforce: async (params = {}) => {
     const response = await api.get('/client-portal/workforce', { params });
