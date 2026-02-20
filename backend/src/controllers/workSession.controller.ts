@@ -956,9 +956,13 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             date: { in: sessionDates },
           },
           select: {
+            id: true,
             date: true,
             status: true,
             approvedAt: true,
+            revisionReason: true,
+            revisionRequestedBy: true,
+            revisionRequestedAt: true,
           },
         })
       : [];
@@ -988,6 +992,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         client: clientAssignment?.client || null,
         approvalStatus: timeRecord?.status || null,
         approvedAt: timeRecord?.approvedAt || null,
+        timeRecordId: timeRecord?.id || null,
+        revisionReason: timeRecord?.revisionReason || null,
       };
     });
 

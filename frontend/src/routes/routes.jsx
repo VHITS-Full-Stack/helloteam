@@ -61,6 +61,7 @@ const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
 const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
+const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -214,6 +215,7 @@ const AppRoutes = () => {
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="invoices" element={<AdminInvoices />} />
+          <Route path="billing-history" element={<BillingHistory />} />
           <Route path="reports" element={<AdminAnalytics />} />
           <Route path="time-adjustments" element={<TimeAdjustments />} />
           <Route path="audit-log" element={<AuditLog />} />

@@ -11,6 +11,8 @@ import {
   getClientApprovals,
   bulkApproveTimeRecords,
   bulkRejectTimeRecords,
+  requestRevisionTimeRecord,
+  bulkRequestRevision,
   getClientAnalytics,
   getClientBilling,
   getClientSettings,
@@ -90,8 +92,14 @@ router.post('/approvals/time-record/:recordId/reject', rejectTimeRecord);
 // Bulk approve time records
 router.post('/approvals/bulk-approve', bulkApproveTimeRecords);
 
-// Bulk reject time records
+// Bulk reject time records (overtime only)
 router.post('/approvals/bulk-reject', bulkRejectTimeRecords);
+
+// Request revision for a regular time record
+router.post('/approvals/time-record/:recordId/request-revision', requestRevisionTimeRecord);
+
+// Bulk request revision for regular time records
+router.post('/approvals/bulk-request-revision', bulkRequestRevision);
 
 // Approve a leave request
 router.post('/approvals/leave/:requestId/approve', approveLeaveRequest);

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, Calendar, Download, Filter, Search, ChevronDown, ChevronLeft, ChevronRight, Loader2, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 import {
   Card,
   Button,
@@ -25,6 +25,9 @@ const TimeRecords = () => {
   const [, setShowFilterModal] = useState(false);
   const [expandedRows, setExpandedRows] = useState({});
   const [actionLoading, setActionLoading] = useState(false);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [revisionReason, setRevisionReason] = useState('');
+  const [revisionRecordIds, setRevisionRecordIds] = useState([]);
 
   // Get week start/end dates
   const getWeekDates = (date) => {
@@ -132,6 +135,8 @@ const TimeRecords = () => {
         return <Badge variant="info">Active</Badge>;
       case 'rejected':
         return <Badge variant="danger">Rejected</Badge>;
+      case 'revision_requested':
+        return <Badge variant="warning" className="bg-amber-100 text-amber-800">Revision Requested</Badge>;
       default:
         return <Badge variant="default">{status}</Badge>;
     }
@@ -209,6 +214,35 @@ const TimeRecords = () => {
       }
     } catch (err) {
       setError(err.message || 'Failed to deny');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRequestRevision = (timeRecordIds) => {
+    setRevisionRecordIds(Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds]);
+    setRevisionReason('');
+    setShowRevisionModal(true);
+  };
+
+  const confirmRequestRevision = async () => {
+    if (!revisionRecordIds.length || !revisionReason.trim()) return;
+    try {
+      setActionLoading(true);
+      let response;
+      if (revisionRecordIds.length === 1) {
+        response = await clientPortalService.requestRevisionTimeRecord(revisionRecordIds[0], revisionReason);
+      } else {
+        response = await clientPortalService.bulkRequestRevision(revisionRecordIds, revisionReason);
+      }
+      if (response.success) {
+        setShowRevisionModal(false);
+        setRevisionReason('');
+        setRevisionRecordIds([]);
+        fetchTimeRecords();
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to request revision');
     } finally {
       setActionLoading(false);
     }
@@ -310,6 +344,7 @@ const TimeRecords = () => {
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
+              <option value="revision_requested">Revision Requested</option>
             </select>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
@@ -524,6 +559,54 @@ const TimeRecords = () => {
                                 </div>
                               )}
 
+                              {/* Request Revisions for pending regular records */}
+                              {(() => {
+                                const pendingRegular = record.records?.filter(r =>
+                                  (!r.overtimeMinutes || r.overtimeMinutes === 0) &&
+                                  r.timeRecordId &&
+                                  (!r.status || r.status === 'PENDING')
+                                ) || [];
+                                if (pendingRegular.length === 0) return null;
+                                return (
+                                  <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center bg-amber-50/30 border-l-2 border-amber-300">
+                                    <div className="col-span-3 pl-11 text-xs font-medium text-amber-700">
+                                      Regular Hours
+                                    </div>
+                                    <div className="col-span-7" />
+                                    <div className="col-span-2 flex justify-end">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleRequestRevision(pendingRegular.map(r => r.timeRecordId));
+                                        }}
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                                        title="Request revisions for regular hours"
+                                      >
+                                        <RotateCcw className="w-3 h-3" />
+                                        Request Revisions
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Revision reason display */}
+                              {(() => {
+                                const revisionRecord = record.records?.find(r => r.status === 'REVISION_REQUESTED' && r.revisionReason);
+                                if (!revisionRecord) return null;
+                                return (
+                                  <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center bg-amber-50/50 border-l-2 border-amber-400">
+                                    <div className="col-span-12 pl-11">
+                                      <p className="text-xs text-amber-700">
+                                        <span className="font-medium">Revision requested:</span>{' '}
+                                        {revisionRecord.revisionReason}
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })()}
+
                             </>
                           );
                         })()}
@@ -583,6 +666,38 @@ const TimeRecords = () => {
                             </div>
                           );
                         })}
+                        {/* Mobile: Request Revisions button */}
+                        {(() => {
+                          const pendingRegular = record.records?.filter(r =>
+                            (!r.overtimeMinutes || r.overtimeMinutes === 0) &&
+                            r.timeRecordId &&
+                            (!r.status || r.status === 'PENDING')
+                          ) || [];
+                          if (pendingRegular.length === 0) return null;
+                          return (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRequestRevision(pendingRegular.map(r => r.timeRecordId));
+                              }}
+                              disabled={actionLoading}
+                              className="w-full mt-2 inline-flex items-center justify-center gap-1 px-3 py-2 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Request Revisions
+                            </button>
+                          );
+                        })()}
+                        {/* Mobile: Revision reason */}
+                        {(() => {
+                          const revisionRecord = record.records?.find(r => r.status === 'REVISION_REQUESTED' && r.revisionReason);
+                          if (!revisionRecord) return null;
+                          return (
+                            <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                              <span className="font-medium">Revision requested:</span> {revisionRecord.revisionReason}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}
@@ -610,6 +725,44 @@ const TimeRecords = () => {
           <span>OT Status</span>
         </div>
       </div>
+
+      {/* Revision Request Modal */}
+      {showRevisionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowRevisionModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Request Revisions</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              The employee will be notified and can review and resubmit their timesheet.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Revision Notes</label>
+              <textarea
+                value={revisionReason}
+                onChange={(e) => setRevisionReason(e.target.value)}
+                placeholder="Describe what needs to be revised..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                rows={3}
+                required
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowRevisionModal(false); setRevisionRecordIds([]); }}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRequestRevision}
+                disabled={!revisionReason.trim() || actionLoading}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-500 rounded-lg hover:bg-amber-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? 'Submitting...' : 'Request Revisions'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

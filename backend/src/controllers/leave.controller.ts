@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { PrismaClient, LeaveType, LeaveStatus } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
+import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
 
 const prisma = new PrismaClient();
 
@@ -33,12 +34,14 @@ const getOrCreateLeaveBalance = async (employeeId: string, clientId: string) => 
   });
 
   if (!balance) {
-    // Get client policy to set initial entitlement
-    const policy = await prisma.clientPolicy.findUnique({
-      where: { clientId },
-    });
+    // Get client policy and employee assignment to resolve effective PTO config
+    const [policy, clientEmployee] = await Promise.all([
+      prisma.clientPolicy.findUnique({ where: { clientId } }),
+      prisma.clientEmployee.findFirst({ where: { employeeId, clientId, isActive: true } }),
+    ]);
 
-    const initialEntitlement = policy?.allowPaidLeave ? policy.annualPaidLeaveDays : 0;
+    const effectivePto = resolveEffectivePtoConfig(policy, clientEmployee);
+    const initialEntitlement = effectivePto.allowPaidLeave ? effectivePto.annualPaidLeaveDays : 0;
 
     balance = await prisma.leaveBalance.create({
       data: {
@@ -93,9 +96,10 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
       return;
     }
 
-    // Get policy from first active client assignment
+    // Get policy from first active client assignment and resolve effective PTO config
     const assignment = employee.clientAssignments[0];
     const policy = assignment.client.clientPolicies;
+    const effectivePto = resolveEffectivePtoConfig(policy, assignment);
 
     const leaveOptions = {
       clientId: assignment.clientId,
@@ -107,11 +111,11 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
         description: string;
       }>,
       requiresTwoWeeksNotice: policy?.requireTwoWeeksNotice ?? true,
-      paidLeaveEntitlementType: policy?.paidLeaveEntitlementType ?? 'NONE',
+      paidLeaveEntitlementType: effectivePto.paidLeaveEntitlementType,
     };
 
     // Add unpaid leave option if allowed
-    if (policy?.allowUnpaidLeave !== false) {
+    if (effectivePto.allowUnpaidLeave) {
       leaveOptions.options.push({
         type: 'UNPAID',
         label: 'Unpaid Leave',
@@ -121,12 +125,12 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
     }
 
     // Add paid leave option if allowed
-    if (policy?.allowPaidLeave) {
+    if (effectivePto.allowPaidLeave) {
       leaveOptions.options.push({
         type: 'PAID',
         label: 'Paid Leave',
         available: true,
-        description: `Paid time off (${policy.paidLeaveEntitlementType} entitlement)`,
+        description: `Paid time off (${effectivePto.paidLeaveEntitlementType} entitlement)`,
       });
     }
 
@@ -177,6 +181,7 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
 
     const assignment = employee.clientAssignments[0];
     const policy = assignment.client.clientPolicies;
+    const effectivePto = resolveEffectivePtoConfig(policy, assignment);
 
     // Get or create balance
     const balance = await getOrCreateLeaveBalance(employee.id, assignment.clientId);
@@ -197,15 +202,15 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
           used: Number(balance.paidLeaveUsed),
           pending: Number(balance.paidLeavePending),
           available: paidLeaveAvailable,
-          entitlementType: policy?.paidLeaveEntitlementType ?? 'NONE',
+          entitlementType: effectivePto.paidLeaveEntitlementType,
         },
         unpaidLeave: {
           taken: Number(balance.unpaidLeaveTaken),
           pending: Number(balance.unpaidLeavePending),
         },
         policy: {
-          allowPaidLeave: policy?.allowPaidLeave ?? false,
-          allowUnpaidLeave: policy?.allowUnpaidLeave ?? true,
+          allowPaidLeave: effectivePto.allowPaidLeave,
+          allowUnpaidLeave: effectivePto.allowUnpaidLeave,
           requiresTwoWeeksNotice: policy?.requireTwoWeeksNotice ?? true,
         },
       },
@@ -274,20 +279,21 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
 
     const assignment = employee.clientAssignments[0];
     const policy = assignment.client.clientPolicies;
+    const effectivePto = resolveEffectivePtoConfig(policy, assignment);
 
-    // Validate leave type is allowed
-    if (leaveType === 'PAID' && !policy?.allowPaidLeave) {
+    // Validate leave type is allowed (using effective per-employee PTO config)
+    if (leaveType === 'PAID' && !effectivePto.allowPaidLeave) {
       res.status(400).json({
         success: false,
-        error: 'Paid leave is not available for your client',
+        error: 'Paid leave is not available for you',
       });
       return;
     }
 
-    if (leaveType === 'UNPAID' && policy?.allowUnpaidLeave === false) {
+    if (leaveType === 'UNPAID' && !effectivePto.allowUnpaidLeave) {
       res.status(400).json({
         success: false,
-        error: 'Unpaid leave is not available for your client',
+        error: 'Unpaid leave is not available for you',
       });
       return;
     }

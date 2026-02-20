@@ -8,6 +8,7 @@ import {
   Plus,
   AlertCircle,
   DollarSign,
+  Calendar,
   Search,
   RefreshCw,
 } from 'lucide-react';
@@ -33,16 +34,24 @@ const ClientEmployees = () => {
     error,
     submitting,
     showRateModal,
+    showPtoModal,
     selectedEmployee,
+    selectedPtoEmployee,
     rateFormData,
+    ptoFormData,
     setError,
     setRateFormData,
+    setPtoFormData,
     handleAssignEmployee,
     handleRemoveEmployee,
     handleOpenRateModal,
     handleUpdateEmployeeRate,
+    handleOpenPtoModal,
+    handleUpdateEmployeePtoConfig,
+    handleClearPtoOverrides,
     getUnassignedEmployees,
     closeRateModal,
+    closePtoModal,
     refresh,
   } = useClientData({ mode: 'detail', id });
 
@@ -300,6 +309,14 @@ const ClientEmployees = () => {
                       <DollarSign className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => handleOpenPtoModal(employee)}
+                      className="p-1.5 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded transition-colors"
+                      disabled={submitting}
+                      title="Configure PTO"
+                    >
+                      <Calendar className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleRemoveEmployee(employee.id)}
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                       disabled={submitting}
@@ -416,6 +433,174 @@ const ClientEmployees = () => {
               </Button>
               <Button variant="primary" type="submit" loading={submitting}>
                 Save Rate
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Employee PTO Config Modal */}
+      <Modal
+        isOpen={showPtoModal}
+        onClose={closePtoModal}
+        title="Configure Employee PTO"
+        size="md"
+      >
+        {selectedPtoEmployee && (
+          <form onSubmit={handleUpdateEmployeePtoConfig} className="space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Avatar src={selectedPtoEmployee.profilePhoto} name={`${selectedPtoEmployee.firstName} ${selectedPtoEmployee.lastName}`} size="sm" />
+              <div>
+                <p className="font-medium text-gray-900">{selectedPtoEmployee.firstName} {selectedPtoEmployee.lastName}</p>
+                <p className="text-sm text-gray-500">{selectedPtoEmployee.user?.email}</p>
+              </div>
+            </div>
+
+            {/* Client Default PTO Info */}
+            {ptoFormData.clientDefaults && (
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium mb-1">Client Default PTO</p>
+                <p className="text-sm text-blue-600">
+                  {ptoFormData.clientDefaults.allowPaidLeave
+                    ? `${ptoFormData.clientDefaults.paidLeaveEntitlementType.replace(/_/g, ' ')} — ${ptoFormData.clientDefaults.annualPaidLeaveDays} days`
+                    : 'Paid leave disabled'}
+                  {' | '}
+                  Unpaid: {ptoFormData.clientDefaults.allowUnpaidLeave ? 'Allowed' : 'Disabled'}
+                </p>
+              </div>
+            )}
+
+            <p className="text-sm text-gray-500">
+              Leave fields as "Use client default" to inherit the client policy. Set a value to override for this employee only.
+            </p>
+
+            <div className="space-y-3">
+              {/* Allow Paid Leave */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Leave</label>
+                <select
+                  value={ptoFormData.ptoAllowPaidLeave}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidLeave: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">Use client default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+
+              {/* Entitlement Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement Type</label>
+                <select
+                  value={ptoFormData.ptoEntitlementType}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoEntitlementType: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">Use client default</option>
+                  <option value="NONE">None</option>
+                  <option value="FIXED">Fixed Yearly</option>
+                  <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly</option>
+                  <option value="ACCRUED">Monthly Accrual</option>
+                  <option value="MILESTONE">Milestone Based</option>
+                </select>
+              </div>
+
+              {/* Conditional: Annual Days (for FIXED / FIXED_HALF_YEARLY) */}
+              {(ptoFormData.ptoEntitlementType === 'FIXED' || ptoFormData.ptoEntitlementType === 'FIXED_HALF_YEARLY') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {ptoFormData.ptoEntitlementType === 'FIXED_HALF_YEARLY' ? 'Days per Half-Year' : 'Annual Days'}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Use client default"
+                    value={ptoFormData.ptoAnnualDays}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAnnualDays: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              )}
+
+              {/* Conditional: Accrual Rate (for ACCRUED) */}
+              {ptoFormData.ptoEntitlementType === 'ACCRUED' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Rate (days/month)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="Use client default"
+                    value={ptoFormData.ptoAccrualRatePerMonth}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAccrualRatePerMonth: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+              )}
+
+              {/* Max Carryover Days */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Max Carryover Days</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Use client default"
+                  value={ptoFormData.ptoMaxCarryoverDays}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoMaxCarryoverDays: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Carryover Expiry */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Carryover Expiry (months)</label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Use client default"
+                  value={ptoFormData.ptoCarryoverExpiryMonths}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoCarryoverExpiryMonths: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              {/* Allow Unpaid Leave */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Leave</label>
+                <select
+                  value={ptoFormData.ptoAllowUnpaidLeave}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidLeave: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">Use client default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Clear All Overrides */}
+            <button
+              type="button"
+              onClick={handleClearPtoOverrides}
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Clear all overrides (use client defaults)
+            </button>
+
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{error}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="ghost" type="button" onClick={closePtoModal}>
+                Cancel
+              </Button>
+              <Button variant="primary" type="submit" loading={submitting}>
+                Save PTO Config
               </Button>
             </div>
           </form>

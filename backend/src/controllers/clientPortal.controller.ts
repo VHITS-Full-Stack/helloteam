@@ -826,6 +826,15 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    // Guard: Regular timesheets cannot be denied — only overtime can be rejected
+    if ((timeRecord.overtimeMinutes || 0) === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Regular timesheets cannot be denied. Use "Request Revisions" instead.',
+      });
+      return;
+    }
+
     // Get client name for log
     const clientFull = await prisma.client.findUnique({
       where: { id: client.id },
@@ -855,6 +864,99 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
       success: false,
       error: 'Failed to reject time record',
     });
+  }
+};
+
+// Request revision for a regular time record
+export const requestRevisionTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const recordId = req.params.recordId as string;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      res.status(400).json({
+        success: false,
+        error: 'Revision reason is required',
+      });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const timeRecord = await prisma.timeRecord.findFirst({
+      where: {
+        id: recordId,
+        clientId: client.id,
+      },
+      include: {
+        employee: {
+          select: { id: true, userId: true, firstName: true, lastName: true },
+        },
+      },
+    });
+
+    if (!timeRecord) {
+      res.status(404).json({ success: false, error: 'Time record not found' });
+      return;
+    }
+
+    if (timeRecord.status !== 'PENDING') {
+      res.status(400).json({ success: false, error: 'Only pending records can have revisions requested' });
+      return;
+    }
+
+    // Get client name for log
+    const clientFull = await prisma.client.findUnique({
+      where: { id: client.id },
+      select: { companyName: true, contactPerson: true },
+    });
+    const requesterName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
+
+    const updated = await prisma.timeRecord.update({
+      where: { id: recordId },
+      data: {
+        status: 'REVISION_REQUESTED',
+        revisionReason: reason.trim(),
+        revisionRequestedBy: userId,
+        revisionRequestedAt: new Date(),
+      },
+    });
+
+    // Create log
+    await createClientApprovalLog(recordId, userId!, 'REJECTED', requesterName, `Revision requested: ${reason.trim()}`);
+
+    // Notify employee
+    try {
+      const { createNotification } = await import('./notification.controller');
+      await createNotification(
+        timeRecord.employee.userId,
+        'REVISION_REQUESTED',
+        'Revision Requested',
+        `${requesterName} has requested revisions for your time entry on ${timeRecord.date.toISOString().split('T')[0]}: ${reason.trim()}`,
+        { timeRecordId: recordId, reason: reason.trim() },
+        '/employee/time-records'
+      );
+    } catch (e) {
+      console.error('Failed to send revision notification:', e);
+    }
+
+    res.json({
+      success: true,
+      message: 'Revision requested successfully',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Request revision error:', error);
+    res.status(500).json({ success: false, error: 'Failed to request revision' });
   }
 };
 
@@ -1140,6 +1242,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         totalMinutes: true,
         overtimeMinutes: true,
         status: true,
+        revisionReason: true,
       },
     });
 
@@ -1223,6 +1326,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           overtimeMinutes: dayOvertime,
           status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
           overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
+          revisionReason: timeRecord?.revisionReason || null,
         });
 
         if (hasActive) empData.hasActiveRecord = true;
@@ -1560,7 +1664,7 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    // Verify all records belong to this client
+    // Verify all records belong to this client and are overtime only
     const records = await prisma.timeRecord.findMany({
       where: { id: { in: recordIds }, clientId: client.id, status: 'PENDING' },
     });
@@ -1569,6 +1673,16 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
       res.status(400).json({
         success: false,
         error: 'Some records not found or not pending',
+      });
+      return;
+    }
+
+    // Guard: Only overtime records can be bulk rejected
+    const regularRecords = records.filter(r => (r.overtimeMinutes || 0) === 0);
+    if (regularRecords.length > 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Regular timesheets cannot be denied. Use "Request Revisions" instead.',
       });
       return;
     }
@@ -1589,6 +1703,62 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
   } catch (error) {
     console.error('Bulk reject error:', error);
     res.status(500).json({ success: false, error: 'Failed to bulk reject records' });
+  }
+};
+
+// Bulk request revision for regular time records
+export const bulkRequestRevision = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { recordIds, reason } = req.body;
+
+    if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+      res.status(400).json({ success: false, error: 'No record IDs provided' });
+      return;
+    }
+
+    if (!reason || !reason.trim()) {
+      res.status(400).json({ success: false, error: 'Revision reason is required' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const records = await prisma.timeRecord.findMany({
+      where: { id: { in: recordIds }, clientId: client.id, status: 'PENDING' },
+    });
+
+    if (records.length !== recordIds.length) {
+      res.status(400).json({ success: false, error: 'Some records not found or not pending' });
+      return;
+    }
+
+    const result = await prisma.timeRecord.updateMany({
+      where: { id: { in: recordIds }, clientId: client.id },
+      data: {
+        status: 'REVISION_REQUESTED',
+        revisionReason: reason.trim(),
+        revisionRequestedBy: userId,
+        revisionRequestedAt: new Date(),
+      },
+    });
+
+    res.json({
+      success: true,
+      message: `Revision requested for ${result.count} time records`,
+      count: result.count,
+    });
+  } catch (error) {
+    console.error('Bulk request revision error:', error);
+    res.status(500).json({ success: false, error: 'Failed to request revisions' });
   }
 };
 

@@ -63,6 +63,11 @@ const adminPortalService = {
     return response;
   },
 
+  requestRevisionTimeRecord: async (recordId, reason) => {
+    const response = await api.post(`/admin-portal/approvals/time-record/${recordId}/request-revision`, { reason });
+    return response;
+  },
+
   approveLeaveRequest: async (requestId) => {
     const response = await api.post(`/admin-portal/approvals/leave/${requestId}/approve`);
     return response;

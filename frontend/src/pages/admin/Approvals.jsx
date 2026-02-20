@@ -7,7 +7,8 @@ import {
   Filter,
   Building2,
   Users,
-  RefreshCw
+  RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Card,
@@ -31,13 +32,16 @@ const Approvals = () => {
   const [selectedItem, setSelectedItem] = useState(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [revisionReason, setRevisionReason] = useState('');
   const [approvalItems, setApprovalItems] = useState([]);
   const [stats, setStats] = useState({
     pending: 0,
     clientApproved: 0,
     approvedToday: 0,
     rejectedToday: 0,
+    revisionRequested: 0,
   });
   const [processing, setProcessing] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -92,6 +96,7 @@ const Approvals = () => {
 
   const tabs = [
     { id: 'pending', label: 'Pending', count: stats.pending },
+    { id: 'revision_requested', label: 'Revision Requested', count: stats.revisionRequested },
     { id: 'approved', label: 'Approved', count: stats.approvedToday },
     { id: 'rejected', label: 'Rejected', count: stats.rejectedToday },
   ];
@@ -105,6 +110,32 @@ const Approvals = () => {
     setSelectedItem(item);
     setRejectionReason('');
     setShowRejectModal(true);
+  };
+
+  const handleRequestRevision = (item) => {
+    setSelectedItem(item);
+    setRevisionReason('');
+    setShowRevisionModal(true);
+  };
+
+  const confirmRequestRevision = async () => {
+    if (!selectedItem || !revisionReason.trim()) {
+      alert('Please provide a revision reason');
+      return;
+    }
+    setProcessing(true);
+    try {
+      const response = await adminPortalService.requestRevisionTimeRecord(selectedItem.id, revisionReason);
+      if (response?.success) {
+        setShowRevisionModal(false);
+        setRevisionReason('');
+        fetchApprovals();
+      }
+    } catch (error) {
+      console.error('Failed to request revision:', error);
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const confirmApproval = async () => {
@@ -398,14 +429,26 @@ const Approvals = () => {
                         >
                           Approve
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={XCircle}
-                          onClick={() => handleReject(item)}
-                        >
-                          Reject
-                        </Button>
+                        {item.type === 'timesheet' ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={RotateCcw}
+                            onClick={() => handleRequestRevision(item)}
+                            className="text-amber-600 hover:text-amber-700"
+                          >
+                            Request Revisions
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={XCircle}
+                            onClick={() => handleReject(item)}
+                          >
+                            Reject
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   )}
@@ -528,6 +571,56 @@ const Approvals = () => {
               <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-yellow-700">
                 The employee will be notified of this rejection and the reason provided.
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Request Revision Modal */}
+      <Modal
+        isOpen={showRevisionModal}
+        onClose={() => setShowRevisionModal(false)}
+        title="Request Revisions"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowRevisionModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={RotateCcw}
+              onClick={confirmRequestRevision}
+              disabled={processing || !revisionReason.trim()}
+              className="bg-amber-500 hover:bg-amber-600 border-amber-500"
+            >
+              {processing ? 'Requesting...' : 'Request Revisions'}
+            </Button>
+          </>
+        }
+      >
+        {selectedItem && (
+          <div className="space-y-4">
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-sm text-gray-500">Employee</p>
+              <p className="font-medium">{selectedItem.employee}</p>
+              <p className="text-sm text-gray-500 mt-2">Description</p>
+              <p className="font-medium">{selectedItem.description}</p>
+            </div>
+            <div>
+              <label className="label">Revision Notes *</label>
+              <textarea
+                className="input min-h-[100px] resize-none"
+                placeholder="Describe what needs to be revised..."
+                value={revisionReason}
+                onChange={(e) => setRevisionReason(e.target.value)}
+              />
+            </div>
+            <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">
+                The employee will be notified and can resubmit their timesheet after reviewing your notes.
               </p>
             </div>
           </div>

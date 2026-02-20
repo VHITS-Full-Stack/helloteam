@@ -1,6 +1,6 @@
 # HelloTeam — Product Roadmap
 
-> Last updated: 2026-02-19
+> Last updated: 2026-02-20
 
 ---
 
@@ -333,20 +333,20 @@ Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase
 
 ### 2. PTO — Per Client & Per Employee
 
-- [ ] PTO must be configurable **per client** (client allows or disallows PTO)
-- [ ] PTO schedule must also be configurable **per employee** under a client
+- [x] PTO must be configurable **per client** (client allows or disallows PTO)
+- [x] PTO schedule must also be configurable **per employee** under a client
   - Example: Employee A → 3 days every 6 months
   - Example: Employee B → 14 days/year
   - Example: Employee C → no PTO
-- [ ] Different employees under the same client can have **different PTO schedules**
+- [x] Different employees under the same client can have **different PTO schedules**
 
 ### 3. Rate Change History (New Dedicated Page)
 
-- [ ] Track all changes to employee **billing rate** and **payment rate**
-- [ ] Record the **date of each change**
-- [ ] Must be a **separate, dedicated page** — not buried in general activity history
-- [ ] Page name: **"Billing & Pay Raise History"**
-- [ ] Purpose: Quick lookup of when last rate change was made
+- [x] Track all changes to employee **billing rate** and **payment rate**
+- [x] Record the **date of each change**
+- [x] Must be a **separate, dedicated page** — not buried in general activity history
+- [x] Page name: **"Billing & Pay Raise History"**
+- [x] Purpose: Quick lookup of when last rate change was made
 
 ### 4. Auto Clock-Out & Overtime System (Rework)
 
@@ -388,7 +388,7 @@ Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase
   - **Green** → Scheduled hours AND approved overtime (both payable)
   - **Red/Orange** → Unapproved overtime (needs client approval)
 - [x] Once overtime is approved → turns green
-- [x] **Regular timesheets cannot be denied** — client can only **request revisions**
+- [x] **Regular timesheets cannot be denied** — client can only **request revisions** (reworked: "Request Revisions" flow with resubmit)
 - [x] **Overtime can be approved or denied**
 
 ### 6. Approvals Page vs Time Records Page (Clarification)
@@ -428,3 +428,37 @@ Phase 1 — Core [DONE]             Phase 2 — Operations [IN PROGRESS]   Phase
 
 - [x] **Chat** — Client can message their assigned employees
 - [x] **Tasks (Client-side)** — Create tasks with title, description, priority, due date, employee assignment, status management, comments, board view, table view, filtering
+
+---
+
+## Meeting Notes — 2026-02-19 (Remaining Items)
+
+> These are the **incomplete items** from the Feb 18 meeting that still need to be implemented.
+
+### 1. Rate Change History (New Dedicated Page) `[x]`
+
+- [x] Track all changes to employee **billing rate** and **payment rate**
+- [x] Record the **date of each change**
+- [x] Must be a **separate, dedicated page** — not buried in general activity history
+- [x] Page name: **"Billing & Pay Raise History"**
+- [x] Purpose: Quick lookup of when last rate change was made
+
+### 2. Timesheet "Request Revisions" Flow `[x]`
+
+- [x] **Regular timesheets cannot be denied** — client can only **request revisions**
+  - Backend guards block rejection of regular timesheets (overtimeMinutes === 0)
+  - "Request Revisions" button (amber) replaces "Reject" for regular/scheduled hours
+  - Revisions flow: client submits revision reason → employee gets notified → employee resubmits
+- [x] **Overtime can still be approved or denied** (unchanged)
+
+### 3. Invoice Page — Fully Functional `[ ]`
+
+- [ ] Invoice page must be **fully functional** — marked as the **most important** deliverable
+- [ ] Details TBD — needs further scoping discussion
+- [ ] Current state: basic CRUD + PDF generation + status management exists, but marked incomplete
+
+### Implementation Priority (Remaining)
+
+1. **Invoice Page** (most important deliverable)
+2. ~~**Timesheet "Request Revisions"** flow~~ ✓ Done
+3. ~~**Rate Change History** dedicated page~~ ✓ Done

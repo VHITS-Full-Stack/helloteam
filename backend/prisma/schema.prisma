@@ -43,6 +43,7 @@ enum ApprovalStatus {
   APPROVED
   AUTO_APPROVED
   REJECTED
+  REVISION_REQUESTED
 }
 
 enum LeaveType {
@@ -210,6 +211,7 @@ model Employee {
   tasks             Task[]
   conversations     Conversation[]
   autoApprovalLogs  AutoApprovalLog[]
+  rateChanges       RateChangeHistory[]
 
   @@map("employees")
 }
@@ -321,6 +323,15 @@ model ClientEmployee {
   // Optional per-employee rate override (if null, uses client default)
   hourlyRate   Decimal? @db.Decimal(10, 2)
   overtimeRate Decimal? @db.Decimal(10, 2)
+
+  // Optional per-employee PTO override (if null, uses client policy default)
+  ptoAllowPaidLeave        Boolean?
+  ptoEntitlementType       PaidLeaveEntitlementType?
+  ptoAnnualDays            Int?
+  ptoAccrualRatePerMonth   Decimal?  @db.Decimal(5, 2)
+  ptoMaxCarryoverDays      Int?
+  ptoCarryoverExpiryMonths Int?
+  ptoAllowUnpaidLeave      Boolean?
 
   client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -480,9 +491,12 @@ model TimeRecord {
   approvedAt      DateTime?
   adjustedBy      String?
   adjustedAt      DateTime?
-  adjustmentNotes String?
-  originalMinutes Int?
-  invoiceId       String?        // Set when this record is included in an invoice; null = not yet invoiced
+  adjustmentNotes     String?
+  originalMinutes     Int?
+  revisionReason      String?
+  revisionRequestedBy String?
+  revisionRequestedAt DateTime?
+  invoiceId           String?        // Set when this record is included in an invoice; null = not yet invoiced
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -760,6 +774,7 @@ enum NotificationType {
   APPROVAL_RECEIVED
   TIME_APPROVED
   TIME_REJECTED
+  REVISION_REQUESTED
   LEAVE_REQUEST
   LEAVE_APPROVED
   LEAVE_REJECTED
@@ -1143,4 +1158,33 @@ model InvoiceLineItem {
 
   @@index([invoiceId])
   @@map("invoice_line_items")
+}
+
+// ============================================
+// RATE CHANGE HISTORY
+// ============================================
+
+model RateChangeHistory {
+  id            String   @id @default(uuid())
+  employeeId    String
+  clientId      String?  // null if it's the employee's base rate change
+  changedBy     String   // userId of admin who made the change
+  changedByName String?
+  changeDate    DateTime @default(now())
+
+  // What changed
+  rateType String           // 'BILLING_RATE' | 'PAYABLE_RATE' | 'HOURLY_RATE' | 'OVERTIME_RATE'
+  oldValue Decimal? @db.Decimal(10, 2)
+  newValue Decimal? @db.Decimal(10, 2)
+
+  // Context
+  source String  // 'EMPLOYEE_PROFILE' | 'CLIENT_ASSIGNMENT'
+  notes  String?
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([clientId])
+  @@index([changeDate])
+  @@map("rate_change_history")
 }

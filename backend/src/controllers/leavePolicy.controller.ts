@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { PaidLeaveEntitlementType, Prisma } from '@prisma/client';
+import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
 
 // ============================================
 // LEAVE POLICY CONFIGURATION
@@ -321,10 +322,11 @@ export const getEmployeeBalances = async (req: AuthenticatedRequest, res: Respon
           },
         });
 
-        // If no balance exists, create one based on policy
+        // If no balance exists, create one based on effective PTO config (employee override → client policy)
         if (!balance) {
           const policy = assignment.client.clientPolicies;
-          const initialEntitlement = policy?.allowPaidLeave ? policy.annualPaidLeaveDays : 0;
+          const effectivePto = resolveEffectivePtoConfig(policy, assignment);
+          const initialEntitlement = effectivePto.allowPaidLeave ? effectivePto.annualPaidLeaveDays : 0;
 
           balance = await prisma.leaveBalance.create({
             data: {
@@ -434,7 +436,8 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
 
     if (!balance) {
       const policy = assignment.client.clientPolicies;
-      const initialEntitlement = policy?.allowPaidLeave ? policy.annualPaidLeaveDays : 0;
+      const effectivePto = resolveEffectivePtoConfig(policy, assignment);
+      const initialEntitlement = effectivePto.allowPaidLeave ? effectivePto.annualPaidLeaveDays : 0;
 
       balance = await prisma.leaveBalance.create({
         data: {
@@ -476,6 +479,9 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
       Number(balance.paidLeaveUsed) -
       Number(balance.paidLeavePending);
 
+    // Resolve effective PTO config for display
+    const effectivePto = resolveEffectivePtoConfig(assignment.client.clientPolicies, assignment);
+
     res.json({
       success: true,
       data: {
@@ -501,6 +507,7 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
           unpaidPending: Number(balance.unpaidLeavePending),
         },
         policy: assignment.client.clientPolicies,
+        effectivePto,
         adjustments,
         leaveRequests: leaveRequests.map(lr => ({
           id: lr.id,
@@ -760,28 +767,19 @@ export const getAdjustmentHistory = async (req: AuthenticatedRequest, res: Respo
 // ============================================
 
 // Run accrual calculation for all employees (can be triggered manually or via scheduled job)
+// Now supports per-employee PTO overrides — iterates all active assignments and resolves effective config
 export const runAccrualCalculation = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const currentYear = new Date().getFullYear();
     const currentMonth = new Date().getMonth();
 
-    // Get all clients with ACCRUED leave policy
-    const clientsWithAccrual = await prisma.clientPolicy.findMany({
-      where: {
-        allowPaidLeave: true,
-        paidLeaveEntitlementType: 'ACCRUED',
-        accrualRatePerMonth: { not: null },
-      },
+    // Get all active client-employee assignments with their client policies
+    const activeAssignments = await prisma.clientEmployee.findMany({
+      where: { isActive: true },
       include: {
+        employee: true,
         client: {
-          include: {
-            employees: {
-              where: { isActive: true },
-              include: {
-                employee: true,
-              },
-            },
-          },
+          include: { clientPolicies: true },
         },
       },
     });
@@ -789,82 +787,86 @@ export const runAccrualCalculation = async (req: AuthenticatedRequest, res: Resp
     let processedCount = 0;
     let updatedCount = 0;
 
-    for (const policy of clientsWithAccrual) {
-      const accrualRate = Number(policy.accrualRatePerMonth);
-      if (!accrualRate) continue;
+    for (const assignment of activeAssignments) {
+      // Resolve effective PTO config (employee override → client policy)
+      const effectivePto = resolveEffectivePtoConfig(assignment.client.clientPolicies, assignment);
 
-      for (const clientEmployee of policy.client.employees) {
-        processedCount++;
-        const emp = clientEmployee.employee;
+      // Skip if not ACCRUED type or paid leave not allowed
+      if (!effectivePto.allowPaidLeave) continue;
+      if (effectivePto.paidLeaveEntitlementType !== 'ACCRUED') continue;
+      if (!effectivePto.accrualRatePerMonth) continue;
 
-        // Get or create balance
-        let balance = await prisma.leaveBalance.findUnique({
-          where: {
-            employeeId_clientId_year: {
-              employeeId: emp.id,
-              clientId: policy.clientId,
-              year: currentYear,
-            },
+      processedCount++;
+      const emp = assignment.employee;
+      const accrualRate = effectivePto.accrualRatePerMonth;
+
+      // Get or create balance
+      let balance = await prisma.leaveBalance.findUnique({
+        where: {
+          employeeId_clientId_year: {
+            employeeId: emp.id,
+            clientId: assignment.clientId,
+            year: currentYear,
           },
-        });
+        },
+      });
 
-        if (!balance) {
-          balance = await prisma.leaveBalance.create({
-            data: {
-              employeeId: emp.id,
-              clientId: policy.clientId,
-              year: currentYear,
-              paidLeaveEntitled: 0,
-            },
-          });
-        }
-
-        // Check if accrual already run this month
-        const lastAccrual = balance.lastAccrualDate;
-        if (lastAccrual) {
-          const lastMonth = lastAccrual.getMonth();
-          const lastYear = lastAccrual.getFullYear();
-          if (lastMonth === currentMonth && lastYear === currentYear) {
-            continue; // Already accrued this month
-          }
-        }
-
-        // Calculate accrual
-        const newAccrued = Number(balance.accruedToDate) + accrualRate;
-        const newEntitled = Number(balance.paidLeaveEntitled) + accrualRate;
-
-        // Update balance
-        await prisma.leaveBalance.update({
-          where: {
-            employeeId_clientId_year: {
-              employeeId: emp.id,
-              clientId: policy.clientId,
-              year: currentYear,
-            },
-          },
-          data: {
-            accruedToDate: newAccrued,
-            paidLeaveEntitled: newEntitled,
-            lastAccrualDate: new Date(),
-          },
-        });
-
-        // Create adjustment record
-        await prisma.leaveBalanceAdjustment.create({
+      if (!balance) {
+        balance = await prisma.leaveBalance.create({
           data: {
             employeeId: emp.id,
-            clientId: policy.clientId,
+            clientId: assignment.clientId,
             year: currentYear,
-            adjustmentType: 'ACCRUAL',
-            days: accrualRate,
-            reason: `Monthly accrual for ${new Date().toLocaleString('default', { month: 'long' })} ${currentYear}`,
-            adjustedBy: req.user!.userId,
-            adjustedByName: 'System',
+            paidLeaveEntitled: 0,
           },
         });
-
-        updatedCount++;
       }
+
+      // Check if accrual already run this month
+      const lastAccrual = balance.lastAccrualDate;
+      if (lastAccrual) {
+        const lastMonth = lastAccrual.getMonth();
+        const lastYear = lastAccrual.getFullYear();
+        if (lastMonth === currentMonth && lastYear === currentYear) {
+          continue; // Already accrued this month
+        }
+      }
+
+      // Calculate accrual
+      const newAccrued = Number(balance.accruedToDate) + accrualRate;
+      const newEntitled = Number(balance.paidLeaveEntitled) + accrualRate;
+
+      // Update balance
+      await prisma.leaveBalance.update({
+        where: {
+          employeeId_clientId_year: {
+            employeeId: emp.id,
+            clientId: assignment.clientId,
+            year: currentYear,
+          },
+        },
+        data: {
+          accruedToDate: newAccrued,
+          paidLeaveEntitled: newEntitled,
+          lastAccrualDate: new Date(),
+        },
+      });
+
+      // Create adjustment record
+      await prisma.leaveBalanceAdjustment.create({
+        data: {
+          employeeId: emp.id,
+          clientId: assignment.clientId,
+          year: currentYear,
+          adjustmentType: 'ACCRUAL',
+          days: accrualRate,
+          reason: `Monthly accrual for ${new Date().toLocaleString('default', { month: 'long' })} ${currentYear}`,
+          adjustedBy: req.user!.userId,
+          adjustedByName: 'System',
+        },
+      });
+
+      updatedCount++;
     }
 
     res.json({

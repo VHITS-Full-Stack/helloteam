@@ -4,6 +4,7 @@ import { hashPassword } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 import { sendEmployeeOnboardingEmail } from '../services/email.service';
+import { logRateChange } from '../utils/rateChangeLogger';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -445,6 +446,10 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
       }
     }
 
+    // Capture old rates for change logging
+    const oldPayableRate = existingEmployee.payableRate;
+    const oldBillingRate = existingEmployee.billingRate;
+
     // Update in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Update user if email or status changed
@@ -495,6 +500,32 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
 
       return employee;
     });
+
+    // Log rate changes (non-blocking)
+    const changedBy = req.user!.userId;
+    const changedByName = req.user!.email;
+    if (payableRate !== undefined) {
+      logRateChange({
+        employeeId: id,
+        changedBy,
+        changedByName,
+        rateType: 'PAYABLE_RATE',
+        oldValue: oldPayableRate,
+        newValue: payableRate !== '' ? parseFloat(payableRate) : null,
+        source: 'EMPLOYEE_PROFILE',
+      });
+    }
+    if (billingRate !== undefined) {
+      logRateChange({
+        employeeId: id,
+        changedBy,
+        changedByName,
+        rateType: 'BILLING_RATE',
+        oldValue: oldBillingRate,
+        newValue: billingRate !== '' ? parseFloat(billingRate) : null,
+        source: 'EMPLOYEE_PROFILE',
+      });
+    }
 
     res.json({
       success: true,
