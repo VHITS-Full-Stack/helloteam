@@ -91,6 +91,8 @@ const EmployeeDashboard = () => {
   // Clock-in warning states
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
+  const [showLateClockInWarning, setShowLateClockInWarning] = useState(false);
+  const [clockInWarningMessage, setClockInWarningMessage] = useState('');
 
   // Activity notes state
   const [activityNotes, setActivityNotes] = useState('');
@@ -267,8 +269,11 @@ const EmployeeDashboard = () => {
       setActionLoading(true);
       const response = await workSessionService.clockIn();
       if (response.requiresConfirmation) {
+        setClockInWarningMessage(response.message || '');
         if (response.confirmationType === 'EARLY_CLOCK_IN') {
           setShowEarlyClockInWarning(true);
+        } else if (response.confirmationType === 'LATE_CLOCK_IN') {
+          setShowLateClockInWarning(true);
         } else {
           setShowPostShiftWarning(true);
         }
@@ -303,6 +308,21 @@ const EmployeeDashboard = () => {
     try {
       setActionLoading(true);
       setShowPostShiftWarning(false);
+      await workSessionService.clockIn({ confirmPostShift: true });
+      playClockInSound();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle confirmed late clock-in (employee acknowledged the warning)
+  const handleLateClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setShowLateClockInWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
       await fetchWorkSessionData();
@@ -1582,7 +1602,7 @@ const EmployeeDashboard = () => {
         </div>
       )}
 
-      {/* Post-Shift Clock-In Warning Modal */}
+      {/* Post-Shift Clock-In Warning Modal (overtime requested but not approved) */}
       {showPostShiftWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
@@ -1592,7 +1612,7 @@ const EmployeeDashboard = () => {
                   <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">No Approved Overtime</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Overtime Not Approved</h2>
                   <p className="text-sm text-gray-500">Your shift has ended</p>
                 </div>
               </div>
@@ -1605,11 +1625,8 @@ const EmployeeDashboard = () => {
             </div>
             <div className="p-6">
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
-                <p className="text-sm text-red-800 font-medium mb-2">
-                  No approved overtime. You may not get paid.
-                </p>
-                <p className="text-sm text-red-700">
-                  This requires special approval at client's discretion. Hours worked outside your schedule without prior overtime approval may not be compensated.
+                <p className="text-sm text-red-800">
+                  {clockInWarningMessage || 'Your overtime request has not been approved. Hours worked without approved overtime may not be compensated.'}
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
@@ -1626,6 +1643,58 @@ const EmployeeDashboard = () => {
                 <Button
                   variant="danger"
                   onClick={handlePostShiftClockIn}
+                  loading={actionLoading}
+                  className="flex-1"
+                >
+                  Clock In Anyway
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Late Clock-In Warning Modal (no overtime requested, clocking in after shift end) */}
+      {showLateClockInWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-100">
+                  <Clock className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Late Clock-In</h2>
+                  <p className="text-sm text-gray-500">Your shift has ended</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLateClockInWarning(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
+                <p className="text-sm text-amber-800">
+                  {clockInWarningMessage || 'You are clocking in after your scheduled hours. These hours may require client approval.'}
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you still want to clock in?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLateClockInWarning(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleLateClockIn}
                   loading={actionLoading}
                   className="flex-1"
                 >

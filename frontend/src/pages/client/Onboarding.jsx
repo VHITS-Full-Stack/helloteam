@@ -36,9 +36,6 @@ const Onboarding = () => {
     businessEIN: '',
     signerName: '',
     signerAddress: '',
-    signerCity: '',
-    signerState: '',
-    signerZip: '',
     // Step 2: Payment
     paymentMethod: '', // 'credit_card', 'ach', 'both'
     useCreditCard: false,
@@ -92,9 +89,6 @@ const Onboarding = () => {
             businessEIN: a.businessEIN || '',
             signerName: a.signerName || '',
             signerAddress: a.signerAddress || '',
-            signerCity: a.signerCity || '',
-            signerState: a.signerState || '',
-            signerZip: a.signerZip || '',
             paymentMethod: a.paymentMethod || '',
             useCreditCard: a.paymentMethod === 'credit_card' || a.paymentMethod === 'both',
             useACH: a.paymentMethod === 'ach' || a.paymentMethod === 'both',
@@ -166,10 +160,7 @@ const Onboarding = () => {
     if (!formData.businessZip.trim()) return 'Business zip code is required';
     if (!formData.businessEIN.trim()) return 'Business EIN is required';
     if (!formData.signerName.trim()) return 'Signer name is required';
-    if (!formData.signerAddress.trim()) return 'Signer street address is required';
-    if (!formData.signerCity.trim()) return 'Signer city is required';
-    if (!formData.signerState.trim()) return 'Signer state is required';
-    if (!formData.signerZip.trim()) return 'Signer zip code is required';
+    if (!formData.signerAddress.trim()) return 'Signer address is required';
     return null;
   };
 
@@ -213,9 +204,6 @@ const Onboarding = () => {
         businessEIN: formData.businessEIN,
         signerName: formData.signerName,
         signerAddress: formData.signerAddress,
-        signerCity: formData.signerCity,
-        signerState: formData.signerState,
-        signerZip: formData.signerZip,
       };
 
       if (includePayment) {
@@ -672,55 +660,16 @@ const Onboarding = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Street Address <span className="text-red-500">*</span>
+                  Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.signerAddress}
                   onChange={(e) => updateField('signerAddress', e.target.value)}
-                  placeholder="Street address"
+                  placeholder="Full address"
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.signerCity}
-                    onChange={(e) => updateField('signerCity', e.target.value)}
-                    placeholder="City"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.signerState}
-                    onChange={(e) => updateField('signerState', e.target.value)}
-                    placeholder="State"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Zip Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.signerZip}
-                    onChange={(e) => updateField('signerZip', e.target.value)}
-                    placeholder="Zip"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-              </div>
-
             </div>
 
             <div className="flex justify-end mt-6">

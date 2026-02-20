@@ -142,7 +142,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
     const clientTime = getTimeInTimezone(clientTz, now);
     const { totalMinutes: nowTotalMinutes, dayOfWeek } = clientTime;
 
-    console.log(`[Clock-in] Client TZ: ${clientTz}, Client time: ${clientTime.hour}:${String(clientTime.minute).padStart(2, '0')}, Day: ${dayOfWeek}, Server UTC: ${now.toISOString()}`);
+    console.log(`[Clock-in] Client TZ: ${clientTz}, Client time: ${clientTime.hour}:${String(clientTime.minute).padStart(2, '0')} (${nowTotalMinutes} mins), Day: ${dayOfWeek}, Server UTC: ${now.toISOString()}`);
 
     const schedule = await prisma.schedule.findFirst({
       where: {
@@ -155,7 +155,10 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
           { effectiveTo: { gte: now } },
         ],
       },
+      orderBy: { effectiveFrom: 'desc' },
     });
+
+    console.log(`[Clock-in] Schedule found:`, schedule ? `startTime=${schedule.startTime}, endTime=${schedule.endTime}, dayOfWeek=${schedule.dayOfWeek}` : 'NONE');
 
     // Block clock-in if no schedule is assigned for today
     if (!schedule) {
@@ -189,8 +192,10 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
       const endTotalMinutes = endHour * 60 + endMinute;
 
+      console.log(`[Clock-in] Post-shift check: nowTotalMinutes=${nowTotalMinutes} vs endTotalMinutes=${endTotalMinutes} (endTime=${schedule.endTime}), isPostShift=${nowTotalMinutes > endTotalMinutes}`);
+
       if (nowTotalMinutes > endTotalMinutes) {
-        // Check if employee has an approved OT request for today
+        // Check if employee has an OT request for today
         const todayDate = new Date(now.toLocaleString('en-US', { timeZone: clientTz }));
         const recordDate = new Date(Date.UTC(todayDate.getFullYear(), todayDate.getMonth(), todayDate.getDate()));
         const approvedOT = await prisma.overtimeRequest.findFirst({
@@ -203,12 +208,40 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         });
 
         if (!approvedOT && !req.body?.confirmPostShift) {
-          // Return confirmation required — employee must acknowledge the warning
+          // Check if there's a pending/rejected OT request to tailor the message
+          const anyOTRequest = await prisma.overtimeRequest.findFirst({
+            where: {
+              employeeId: employee.id,
+              clientId: clientAssignment.clientId,
+              date: recordDate,
+            },
+          });
+
+          const endTimeFormatted = (() => {
+            const [h, m] = schedule.endTime.split(':').map(Number);
+            const period = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+          })();
+
+          let confirmationType = 'POST_SHIFT';
+          let message = '';
+
+          if (anyOTRequest && anyOTRequest.status === 'PENDING') {
+            message = `Your overtime request is pending approval. Your shift ended at ${endTimeFormatted}. Hours worked without approved overtime may not be compensated.`;
+          } else if (anyOTRequest && anyOTRequest.status === 'REJECTED') {
+            message = `Your overtime request was denied. Your shift ended at ${endTimeFormatted}. Clocking in now requires special approval at client's discretion.`;
+          } else {
+            // No OT request — this is a late clock-in after shift ended
+            confirmationType = 'LATE_CLOCK_IN';
+            message = `Your shift ended at ${endTimeFormatted}. You are clocking in after your scheduled hours. These hours may be counted as overtime and require client approval.`;
+          }
+
           res.status(200).json({
             success: false,
             requiresConfirmation: true,
-            confirmationType: 'POST_SHIFT',
-            message: 'No approved overtime. You may not get paid. This requires special approval at client\'s discretion.',
+            confirmationType,
+            message,
           });
           return;
         }
@@ -407,6 +440,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             { effectiveTo: { gte: now } },
           ],
         },
+        orderBy: { effectiveFrom: 'desc' },
       });
 
       // Calculate early overtime (pre-schedule minutes) using proper timezone
@@ -849,6 +883,7 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
           { effectiveTo: { gte: todayNow } },
         ],
       },
+      orderBy: { effectiveFrom: 'desc' },
     });
 
     if (!activeSession) {
@@ -1150,6 +1185,7 @@ export const getTodaySummary = async (req: AuthenticatedRequest, res: Response):
           { effectiveTo: { gte: todayStart } },
         ],
       },
+      orderBy: { effectiveFrom: 'desc' },
     });
 
     // Calculate scheduled hours

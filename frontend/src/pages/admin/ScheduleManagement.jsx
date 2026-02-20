@@ -533,6 +533,14 @@ const ScheduleManagement = () => {
                           onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
                           className="input py-1 px-2"
                         />
+                        <span className="text-xs text-gray-400">
+                          {(() => {
+                            const [h, m] = weeklySchedule[index].startTime.split(':').map(Number);
+                            const period = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h % 12 || 12;
+                            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+                          })()}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <label className="text-sm text-gray-500">End:</label>
@@ -542,6 +550,14 @@ const ScheduleManagement = () => {
                           onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
                           className="input py-1 px-2"
                         />
+                        <span className="text-xs text-gray-400">
+                          {(() => {
+                            const [h, m] = weeklySchedule[index].endTime.split(':').map(Number);
+                            const period = h >= 12 ? 'PM' : 'AM';
+                            const h12 = h % 12 || 12;
+                            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+                          })()}
+                        </span>
                       </div>
                       <div className="flex-1 text-right">
                         <Badge variant="default">

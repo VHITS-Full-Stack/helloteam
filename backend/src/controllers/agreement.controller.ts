@@ -104,9 +104,6 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
               businessEIN: client.agreement.businessEIN,
               signerName: client.agreement.signerName,
               signerAddress: client.agreement.signerAddress,
-              signerCity: client.agreement.signerCity,
-              signerState: client.agreement.signerState,
-              signerZip: client.agreement.signerZip,
               // Payment info
               paymentMethod: client.agreement.paymentMethod,
               ccCardholderName: client.agreement.ccCardholderName,
@@ -197,9 +194,6 @@ async function fillPdfWithData(
     businessEIN?: string | null;
     signerName?: string | null;
     signerAddress?: string | null;
-    signerCity?: string | null;
-    signerState?: string | null;
-    signerZip?: string | null;
     paymentMethod?: string | null;
     ccCardholderName?: string | null;
     ccBillingAddress?: string | null;
@@ -258,8 +252,7 @@ async function fillPdfWithData(
   drawText('businessAddress', fullBusinessAddr || data.businessAddress);
   drawText('businessEIN', data.businessEIN);
   drawText('signerName', data.signerName);
-  const fullSignerAddr = [data.signerAddress, [data.signerCity, data.signerState, data.signerZip].filter(Boolean).join(', ')].filter(Boolean).join(', ');
-  drawText('signerAddress', fullSignerAddr || data.signerAddress);
+  drawText('signerAddress', data.signerAddress);
 
   // Page 6 - Signatures
   drawText('sigRecipientName', data.businessName);
@@ -368,7 +361,7 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
 
     const {
       businessName, businessAddress, businessCity, businessState, businessZip, businessEIN,
-      signerName, signerAddress, signerCity, signerState, signerZip,
+      signerName, signerAddress,
       paymentMethod,
       ccCardholderName, ccBillingAddress, ccCityStateZip, ccCardType,
       ccCardNumber, ccExpiration, ccCVV,
@@ -421,9 +414,6 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       businessEIN: businessEIN?.trim() || null,
       signerName: signerName?.trim(),
       signerAddress: signerAddress?.trim() || null,
-      signerCity: signerCity?.trim() || null,
-      signerState: signerState?.trim() || null,
-      signerZip: signerZip?.trim() || null,
     };
 
     // Only update payment fields if paymentMethod is provided
@@ -525,9 +515,6 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
       businessEIN: agreement?.businessEIN,
       signerName: agreement?.signerName,
       signerAddress: agreement?.signerAddress,
-      signerCity: agreement?.signerCity,
-      signerState: agreement?.signerState,
-      signerZip: agreement?.signerZip,
       paymentMethod: agreement?.paymentMethod,
       ccCardholderName: agreement?.ccCardholderName,
       ccBillingAddress: agreement?.ccBillingAddress,
