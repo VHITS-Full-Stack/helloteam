@@ -30,9 +30,15 @@ const Onboarding = () => {
     // Step 1: Business info
     businessName: '',
     businessAddress: '',
+    businessCity: '',
+    businessState: '',
+    businessZip: '',
     businessEIN: '',
     signerName: '',
     signerAddress: '',
+    signerCity: '',
+    signerState: '',
+    signerZip: '',
     // Step 2: Payment
     paymentMethod: '', // 'credit_card', 'ach', 'both'
     useCreditCard: false,
@@ -80,9 +86,15 @@ const Onboarding = () => {
             ...prev,
             businessName: a.businessName || '',
             businessAddress: a.businessAddress || '',
+            businessCity: a.businessCity || '',
+            businessState: a.businessState || '',
+            businessZip: a.businessZip || '',
             businessEIN: a.businessEIN || '',
             signerName: a.signerName || '',
             signerAddress: a.signerAddress || '',
+            signerCity: a.signerCity || '',
+            signerState: a.signerState || '',
+            signerZip: a.signerZip || '',
             paymentMethod: a.paymentMethod || '',
             useCreditCard: a.paymentMethod === 'credit_card' || a.paymentMethod === 'both',
             useACH: a.paymentMethod === 'ach' || a.paymentMethod === 'both',
@@ -148,10 +160,16 @@ const Onboarding = () => {
   // Step 1 validation
   const validateStep1 = () => {
     if (!formData.businessName.trim()) return 'Business name is required';
-    if (!formData.businessAddress.trim()) return 'Business address is required';
+    if (!formData.businessAddress.trim()) return 'Business street address is required';
+    if (!formData.businessCity.trim()) return 'Business city is required';
+    if (!formData.businessState.trim()) return 'Business state is required';
+    if (!formData.businessZip.trim()) return 'Business zip code is required';
     if (!formData.businessEIN.trim()) return 'Business EIN is required';
     if (!formData.signerName.trim()) return 'Signer name is required';
-    if (!formData.signerAddress.trim()) return 'Signer address is required';
+    if (!formData.signerAddress.trim()) return 'Signer street address is required';
+    if (!formData.signerCity.trim()) return 'Signer city is required';
+    if (!formData.signerState.trim()) return 'Signer state is required';
+    if (!formData.signerZip.trim()) return 'Signer zip code is required';
     return null;
   };
 
@@ -189,9 +207,15 @@ const Onboarding = () => {
       const payload = {
         businessName: formData.businessName,
         businessAddress: formData.businessAddress,
+        businessCity: formData.businessCity,
+        businessState: formData.businessState,
+        businessZip: formData.businessZip,
         businessEIN: formData.businessEIN,
         signerName: formData.signerName,
         signerAddress: formData.signerAddress,
+        signerCity: formData.signerCity,
+        signerState: formData.signerState,
+        signerZip: formData.signerZip,
       };
 
       if (includePayment) {
@@ -566,15 +590,53 @@ const Onboarding = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Business Address <span className="text-red-500">*</span>
+                  Street Address <span className="text-red-500">*</span>
                 </label>
-                <textarea
+                <input
+                  type="text"
                   value={formData.businessAddress}
                   onChange={(e) => updateField('businessAddress', e.target.value)}
-                  placeholder="Full business address"
-                  rows={2}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  placeholder="Street address"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.businessCity}
+                    onChange={(e) => updateField('businessCity', e.target.value)}
+                    placeholder="City"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.businessState}
+                    onChange={(e) => updateField('businessState', e.target.value)}
+                    placeholder="State"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Zip Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.businessZip}
+                    onChange={(e) => updateField('businessZip', e.target.value)}
+                    placeholder="Zip"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
               </div>
 
               <div>
@@ -610,15 +672,53 @@ const Onboarding = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address <span className="text-red-500">*</span>
+                  Street Address <span className="text-red-500">*</span>
                 </label>
-                <textarea
+                <input
+                  type="text"
                   value={formData.signerAddress}
                   onChange={(e) => updateField('signerAddress', e.target.value)}
-                  placeholder="Signer's personal address"
-                  rows={2}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  placeholder="Street address"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.signerCity}
+                    onChange={(e) => updateField('signerCity', e.target.value)}
+                    placeholder="City"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    State <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.signerState}
+                    onChange={(e) => updateField('signerState', e.target.value)}
+                    placeholder="State"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Zip Code <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.signerZip}
+                    onChange={(e) => updateField('signerZip', e.target.value)}
+                    placeholder="Zip"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
               </div>
 
             </div>

@@ -98,9 +98,15 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
               // Business info
               businessName: client.agreement.businessName,
               businessAddress: client.agreement.businessAddress,
+              businessCity: client.agreement.businessCity,
+              businessState: client.agreement.businessState,
+              businessZip: client.agreement.businessZip,
               businessEIN: client.agreement.businessEIN,
               signerName: client.agreement.signerName,
               signerAddress: client.agreement.signerAddress,
+              signerCity: client.agreement.signerCity,
+              signerState: client.agreement.signerState,
+              signerZip: client.agreement.signerZip,
               // Payment info
               paymentMethod: client.agreement.paymentMethod,
               ccCardholderName: client.agreement.ccCardholderName,
@@ -185,9 +191,15 @@ async function fillPdfWithData(
   data: {
     businessName?: string | null;
     businessAddress?: string | null;
+    businessCity?: string | null;
+    businessState?: string | null;
+    businessZip?: string | null;
     businessEIN?: string | null;
     signerName?: string | null;
     signerAddress?: string | null;
+    signerCity?: string | null;
+    signerState?: string | null;
+    signerZip?: string | null;
     paymentMethod?: string | null;
     ccCardholderName?: string | null;
     ccBillingAddress?: string | null;
@@ -241,10 +253,13 @@ async function fillPdfWithData(
   // Page 1 - Parties
   drawText('partiesDate', today);
   drawText('businessName', data.businessName);
-  drawText('businessAddress', data.businessAddress);
+  // Combine street + city/state/zip for PDF display
+  const fullBusinessAddr = [data.businessAddress, [data.businessCity, data.businessState, data.businessZip].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  drawText('businessAddress', fullBusinessAddr || data.businessAddress);
   drawText('businessEIN', data.businessEIN);
   drawText('signerName', data.signerName);
-  drawText('signerAddress', data.signerAddress);
+  const fullSignerAddr = [data.signerAddress, [data.signerCity, data.signerState, data.signerZip].filter(Boolean).join(', ')].filter(Boolean).join(', ');
+  drawText('signerAddress', fullSignerAddr || data.signerAddress);
 
   // Page 6 - Signatures
   drawText('sigRecipientName', data.businessName);
@@ -352,8 +367,8 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
     }
 
     const {
-      businessName, businessAddress, businessEIN,
-      signerName, signerAddress,
+      businessName, businessAddress, businessCity, businessState, businessZip, businessEIN,
+      signerName, signerAddress, signerCity, signerState, signerZip,
       paymentMethod,
       ccCardholderName, ccBillingAddress, ccCityStateZip, ccCardType,
       ccCardNumber, ccExpiration, ccCVV,
@@ -400,9 +415,15 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
     const updateData: any = {
       businessName: businessName?.trim(),
       businessAddress: businessAddress?.trim(),
+      businessCity: businessCity?.trim() || null,
+      businessState: businessState?.trim() || null,
+      businessZip: businessZip?.trim() || null,
       businessEIN: businessEIN?.trim() || null,
       signerName: signerName?.trim(),
       signerAddress: signerAddress?.trim() || null,
+      signerCity: signerCity?.trim() || null,
+      signerState: signerState?.trim() || null,
+      signerZip: signerZip?.trim() || null,
     };
 
     // Only update payment fields if paymentMethod is provided
@@ -498,9 +519,15 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
     const pdfDoc = await fillPdfWithData(templateBytes, {
       businessName: agreement?.businessName,
       businessAddress: agreement?.businessAddress,
+      businessCity: agreement?.businessCity,
+      businessState: agreement?.businessState,
+      businessZip: agreement?.businessZip,
       businessEIN: agreement?.businessEIN,
       signerName: agreement?.signerName,
       signerAddress: agreement?.signerAddress,
+      signerCity: agreement?.signerCity,
+      signerState: agreement?.signerState,
+      signerZip: agreement?.signerZip,
       paymentMethod: agreement?.paymentMethod,
       ccCardholderName: agreement?.ccCardholderName,
       ccBillingAddress: agreement?.ccBillingAddress,
