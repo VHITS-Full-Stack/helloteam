@@ -14,7 +14,7 @@ const STEPS = [
 
 const RELATIONSHIPS = ['Parent', 'Spouse', 'Sibling', 'Friend', 'Other'];
 
-const emptyContact = () => ({ name: '', phone: '', relationship: '' });
+const emptyContact = () => ({ name: '', phone: '', relationship: '', customRelationship: '' });
 
 const Onboarding = () => {
   const [currentStep, setCurrentStep] = useState(0);
@@ -34,6 +34,7 @@ const Onboarding = () => {
   const [contacts, setContacts] = useState([emptyContact(), emptyContact(), emptyContact()]);
 
   // Step 3: Government ID
+  const [idType, setIdType] = useState('');
   const [idFile, setIdFile] = useState(null);
   const [idPreview, setIdPreview] = useState(null);
   const [existingIdUrl, setExistingIdUrl] = useState(null);
@@ -62,16 +63,23 @@ const Onboarding = () => {
         });
 
         if (d.emergencyContacts && d.emergencyContacts.length > 0) {
-          const filled = d.emergencyContacts.map((c) => ({
-            name: c.name,
-            phone: c.phone,
-            relationship: c.relationship,
-          }));
+          const filled = d.emergencyContacts.map((c) => {
+            const isCustom = c.relationship && !RELATIONSHIPS.includes(c.relationship);
+            return {
+              name: c.name,
+              phone: c.phone,
+              relationship: isCustom ? 'Other' : c.relationship,
+              customRelationship: isCustom ? c.relationship : '',
+            };
+          });
           // Pad to 3 if fewer
           while (filled.length < 3) filled.push(emptyContact());
           setContacts(filled);
         }
 
+        if (d.governmentIdType) {
+          setIdType(d.governmentIdType);
+        }
         if (d.governmentIdUrl) {
           setExistingIdUrl(d.governmentIdUrl);
         }
@@ -128,11 +136,22 @@ const Onboarding = () => {
         setError(`Contact ${i + 1}: all fields are required`);
         return;
       }
+      if (c.relationship === 'Other' && !c.customRelationship?.trim()) {
+        setError(`Contact ${i + 1}: please specify the relationship`);
+        return;
+      }
     }
+
+    // Map "Other" to the custom value before sending
+    const payload = contacts.map((c) => ({
+      name: c.name,
+      phone: c.phone,
+      relationship: c.relationship === 'Other' ? c.customRelationship.trim() : c.relationship,
+    }));
 
     setSaving(true);
     try {
-      const response = await employeeOnboardingService.saveEmergencyContacts(contacts);
+      const response = await employeeOnboardingService.saveEmergencyContacts(payload);
       if (response.success) {
         setCurrentStep(2);
       } else {
@@ -186,6 +205,11 @@ const Onboarding = () => {
   const handleSubmit = async () => {
     setError('');
 
+    if (!idType) {
+      setError('Please select the type of government ID');
+      return;
+    }
+
     if (!idFile && !existingIdUrl) {
       setError('Please upload your government-issued ID');
       return;
@@ -195,9 +219,17 @@ const Onboarding = () => {
     try {
       // Upload file if a new one was selected
       if (idFile) {
-        const uploadRes = await employeeOnboardingService.uploadGovernmentId(idFile);
+        const uploadRes = await employeeOnboardingService.uploadGovernmentId(idFile, idType);
         if (!uploadRes.success) {
           setError(uploadRes.error || 'Failed to upload government ID');
+          setSaving(false);
+          return;
+        }
+      } else {
+        // Save ID type even if file wasn't re-uploaded
+        const typeRes = await employeeOnboardingService.saveGovernmentIdType(idType);
+        if (!typeRes.success) {
+          setError(typeRes.error || 'Failed to save ID type');
           setSaving(false);
           return;
         }
@@ -442,7 +474,10 @@ const Onboarding = () => {
                         </label>
                         <select
                           value={contact.relationship}
-                          onChange={(e) => updateContact(i, 'relationship', e.target.value)}
+                          onChange={(e) => {
+                            updateContact(i, 'relationship', e.target.value);
+                            if (e.target.value !== 'Other') updateContact(i, 'customRelationship', '');
+                          }}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                         >
                           <option value="">Select...</option>
@@ -452,6 +487,15 @@ const Onboarding = () => {
                             </option>
                           ))}
                         </select>
+                        {contact.relationship === 'Other' && (
+                          <input
+                            type="text"
+                            value={contact.customRelationship}
+                            onChange={(e) => updateContact(i, 'customRelationship', e.target.value)}
+                            placeholder="Please specify relationship"
+                            className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                          />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -489,8 +533,25 @@ const Onboarding = () => {
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-1">Government ID</h2>
               <p className="text-gray-500 text-sm mb-6">
-                Upload a clear photo or scan of your government-issued ID (driver's license, passport, etc.)
+                Select the type and upload a clear photo or scan of your government-issued ID
               </p>
+
+              {/* ID Type Selection */}
+              <div className="mb-5">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ID Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={idType}
+                  onChange={(e) => setIdType(e.target.value)}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                >
+                  <option value="">Select ID type...</option>
+                  <option value="Passport">Passport</option>
+                  <option value="Driving License">Driving License</option>
+                  <option value="Identity Card">Identity Card</option>
+                </select>
+              </div>
 
               {/* Drop Zone */}
               {!idFile && !existingIdUrl ? (
