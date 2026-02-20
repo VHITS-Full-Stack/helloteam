@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Clock,
   Calendar,
@@ -13,9 +13,11 @@ import {
   Coffee,
   X,
   Settings,
+  RotateCcw,
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
+import timeRecordService from '../../services/timeRecord.service';
 
 const TimeRecords = () => {
   const [activeTab, setActiveTab] = useState('timesheets');
@@ -25,6 +27,7 @@ const TimeRecords = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [resubmitLoading, setResubmitLoading] = useState(null);
 
   // Manual time entry modal
   const [showAddTimeModal, setShowAddTimeModal] = useState(false);
@@ -286,6 +289,13 @@ const TimeRecords = () => {
         <Badge variant="danger" size="xs">Rejected</Badge>
       );
     }
+    if (session.approvalStatus === 'REVISION_REQUESTED') {
+      return (
+        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 ring-1 ring-amber-300">
+          Revision Requested
+        </span>
+      );
+    }
     if (session.approvalStatus === 'PENDING' || !session.approvedAt) {
       return isOT ? (
         <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 ring-1 ring-amber-300">
@@ -296,6 +306,25 @@ const TimeRecords = () => {
       );
     }
     return null;
+  };
+
+  // Handle resubmit after revision request
+  const handleResubmit = async (recordId) => {
+    try {
+      setResubmitLoading(recordId);
+      setError(null);
+      const result = await timeRecordService.resubmitTimeRecord(recordId);
+      if (result?.success) {
+        fetchSessions();
+      } else {
+        setError(result?.message || 'Failed to resubmit timesheet');
+      }
+    } catch (err) {
+      console.error('Failed to resubmit:', err);
+      setError(err.message || 'Failed to resubmit timesheet');
+    } finally {
+      setResubmitLoading(null);
+    }
   };
 
   const tabs = [
@@ -498,8 +527,8 @@ const TimeRecords = () => {
                   {sessions.map((session) => {
                     const isOT = session.overtimeMinutes > 0;
                     return (
+                    <React.Fragment key={session.id}>
                     <tr
-                      key={session.id}
                       className={`border-b border-gray-100 transition-colors ${
                         isOT
                           ? 'bg-amber-50/60 hover:bg-amber-100/60'
@@ -619,9 +648,46 @@ const TimeRecords = () => {
                               <Clock className="w-4 h-4" />
                             </button>
                           )}
+                          {session.approvalStatus === 'REVISION_REQUESTED' && session.timeRecordId && (
+                            <button
+                              onClick={() => handleResubmit(session.timeRecordId)}
+                              disabled={resubmitLoading === session.timeRecordId}
+                              className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors"
+                              title="Resubmit timesheet"
+                            >
+                              <RotateCcw className={`w-4 h-4 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
+                    {/* Revision requested banner */}
+                    {session.approvalStatus === 'REVISION_REQUESTED' && (
+                      <tr className="bg-amber-50 border-b border-amber-100">
+                        <td colSpan={7} className="px-4 py-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-sm text-amber-700">
+                              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                              <span>
+                                <strong>Revision requested:</strong>{' '}
+                                {session.revisionReason || 'Please review and resubmit your timesheet.'}
+                              </span>
+                            </div>
+                            {session.timeRecordId && (
+                              <button
+                                onClick={() => handleResubmit(session.timeRecordId)}
+                                disabled={resubmitLoading === session.timeRecordId}
+                                className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+                              >
+                                <RotateCcw className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                                {resubmitLoading === session.timeRecordId ? 'Resubmitting...' : 'Resubmit'}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </React.Fragment>
                     );
                   })}
                 </tbody>

@@ -3,6 +3,8 @@ import path from 'path';
 import fs from 'fs';
 import prisma from '../config/database';
 import { hashPassword } from '../utils/helpers';
+import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
+import { logRateChange } from '../utils/rateChangeLogger';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 import { deactivateOtherClientAssignments } from './employee.controller';
@@ -1030,6 +1032,10 @@ export const updateEmployeeRate = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    // Capture old rates for change logging
+    const oldHourlyRate = assignment.hourlyRate;
+    const oldOvertimeRate = assignment.overtimeRate;
+
     // Update the rate
     await prisma.clientEmployee.update({
       where: { id: assignment.id },
@@ -1038,6 +1044,34 @@ export const updateEmployeeRate = async (req: AuthenticatedRequest, res: Respons
         overtimeRate: overtimeRate !== undefined && overtimeRate !== '' ? parseFloat(overtimeRate) : null,
       },
     });
+
+    // Log rate changes (non-blocking)
+    const changedBy = req.user!.userId;
+    const changedByName = req.user!.email;
+    if (hourlyRate !== undefined) {
+      logRateChange({
+        employeeId: employeeId,
+        clientId: id,
+        changedBy,
+        changedByName,
+        rateType: 'HOURLY_RATE',
+        oldValue: oldHourlyRate,
+        newValue: hourlyRate !== '' ? parseFloat(hourlyRate) : null,
+        source: 'CLIENT_ASSIGNMENT',
+      });
+    }
+    if (overtimeRate !== undefined) {
+      logRateChange({
+        employeeId: employeeId,
+        clientId: id,
+        changedBy,
+        changedByName,
+        rateType: 'OVERTIME_RATE',
+        oldValue: oldOvertimeRate,
+        newValue: overtimeRate !== '' ? parseFloat(overtimeRate) : null,
+        source: 'CLIENT_ASSIGNMENT',
+      });
+    }
 
     res.json({
       success: true,
@@ -1182,5 +1216,118 @@ export const getClientStats = async (req: AuthenticatedRequest, res: Response): 
       success: false,
       error: 'Failed to fetch client statistics',
     });
+  }
+};
+
+// Get employee PTO config for a client (override + defaults + effective)
+export const getEmployeePtoConfig = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const clientId = req.params.id as string;
+    const employeeId = req.params.employeeId as string;
+
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: { clientId, employeeId, isActive: true },
+      include: {
+        employee: {
+          select: {
+            firstName: true,
+            lastName: true,
+            user: { select: { email: true } },
+          },
+        },
+        client: {
+          include: { clientPolicies: true },
+        },
+      },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ success: false, error: 'Employee assignment not found' });
+      return;
+    }
+
+    const policy = assignment.client.clientPolicies;
+    const effectivePto = resolveEffectivePtoConfig(policy, assignment);
+
+    res.json({
+      success: true,
+      data: {
+        employeeId: assignment.employeeId,
+        employeeName: `${assignment.employee.firstName} ${assignment.employee.lastName}`,
+        employeeEmail: assignment.employee.user?.email,
+        override: {
+          ptoAllowPaidLeave: assignment.ptoAllowPaidLeave,
+          ptoEntitlementType: assignment.ptoEntitlementType,
+          ptoAnnualDays: assignment.ptoAnnualDays,
+          ptoAccrualRatePerMonth: assignment.ptoAccrualRatePerMonth != null ? Number(assignment.ptoAccrualRatePerMonth) : null,
+          ptoMaxCarryoverDays: assignment.ptoMaxCarryoverDays,
+          ptoCarryoverExpiryMonths: assignment.ptoCarryoverExpiryMonths,
+          ptoAllowUnpaidLeave: assignment.ptoAllowUnpaidLeave,
+        },
+        clientDefaults: {
+          allowPaidLeave: policy?.allowPaidLeave ?? false,
+          paidLeaveEntitlementType: policy?.paidLeaveEntitlementType ?? 'NONE',
+          annualPaidLeaveDays: policy?.annualPaidLeaveDays ?? 0,
+          accrualRatePerMonth: policy?.accrualRatePerMonth != null ? Number(policy.accrualRatePerMonth) : null,
+          maxCarryoverDays: policy?.maxCarryoverDays ?? 0,
+          carryoverExpiryMonths: policy?.carryoverExpiryMonths ?? null,
+          allowUnpaidLeave: policy?.allowUnpaidLeave ?? true,
+        },
+        effective: effectivePto,
+      },
+    });
+  } catch (error) {
+    console.error('Get employee PTO config error:', error);
+    res.status(500).json({ success: false, error: 'Failed to get employee PTO config' });
+  }
+};
+
+// Update employee PTO config for a client
+export const updateEmployeePtoConfig = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const clientId = req.params.id as string;
+    const employeeId = req.params.employeeId as string;
+    const {
+      ptoAllowPaidLeave,
+      ptoEntitlementType,
+      ptoAnnualDays,
+      ptoAccrualRatePerMonth,
+      ptoMaxCarryoverDays,
+      ptoCarryoverExpiryMonths,
+      ptoAllowUnpaidLeave,
+    } = req.body;
+
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: { clientId, employeeId, isActive: true },
+    });
+
+    if (!assignment) {
+      res.status(404).json({ success: false, error: 'Employee assignment not found' });
+      return;
+    }
+
+    await prisma.clientEmployee.update({
+      where: { id: assignment.id },
+      data: {
+        ptoAllowPaidLeave: ptoAllowPaidLeave !== undefined && ptoAllowPaidLeave !== '' && ptoAllowPaidLeave !== null
+          ? (ptoAllowPaidLeave === true || ptoAllowPaidLeave === 'true') : null,
+        ptoEntitlementType: ptoEntitlementType && ptoEntitlementType !== '' ? ptoEntitlementType : null,
+        ptoAnnualDays: ptoAnnualDays !== undefined && ptoAnnualDays !== '' && ptoAnnualDays !== null
+          ? parseInt(String(ptoAnnualDays), 10) : null,
+        ptoAccrualRatePerMonth: ptoAccrualRatePerMonth !== undefined && ptoAccrualRatePerMonth !== '' && ptoAccrualRatePerMonth !== null
+          ? parseFloat(String(ptoAccrualRatePerMonth)) : null,
+        ptoMaxCarryoverDays: ptoMaxCarryoverDays !== undefined && ptoMaxCarryoverDays !== '' && ptoMaxCarryoverDays !== null
+          ? parseInt(String(ptoMaxCarryoverDays), 10) : null,
+        ptoCarryoverExpiryMonths: ptoCarryoverExpiryMonths !== undefined && ptoCarryoverExpiryMonths !== '' && ptoCarryoverExpiryMonths !== null
+          ? parseInt(String(ptoCarryoverExpiryMonths), 10) : null,
+        ptoAllowUnpaidLeave: ptoAllowUnpaidLeave !== undefined && ptoAllowUnpaidLeave !== '' && ptoAllowUnpaidLeave !== null
+          ? (ptoAllowUnpaidLeave === true || ptoAllowUnpaidLeave === 'true') : null,
+      },
+    });
+
+    res.json({ success: true, message: 'Employee PTO configuration updated successfully' });
+  } catch (error) {
+    console.error('Update employee PTO config error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update employee PTO config' });
   }
 };

@@ -19,7 +19,8 @@ import {
   CheckSquare,
   Briefcase,
   FolderOpen,
-  ClipboardList
+  ClipboardList,
+  TrendingUp
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -120,6 +121,12 @@ const Sidebar = ({
       icon: FileText,
       label: 'Invoices',
       permission: PERMISSIONS.PAYROLL.VIEW
+    },
+    {
+      to: '/admin/billing-history',
+      icon: TrendingUp,
+      label: 'Billing History',
+      permission: PERMISSIONS.EMPLOYEES.VIEW
     },
     {
       to: '/admin/settings',

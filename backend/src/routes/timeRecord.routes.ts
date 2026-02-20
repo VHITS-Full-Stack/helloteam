@@ -4,6 +4,7 @@ import {
   getMyTimeRecordSummary,
   getMyPayrollSummary,
   getTimeRecordDetail,
+  resubmitTimeRecord,
 } from '../controllers/timeRecord.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -27,5 +28,8 @@ router.get('/my-payroll', authorizeRoles(['EMPLOYEE']), getMyPayrollSummary);
 
 // Get single time record detail
 router.get('/:recordId', authorizeRoles(['EMPLOYEE']), getTimeRecordDetail);
+
+// Resubmit a time record after revision was requested
+router.post('/:recordId/resubmit', authorizeRoles(['EMPLOYEE']), resubmitTimeRecord);
 
 export default router;

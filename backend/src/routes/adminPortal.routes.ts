@@ -11,6 +11,7 @@ import {
   getAdminApprovals,
   finalApproveTimeRecord,
   finalRejectTimeRecord,
+  adminRequestRevisionTimeRecord,
   bulkFinalApprove,
   approveLeaveRequest,
   rejectLeaveRequest,
@@ -38,6 +39,7 @@ router.put('/time-records/:recordId/adjust', authenticate, authorize(...adjustme
 router.get('/approvals', authenticate, authorize(...adminRoles), getAdminApprovals);
 router.post('/approvals/time-record/:recordId/approve', authenticate, authorize(...approvalRoles), finalApproveTimeRecord);
 router.post('/approvals/time-record/:recordId/reject', authenticate, authorize(...approvalRoles), finalRejectTimeRecord);
+router.post('/approvals/time-record/:recordId/request-revision', authenticate, authorize(...approvalRoles), adminRequestRevisionTimeRecord);
 router.post('/approvals/bulk-approve', authenticate, authorize(...approvalRoles), bulkFinalApprove);
 router.post('/approvals/leave/:requestId/approve', authenticate, authorize(...approvalRoles), approveLeaveRequest);
 router.post('/approvals/leave/:requestId/reject', authenticate, authorize(...approvalRoles), rejectLeaveRequest);

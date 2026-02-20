@@ -1,6 +1,7 @@
+/// <reference types="node" />
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import { ROLE_PERMISSIONS, ALL_PERMISSIONS } from '../src/config/permissions';
+import { ROLE_PERMISSIONS } from '../src/config/permissions';
 
 const prisma = new PrismaClient();
 
@@ -495,6 +496,262 @@ async function main() {
   }
   console.log(`Created ${timeRecords.length} time records + work sessions for auto-approval testing`);
 
+  // ══════════════════════════════════════════════════════════════
+  // SCENARIO SEED DATA — Request Revisions, Overtime, Shift Warnings
+  // ══════════════════════════════════════════════════════════════
+
+  // ── Scenario 1: REVISION_REQUESTED records ──
+  // John Doe — Feb 17 Tue, regular 8h, client requested revision
+  const revisionSession1 = await prisma.workSession.create({
+    data: {
+      employeeId: e1.id,
+      startTime: new Date('2026-02-17T14:00:00Z'),
+      endTime: new Date('2026-02-17T22:00:00Z'),
+      status: 'COMPLETED',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: revisionSession1.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: revisionSession1.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e1.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 17)),
+      actualStart: new Date('2026-02-17T14:00:00Z'), actualEnd: new Date('2026-02-17T22:00:00Z'),
+      scheduledStart: new Date('2026-02-17T14:00:00Z'), scheduledEnd: new Date('2026-02-17T22:00:00Z'),
+      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
+      status: 'REVISION_REQUESTED',
+      revisionReason: 'Hours do not match the task log. Please verify your clock-in time was correct.',
+      revisionRequestedBy: client1.id,
+      revisionRequestedAt: new Date('2026-02-18T10:00:00Z'),
+    },
+  });
+  console.log('Created REVISION_REQUESTED record: John Doe — Feb 17');
+
+  // Sarah Johnson — Feb 17 Tue, regular 8h, client requested revision
+  const revisionSession2 = await prisma.workSession.create({
+    data: {
+      employeeId: e3.id,
+      startTime: new Date('2026-02-17T14:00:00Z'),
+      endTime: new Date('2026-02-17T22:00:00Z'),
+      status: 'COMPLETED',
+      totalBreakMinutes: 30,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: revisionSession2.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: revisionSession2.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e3.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 17)),
+      actualStart: new Date('2026-02-17T14:00:00Z'), actualEnd: new Date('2026-02-17T22:00:00Z'),
+      scheduledStart: new Date('2026-02-17T14:00:00Z'), scheduledEnd: new Date('2026-02-17T22:00:00Z'),
+      totalMinutes: 450, breakMinutes: 30, overtimeMinutes: 0,
+      status: 'REVISION_REQUESTED',
+      revisionReason: 'Missing break time entry for lunch. Please update and resubmit.',
+      revisionRequestedBy: client1.id,
+      revisionRequestedAt: new Date('2026-02-18T11:30:00Z'),
+    },
+  });
+  console.log('Created REVISION_REQUESTED record: Sarah Johnson — Feb 17');
+
+  // ── Scenario 2: Overtime request records (approved, pending, rejected) ──
+  // John Doe — Approved OT request for Feb 18 (shift extension)
+  await prisma.overtimeRequest.create({
+    data: {
+      employeeId: e1.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 18)),
+      type: 'SHIFT_EXTENSION',
+      requestedMinutes: 60,
+      estimatedEndTime: '18:00',
+      reason: 'Need to finish quarterly report deadline',
+      status: 'APPROVED',
+      approvedBy: client1.id,
+      approvedAt: new Date('2026-02-18T20:00:00Z'),
+    },
+  });
+  // John Doe — Feb 18, 9h with 1h approved OT
+  const otApprovedSession = await prisma.workSession.create({
+    data: {
+      employeeId: e1.id,
+      startTime: new Date('2026-02-18T14:00:00Z'),
+      endTime: new Date('2026-02-18T23:00:00Z'),
+      status: 'COMPLETED',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: otApprovedSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: otApprovedSession.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e1.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 18)),
+      actualStart: new Date('2026-02-18T14:00:00Z'), actualEnd: new Date('2026-02-18T23:00:00Z'),
+      scheduledStart: new Date('2026-02-18T14:00:00Z'), scheduledEnd: new Date('2026-02-18T22:00:00Z'),
+      totalMinutes: 540, breakMinutes: 0, overtimeMinutes: 60,
+      status: 'APPROVED',
+      approvedBy: client1.id,
+      approvedAt: new Date('2026-02-18T23:30:00Z'),
+    },
+  });
+  console.log('Created APPROVED OT record: John Doe — Feb 18 (1h OT)');
+
+  // Sarah Johnson — Pending OT request for Feb 19 (off-shift)
+  await prisma.overtimeRequest.create({
+    data: {
+      employeeId: e3.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 19)),
+      type: 'OFF_SHIFT',
+      requestedMinutes: 120,
+      requestedStartTime: '19:00',
+      requestedEndTime: '21:00',
+      reason: 'Client presentation prep — need evening hours',
+      status: 'PENDING',
+    },
+  });
+  console.log('Created PENDING OT request: Sarah Johnson — Feb 19 (off-shift 7-9pm)');
+
+  // Jigar Patel — Rejected OT request for Feb 18 (shift extension)
+  await prisma.overtimeRequest.create({
+    data: {
+      employeeId: e2.id, clientId: c2.id,
+      date: new Date(Date.UTC(2026, 1, 18)),
+      type: 'SHIFT_EXTENSION',
+      requestedMinutes: 30,
+      estimatedEndTime: '17:30',
+      reason: 'Finishing up deployment tasks',
+      status: 'REJECTED',
+      rejectedBy: 'vhits@demo.com',
+      rejectedAt: new Date('2026-02-18T21:00:00Z'),
+      rejectionReason: 'Deployment can wait until tomorrow',
+    },
+  });
+  console.log('Created REJECTED OT request: Jigar Patel — Feb 18');
+
+  // ── Scenario 3: Today's records for live testing ──
+  // Use dynamic "today" so these always work when seed is run
+  const now = new Date();
+  const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+
+  // Sarah Johnson — Active session today (clocked in 30 min ago, simulates 30-min warning test)
+  // When the cron runs, if shift end is near, it will trigger the warning
+  const sarahActiveSession = await prisma.workSession.create({
+    data: {
+      employeeId: e3.id,
+      startTime: new Date(now.getTime() - 7 * 60 * 60 * 1000), // 7 hours ago
+      endTime: null,
+      status: 'ACTIVE',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.create({
+    data: {
+      workSessionId: sarahActiveSession.id,
+      action: 'CLOCK_IN',
+      message: 'Clocked in (seeded — active session for shift-end warning test)',
+    },
+  });
+  console.log('Created ACTIVE session: Sarah Johnson — today (7h ago, for shift-end warning test)');
+
+  // Jigar Patel — Completed session today (auto-clocked out, for post-shift clock-in test)
+  const jigarPostShiftSession = await prisma.workSession.create({
+    data: {
+      employeeId: e2.id,
+      startTime: new Date(now.getTime() - 9 * 60 * 60 * 1000), // 9 hours ago
+      endTime: new Date(now.getTime() - 1 * 60 * 60 * 1000),   // 1 hour ago
+      status: 'COMPLETED',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: jigarPostShiftSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: jigarPostShiftSession.id, action: 'AUTO_CLOCK_OUT', message: 'Auto-clocked out at shift end (seeded — for post-shift test)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e2.id, clientId: c2.id,
+      date: todayUTC,
+      actualStart: new Date(now.getTime() - 9 * 60 * 60 * 1000),
+      actualEnd: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      scheduledStart: new Date(now.getTime() - 9 * 60 * 60 * 1000),
+      scheduledEnd: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
+      status: 'PENDING',
+    },
+  });
+  console.log('Created COMPLETED + auto-clocked-out session: Jigar Patel — today (for post-shift clock-in test)');
+
+  // ── Scenario 4: Mix of statuses for admin approvals page ──
+  // John Doe — Feb 19, regular 8h, PENDING (for admin to test "Request Revisions" button)
+  const pendingRegSession = await prisma.workSession.create({
+    data: {
+      employeeId: e1.id,
+      startTime: new Date('2026-02-19T14:00:00Z'),
+      endTime: new Date('2026-02-19T22:00:00Z'),
+      status: 'COMPLETED',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: pendingRegSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: pendingRegSession.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e1.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 19)),
+      actualStart: new Date('2026-02-19T14:00:00Z'), actualEnd: new Date('2026-02-19T22:00:00Z'),
+      scheduledStart: new Date('2026-02-19T14:00:00Z'), scheduledEnd: new Date('2026-02-19T22:00:00Z'),
+      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
+      status: 'PENDING',
+    },
+  });
+  console.log('Created PENDING regular record: John Doe — Feb 19 (for admin "Request Revisions" test)');
+
+  // Sarah Johnson — Feb 18, 9h with 1h OT, PENDING (for admin to test "Reject" on OT)
+  const pendingOtSession = await prisma.workSession.create({
+    data: {
+      employeeId: e3.id,
+      startTime: new Date('2026-02-18T14:00:00Z'),
+      endTime: new Date('2026-02-18T23:00:00Z'),
+      status: 'COMPLETED',
+      totalBreakMinutes: 0,
+    },
+  });
+  await prisma.sessionLog.createMany({
+    data: [
+      { workSessionId: pendingOtSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
+      { workSessionId: pendingOtSession.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
+    ],
+  });
+  await prisma.timeRecord.create({
+    data: {
+      employeeId: e3.id, clientId: c1.id,
+      date: new Date(Date.UTC(2026, 1, 18)),
+      actualStart: new Date('2026-02-18T14:00:00Z'), actualEnd: new Date('2026-02-18T23:00:00Z'),
+      scheduledStart: new Date('2026-02-18T14:00:00Z'), scheduledEnd: new Date('2026-02-18T22:00:00Z'),
+      totalMinutes: 540, breakMinutes: 0, overtimeMinutes: 60,
+      status: 'PENDING',
+    },
+  });
+  console.log('Created PENDING OT record: Sarah Johnson — Feb 18 (1h OT, for admin "Reject" test)');
+
   // ── Summary ──
   console.log('\n========================================');
   console.log('Seed completed!');
@@ -508,12 +765,35 @@ async function main() {
   console.log('Client 1:   client@demo.com    (ABC Corporation — auto-approve ON)');
   console.log('Client 2:   vhits@demo.com     (Virtual Height — auto-approve OFF)');
   console.log('');
-  console.log('Time Records (9 total, all PENDING):');
+  console.log('Time Records (past weeks, all PENDING):');
   console.log('  ABC Corp:');
   console.log('    John Doe  — Feb 9 (8h), Feb 10 (7.5h), Feb 11 (9h+1h OT), Feb 16 (8h)');
   console.log('    Sarah J   — Feb 9 (8h), Feb 10 (8h), Feb 16 (8.5h+30m OT)');
   console.log('  Virtual Height:');
   console.log('    Jigar P   — Feb 9 (8h), Feb 10 (8h)');
+  console.log('');
+  console.log('═══ SCENARIO TEST DATA ═══');
+  console.log('');
+  console.log('1. REQUEST REVISIONS FLOW:');
+  console.log('   John Doe  — Feb 17: REVISION_REQUESTED ("Hours do not match task log")');
+  console.log('   Sarah J   — Feb 17: REVISION_REQUESTED ("Missing break time entry")');
+  console.log('   → Employee login: see banner + "Resubmit" button');
+  console.log('   → Client login: see amber "Revision Requested" badge');
+  console.log('');
+  console.log('2. OVERTIME REQUESTS:');
+  console.log('   John Doe  — Feb 18: APPROVED shift extension (+1h), time record APPROVED');
+  console.log('   Sarah J   — Feb 19: PENDING off-shift request (7-9pm)');
+  console.log('   Jigar P   — Feb 18: REJECTED shift extension ("Deployment can wait")');
+  console.log('');
+  console.log('3. ADMIN APPROVALS PAGE:');
+  console.log('   John Doe  — Feb 19: PENDING regular 8h → shows "Request Revisions" button (not Reject)');
+  console.log('   Sarah J   — Feb 18: PENDING 9h + 1h OT → shows "Reject" button (OT can be denied)');
+  console.log('');
+  console.log('4. SHIFT-END WARNING (live):');
+  console.log('   Sarah J   — ACTIVE session today (started 7h ago) → cron will trigger 30-min warning');
+  console.log('');
+  console.log('5. POST-SHIFT CLOCK-IN (live):');
+  console.log('   Jigar P   — COMPLETED today (auto-clocked out 1h ago) → clock in again to see warning');
   console.log('');
   console.log('Expected auto-approval behavior:');
   console.log('  ABC Corp (auto-approve ON, 24h):');

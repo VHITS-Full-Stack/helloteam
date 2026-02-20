@@ -117,6 +117,26 @@ const clientService = {
     }
   },
 
+  // Get employee PTO config for a client
+  getEmployeePtoConfig: async (clientId, employeeId) => {
+    try {
+      const response = await api.get(`/clients/${clientId}/employees/${employeeId}/pto`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to fetch employee PTO config' };
+    }
+  },
+
+  // Update employee PTO config for a client
+  updateEmployeePtoConfig: async (clientId, employeeId, ptoData) => {
+    try {
+      const response = await api.put(`/clients/${clientId}/employees/${employeeId}/pto`, ptoData);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to update employee PTO config' };
+    }
+  },
+
   // Download agreement PDF for a client
   downloadAgreementPdf: async (clientId) => {
     const url = `${api.baseUrl}/clients/${clientId}/agreement/pdf`;

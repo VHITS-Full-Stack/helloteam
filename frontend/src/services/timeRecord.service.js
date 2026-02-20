@@ -35,6 +35,11 @@ const timeRecordService = {
   async getRecordDetail(recordId) {
     return await api.get(`/time-records/${recordId}`);
   },
+
+  // Resubmit a time record after revision was requested
+  async resubmitTimeRecord(recordId) {
+    return await api.post(`/time-records/${recordId}/resubmit`);
+  },
 };
 
 export default timeRecordService;

@@ -69,6 +69,16 @@ const clientPortalService = {
     return response;
   },
 
+  requestRevisionTimeRecord: async (recordId, reason) => {
+    const response = await api.post(`/client-portal/approvals/time-record/${recordId}/request-revision`, { reason });
+    return response;
+  },
+
+  bulkRequestRevision: async (recordIds, reason) => {
+    const response = await api.post('/client-portal/approvals/bulk-request-revision', { recordIds, reason });
+    return response;
+  },
+
   approveLeaveRequest: async (requestId) => {
     const response = await api.post(`/client-portal/approvals/leave/${requestId}/approve`);
     return response;

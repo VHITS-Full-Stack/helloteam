@@ -390,3 +390,61 @@ export const getTimeRecordDetail = async (req: AuthenticatedRequest, res: Respon
     res.status(500).json({ success: false, message: 'Failed to get time record detail' });
   }
 };
+
+// Resubmit a time record after revision was requested
+export const resubmitTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const recordId = req.params.recordId as string;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    const record = await prisma.timeRecord.findFirst({
+      where: {
+        id: recordId,
+        employeeId: employee.id,
+      },
+    });
+
+    if (!record) {
+      res.status(404).json({ success: false, message: 'Time record not found' });
+      return;
+    }
+
+    if (record.status !== 'REVISION_REQUESTED') {
+      res.status(400).json({ success: false, message: 'Only records with revision requested can be resubmitted' });
+      return;
+    }
+
+    const updated = await prisma.timeRecord.update({
+      where: { id: recordId },
+      data: {
+        status: 'PENDING',
+        revisionReason: null,
+        revisionRequestedBy: null,
+        revisionRequestedAt: null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Time record resubmitted successfully',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Resubmit time record error:', error);
+    res.status(500).json({ success: false, message: 'Failed to resubmit time record' });
+  }
+};

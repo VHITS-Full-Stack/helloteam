@@ -133,7 +133,7 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
       acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0);
     const weeklyHours = Math.round(weeklyMinutes / 60);
 
-    // Calculate monthly revenue (placeholder - based on hours * rate)
+    // Calculate monthly revenue using actual employee billing rates
     const monthlyTimeRecords = await prisma.timeRecord.findMany({
       where: {
         date: { gte: startOfMonth },
@@ -142,13 +142,18 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
       select: {
         totalMinutes: true,
         overtimeMinutes: true,
+        employee: {
+          select: { billingRate: true },
+        },
       },
     });
 
-    const monthlyMinutes = monthlyTimeRecords.reduce((acc, tr) =>
-      acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0);
-    const hourlyRate = 35; // Placeholder
-    const monthlyRevenue = Math.round((monthlyMinutes / 60) * hourlyRate);
+    const monthlyRevenue = monthlyTimeRecords.reduce((acc, tr) => {
+      const totalMins = (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
+      const rate = tr.employee?.billingRate ? Number(tr.employee.billingRate) : 0;
+      return acc + (totalMins / 60) * rate;
+    }, 0);
+    const roundedMonthlyRevenue = Math.round(monthlyRevenue * 100) / 100;
 
     res.json({
       success: true,
@@ -163,7 +168,7 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
         pendingLeaveRequests,
         openTickets,
         weeklyHours,
-        monthlyRevenue,
+        monthlyRevenue: roundedMonthlyRevenue,
       },
     });
   } catch (error) {
@@ -835,10 +840,11 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     const skip = (page - 1) * limit;
 
     // Map query status to TimeRecord ApprovalStatus
-    const timeRecordStatusMap: { [key: string]: ApprovalStatus } = {
+    const timeRecordStatusMap: { [key: string]: ApprovalStatus | ApprovalStatus[] } = {
       pending: ApprovalStatus.PENDING,
       approved: ApprovalStatus.APPROVED,
       rejected: ApprovalStatus.REJECTED,
+      revision_requested: ApprovalStatus.REVISION_REQUESTED,
     };
     const timeRecordStatus = timeRecordStatusMap[status] || ApprovalStatus.PENDING;
 
@@ -938,7 +944,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     approvals.sort((a, b) => new Date(b.submitted).getTime() - new Date(a.submitted).getTime());
 
     // Get counts
-    const [pendingCount, clientApprovedCount, approvedTodayCount, rejectedTodayCount] = await Promise.all([
+    const [pendingCount, clientApprovedCount, approvedTodayCount, rejectedTodayCount, revisionRequestedCount] = await Promise.all([
       prisma.timeRecord.count({ where: { status: 'PENDING' } }),
       prisma.timeRecord.count({
         where: {
@@ -958,6 +964,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           updatedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
         },
       }),
+      prisma.timeRecord.count({ where: { status: 'REVISION_REQUESTED' } }),
     ]);
 
     const leaveCount = await prisma.leaveRequest.count({ where: { status: 'PENDING' } });
@@ -971,6 +978,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           clientApproved: clientApprovedCount,
           approvedToday: approvedTodayCount,
           rejectedToday: rejectedTodayCount,
+          revisionRequested: revisionRequestedCount,
         },
         pagination: {
           page,
@@ -1051,6 +1059,15 @@ export const finalRejectTimeRecord = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
+    // Guard: Regular timesheets cannot be denied — only overtime can be rejected
+    if ((record.overtimeMinutes || 0) === 0) {
+      res.status(400).json({
+        success: false,
+        error: 'Regular timesheets cannot be denied. Use "Request Revisions" instead.',
+      });
+      return;
+    }
+
     const adminId = req.user?.userId;
 
     // Get admin details for log
@@ -1082,6 +1099,80 @@ export const finalRejectTimeRecord = async (req: AuthenticatedRequest, res: Resp
       success: false,
       error: 'Failed to reject time record',
     });
+  }
+};
+
+// Request revision for a regular time record (admin)
+export const adminRequestRevisionTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const recordId = req.params.recordId as string;
+    const { reason } = req.body;
+
+    if (!reason || !reason.trim()) {
+      res.status(400).json({ success: false, error: 'Revision reason is required' });
+      return;
+    }
+
+    const record = await prisma.timeRecord.findUnique({
+      where: { id: recordId },
+      include: {
+        employee: { select: { id: true, userId: true, firstName: true, lastName: true } },
+      },
+    });
+
+    if (!record) {
+      res.status(404).json({ success: false, error: 'Time record not found' });
+      return;
+    }
+
+    if (record.status !== 'PENDING') {
+      res.status(400).json({ success: false, error: 'Only pending records can have revisions requested' });
+      return;
+    }
+
+    const adminId = req.user?.userId;
+
+    const admin = await prisma.admin.findFirst({
+      where: { userId: adminId },
+      select: { firstName: true, lastName: true },
+    });
+    const requesterName = admin ? `${admin.firstName} ${admin.lastName}` : 'Admin';
+
+    const updated = await prisma.timeRecord.update({
+      where: { id: recordId },
+      data: {
+        status: 'REVISION_REQUESTED',
+        revisionReason: reason.trim(),
+        revisionRequestedBy: adminId,
+        revisionRequestedAt: new Date(),
+      },
+    });
+
+    await createApprovalLog(recordId, adminId!, 'REJECTED', requesterName, `Revision requested: ${reason.trim()}`);
+
+    // Notify employee
+    try {
+      const { createNotification } = await import('./notification.controller');
+      await createNotification(
+        record.employee.userId,
+        'REVISION_REQUESTED',
+        'Revision Requested',
+        `${requesterName} has requested revisions for your time entry on ${record.date.toISOString().split('T')[0]}: ${reason.trim()}`,
+        { timeRecordId: recordId, reason: reason.trim() },
+        '/employee/time-records'
+      );
+    } catch (e) {
+      console.error('Failed to send revision notification:', e);
+    }
+
+    res.json({
+      success: true,
+      message: 'Revision requested successfully',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Admin request revision error:', error);
+    res.status(500).json({ success: false, error: 'Failed to request revision' });
   }
 };
 

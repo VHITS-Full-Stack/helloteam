@@ -197,11 +197,23 @@ function useClientDetail(id) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showRateModal, setShowRateModal] = useState(false);
+  const [showPtoModal, setShowPtoModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedPtoEmployee, setSelectedPtoEmployee] = useState(null);
   const [rateFormData, setRateFormData] = useState({
     hourlyRate: '',
     overtimeRate: '',
+  });
+  const [ptoFormData, setPtoFormData] = useState({
+    ptoAllowPaidLeave: '',
+    ptoEntitlementType: '',
+    ptoAnnualDays: '',
+    ptoAccrualRatePerMonth: '',
+    ptoMaxCarryoverDays: '',
+    ptoCarryoverExpiryMonths: '',
+    ptoAllowUnpaidLeave: '',
+    clientDefaults: null,
   });
 
   const fetchClient = async () => {
@@ -399,6 +411,93 @@ function useClientDetail(id) {
     }
   };
 
+  const handleOpenPtoModal = async (employee) => {
+    setSelectedPtoEmployee(employee);
+    setError('');
+    try {
+      const response = await clientService.getEmployeePtoConfig(id, employee.id);
+      if (response.success) {
+        const { override, clientDefaults } = response.data;
+        setPtoFormData({
+          ptoAllowPaidLeave: override.ptoAllowPaidLeave !== null ? String(override.ptoAllowPaidLeave) : '',
+          ptoEntitlementType: override.ptoEntitlementType || '',
+          ptoAnnualDays: override.ptoAnnualDays !== null ? String(override.ptoAnnualDays) : '',
+          ptoAccrualRatePerMonth: override.ptoAccrualRatePerMonth !== null ? String(override.ptoAccrualRatePerMonth) : '',
+          ptoMaxCarryoverDays: override.ptoMaxCarryoverDays !== null ? String(override.ptoMaxCarryoverDays) : '',
+          ptoCarryoverExpiryMonths: override.ptoCarryoverExpiryMonths !== null ? String(override.ptoCarryoverExpiryMonths) : '',
+          ptoAllowUnpaidLeave: override.ptoAllowUnpaidLeave !== null ? String(override.ptoAllowUnpaidLeave) : '',
+          clientDefaults,
+        });
+      }
+    } catch (err) {
+      setPtoFormData({
+        ptoAllowPaidLeave: '',
+        ptoEntitlementType: '',
+        ptoAnnualDays: '',
+        ptoAccrualRatePerMonth: '',
+        ptoMaxCarryoverDays: '',
+        ptoCarryoverExpiryMonths: '',
+        ptoAllowUnpaidLeave: '',
+        clientDefaults: null,
+      });
+    }
+    setShowPtoModal(true);
+  };
+
+  const handleUpdateEmployeePtoConfig = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const response = await clientService.updateEmployeePtoConfig(id, selectedPtoEmployee.id, {
+        ptoAllowPaidLeave: ptoFormData.ptoAllowPaidLeave,
+        ptoEntitlementType: ptoFormData.ptoEntitlementType,
+        ptoAnnualDays: ptoFormData.ptoAnnualDays,
+        ptoAccrualRatePerMonth: ptoFormData.ptoAccrualRatePerMonth,
+        ptoMaxCarryoverDays: ptoFormData.ptoMaxCarryoverDays,
+        ptoCarryoverExpiryMonths: ptoFormData.ptoCarryoverExpiryMonths,
+        ptoAllowUnpaidLeave: ptoFormData.ptoAllowUnpaidLeave,
+      });
+
+      if (response.success) {
+        setShowPtoModal(false);
+        setSelectedPtoEmployee(null);
+        setPtoFormData({
+          ptoAllowPaidLeave: '', ptoEntitlementType: '', ptoAnnualDays: '',
+          ptoAccrualRatePerMonth: '', ptoMaxCarryoverDays: '', ptoCarryoverExpiryMonths: '',
+          ptoAllowUnpaidLeave: '', clientDefaults: null,
+        });
+        setError('');
+      } else {
+        setError(response.error || 'Failed to update employee PTO config');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to update employee PTO config');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleClearPtoOverrides = () => {
+    setPtoFormData(prev => ({
+      ...prev,
+      ptoAllowPaidLeave: '',
+      ptoEntitlementType: '',
+      ptoAnnualDays: '',
+      ptoAccrualRatePerMonth: '',
+      ptoMaxCarryoverDays: '',
+      ptoCarryoverExpiryMonths: '',
+      ptoAllowUnpaidLeave: '',
+    }));
+  };
+
+  const closePtoModal = () => {
+    setShowPtoModal(false);
+    setSelectedPtoEmployee(null);
+    setError('');
+  };
+
   const getUnassignedEmployees = () => {
     const assignedIds = clientEmployees.map(e => e.id);
     return allEmployees.filter(e => !assignedIds.includes(e.id) && e.user?.status === 'ACTIVE');
@@ -436,11 +535,15 @@ function useClientDetail(id) {
     showDeleteModal,
     showAssignModal,
     showRateModal,
+    showPtoModal,
     showGroupsModal,
     selectedEmployee,
+    selectedPtoEmployee,
     rateFormData,
+    ptoFormData,
     setError,
     setRateFormData,
+    setPtoFormData,
     setShowDeleteModal,
     setShowAssignModal,
     setShowGroupsModal,
@@ -449,10 +552,14 @@ function useClientDetail(id) {
     handleRemoveEmployee,
     handleOpenRateModal,
     handleUpdateEmployeeRate,
+    handleOpenPtoModal,
+    handleUpdateEmployeePtoConfig,
+    handleClearPtoOverrides,
     getUnassignedEmployees,
     closeDeleteModal,
     closeAssignModal,
     closeRateModal,
+    closePtoModal,
     refresh,
   };
 }

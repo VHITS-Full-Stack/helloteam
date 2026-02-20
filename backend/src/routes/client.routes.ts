@@ -10,6 +10,8 @@ import {
   removeEmployee,
   updateEmployeeRate,
   getEmployeeRate,
+  getEmployeePtoConfig,
+  updateEmployeePtoConfig,
   getClientStats,
   downloadAgreementPdf,
 } from '../controllers/client.controller';
@@ -42,5 +44,9 @@ router.delete('/:id/employees/:employeeId', requirePermission(PERMISSIONS.CLIENT
 // Employee rate management
 router.get('/:id/employees/:employeeId/rate', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getEmployeeRate);
 router.put('/:id/employees/:employeeId/rate', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), updateEmployeeRate);
+
+// Employee PTO configuration management
+router.get('/:id/employees/:employeeId/pto', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), getEmployeePtoConfig);
+router.put('/:id/employees/:employeeId/pto', requirePermission(PERMISSIONS.CLIENTS.MANAGE_EMPLOYEES), updateEmployeePtoConfig);
 
 export default router;
