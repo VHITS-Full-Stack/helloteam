@@ -13,8 +13,26 @@ const employeeOnboardingService = {
     return api.post('/employee-onboarding/emergency-contacts', { contacts });
   },
 
-  uploadGovernmentId(file) {
-    return api.uploadFile('/employee-onboarding/government-id', file, 'file');
+  uploadGovernmentId(file, governmentIdType) {
+    const url = `${api.baseUrl}/employee-onboarding/government-id`;
+    const token = api.getToken();
+    const formData = new FormData();
+    formData.append('file', file);
+    if (governmentIdType) formData.append('governmentIdType', governmentIdType);
+
+    return fetch(url, {
+      method: 'POST',
+      headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+      body: formData,
+    }).then(async (res) => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      return data;
+    });
+  },
+
+  saveGovernmentIdType(governmentIdType) {
+    return api.post('/employee-onboarding/government-id-type', { governmentIdType });
   },
 
   complete() {

@@ -31,6 +31,7 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
         personalEmail: employee.personalEmail,
         phone: employee.phone,
         address: employee.address,
+        governmentIdType: employee.governmentIdType,
         governmentIdUrl: employee.governmentIdUrl,
         emergencyContacts: employee.emergencyContacts.map((c) => ({
           id: c.id,
@@ -154,6 +155,44 @@ export const saveEmergencyContacts = async (req: AuthenticatedRequest, res: Resp
 };
 
 /**
+ * POST /employee-onboarding/government-id-type
+ * Save Step 3: government ID type (when file already uploaded).
+ */
+export const saveGovernmentIdType = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const { governmentIdType } = req.body;
+    if (!governmentIdType) {
+      res.status(400).json({ success: false, error: 'Government ID type is required' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId: req.user.userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { governmentIdType },
+    });
+
+    res.json({ success: true, message: 'Government ID type saved' });
+  } catch (error) {
+    console.error('Save government ID type error:', error);
+    res.status(500).json({ success: false, error: 'Failed to save government ID type' });
+  }
+};
+
+/**
  * POST /employee-onboarding/government-id
  * Upload Step 3: government ID file (images + PDF, 10MB limit).
  */
@@ -196,12 +235,14 @@ export const uploadGovernmentId = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
+    const governmentIdType = req.body?.governmentIdType || null;
+
     await prisma.employee.update({
       where: { id: employee.id },
-      data: { governmentIdUrl: uploadResult.url },
+      data: { governmentIdUrl: uploadResult.url, governmentIdType },
     });
 
-    res.json({ success: true, message: 'Government ID uploaded', data: { governmentIdUrl: uploadResult.url } });
+    res.json({ success: true, message: 'Government ID uploaded', data: { governmentIdUrl: uploadResult.url, governmentIdType } });
   } catch (error) {
     console.error('Upload government ID error:', error);
     res.status(500).json({ success: false, error: 'Failed to upload government ID' });
