@@ -261,22 +261,36 @@ async function main() {
   const e2 = emp2.employee!;
   const e3 = emp3.employee!;
 
-  // ── Client Contacts ──
-  await prisma.clientContact.createMany({
-    data: [
-      { clientId: c1.id, name: 'Jane Smith', position: 'CEO', phone: '+1 234 567 8901', email: 'jane@abc.com', isPrimary: true },
-      { clientId: c1.id, name: 'Mike Brown', position: 'HR Manager', phone: '+1 234 567 8910', email: 'mike@abc.com', isPrimary: false },
-      { clientId: c2.id, name: 'Nikita K', position: 'Director', phone: '+1 555 123 4567', email: 'nikita@vhits.com', isPrimary: true },
-    ],
-  });
+  // ── Client Contacts (skip if already exist for this client) ──
+  const existingC1Contacts = await prisma.clientContact.count({ where: { clientId: c1.id } });
+  const existingC2Contacts = await prisma.clientContact.count({ where: { clientId: c2.id } });
+  if (existingC1Contacts === 0) {
+    await prisma.clientContact.createMany({
+      data: [
+        { clientId: c1.id, name: 'Jane Smith', position: 'CEO', phone: '+1 234 567 8901', email: 'jane@abc.com', isPrimary: true },
+        { clientId: c1.id, name: 'Mike Brown', position: 'HR Manager', phone: '+1 234 567 8910', email: 'mike@abc.com', isPrimary: false },
+      ],
+    });
+  }
+  if (existingC2Contacts === 0) {
+    await prisma.clientContact.createMany({
+      data: [
+        { clientId: c2.id, name: 'Nikita K', position: 'Director', phone: '+1 555 123 4567', email: 'nikita@vhits.com', isPrimary: true },
+      ],
+    });
+  }
   console.log('Created client contacts');
 
-  // ── Client Agreements (signed) ──
-  await prisma.clientAgreement.createMany({
-    data: [
-      { clientId: c1.id, agreementType: 'WEEKLY', signedAt: new Date('2026-01-15'), signedByName: 'Jane Smith' },
-      { clientId: c2.id, agreementType: 'MONTHLY', signedAt: new Date('2026-01-20'), signedByName: 'Nikita K' },
-    ],
+  // ── Client Agreements (upsert to avoid unique constraint on clientId) ──
+  await prisma.clientAgreement.upsert({
+    where: { clientId: c1.id },
+    update: {},
+    create: { clientId: c1.id, agreementType: 'WEEKLY', signedAt: new Date('2026-01-15'), signedByName: 'Jane Smith' },
+  });
+  await prisma.clientAgreement.upsert({
+    where: { clientId: c2.id },
+    update: {},
+    create: { clientId: c2.id, agreementType: 'MONTHLY', signedAt: new Date('2026-01-20'), signedByName: 'Nikita K' },
   });
   console.log('Created client agreements');
 
@@ -365,25 +379,32 @@ async function main() {
   });
   console.log('Created client policies (ABC: auto-approve ON, VH: OFF)');
 
-  // ── Schedules (Mon-Fri 9am-5pm) ──
+  // ── Schedules (Mon-Fri 9am-5pm) — skip if employee already has schedules ──
   const scheduleStart = new Date('2026-01-01');
   for (const empId of [e1.id, e2.id, e3.id]) {
-    for (let day = 1; day <= 5; day++) {
-      await prisma.schedule.create({
-        data: {
-          employeeId: empId,
-          dayOfWeek: day,
-          startTime: '09:00',
-          endTime: '17:00',
-          isActive: true,
-          effectiveFrom: scheduleStart,
-        },
-      });
+    const existingSchedules = await prisma.schedule.count({ where: { employeeId: empId } });
+    if (existingSchedules === 0) {
+      for (let day = 1; day <= 5; day++) {
+        await prisma.schedule.create({
+          data: {
+            employeeId: empId,
+            dayOfWeek: day,
+            startTime: '09:00',
+            endTime: '17:00',
+            isActive: true,
+            effectiveFrom: scheduleStart,
+          },
+        });
+      }
     }
   }
   console.log('Created schedules for all employees (Mon-Fri 9am-5pm)');
 
-  // ── Time Records for auto-approval testing ──
+  // ── Time Records for auto-approval testing (skip if already seeded) ──
+  const existingTimeRecords = await prisma.timeRecord.count();
+  if (existingTimeRecords > 0) {
+    console.log(`Skipping time record/scenario seeding — ${existingTimeRecords} records already exist`);
+  } else {
   // All dates are past, >24h since scheduled end, so auto-approval should trigger
   // ABC Corporation (c1) — auto-approve ON
   const timeRecords = [
@@ -751,6 +772,8 @@ async function main() {
     },
   });
   console.log('Created PENDING OT record: Sarah Johnson — Feb 18 (1h OT, for admin "Reject" test)');
+
+  } // end if (existingTimeRecords === 0)
 
   // ── Summary ──
   console.log('\n========================================');
