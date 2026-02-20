@@ -278,11 +278,17 @@ model ClientAgreement {
   // Business Entity Info
   businessName    String?
   businessAddress String?
+  businessCity    String?
+  businessState   String?
+  businessZip     String?
   businessEIN     String?
 
   // Signer Individual Info
   signerName    String?
   signerAddress String?
+  signerCity    String?
+  signerState   String?
+  signerZip     String?
 
   // Payment method: 'credit_card', 'ach', 'both'
   paymentMethod String?
