@@ -10,18 +10,18 @@ const toUTCDate = (date: Date, timeStr: string, timezone: string): Date => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
-  // Build an ISO string in the target timezone using Intl to calculate the offset
-  const localDate = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
+  // Parse as UTC (Z suffix) so the offset calculation works regardless of server timezone
+  const naiveUTC = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`);
 
   try {
     // Get the timezone offset by comparing formatted times
-    const utcStr = localDate.toLocaleString('en-US', { timeZone: 'UTC' });
-    const tzStr = localDate.toLocaleString('en-US', { timeZone: timezone });
+    const utcStr = naiveUTC.toLocaleString('en-US', { timeZone: 'UTC' });
+    const tzStr = naiveUTC.toLocaleString('en-US', { timeZone: timezone });
     const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-    return new Date(localDate.getTime() + offsetMs);
+    return new Date(naiveUTC.getTime() + offsetMs);
   } catch {
     // If timezone is invalid, treat as UTC
-    return localDate;
+    return naiveUTC;
   }
 };
 

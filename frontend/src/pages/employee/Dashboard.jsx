@@ -1779,9 +1779,9 @@ const EmployeeDashboard = () => {
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { value: "15", label: "15 min" },
                       { value: "30", label: "30 min" },
                       { value: "60", label: "1 hour" },
+                      { value: "120", label: "2 hours" },
                       { value: "custom", label: "Custom" },
                     ].map((opt) => (
                       <button

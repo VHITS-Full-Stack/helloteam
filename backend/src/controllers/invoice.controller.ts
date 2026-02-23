@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
+import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
 
 // ============================================
 // PDF GENERATION HELPER
@@ -377,6 +377,45 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
+// Preview: dry-run invoice generation to show what would be created
+export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { year, month, week, frequency = 'monthly' } = req.body;
+
+    let preview;
+    if (frequency === 'weekly') {
+      if (!year || !week || week < 1 || week > 53) {
+        res.status(400).json({ success: false, error: 'Valid year and week (1-53) are required' });
+        return;
+      }
+      preview = await previewWeeklyInvoicesForWeek(year, week);
+    } else {
+      if (!year || !month || month < 1 || month > 12) {
+        res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
+        return;
+      }
+      preview = await previewInvoicesForPeriod(year, month);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        preview,
+        summary: {
+          clientCount: preview.length,
+          totalEstimatedAmount: Math.round(preview.reduce((sum, p) => sum + p.estimatedTotal, 0) * 100) / 100,
+          totalHours: Math.round(preview.reduce((sum, p) => sum + p.totalHours, 0) * 100) / 100,
+          totalOvertimeHours: Math.round(preview.reduce((sum, p) => sum + p.overtimeHours, 0) * 100) / 100,
+          totalLateOtRecords: preview.reduce((sum, p) => sum + p.lateOtRecords, 0),
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Preview invoice generation error:', error);
+    res.status(500).json({ success: false, error: 'Failed to preview invoice generation' });
+  }
+};
+
 // Manual trigger: generate invoices for a specific period
 // Supports both monthly (year + month) and weekly (year + week) frequency
 export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -462,9 +501,17 @@ export const deleteInvoice = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    await prisma.invoice.delete({ where: { id: invoiceId } });
+    // Release time records and delete invoice in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Reset invoiceId on time records so they can be re-invoiced
+      await tx.timeRecord.updateMany({
+        where: { invoiceId },
+        data: { invoiceId: null },
+      });
+      await tx.invoice.delete({ where: { id: invoiceId } });
+    });
 
-    res.json({ success: true, message: 'Invoice deleted' });
+    res.json({ success: true, message: 'Invoice deleted. Time records released for re-invoicing.' });
   } catch (error) {
     console.error('Delete invoice error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete invoice' });

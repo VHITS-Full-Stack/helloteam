@@ -48,6 +48,16 @@ const invoiceService = {
     }
   },
 
+  // Preview invoice generation (dry-run)
+  previewInvoices: async (params = {}) => {
+    try {
+      const response = await api.post('/invoices/generate/preview', params);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to preview invoices' };
+    }
+  },
+
   // Delete a DRAFT invoice
   deleteInvoice: async (invoiceId) => {
     try {

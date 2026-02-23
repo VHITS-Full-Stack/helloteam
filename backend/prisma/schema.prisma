@@ -358,6 +358,7 @@ model ClientPolicy {
   defaultHourlyRate   Decimal @default(0) @db.Decimal(10, 2)
   defaultOvertimeRate Decimal @default(0) @db.Decimal(10, 2) // If 0, uses 1.5x hourly rate
   currency            String  @default("USD")
+  paymentTermsDays    Int     @default(15) // Days after period end for invoice due date
 
   // Leave policy settings
   allowPaidLeave           Boolean                  @default(false)
@@ -1165,6 +1166,7 @@ model InvoiceLineItem {
   rate         Decimal @default(0) @db.Decimal(10, 2)
   overtimeRate Decimal @default(0) @db.Decimal(10, 2)
   amount       Decimal @default(0) @db.Decimal(10, 2)
+  notes        String?
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 

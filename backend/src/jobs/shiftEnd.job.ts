@@ -10,15 +10,16 @@ import type { Server } from 'socket.io';
 const toUTCDate = (date: Date, timeStr: string, timezone: string): Date => {
   const [hours, minutes] = timeStr.split(':').map(Number);
   const dateStr = date.toISOString().split('T')[0];
-  const localDate = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`);
+  // Parse as UTC (Z suffix) so the offset calculation works regardless of server timezone
+  const naiveUTC = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`);
 
   try {
-    const utcStr = localDate.toLocaleString('en-US', { timeZone: 'UTC' });
-    const tzStr = localDate.toLocaleString('en-US', { timeZone: timezone });
+    const utcStr = naiveUTC.toLocaleString('en-US', { timeZone: 'UTC' });
+    const tzStr = naiveUTC.toLocaleString('en-US', { timeZone: timezone });
     const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-    return new Date(localDate.getTime() + offsetMs);
+    return new Date(naiveUTC.getTime() + offsetMs);
   } catch {
-    return localDate;
+    return naiveUTC;
   }
 };
 

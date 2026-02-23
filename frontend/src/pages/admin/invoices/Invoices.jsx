@@ -50,6 +50,9 @@ const Invoices = () => {
     return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   });
   const [generating, setGenerating] = useState(false);
+  const [generateStep, setGenerateStep] = useState('params'); // 'params' | 'preview'
+  const [previewData, setPreviewData] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
 
   // Status update
   const [updatingId, setUpdatingId] = useState(null);
@@ -176,19 +179,43 @@ const Invoices = () => {
     }
   };
 
+  const getGenerateParams = () => {
+    const params = { year: generateYear, frequency: generateFrequency };
+    if (generateFrequency === 'weekly') {
+      params.week = generateWeek;
+    } else {
+      params.month = generateMonth;
+    }
+    return params;
+  };
+
+  const handlePreview = async () => {
+    setPreviewing(true);
+    setError('');
+    try {
+      const response = await invoiceService.previewInvoices(getGenerateParams());
+      if (response.success) {
+        setPreviewData(response.data);
+        setGenerateStep('preview');
+      } else {
+        setError(response.error || 'Failed to preview invoices');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to preview invoices');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
   const handleGenerate = async () => {
     setGenerating(true);
     setError('');
     try {
-      const params = { year: generateYear, frequency: generateFrequency };
-      if (generateFrequency === 'weekly') {
-        params.week = generateWeek;
-      } else {
-        params.month = generateMonth;
-      }
-      const response = await invoiceService.generateInvoices(params);
+      const response = await invoiceService.generateInvoices(getGenerateParams());
       if (response.success) {
         setShowGenerateModal(false);
+        setGenerateStep('params');
+        setPreviewData(null);
         setSuccess(response.message || 'Invoices generated successfully');
         setTimeout(() => setSuccess(''), 5000);
         fetchInvoices();
@@ -499,107 +526,204 @@ const Invoices = () => {
       )}
 
       {/* Generate Invoices Modal */}
-      <Modal isOpen={showGenerateModal} onClose={() => setShowGenerateModal(false)} title="Generate Invoices" size="sm">
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Generate invoices for clients based on approved time records for the selected period.
-          </p>
+      <Modal
+        isOpen={showGenerateModal}
+        onClose={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); }}
+        title={generateStep === 'params' ? 'Generate Invoices' : 'Preview — Invoices to Generate'}
+        size={generateStep === 'params' ? 'sm' : 'md'}
+      >
+        {generateStep === 'params' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Generate invoices for clients based on approved time records for the selected period.
+            </p>
 
-          {/* Frequency Toggle */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
-            <div className="flex rounded-xl border border-gray-200 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setGenerateFrequency('monthly')}
-                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                  generateFrequency === 'monthly'
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Monthly
-              </button>
-              <button
-                type="button"
-                onClick={() => setGenerateFrequency('weekly')}
-                className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
-                  generateFrequency === 'weekly'
-                    ? 'bg-primary text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Weekly
-              </button>
-            </div>
-          </div>
-
-          {generateFrequency === 'monthly' ? (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                <select
-                  value={generateMonth}
-                  onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+            {/* Frequency Toggle */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+              <div className="flex rounded-xl border border-gray-200 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setGenerateFrequency('monthly')}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    generateFrequency === 'monthly'
+                      ? 'bg-primary text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
                 >
-                  {monthNames.map((name, i) => (
-                    <option key={i + 1} value={i + 1}>{name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <input
-                  type="number"
-                  value={generateYear}
-                  onChange={(e) => setGenerateYear(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  min={2020}
-                  max={new Date().getFullYear()}
-                />
+                  Monthly
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGenerateFrequency('weekly')}
+                  className={`flex-1 py-2.5 text-sm font-medium transition-colors ${
+                    generateFrequency === 'weekly'
+                      ? 'bg-primary text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Weekly
+                </button>
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Week Number</label>
-                <input
-                  type="number"
-                  value={generateWeek}
-                  onChange={(e) => setGenerateWeek(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  min={1}
-                  max={53}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                <input
-                  type="number"
-                  value={generateYear}
-                  onChange={(e) => setGenerateYear(parseInt(e.target.value))}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  min={2020}
-                  max={new Date().getFullYear()}
-                />
-              </div>
-            </div>
-          )}
 
-          <p className="text-xs text-gray-400">
-            {generateFrequency === 'monthly'
-              ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
-              : 'Weekly invoices will be generated for Weekly and Bi-Weekly agreement clients only (Mon-Sun period). Existing invoices will be skipped.'
-            }
-          </p>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="ghost" onClick={() => setShowGenerateModal(false)}>Cancel</Button>
-            <Button variant="primary" onClick={handleGenerate} loading={generating}>
-              Generate
-            </Button>
+            {generateFrequency === 'monthly' ? (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                  <select
+                    value={generateMonth}
+                    onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  >
+                    {monthNames.map((name, i) => (
+                      <option key={i + 1} value={i + 1}>{name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                  <input
+                    type="number"
+                    value={generateYear}
+                    onChange={(e) => setGenerateYear(parseInt(e.target.value))}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    min={2020}
+                    max={new Date().getFullYear()}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Week Number</label>
+                  <input
+                    type="number"
+                    value={generateWeek}
+                    onChange={(e) => setGenerateWeek(parseInt(e.target.value))}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    min={1}
+                    max={53}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                  <input
+                    type="number"
+                    value={generateYear}
+                    onChange={(e) => setGenerateYear(parseInt(e.target.value))}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    min={2020}
+                    max={new Date().getFullYear()}
+                  />
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs text-gray-400">
+              {generateFrequency === 'monthly'
+                ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
+                : 'Weekly invoices will be generated for Weekly and Bi-Weekly agreement clients only (Mon-Sun period). Existing invoices will be skipped.'
+              }
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" onClick={() => setShowGenerateModal(false)}>Cancel</Button>
+              <Button variant="primary" icon={Eye} onClick={handlePreview} loading={previewing}>
+                Preview
+              </Button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Summary Stats */}
+            {previewData?.summary && (
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-blue-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-blue-700">{previewData.summary.clientCount}</p>
+                  <p className="text-xs text-blue-600">Clients</p>
+                </div>
+                <div className="bg-green-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-green-700">{Number(previewData.summary.totalHours || 0).toFixed(1)}</p>
+                  <p className="text-xs text-green-600">Total Hours</p>
+                </div>
+                <div className="bg-purple-50 rounded-xl p-3 text-center">
+                  <p className="text-2xl font-bold text-purple-700">{formatCurrency(previewData.summary.totalEstimatedAmount)}</p>
+                  <p className="text-xs text-purple-600">Est. Total</p>
+                </div>
+              </div>
+            )}
+
+            {/* Per-client preview table */}
+            {previewData?.preview?.length > 0 ? (
+              <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Client</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Invoice #</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Employees</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Hours</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Est. Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {previewData.preview.map((item, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-sm text-gray-900">{item.clientName}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600">{item.invoiceNumber}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{item.employeeCount}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.totalHours).toFixed(1)}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right">
+                          {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(1) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
+                          {formatCurrency(item.estimatedTotal, item.currency)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-6 text-center bg-gray-50 rounded-xl">
+                <FileText className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No invoices to generate for this period.</p>
+                <p className="text-xs text-gray-400 mt-1">All clients may already have invoices or have no approved time records.</p>
+              </div>
+            )}
+
+            {/* Late OT warning */}
+            {previewData?.preview?.some(item => item.lateOtRecords > 0) && (
+              <div className="flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+                <AlertCircle className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-orange-700">
+                  Some invoices include late-approved overtime from previous periods. These will be noted on the invoice line items.
+                </p>
+              </div>
+            )}
+
+            <div className="flex justify-between pt-2">
+              <Button variant="ghost" onClick={() => setGenerateStep('params')}>
+                Back
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); }}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  icon={Play}
+                  onClick={handleGenerate}
+                  loading={generating}
+                  disabled={!previewData?.preview?.length}
+                >
+                  Confirm & Generate
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
 
       {/* Invoice Detail Modal */}
@@ -663,7 +787,12 @@ const Invoices = () => {
                     <tbody className="divide-y divide-gray-100">
                       {selectedInvoice.lineItems.map((item) => (
                         <tr key={item.id}>
-                          <td className="px-3 py-2 text-sm text-gray-900">{item.employeeName}</td>
+                          <td className="px-3 py-2">
+                            <span className="text-sm text-gray-900">{item.employeeName}</span>
+                            {item.notes && (
+                              <p className="text-xs text-orange-500 mt-0.5">{item.notes}</p>
+                            )}
+                          </td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(1)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours).toFixed(1)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}/hr</td>

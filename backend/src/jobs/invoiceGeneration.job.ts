@@ -20,6 +20,7 @@ type ClientWithRelations = {
     defaultOvertimeRate: any;
     currency: string;
     notifyInvoice: boolean;
+    paymentTermsDays: number;
   } | null;
   employees: {
     employeeId: string;
@@ -123,8 +124,16 @@ const generateInvoiceForClient = async (
     },
   });
 
+  // Track which previous periods late OT came from, per employee
+  const lateOtByEmployee = new Map<string, string[]>();
   if (lateApprovedOT.length > 0) {
     console.log(`[Invoice] Including ${lateApprovedOT.length} late-approved OT record(s) for ${client.companyName}`);
+    for (const record of lateApprovedOT) {
+      const periods = lateOtByEmployee.get(record.employeeId) || [];
+      const label = new Date(record.date).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      if (!periods.includes(label)) periods.push(label);
+      lateOtByEmployee.set(record.employeeId, periods);
+    }
   }
 
   // Merge both sets
@@ -178,6 +187,7 @@ const generateInvoiceForClient = async (
     rate: number;
     overtimeRate: number;
     amount: number;
+    notes: string | null;
   }[] = [];
 
   for (const [empId, agg] of employeeAgg) {
@@ -193,6 +203,12 @@ const generateInvoiceForClient = async (
     totalOTHoursAll += otHours;
     subtotal += lineAmount;
 
+    // Annotate if this employee has late-approved OT from previous periods
+    const lateOtPeriods = lateOtByEmployee.get(empId);
+    const lineNotes = lateOtPeriods?.length
+      ? `Includes late-approved OT from: ${lateOtPeriods.join(', ')}`
+      : null;
+
     lineItemsData.push({
       employeeId: empId,
       employeeName: agg.employeeName,
@@ -201,7 +217,19 @@ const generateInvoiceForClient = async (
       rate: rates.hourlyRate,
       overtimeRate: rates.overtimeRate,
       amount: Math.round(lineAmount * 100) / 100,
+      notes: lineNotes,
     });
+  }
+
+  // Build invoice-level notes for late OT audit trail
+  let invoiceNotes: string | null = null;
+  if (lateOtByEmployee.size > 0) {
+    const summaries: string[] = [];
+    for (const [empId, periods] of lateOtByEmployee) {
+      const empName = employeeAgg.get(empId)?.employeeName || 'Unknown';
+      summaries.push(`${empName}: ${periods.join(', ')}`);
+    }
+    invoiceNotes = `Late-approved OT included from previous periods:\n${summaries.join('\n')}`;
   }
 
   // Create invoice with line items and mark time records as invoiced — all in one transaction
@@ -219,6 +247,7 @@ const generateInvoiceForClient = async (
         currency,
         status: 'DRAFT',
         dueDate,
+        notes: invoiceNotes,
         lineItems: {
           create: lineItemsData,
         },
@@ -319,7 +348,6 @@ export const generateInvoicesForPeriod = async (
   try {
     const periodStart = new Date(Date.UTC(year, month - 1, 1));
     const periodEnd = new Date(Date.UTC(year, month, 0)); // Last day of month
-    const dueDate = new Date(Date.UTC(year, month, 15)); // Due 15th of next month
 
     // Only monthly clients (MONTHLY or null/unset — backward compatible)
     const clients = await prisma.client.findMany({
@@ -342,6 +370,11 @@ export const generateInvoicesForPeriod = async (
         const monthStr = String(month).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const invoiceNumber = `INV-${year}-${monthStr}-${clientPrefix}`;
+
+        // Per-client due date based on payment terms
+        const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
+        const dueDate = new Date(periodEnd);
+        dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
 
         const success = await generateInvoiceForClient(
           client as any,
@@ -387,9 +420,6 @@ export const generateWeeklyInvoicesForWeek = async (
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
 
-    const dueDate = new Date(sunday);
-    dueDate.setUTCDate(sunday.getUTCDate() + 7); // Due 7 days after period end
-
     // Only weekly and bi-weekly clients
     const clients = await prisma.client.findMany({
       where: {
@@ -417,6 +447,11 @@ export const generateWeeklyInvoicesForWeek = async (
         const weekStr = String(week).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
+
+        // Per-client due date based on payment terms
+        const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 7;
+        const dueDate = new Date(sunday);
+        dueDate.setUTCDate(sunday.getUTCDate() + paymentTermsDays);
 
         const success = await generateInvoiceForClient(
           client as any,
@@ -470,4 +505,187 @@ export const runMonthlyInvoiceGeneration = async (io?: Server): Promise<void> =>
   console.log(`[Invoice] Starting monthly invoice generation for ${year}-${String(month).padStart(2, '0')}`);
   const result = await generateInvoicesForPeriod(year, month, io);
   console.log(`[Invoice] Monthly completed: ${result.generated} invoices generated, ${result.errors.length} errors`);
+};
+
+// ============================================
+// PREVIEW / DRY-RUN
+// ============================================
+
+export interface InvoicePreviewItem {
+  clientName: string;
+  invoiceNumber: string;
+  employeeCount: number;
+  totalHours: number;
+  overtimeHours: number;
+  estimatedTotal: number;
+  lateOtRecords: number;
+  currency: string;
+}
+
+/**
+ * Preview helper: aggregates data for a single client without creating anything.
+ */
+const previewInvoiceForClient = async (
+  client: ClientWithRelations,
+  periodStart: Date,
+  periodEnd: Date,
+  invoiceNumber: string,
+): Promise<InvoicePreviewItem | null> => {
+  // Skip if invoice already exists
+  const existing = await prisma.invoice.findUnique({ where: { invoiceNumber } });
+  if (existing) return null;
+
+  // Same queries as generateInvoiceForClient
+  const timeRecords = await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      date: { gte: periodStart, lte: periodEnd },
+      invoiceId: null,
+    },
+    include: { employee: { select: { id: true, firstName: true, lastName: true } } },
+  });
+
+  const lateApprovedOT = await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      overtimeMinutes: { gt: 0 },
+      invoiceId: null,
+      date: { lt: periodStart },
+    },
+  });
+
+  const allRecords = [...timeRecords, ...lateApprovedOT];
+  if (allRecords.length === 0) return null;
+
+  // Aggregate
+  const employeeIds = new Set<string>();
+  let totalMinutes = 0;
+  let otMinutes = 0;
+
+  for (const record of allRecords) {
+    employeeIds.add(record.employeeId);
+    totalMinutes += record.totalMinutes || 0;
+    otMinutes += record.overtimeMinutes || 0;
+  }
+
+  // Calculate estimated total using per-employee rates
+  const policy = client.clientPolicies;
+  const defaultHourlyRate = policy ? Number(policy.defaultHourlyRate) : 0;
+  const defaultOTRate = policy
+    ? Number(policy.defaultOvertimeRate) > 0
+      ? Number(policy.defaultOvertimeRate)
+      : defaultHourlyRate * 1.5
+    : 0;
+
+  const empRateMap = new Map<string, { hourlyRate: number; overtimeRate: number }>();
+  for (const ce of client.employees) {
+    const hr = ce.hourlyRate ? Number(ce.hourlyRate) : defaultHourlyRate;
+    const otr = ce.overtimeRate ? Number(ce.overtimeRate) : hr > 0 ? hr * 1.5 : defaultOTRate;
+    empRateMap.set(ce.employeeId, { hourlyRate: hr, overtimeRate: otr });
+  }
+
+  // Per-employee aggregation for accurate rate calculation
+  const empAgg = new Map<string, { totalMin: number; otMin: number }>();
+  for (const record of allRecords) {
+    const agg = empAgg.get(record.employeeId) || { totalMin: 0, otMin: 0 };
+    agg.totalMin += record.totalMinutes || 0;
+    agg.otMin += record.overtimeMinutes || 0;
+    empAgg.set(record.employeeId, agg);
+  }
+
+  let estimatedTotal = 0;
+  for (const [empId, agg] of empAgg) {
+    const rates = empRateMap.get(empId) || { hourlyRate: defaultHourlyRate, overtimeRate: defaultOTRate };
+    estimatedTotal += (agg.totalMin / 60) * rates.hourlyRate + (agg.otMin / 60) * rates.overtimeRate;
+  }
+
+  return {
+    clientName: client.companyName,
+    invoiceNumber,
+    employeeCount: employeeIds.size,
+    totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+    overtimeHours: Math.round((otMinutes / 60) * 100) / 100,
+    estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+    lateOtRecords: lateApprovedOT.length,
+    currency: policy?.currency || 'USD',
+  };
+};
+
+/**
+ * Preview monthly invoice generation (dry run).
+ */
+export const previewInvoicesForPeriod = async (
+  year: number,
+  month: number,
+): Promise<InvoicePreviewItem[]> => {
+  const periodStart = new Date(Date.UTC(year, month - 1, 1));
+  const periodEnd = new Date(Date.UTC(year, month, 0));
+
+  const clients = await prisma.client.findMany({
+    where: {
+      user: { status: 'ACTIVE' },
+      agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
+    },
+    include: {
+      clientPolicies: true,
+      user: { select: { id: true, email: true } },
+      employees: {
+        where: { isActive: true },
+        select: { employeeId: true, hourlyRate: true, overtimeRate: true },
+      },
+    },
+  });
+
+  const previews: InvoicePreviewItem[] = [];
+  for (const client of clients) {
+    const monthStr = String(month).padStart(2, '0');
+    const clientPrefix = client.id.substring(0, 6).toUpperCase();
+    const invoiceNumber = `INV-${year}-${monthStr}-${clientPrefix}`;
+
+    const preview = await previewInvoiceForClient(client as any, periodStart, periodEnd, invoiceNumber);
+    if (preview) previews.push(preview);
+  }
+  return previews;
+};
+
+/**
+ * Preview weekly invoice generation (dry run).
+ */
+export const previewWeeklyInvoicesForWeek = async (
+  year: number,
+  week: number,
+): Promise<InvoicePreviewItem[]> => {
+  const monday = getMondayOfISOWeek(year, week);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+
+  const clients = await prisma.client.findMany({
+    where: {
+      user: { status: 'ACTIVE' },
+      agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
+    },
+    include: {
+      clientPolicies: true,
+      user: { select: { id: true, email: true } },
+      employees: {
+        where: { isActive: true },
+        select: { employeeId: true, hourlyRate: true, overtimeRate: true },
+      },
+    },
+  });
+
+  const previews: InvoicePreviewItem[] = [];
+  for (const client of clients) {
+    if (client.agreementType === 'BI_WEEKLY' && week % 2 !== 0) continue;
+
+    const weekStr = String(week).padStart(2, '0');
+    const clientPrefix = client.id.substring(0, 6).toUpperCase();
+    const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
+
+    const preview = await previewInvoiceForClient(client as any, monday, sunday, invoiceNumber);
+    if (preview) previews.push(preview);
+  }
+  return previews;
 };

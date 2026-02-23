@@ -5,6 +5,7 @@ import {
   getInvoiceById,
   updateInvoiceStatus,
   triggerInvoiceGeneration,
+  previewInvoiceGeneration,
   deleteInvoice,
   downloadInvoicePdf,
 } from '../controllers/invoice.controller';
@@ -24,6 +25,9 @@ router.get('/:invoiceId', authenticate, authorize(...adminRoles), getInvoiceById
 
 // Update invoice status
 router.put('/:invoiceId/status', authenticate, authorize(...adminRoles), updateInvoiceStatus);
+
+// Preview: dry-run invoice generation (must be before /generate to avoid conflict)
+router.post('/generate/preview', authenticate, authorize('SUPER_ADMIN', 'ADMIN'), previewInvoiceGeneration);
 
 // Manual trigger: generate invoices for a period
 router.post('/generate', authenticate, authorize('SUPER_ADMIN', 'ADMIN'), triggerInvoiceGeneration);
