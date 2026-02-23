@@ -507,6 +507,9 @@ const TimeRecords = () => {
                       Time in - out
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      Arrival
+                    </th>
+                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Duration
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -556,6 +559,25 @@ const TimeRecords = () => {
                               'Manual'
                             )}
                           </span>
+                        )}
+                      </td>
+
+                      {/* Arrival Status */}
+                      <td className="py-3 px-4">
+                        {session.arrivalStatus === 'Late' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
+                            Late{session.lateMinutes ? ` (${session.lateMinutes >= 60 ? `${Math.floor(session.lateMinutes / 60)}h ${session.lateMinutes % 60}m` : `${session.lateMinutes}m`})` : ''}
+                          </span>
+                        ) : session.arrivalStatus === 'On Time' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                            On Time
+                          </span>
+                        ) : session.arrivalStatus === 'Early' ? (
+                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
+                            Early
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
                         )}
                       </td>
 
@@ -664,7 +686,7 @@ const TimeRecords = () => {
                     {/* Revision requested banner */}
                     {session.approvalStatus === 'REVISION_REQUESTED' && (
                       <tr className="bg-amber-50 border-b border-amber-100">
-                        <td colSpan={7} className="px-4 py-2">
+                        <td colSpan={8} className="px-4 py-2">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-amber-700">
                               <AlertCircle className="w-4 h-4 flex-shrink-0" />

@@ -545,7 +545,19 @@ const TimeRecords = () => {
                                         {formatDate(day.date)}
                                       </div>
                                       <div className="col-span-2 text-gray-600">
-                                        {day.clockIn || '-'}
+                                        <div className="flex items-center gap-1.5">
+                                          {day.clockIn || '-'}
+                                          {day.arrivalStatus === 'Late' && (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700">
+                                              Late{day.lateMinutes ? ` ${day.lateMinutes >= 60 ? `${Math.floor(day.lateMinutes / 60)}h ${day.lateMinutes % 60}m` : `${day.lateMinutes}m`}` : ''}
+                                            </span>
+                                          )}
+                                          {day.arrivalStatus === 'Early' && (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700">
+                                              Early
+                                            </span>
+                                          )}
+                                        </div>
                                       </div>
                                       <div className="col-span-2 text-gray-600">
                                         {day.clockOut || (

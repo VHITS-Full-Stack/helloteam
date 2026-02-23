@@ -296,7 +296,10 @@ model ClientAgreement {
   // Credit Card (Exhibit B Section 1)
   ccCardholderName String?
   ccBillingAddress String?
-  ccCityStateZip   String?
+  ccCityStateZip   String?   // deprecated: kept for backward compat
+  ccCity           String?
+  ccState          String?
+  ccZip            String?
   ccCardType       String?
   ccCardNumber     String?
   ccExpiration     String?
@@ -440,6 +443,8 @@ model WorkSession {
   totalBreakMinutes    Int               @default(0)
   notes                String?
   ipAddress            String? // IP address at clock in
+  arrivalStatus        String? // 'Early', 'On Time', 'Late', 'No Schedule'
+  lateMinutes          Int? // Minutes late (null if not late)
   shiftEndNotifiedAt   DateTime? // When the 5-min shift-ending warning was sent
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt

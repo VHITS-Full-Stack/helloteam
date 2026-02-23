@@ -664,6 +664,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         breaks: breakHours,
         status: recordStatus,
         notes: daySessions.map(s => s.notes).filter(Boolean).join('; ') || null,
+        arrivalStatus: firstSession.arrivalStatus || null,
+        lateMinutes: firstSession.lateMinutes || null,
       });
     }
 
@@ -704,6 +706,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         breaks: record.breaks,
         status: record.status,
         notes: record.notes,
+        arrivalStatus: record.arrivalStatus,
+        lateMinutes: record.lateMinutes,
       });
     }
 

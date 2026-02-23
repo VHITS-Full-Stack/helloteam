@@ -33,6 +33,9 @@ const Onboarding = () => {
     businessCity: '',
     businessState: '',
     businessZip: '',
+    ccCity: '',
+    ccState: '',
+    ccZip: '',
     businessEIN: '',
     signerName: '',
     signerAddress: '',
@@ -95,6 +98,9 @@ const Onboarding = () => {
             ccCardholderName: a.ccCardholderName || '',
             ccBillingAddress: a.ccBillingAddress || '',
             ccCityStateZip: a.ccCityStateZip || '',
+            ccCity: a.ccCity || '',
+            ccState: a.ccState || '',
+            ccZip: a.ccZip || '',
             ccCardType: a.ccCardType || '',
             ccCardNumber: a.ccCardNumber || '',
             ccExpiration: a.ccExpiration || '',
@@ -155,9 +161,6 @@ const Onboarding = () => {
   const validateStep1 = () => {
     if (!formData.businessName.trim()) return 'Business name is required';
     if (!formData.businessAddress.trim()) return 'Business street address is required';
-    if (!formData.businessCity.trim()) return 'Business city is required';
-    if (!formData.businessState.trim()) return 'Business state is required';
-    if (!formData.businessZip.trim()) return 'Business zip code is required';
     if (!formData.businessEIN.trim()) return 'Business EIN is required';
     if (!formData.signerName.trim()) return 'Signer name is required';
     if (!formData.signerAddress.trim()) return 'Signer address is required';
@@ -172,7 +175,9 @@ const Onboarding = () => {
     if (pm === 'credit_card' || pm === 'both') {
       if (!formData.ccCardholderName.trim()) return 'Cardholder name is required';
       if (!formData.ccBillingAddress.trim()) return 'Billing address is required';
-      if (!formData.ccCityStateZip.trim()) return 'City/State/Zip is required';
+      if (!formData.ccCity.trim()) return 'City is required';
+      if (!formData.ccState.trim()) return 'State is required';
+      if (!formData.ccZip.trim()) return 'Zip code is required';
       if (!formData.ccCardType) return 'Please select a card type';
       if (!formData.ccCardNumber.trim()) return 'Card number is required';
       if (!formData.ccExpiration.trim()) return 'Expiration date is required';
@@ -213,6 +218,9 @@ const Onboarding = () => {
           ccCardholderName: formData.ccCardholderName,
           ccBillingAddress: formData.ccBillingAddress,
           ccCityStateZip: formData.ccCityStateZip,
+          ccCity: formData.ccCity,
+          ccState: formData.ccState,
+          ccZip: formData.ccZip,
           ccCardType: formData.ccCardType,
           ccCardNumber: formData.ccCardNumber,
           ccExpiration: formData.ccExpiration,
@@ -588,45 +596,6 @@ const Onboarding = () => {
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.businessCity}
-                    onChange={(e) => updateField('businessCity', e.target.value)}
-                    placeholder="City"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.businessState}
-                    onChange={(e) => updateField('businessState', e.target.value)}
-                    placeholder="State"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Zip Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.businessZip}
-                    onChange={(e) => updateField('businessZip', e.target.value)}
-                    placeholder="Zip"
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  />
-                </div>
-              </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Business EIN <span className="text-red-500">*</span>
@@ -749,17 +718,43 @@ const Onboarding = () => {
                       className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-white"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City, State, Zip <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.ccCityStateZip}
-                      onChange={(e) => updateField('ccCityStateZip', e.target.value)}
-                      placeholder="City, ST 12345"
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-white"
-                    />
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        City <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ccCity}
+                        onChange={(e) => updateField('ccCity', e.target.value)}
+                        placeholder="City"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        State <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ccState}
+                        onChange={(e) => updateField('ccState', e.target.value)}
+                        placeholder="State"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Zip Code <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.ccZip}
+                        onChange={(e) => updateField('ccZip', e.target.value)}
+                        placeholder="Zip"
+                        className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+                      />
+                    </div>
                   </div>
 
                   {/* Card Type */}

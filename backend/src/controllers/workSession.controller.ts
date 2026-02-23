@@ -279,6 +279,24 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       }
     }
 
+    // Calculate arrival status using client timezone (before creating session so we can store it)
+    let arrivalStatus = 'No Schedule';
+    let lateMinutes: number | null = null;
+    if (schedule) {
+      const [scheduleHour, scheduleMinute] = schedule.startTime.split(':').map(Number);
+      const scheduledStartMinutes = scheduleHour * 60 + scheduleMinute;
+      const timeDiffMinutes = nowTotalMinutes - scheduledStartMinutes;
+
+      if (timeDiffMinutes < 0) {
+        arrivalStatus = 'Early';
+      } else if (timeDiffMinutes <= 5) {
+        arrivalStatus = 'On Time';
+      } else {
+        arrivalStatus = 'Late';
+        lateMinutes = timeDiffMinutes;
+      }
+    }
+
     // Get client IP
     const clientIp = getClientIp(req);
 
@@ -295,6 +313,8 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         startTime: new Date(),
         status: 'ACTIVE',
         ipAddress: clientIp,
+        arrivalStatus,
+        lateMinutes,
       },
       include: {
         breaks: true,
@@ -312,22 +332,6 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       clientIp,
       { email: user?.email, customer: clientAssignment?.client?.companyName }
     );
-
-    // Calculate arrival status using client timezone
-    let arrivalStatus = 'No Schedule';
-    if (schedule) {
-      const [scheduleHour, scheduleMinute] = schedule.startTime.split(':').map(Number);
-      const scheduledStartMinutes = scheduleHour * 60 + scheduleMinute;
-      const timeDiffMinutes = nowTotalMinutes - scheduledStartMinutes;
-
-      if (timeDiffMinutes < 0) {
-        arrivalStatus = 'Early';
-      } else if (timeDiffMinutes <= 5) {
-        arrivalStatus = 'On Time';
-      } else {
-        arrivalStatus = 'Late';
-      }
-    }
 
     res.status(201).json({
       success: true,

@@ -109,6 +109,9 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
               ccCardholderName: client.agreement.ccCardholderName,
               ccBillingAddress: client.agreement.ccBillingAddress,
               ccCityStateZip: client.agreement.ccCityStateZip,
+              ccCity: client.agreement.ccCity,
+              ccState: client.agreement.ccState,
+              ccZip: client.agreement.ccZip,
               ccCardType: client.agreement.ccCardType,
               ccCardNumber: client.agreement.ccCardNumber,
               ccExpiration: client.agreement.ccExpiration,
@@ -198,6 +201,9 @@ async function fillPdfWithData(
     ccCardholderName?: string | null;
     ccBillingAddress?: string | null;
     ccCityStateZip?: string | null;
+    ccCity?: string | null;
+    ccState?: string | null;
+    ccZip?: string | null;
     ccCardType?: string | null;
     ccCardNumber?: string | null;
     ccExpiration?: string | null;
@@ -293,7 +299,9 @@ async function fillPdfWithData(
   if (pm === 'credit_card' || pm === 'both') {
     drawText('ccCardholderName', data.ccCardholderName);
     drawText('ccBillingAddress', data.ccBillingAddress);
-    drawText('ccCityStateZip', data.ccCityStateZip);
+    drawText('ccCityStateZip', data.ccCity && data.ccState && data.ccZip
+      ? `${data.ccCity}, ${data.ccState} ${data.ccZip}`
+      : data.ccCityStateZip);
     drawText('ccCardNumber', data.ccCardNumber);
     drawText('ccExpiration', data.ccExpiration);
     drawText('ccCVV', data.ccCVV);
@@ -363,7 +371,7 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       businessName, businessAddress, businessCity, businessState, businessZip, businessEIN,
       signerName, signerAddress,
       paymentMethod,
-      ccCardholderName, ccBillingAddress, ccCityStateZip, ccCardType,
+      ccCardholderName, ccBillingAddress, ccCityStateZip, ccCity, ccState, ccZip, ccCardType,
       ccCardNumber, ccExpiration, ccCVV,
       achAccountHolder, achBankName, achRoutingNumber, achAccountNumber, achAccountType,
     } = req.body;
@@ -422,6 +430,9 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       updateData.ccCardholderName = ccCardholderName?.trim() || null;
       updateData.ccBillingAddress = ccBillingAddress?.trim() || null;
       updateData.ccCityStateZip = ccCityStateZip?.trim() || null;
+      updateData.ccCity = ccCity?.trim() || null;
+      updateData.ccState = ccState?.trim() || null;
+      updateData.ccZip = ccZip?.trim() || null;
       updateData.ccCardType = ccCardType || null;
       updateData.ccCardNumber = ccCardNumber?.trim() || null;
       updateData.ccExpiration = ccExpiration?.trim() || null;
@@ -519,6 +530,9 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
       ccCardholderName: agreement?.ccCardholderName,
       ccBillingAddress: agreement?.ccBillingAddress,
       ccCityStateZip: agreement?.ccCityStateZip,
+      ccCity: agreement?.ccCity,
+      ccState: agreement?.ccState,
+      ccZip: agreement?.ccZip,
       ccCardType: agreement?.ccCardType,
       ccCardNumber: agreement?.ccCardNumber,
       ccExpiration: agreement?.ccExpiration,
@@ -635,6 +649,9 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
           ccCardholderName: agreement?.ccCardholderName,
           ccBillingAddress: agreement?.ccBillingAddress,
           ccCityStateZip: agreement?.ccCityStateZip,
+          ccCity: agreement?.ccCity,
+          ccState: agreement?.ccState,
+          ccZip: agreement?.ccZip,
           ccCardType: agreement?.ccCardType,
           ccCardNumber: agreement?.ccCardNumber,
           ccExpiration: agreement?.ccExpiration,
