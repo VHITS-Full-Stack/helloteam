@@ -38,8 +38,22 @@ const buildInvoicePdf = async (invoice: any): Promise<Uint8Array> => {
   const margin = 50;
   const contentWidth = pageWidth - margin * 2;
 
-  const page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - margin;
+
+  // Helper to add a new page and reset y position
+  const addNewPage = () => {
+    page = pdfDoc.addPage([pageWidth, pageHeight]);
+    y = pageHeight - margin;
+    // Add a subtle header on continuation pages
+    page.drawText('HelloTeam', { x: margin, y, size: 14, font: fontBold, color: rgb(0.2, 0.4, 0.8) });
+    page.drawText(`Invoice ${invoice.invoiceNumber} (continued)`, {
+      x: margin + 80, y, size: 10, font, color: rgb(0.5, 0.5, 0.5),
+    });
+    y -= 15;
+    drawLine(page, margin, y, contentWidth, rgb(0.2, 0.4, 0.8));
+    y -= 25;
+  };
 
   // --- Header ---
   page.drawText('HelloTeam', { x: margin, y, size: 24, font: fontBold, color: rgb(0.2, 0.4, 0.8) });
@@ -139,10 +153,17 @@ const buildInvoicePdf = async (invoice: any): Promise<Uint8Array> => {
 
     y -= 18;
 
-    // Add new page if running out of space
-    if (y < 120) {
-      // We'll handle multi-page in a simple way - just continue on same page for now
-      // Most invoices won't exceed one page
+    // Add new page if running out of space (reserve space for totals + footer)
+    if (y < 120 && idx < lineItems.length - 1) {
+      addNewPage();
+
+      // Re-draw table header on new page
+      page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 20, color: rgb(0.93, 0.93, 0.95) });
+      for (let i = 0; i < colLabels.length; i++) {
+        const align = i === 0 ? colX[i] + 5 : colX[i];
+        page.drawText(colLabels[i], { x: align, y: y, size: 8, font: fontBold, color: rgb(0.3, 0.3, 0.3) });
+      }
+      y -= 22;
     }
   }
 
@@ -219,25 +240,44 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
     if (clientId) where.clientId = clientId;
     if (status && status !== 'all') where.status = status.toUpperCase();
 
-    const [invoices, total] = await Promise.all([
+    // Build a base where clause without status for aggregate stats
+    const baseWhere: any = {};
+    if (clientId) baseWhere.clientId = clientId;
+
+    const [invoices, total, aggregateStats] = await Promise.all([
       prisma.invoice.findMany({
         where,
         include: {
           client: { select: { companyName: true, contactPerson: true } },
-          lineItems: true,
         },
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
       prisma.invoice.count({ where }),
+      // Aggregate stats across ALL invoices (respecting client filter but not status/pagination)
+      prisma.invoice.groupBy({
+        by: ['status'],
+        where: baseWhere,
+        _sum: { total: true },
+        _count: true,
+      }),
     ]);
+
+    // Compute stats from aggregate data
+    const statsFromDb = {
+      total: aggregateStats.reduce((sum, g) => sum + g._count, 0),
+      draft: aggregateStats.find(g => g.status === 'DRAFT')?._count || 0,
+      totalAmount: aggregateStats.reduce((sum, g) => sum + (Number(g._sum.total) || 0), 0),
+      paidAmount: Number(aggregateStats.find(g => g.status === 'PAID')?._sum.total || 0),
+    };
 
     res.json({
       success: true,
       data: {
         invoices,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        stats: statsFromDb,
       },
     });
   } catch (error) {
@@ -297,6 +337,24 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
     const invoice = await prisma.invoice.findUnique({ where: { id: invoiceId } });
     if (!invoice) {
       res.status(404).json({ success: false, error: 'Invoice not found' });
+      return;
+    }
+
+    // Enforce valid status transitions
+    const allowedTransitions: Record<string, string[]> = {
+      DRAFT: ['SENT', 'CANCELLED'],
+      SENT: ['PAID', 'OVERDUE', 'CANCELLED'],
+      OVERDUE: ['PAID', 'CANCELLED'],
+      PAID: [],       // Final state - no transitions allowed
+      CANCELLED: [],  // Final state - no transitions allowed
+    };
+
+    const allowed = allowedTransitions[invoice.status] || [];
+    if (!allowed.includes(status.toUpperCase())) {
+      res.status(400).json({
+        success: false,
+        error: `Cannot change status from ${invoice.status} to ${status.toUpperCase()}. Allowed transitions: ${allowed.length > 0 ? allowed.join(', ') : 'none (final state)'}`,
+      });
       return;
     }
 

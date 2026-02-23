@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import { CreditCard, Download, FileText, Calendar, DollarSign, Clock, TrendingUp, Loader2, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   Card,
@@ -89,8 +89,8 @@ const Billing = () => {
     ]);
 
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
+      headers.map(h => `"${h}"`).join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -269,8 +269,8 @@ const Billing = () => {
               </TableHead>
               <TableBody>
                 {invoices.map((invoice) => (
-                  <>
-                    <TableRow key={invoice.id}>
+                  <Fragment key={invoice.id}>
+                    <TableRow>
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-gray-100 rounded-lg">
@@ -325,7 +325,7 @@ const Billing = () => {
                     </TableRow>
                     {/* Expanded line items */}
                     {expandedInvoice === invoice.id && invoice.lineItems && (
-                      <tr key={`${invoice.id}-details`}>
+                      <tr>
                         <td colSpan={7} className="px-4 py-3 bg-gray-50">
                           <div className="ml-12">
                             <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Line Items</p>
@@ -357,7 +357,7 @@ const Billing = () => {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
               </TableBody>
             </Table>
@@ -374,26 +374,14 @@ const Billing = () => {
       {activeTab === 'payment' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Payment Method</h3>
-            <div className="p-4 bg-gray-50 rounded-xl flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-white rounded-lg shadow-sm">
-                  <CreditCard className="w-6 h-6 text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">
-                    Credit Card ending in ****
-                  </p>
-                  <p className="text-sm text-gray-500">Contact support to update</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="sm">
-                Edit
-              </Button>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Payment Method</h3>
+            <div className="p-6 bg-gray-50 rounded-xl text-center">
+              <CreditCard className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="font-medium text-gray-900">Coming Soon</p>
+              <p className="text-sm text-gray-500 mt-1">
+                Online payment management will be available soon. Please contact support to update your payment method.
+              </p>
             </div>
-            <Button variant="outline" className="w-full mt-4">
-              Add New Payment Method
-            </Button>
           </Card>
 
           <Card>
@@ -411,9 +399,6 @@ const Billing = () => {
                 </p>
               )}
             </div>
-            <Button variant="ghost" className="w-full mt-4">
-              Update Address
-            </Button>
           </Card>
         </div>
       )}

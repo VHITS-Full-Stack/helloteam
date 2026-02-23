@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import {
   Search,
   Filter,
   TrendingUp,
   TrendingDown,
   ChevronDown,
+  ChevronRight,
   Loader2,
   DollarSign,
   Calendar,
   Users,
+  Building2,
   ArrowUpRight,
   ArrowDownRight,
   Minus,
@@ -171,30 +173,88 @@ const BillingHistory = () => {
     return `${(firstName || '')[0] || ''}${(lastName || '')[0] || ''}`.toUpperCase();
   };
 
-  const exportHistory = () => {
-    const headers = ['Date', 'Employee', 'Client', 'Rate Type', 'Old Rate', 'New Rate', 'Changed By'];
-    const rows = history.map(h => [
-      formatDateTime(h.changeDate),
-      `${h.employee?.firstName || ''} ${h.employee?.lastName || ''}`.trim(),
-      h.clientName || 'Base Rate',
-      h.rateType,
-      formatRate(h.oldValue),
-      formatRate(h.newValue),
-      h.changedByName || 'Unknown',
-    ]);
+  // Group records by client
+  const groupedHistory = useMemo(() => {
+    const groups = {};
+    for (const record of history) {
+      const clientName = record.clientName || 'Unassigned';
+      if (!groups[clientName]) {
+        groups[clientName] = [];
+      }
+      groups[clientName].push(record);
+    }
+    // Sort client names alphabetically, but put 'Unassigned' last
+    return Object.entries(groups).sort(([a], [b]) => {
+      if (a === 'Unassigned') return 1;
+      if (b === 'Unassigned') return -1;
+      return a.localeCompare(b);
+    });
+  }, [history]);
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(',')),
-    ].join('\n');
+  const [collapsedClients, setCollapsedClients] = useState({});
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `billing-history-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+  const toggleClient = (clientName) => {
+    setCollapsedClients(prev => ({ ...prev, [clientName]: !prev[clientName] }));
+  };
+
+  const [exporting, setExporting] = useState(false);
+
+  const exportHistory = async () => {
+    setExporting(true);
+    try {
+      // Fetch all records matching current filters (not just current page)
+      const response = await rateHistoryService.getRateHistory({
+        page: 1,
+        limit: 10000,
+        search: debouncedSearch || undefined,
+        rateType: rateTypeFilter || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+      });
+
+      const allRecords = response.success ? (response.data.history || []) : history;
+
+      // Sort by client name so records for the same client are grouped together
+      const sortedRecords = [...allRecords].sort((a, b) => {
+        const clientA = (a.clientName || 'Base Rate').toLowerCase();
+        const clientB = (b.clientName || 'Base Rate').toLowerCase();
+        if (clientA !== clientB) return clientA.localeCompare(clientB);
+        // Within same client, sort by employee name
+        const empA = `${a.employee?.firstName || ''} ${a.employee?.lastName || ''}`.trim().toLowerCase();
+        const empB = `${b.employee?.firstName || ''} ${b.employee?.lastName || ''}`.trim().toLowerCase();
+        if (empA !== empB) return empA.localeCompare(empB);
+        // Within same employee, sort by date (newest first)
+        return new Date(b.changeDate) - new Date(a.changeDate);
+      });
+
+      const headers = ['Client', 'Employee', 'Rate Type', 'Old Rate', 'New Rate', 'Changed By', 'Date'];
+      const rows = sortedRecords.map(h => [
+        h.clientName || 'Base Rate',
+        `${h.employee?.firstName || ''} ${h.employee?.lastName || ''}`.trim(),
+        h.rateType,
+        formatRate(h.oldValue),
+        formatRate(h.newValue),
+        h.changedByName || 'Unknown',
+        formatDateTime(h.changeDate),
+      ]);
+
+      const csvContent = [
+        headers.map(h => `"${h}"`).join(','),
+        ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `billing-history-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setError('Failed to export CSV');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -208,10 +268,11 @@ const BillingHistory = () => {
         <div className="flex gap-3">
           <Button
             variant="ghost"
-            icon={Download}
+            icon={exporting ? Loader2 : Download}
             onClick={exportHistory}
+            disabled={exporting}
           >
-            Export CSV
+            {exporting ? 'Exporting...' : 'Export CSV'}
           </Button>
           <Button
             variant="ghost"
@@ -335,96 +396,116 @@ const BillingHistory = () => {
         </div>
       )}
 
-      {/* History Table */}
-      <Card padding="none">
-        {loading ? (
+      {/* History Table - Grouped by Client */}
+      {loading ? (
+        <Card padding="none">
           <div className="flex items-center justify-center p-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : history.length > 0 ? (
-          <>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader>Client</TableHeader>
-                  <TableHeader>Rate Type</TableHeader>
-                  <TableHeader>Old Rate</TableHeader>
-                  <TableHeader>New Rate</TableHeader>
-                  <TableHeader>Change</TableHeader>
-                  <TableHeader>Changed By</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {history.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      <span className="text-sm text-gray-600">{formatDateTime(record.changeDate)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-xs font-medium text-primary-700">
-                          {getInitials(record.employee?.firstName, record.employee?.lastName)}
-                        </div>
-                        <span className="text-sm font-medium">
-                          {record.employee?.firstName} {record.employee?.lastName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-600">
-                        {record.clientName || (
-                          <span className="text-gray-400 italic">Base Rate</span>
-                        )}
-                      </span>
-                    </TableCell>
-                    <TableCell>{getRateTypeBadge(record.rateType)}</TableCell>
-                    <TableCell>
-                      <span className="text-sm font-mono text-gray-600">{formatRate(record.oldValue)}</span>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-mono font-medium">{formatRate(record.newValue)}</span>
-                    </TableCell>
-                    <TableCell>
-                      {getChangeIndicator(record.oldValue, record.newValue)}
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-600">{record.changedByName || 'Unknown'}</span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        </Card>
+      ) : groupedHistory.length > 0 ? (
+        <>
+          <div className="space-y-4">
+            {groupedHistory.map(([clientName, records]) => (
+              <Card key={clientName} padding="none">
+                {/* Client Header */}
+                <button
+                  onClick={() => toggleClient(clientName)}
+                  className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors rounded-t-xl"
+                >
+                  <div className="flex items-center gap-3">
+                    {collapsedClients[clientName] ? (
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
+                    <Building2 className="w-5 h-5 text-primary" />
+                    <span className="text-sm font-semibold text-gray-900">{clientName}</span>
+                    <Badge variant="default">{records.length} {records.length === 1 ? 'change' : 'changes'}</Badge>
+                  </div>
+                </button>
 
-            {/* Pagination */}
-            {pagination.pages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t">
-                <p className="text-sm text-gray-500">
-                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} records
-                </p>
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                    disabled={pagination.page === 1}
-                  >
-                    Previous
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                    disabled={pagination.page >= pagination.pages}
-                  >
-                    Next
-                  </Button>
-                </div>
+                {/* Records Table */}
+                {!collapsedClients[clientName] && (
+                  <Table>
+                    <TableHead>
+                      <TableRow>
+                        <TableHeader>Date</TableHeader>
+                        <TableHeader>Employee</TableHeader>
+                        <TableHeader>Rate Type</TableHeader>
+                        <TableHeader>Old Rate</TableHeader>
+                        <TableHeader>New Rate</TableHeader>
+                        <TableHeader>Change</TableHeader>
+                        <TableHeader>Changed By</TableHeader>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {records.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>
+                            <span className="text-sm text-gray-600">{formatDateTime(record.changeDate)}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-xs font-medium text-primary-700">
+                                {getInitials(record.employee?.firstName, record.employee?.lastName)}
+                              </div>
+                              <span className="text-sm font-medium">
+                                {record.employee?.firstName} {record.employee?.lastName}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>{getRateTypeBadge(record.rateType)}</TableCell>
+                          <TableCell>
+                            <span className="text-sm font-mono text-gray-600">{formatRate(record.oldValue)}</span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm font-mono font-medium">{formatRate(record.newValue)}</span>
+                          </TableCell>
+                          <TableCell>
+                            {getChangeIndicator(record.oldValue, record.newValue)}
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-sm text-gray-600">{record.changedByName || 'Unknown'}</span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </Card>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {pagination.pages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} records
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={pagination.page === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={pagination.page >= pagination.pages}
+                >
+                  Next
+                </Button>
               </div>
-            )}
-          </>
-        ) : (
+            </div>
+          )}
+        </>
+      ) : (
+        <Card padding="none">
           <div className="p-12 text-center">
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <TrendingUp className="w-8 h-8 text-gray-400" />
@@ -432,8 +513,8 @@ const BillingHistory = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-1">No rate changes found</h3>
             <p className="text-gray-500">Rate changes will appear here when employee billing or payment rates are modified</p>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 };

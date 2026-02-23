@@ -17,7 +17,7 @@ export const getRateChangeHistory = async (req: AuthenticatedRequest, res: Respo
     } = req.query as Record<string, string>;
 
     const pageNum = Math.max(1, parseInt(page));
-    const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
+    const limitNum = Math.min(10000, Math.max(1, parseInt(limit)));
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
@@ -84,6 +84,24 @@ export const getRateChangeHistory = async (req: AuthenticatedRequest, res: Respo
       : [];
     const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
 
+    // For records without clientId, look up the employee's active client assignment
+    const employeeIdsWithoutClient = [...new Set(
+      history.filter(h => !h.clientId).map(h => h.employeeId)
+    )];
+    const employeeClientMap = new Map<string, string>();
+    if (employeeIdsWithoutClient.length > 0) {
+      const assignments = await prisma.clientEmployee.findMany({
+        where: { employeeId: { in: employeeIdsWithoutClient }, isActive: true },
+        select: { employeeId: true, client: { select: { id: true, companyName: true } } },
+      });
+      for (const a of assignments) {
+        // Use the first active assignment's client name
+        if (!employeeClientMap.has(a.employeeId)) {
+          employeeClientMap.set(a.employeeId, a.client.companyName);
+        }
+      }
+    }
+
     // Stats
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -101,7 +119,9 @@ export const getRateChangeHistory = async (req: AuthenticatedRequest, res: Respo
 
     const enrichedHistory = history.map(h => ({
       ...h,
-      clientName: h.clientId ? clientMap.get(h.clientId) || null : null,
+      clientName: h.clientId
+        ? clientMap.get(h.clientId) || null
+        : employeeClientMap.get(h.employeeId) || null,
     }));
 
     res.json({
@@ -192,9 +212,24 @@ export const getEmployeeRateHistory = async (req: AuthenticatedRequest, res: Res
       : [];
     const clientMap = new Map(clients.map(c => [c.id, c.companyName]));
 
+    // For records without clientId, look up the employee's active client assignment
+    const employeeClientMap = new Map<string, string>();
+    const hasRecordsWithoutClient = history.some(h => !h.clientId);
+    if (hasRecordsWithoutClient) {
+      const assignments = await prisma.clientEmployee.findMany({
+        where: { employeeId, isActive: true },
+        select: { client: { select: { companyName: true } } },
+      });
+      if (assignments.length > 0) {
+        employeeClientMap.set(employeeId, assignments[0].client.companyName);
+      }
+    }
+
     const enrichedHistory = history.map(h => ({
       ...h,
-      clientName: h.clientId ? clientMap.get(h.clientId) || null : null,
+      clientName: h.clientId
+        ? clientMap.get(h.clientId) || null
+        : employeeClientMap.get(h.employeeId) || null,
     }));
 
     res.json({

@@ -39,7 +39,7 @@ const Invoices = () => {
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateFrequency, setGenerateFrequency] = useState('monthly');
   const [generateYear, setGenerateYear] = useState(new Date().getFullYear());
-  const [generateMonth, setGenerateMonth] = useState(new Date().getMonth() || 12);
+  const [generateMonth, setGenerateMonth] = useState(new Date().getMonth() + 1);
   const [generateWeek, setGenerateWeek] = useState(() => {
     // Calculate current ISO week number
     const now = new Date();
@@ -53,6 +53,7 @@ const Invoices = () => {
 
   // Status update
   const [updatingId, setUpdatingId] = useState(null);
+  const [stats, setStats] = useState({ total: 0, draft: 0, totalAmount: 0, paidAmount: 0 });
 
   // Detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -82,6 +83,9 @@ const Invoices = () => {
             total: response.data.pagination.total,
             totalPages: response.data.pagination.totalPages,
           }));
+        }
+        if (response.data.stats) {
+          setStats(response.data.stats);
         }
       }
     } catch (err) {
@@ -231,18 +235,10 @@ const Invoices = () => {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const formatPeriod = (start, end) => {
+  const formatPeriod = (start) => {
     if (!start) return '—';
     const s = new Date(start);
     return s.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-  };
-
-  // Stats
-  const stats = {
-    total: invoices.length > 0 ? pagination.total : 0,
-    draft: invoices.filter(i => i.status === 'DRAFT').length,
-    totalAmount: invoices.reduce((sum, i) => sum + (Number(i.total) || 0), 0),
-    paidAmount: invoices.reduce((sum, i) => i.status === 'PAID' ? sum + (Number(i.total) || 0) : sum, 0),
   };
 
   const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];

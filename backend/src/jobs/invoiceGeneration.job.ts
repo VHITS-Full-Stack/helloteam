@@ -408,6 +408,12 @@ export const generateWeeklyInvoicesForWeek = async (
 
     for (const client of clients) {
       try {
+        // BI_WEEKLY clients only generate on even ISO week numbers
+        if (client.agreementType === 'BI_WEEKLY' && week % 2 !== 0) {
+          console.log(`[Invoice] Skipping bi-weekly client ${client.companyName} on odd week ${week}`);
+          continue;
+        }
+
         const weekStr = String(week).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;

@@ -2244,7 +2244,18 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    const hourlyRate = client.clientPolicies ? Number(client.clientPolicies.defaultHourlyRate) || 0 : 0;
+    const defaultHourlyRate = client.clientPolicies ? Number(client.clientPolicies.defaultHourlyRate) || 0 : 0;
+
+    // Get per-employee billing rates
+    const clientEmployees = await prisma.clientEmployee.findMany({
+      where: { clientId, isActive: true },
+      select: { employeeId: true, billingRate: true },
+    });
+
+    const employeeRateMap: Record<string, number> = {};
+    for (const ce of clientEmployees) {
+      employeeRateMap[ce.employeeId] = ce.billingRate ? Number(ce.billingRate) : defaultHourlyRate;
+    }
 
     // Current period (this month so far)
     const currentMonthRecords = await prisma.timeRecord.findMany({
@@ -2255,25 +2266,29 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
       },
     });
 
-    const currentMonthMinutes = currentMonthRecords.reduce((acc, tr) =>
-      acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0), 0);
+    // Calculate estimated amount using per-employee rates
+    let estimatedAmount = 0;
+    let currentMonthMinutes = 0;
+    for (const tr of currentMonthRecords) {
+      const mins = (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
+      currentMonthMinutes += mins;
+      const rate = employeeRateMap[tr.employeeId] || defaultHourlyRate;
+      estimatedAmount += (mins / 60) * rate;
+    }
     const currentMonthHours = currentMonthMinutes / 60;
 
     // Calculate days remaining in billing period
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     const daysRemaining = endOfMonth.getDate() - now.getDate();
 
-    // Get assigned employee count
-    const employeeCount = await prisma.clientEmployee.count({
-      where: { clientId, isActive: true },
-    });
+    const employeeCount = clientEmployees.length;
 
     // YTD totals from real invoices
     const ytdInvoices = await prisma.invoice.findMany({
       where: {
         clientId,
         periodStart: { gte: startOfYear },
-        status: { in: ['DRAFT', 'SENT', 'PAID'] },
+        status: { in: ['SENT', 'PAID'] },
       },
     });
 
@@ -2296,10 +2311,10 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         currentPeriod: {
           period: `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`,
           hoursWorked: Math.round(currentMonthHours * 10) / 10,
-          estimatedAmount: Math.round(currentMonthHours * hourlyRate * 100) / 100,
+          estimatedAmount: Math.round(estimatedAmount * 100) / 100,
           daysRemaining,
           employees: employeeCount,
-          hourlyRate,
+          hourlyRate: defaultHourlyRate,
         },
         stats: {
           ytdTotal: Math.round(ytdTotal * 100) / 100,
