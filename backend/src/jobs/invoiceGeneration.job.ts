@@ -195,8 +195,9 @@ const generateInvoiceForClient = async (
       hourlyRate: defaultHourlyRate,
       overtimeRate: defaultOTRate,
     };
-    const regularHours = Math.round((agg.totalMinutes / 60) * 100) / 100;
+    const totalHours = Math.round((agg.totalMinutes / 60) * 100) / 100;
     const otHours = Math.round((agg.overtimeMinutes / 60) * 100) / 100;
+    const regularHours = Math.round((totalHours - otHours) * 100) / 100;
     const lineAmount = regularHours * rates.hourlyRate + otHours * rates.overtimeRate;
 
     totalHoursAll += regularHours;
@@ -598,14 +599,15 @@ const previewInvoiceForClient = async (
   let estimatedTotal = 0;
   for (const [empId, agg] of empAgg) {
     const rates = empRateMap.get(empId) || { hourlyRate: defaultHourlyRate, overtimeRate: defaultOTRate };
-    estimatedTotal += (agg.totalMin / 60) * rates.hourlyRate + (agg.otMin / 60) * rates.overtimeRate;
+    const regularMin = agg.totalMin - agg.otMin;
+    estimatedTotal += (regularMin / 60) * rates.hourlyRate + (agg.otMin / 60) * rates.overtimeRate;
   }
 
   return {
     clientName: client.companyName,
     invoiceNumber,
     employeeCount: employeeIds.size,
-    totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+    totalHours: Math.round(((totalMinutes - otMinutes) / 60) * 100) / 100,
     overtimeHours: Math.round((otMinutes / 60) * 100) / 100,
     estimatedTotal: Math.round(estimatedTotal * 100) / 100,
     lateOtRecords: lateApprovedOT.length,

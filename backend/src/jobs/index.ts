@@ -4,6 +4,7 @@ import { runMonthlyInvoiceGeneration, runWeeklyInvoiceGeneration } from './invoi
 import { runShiftEndJob } from './shiftEnd.job';
 import { runOTBillingReminder } from './otBillingReminder.job';
 import { runAggressiveOTReminder } from './aggressiveOTReminder.job';
+import { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -47,6 +48,13 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Aggressive OT reminder scheduled (daily, 14:00 UTC)');
 
+  // Payroll deadline reminder: runs daily at 09:30 UTC
+  // Notifies clients 3 days and 1 day before PayrollPeriod.cutoffDate
+  cron.schedule('30 9 * * *', async () => {
+    await runPayrollDeadlineReminder(io);
+  });
+  console.log('[Jobs] Payroll deadline reminder scheduled (daily, 09:30 UTC)');
+
   console.log('[Jobs] All cron jobs initialized');
 };
 
@@ -55,3 +63,4 @@ export { runAutoApproval } from './autoApproval.job';
 export { runShiftEndJob } from './shiftEnd.job';
 export { runOTBillingReminder } from './otBillingReminder.job';
 export { runAggressiveOTReminder } from './aggressiveOTReminder.job';
+export { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';

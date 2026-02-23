@@ -369,6 +369,7 @@ const Onboarding = () => {
                     <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="tel"
+                      autoComplete="tel"
                       value={personalInfo.phone}
                       onChange={(e) =>
                         setPersonalInfo({ ...personalInfo, phone: formatPhone(e.target.value) })
@@ -386,6 +387,7 @@ const Onboarding = () => {
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                     <textarea
+                      autoComplete="street-address"
                       value={personalInfo.address}
                       onChange={(e) => setPersonalInfo({ ...personalInfo, address: e.target.value })}
                       placeholder="Enter your full address"
@@ -403,6 +405,7 @@ const Onboarding = () => {
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="email"
+                      autoComplete="email"
                       value={personalInfo.personalEmail}
                       onChange={(e) =>
                         setPersonalInfo({ ...personalInfo, personalEmail: e.target.value })
