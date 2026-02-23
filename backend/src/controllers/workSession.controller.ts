@@ -174,6 +174,8 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
       const startTotalMinutes = startHour * 60 + startMinute;
 
+      console.log(`[Clock-in] Time check: nowTotalMinutes=${nowTotalMinutes}, startTotalMinutes=${startTotalMinutes}, isEarly=${nowTotalMinutes < startTotalMinutes}, isLate=${nowTotalMinutes > startTotalMinutes + 5}, confirmFlags=`, { confirmEarlyClockIn: req.body?.confirmEarlyClockIn, confirmLateArrival: req.body?.confirmLateArrival });
+
       if (nowTotalMinutes < startTotalMinutes && !req.body?.confirmEarlyClockIn) {
         const currentTimeStr = `${String(clientTime.hour).padStart(2, '0')}:${String(clientTime.minute).padStart(2, '0')}`;
         // Before schedule start — warn employee about early clock-in

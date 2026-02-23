@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Clock,
   Calendar,
@@ -34,14 +34,26 @@ import {
   X,
   StickyNote,
   Loader2,
-  Check
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
-import workSessionService from '../../services/workSession.service';
-import overtimeService from '../../services/overtime.service';
-import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
-import { useAuth } from '../../context/AuthContext';
-import { useSocket } from '../../context/SocketContext';
+  Check,
+} from "lucide-react";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Badge,
+  Button,
+} from "../../components/common";
+import workSessionService from "../../services/workSession.service";
+import overtimeService from "../../services/overtime.service";
+import {
+  playClockInSound,
+  playClockOutSound,
+  playBreakStartSound,
+  playBreakEndSound,
+} from "../../utils/sounds";
+import { useAuth } from "../../context/AuthContext";
+import { useSocket } from "../../context/SocketContext";
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
@@ -61,28 +73,28 @@ const EmployeeDashboard = () => {
   // Overtime request modal state
   const [showOvertimeModal, setShowOvertimeModal] = useState(false);
   const [overtimeForm, setOvertimeForm] = useState({
-    type: 'SHIFT_EXTENSION',
-    date: new Date().toISOString().split('T')[0],
-    requestedHours: '',
-    requestedStartTime: '',
-    requestedEndTime: '',
-    reason: ''
+    type: "SHIFT_EXTENSION",
+    date: new Date().toISOString().split("T")[0],
+    requestedHours: "",
+    requestedStartTime: "",
+    requestedEndTime: "",
+    reason: "",
   });
   const [overtimeLoading, setOvertimeLoading] = useState(false);
-  const [overtimeError, setOvertimeError] = useState('');
-  const [overtimeSuccess, setOvertimeSuccess] = useState('');
+  const [overtimeError, setOvertimeError] = useState("");
+  const [overtimeSuccess, setOvertimeSuccess] = useState("");
 
   // Shift end / Stay Clocked In modal state
   const [showShiftEndModal, setShowShiftEndModal] = useState(false);
   const [shiftEndData, setShiftEndData] = useState(null);
   const [shiftEndForm, setShiftEndForm] = useState({
-    duration: '',
-    customMinutes: '',
-    reason: ''
+    duration: "",
+    customMinutes: "",
+    reason: "",
   });
   const [shiftEndLoading, setShiftEndLoading] = useState(false);
-  const [shiftEndError, setShiftEndError] = useState('');
-  const [shiftEndSuccess, setShiftEndSuccess] = useState('');
+  const [shiftEndError, setShiftEndError] = useState("");
+  const [shiftEndSuccess, setShiftEndSuccess] = useState("");
 
   // My overtime requests state
   const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
@@ -93,23 +105,44 @@ const EmployeeDashboard = () => {
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
   const [showLateClockInWarning, setShowLateClockInWarning] = useState(false);
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
-  const [clockInWarningMessage, setClockInWarningMessage] = useState('');
+  const [clockInWarningMessage, setClockInWarningMessage] = useState("");
 
   // Activity notes state
-  const [activityNotes, setActivityNotes] = useState('');
+  const [activityNotes, setActivityNotes] = useState("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesLastSaved, setNotesLastSaved] = useState(null);
   const notesTimeoutRef = useRef(null);
 
   // Motivational quotes
   const quotes = [
-    { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
-    { text: "Success is not final, failure is not fatal: it is the courage to continue that counts.", author: "Winston Churchill" },
-    { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
-    { text: "The future belongs to those who believe in the beauty of their dreams.", author: "Eleanor Roosevelt" },
-    { text: "Excellence is not a destination but a continuous journey that never ends.", author: "Brian Tracy" },
-    { text: "Your talent determines what you can do. Your motivation determines how much you're willing to do.", author: "Lou Holtz" },
-    { text: "The secret of getting ahead is getting started.", author: "Mark Twain" }
+    {
+      text: "The only way to do great work is to love what you do.",
+      author: "Steve Jobs",
+    },
+    {
+      text: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+      author: "Winston Churchill",
+    },
+    {
+      text: "Believe you can and you're halfway there.",
+      author: "Theodore Roosevelt",
+    },
+    {
+      text: "The future belongs to those who believe in the beauty of their dreams.",
+      author: "Eleanor Roosevelt",
+    },
+    {
+      text: "Excellence is not a destination but a continuous journey that never ends.",
+      author: "Brian Tracy",
+    },
+    {
+      text: "Your talent determines what you can do. Your motivation determines how much you're willing to do.",
+      author: "Lou Holtz",
+    },
+    {
+      text: "The secret of getting ahead is getting started.",
+      author: "Mark Twain",
+    },
   ];
 
   // Fetch overtime requests
@@ -124,7 +157,7 @@ const EmployeeDashboard = () => {
         setMyOvertimeRequests(response.data.requests || []);
       }
     } catch (err) {
-      console.error('Failed to fetch overtime requests:', err);
+      console.error("Failed to fetch overtime requests:", err);
     } finally {
       setOvertimeRequestsLoading(false);
       fetchingOvertimeRef.current = false;
@@ -132,21 +165,24 @@ const EmployeeDashboard = () => {
   }, []);
 
   // Save activity notes
-  const saveNotes = useCallback(async (notesText) => {
-    if (!sessionData?.session) return;
+  const saveNotes = useCallback(
+    async (notesText) => {
+      if (!sessionData?.session) return;
 
-    setNotesSaving(true);
-    try {
-      const response = await workSessionService.updateNotes(notesText);
-      if (response.success) {
-        setNotesLastSaved(new Date());
+      setNotesSaving(true);
+      try {
+        const response = await workSessionService.updateNotes(notesText);
+        if (response.success) {
+          setNotesLastSaved(new Date());
+        }
+      } catch (error) {
+        console.error("Failed to save notes:", error);
+      } finally {
+        setNotesSaving(false);
       }
-    } catch (error) {
-      console.error('Failed to save notes:', error);
-    } finally {
-      setNotesSaving(false);
-    }
-  }, [sessionData?.session]);
+    },
+    [sessionData?.session],
+  );
 
   // Handle notes change with debounced auto-save
   const handleNotesChange = (e) => {
@@ -167,7 +203,7 @@ const EmployeeDashboard = () => {
   // Load notes from session when session data changes
   useEffect(() => {
     if (sessionData?.session?.notes !== undefined) {
-      setActivityNotes(sessionData.session.notes || '');
+      setActivityNotes(sessionData.session.notes || "");
     }
   }, [sessionData?.session?.id]);
 
@@ -187,36 +223,37 @@ const EmployeeDashboard = () => {
     fetchingSessionRef.current = true;
     try {
       // Use Promise.allSettled to handle partial failures gracefully
-      const [sessionResult, todayResult, weeklyResult] = await Promise.allSettled([
-        workSessionService.getCurrentSession(),
-        workSessionService.getTodaySummary(),
-        workSessionService.getWeeklySummary(),
-      ]);
+      const [sessionResult, todayResult, weeklyResult] =
+        await Promise.allSettled([
+          workSessionService.getCurrentSession(),
+          workSessionService.getTodaySummary(),
+          workSessionService.getWeeklySummary(),
+        ]);
 
       // Handle session data
-      if (sessionResult.status === 'fulfilled') {
+      if (sessionResult.status === "fulfilled") {
         setSessionData(sessionResult.value);
       } else {
-        console.error('Failed to fetch current session:', sessionResult.reason);
+        console.error("Failed to fetch current session:", sessionResult.reason);
       }
 
       // Handle today summary
-      if (todayResult.status === 'fulfilled' && todayResult.value?.summary) {
+      if (todayResult.status === "fulfilled" && todayResult.value?.summary) {
         setTodaySummary(todayResult.value.summary);
-      } else if (todayResult.status === 'rejected') {
-        console.error('Failed to fetch today summary:', todayResult.reason);
+      } else if (todayResult.status === "rejected") {
+        console.error("Failed to fetch today summary:", todayResult.reason);
       }
 
       // Handle weekly summary
-      if (weeklyResult.status === 'fulfilled' && weeklyResult.value?.summary) {
+      if (weeklyResult.status === "fulfilled" && weeklyResult.value?.summary) {
         setWeeklySummary(weeklyResult.value.summary);
-      } else if (weeklyResult.status === 'rejected') {
-        console.error('Failed to fetch weekly summary:', weeklyResult.reason);
+      } else if (weeklyResult.status === "rejected") {
+        console.error("Failed to fetch weekly summary:", weeklyResult.reason);
       }
 
       setError(null);
     } catch (err) {
-      console.error('Failed to fetch work session data:', err);
+      console.error("Failed to fetch work session data:", err);
       // Don't show error on dashboard, just use defaults
     } finally {
       setIsLoading(false);
@@ -239,27 +276,27 @@ const EmployeeDashboard = () => {
   // Change quote every 30 seconds
   useEffect(() => {
     const quoteTimer = setInterval(() => {
-      setQuoteIndex(prev => (prev + 1) % quotes.length);
+      setQuoteIndex((prev) => (prev + 1) % quotes.length);
     }, 30000);
     return () => clearInterval(quoteTimer);
   }, []);
 
   const formatDurationWithSeconds = (startTime) => {
-    if (!startTime) return '00:00:00';
+    if (!startTime) return "00:00:00";
     const start = new Date(startTime);
     const now = new Date();
     const totalSeconds = Math.floor((now.getTime() - start.getTime()) / 1000);
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
-    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hrs.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const getGreeting = () => {
     const hour = currentTime.getHours();
-    if (hour < 12) return { text: 'Good Morning', icon: Sunrise, emoji: '☀️' };
-    if (hour < 17) return { text: 'Good Afternoon', icon: Sun, emoji: '🌤️' };
-    return { text: 'Good Evening', icon: Moon, emoji: '🌙' };
+    if (hour < 12) return { text: "Good Morning", icon: Sunrise, emoji: "☀️" };
+    if (hour < 17) return { text: "Good Afternoon", icon: Sun, emoji: "🌤️" };
+    return { text: "Good Evening", icon: Moon, emoji: "🌙" };
   };
 
   const greeting = getGreeting();
@@ -270,12 +307,12 @@ const EmployeeDashboard = () => {
       setActionLoading(true);
       const response = await workSessionService.clockIn();
       if (response.requiresConfirmation) {
-        setClockInWarningMessage(response.message || '');
-        if (response.confirmationType === 'EARLY_CLOCK_IN') {
+        setClockInWarningMessage(response.message || "");
+        if (response.confirmationType === "EARLY_CLOCK_IN") {
           setShowEarlyClockInWarning(true);
-        } else if (response.confirmationType === 'LATE_ARRIVAL') {
+        } else if (response.confirmationType === "LATE_ARRIVAL") {
           setShowLateArrivalWarning(true);
-        } else if (response.confirmationType === 'LATE_CLOCK_IN') {
+        } else if (response.confirmationType === "LATE_CLOCK_IN") {
           setShowLateClockInWarning(true);
         } else {
           setShowPostShiftWarning(true);
@@ -285,7 +322,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock in');
+      setError(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
     }
@@ -300,7 +337,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock in');
+      setError(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
     }
@@ -315,7 +352,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock in');
+      setError(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
     }
@@ -330,7 +367,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock in');
+      setError(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
     }
@@ -345,7 +382,7 @@ const EmployeeDashboard = () => {
       playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock in');
+      setError(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
     }
@@ -359,7 +396,7 @@ const EmployeeDashboard = () => {
       playClockOutSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to clock out');
+      setError(err.message || "Failed to clock out");
     } finally {
       setActionLoading(false);
     }
@@ -373,7 +410,7 @@ const EmployeeDashboard = () => {
       playBreakStartSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to start break');
+      setError(err.message || "Failed to start break");
     } finally {
       setActionLoading(false);
     }
@@ -387,7 +424,7 @@ const EmployeeDashboard = () => {
       playBreakEndSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || 'Failed to end break');
+      setError(err.message || "Failed to end break");
     } finally {
       setActionLoading(false);
     }
@@ -396,21 +433,27 @@ const EmployeeDashboard = () => {
   // Handle overtime request submission
   const handleOvertimeSubmit = async (e) => {
     e.preventDefault();
-    setOvertimeError('');
-    setOvertimeSuccess('');
+    setOvertimeError("");
+    setOvertimeSuccess("");
 
     if (!overtimeForm.date || !overtimeForm.reason) {
-      setOvertimeError('Please fill in all required fields');
+      setOvertimeError("Please fill in all required fields");
       return;
     }
 
-    if (overtimeForm.type === 'SHIFT_EXTENSION' && !overtimeForm.requestedHours) {
-      setOvertimeError('Please enter the number of hours');
+    if (
+      overtimeForm.type === "SHIFT_EXTENSION" &&
+      !overtimeForm.requestedHours
+    ) {
+      setOvertimeError("Please enter the number of hours");
       return;
     }
 
-    if (overtimeForm.type === 'OFF_SHIFT' && (!overtimeForm.requestedStartTime || !overtimeForm.requestedEndTime)) {
-      setOvertimeError('Please enter start and end times');
+    if (
+      overtimeForm.type === "OFF_SHIFT" &&
+      (!overtimeForm.requestedStartTime || !overtimeForm.requestedEndTime)
+    ) {
+      setOvertimeError("Please enter start and end times");
       return;
     }
 
@@ -422,7 +465,7 @@ const EmployeeDashboard = () => {
         reason: overtimeForm.reason,
       };
 
-      if (overtimeForm.type === 'SHIFT_EXTENSION') {
+      if (overtimeForm.type === "SHIFT_EXTENSION") {
         requestData.requestedHours = parseFloat(overtimeForm.requestedHours);
       } else {
         requestData.requestedStartTime = overtimeForm.requestedStartTime;
@@ -430,22 +473,24 @@ const EmployeeDashboard = () => {
       }
 
       await overtimeService.createOvertimeRequest(requestData);
-      setOvertimeSuccess('Overtime request submitted successfully!');
+      setOvertimeSuccess("Overtime request submitted successfully!");
       setOvertimeForm({
-        type: 'SHIFT_EXTENSION',
-        date: new Date().toISOString().split('T')[0],
-        requestedHours: '',
-        requestedStartTime: '',
-        requestedEndTime: '',
-        reason: ''
+        type: "SHIFT_EXTENSION",
+        date: new Date().toISOString().split("T")[0],
+        requestedHours: "",
+        requestedStartTime: "",
+        requestedEndTime: "",
+        reason: "",
       });
       fetchOvertimeRequests();
       setTimeout(() => {
         setShowOvertimeModal(false);
-        setOvertimeSuccess('');
+        setOvertimeSuccess("");
       }, 2000);
     } catch (err) {
-      setOvertimeError(err.error || err.message || 'Failed to submit overtime request');
+      setOvertimeError(
+        err.error || err.message || "Failed to submit overtime request",
+      );
     } finally {
       setOvertimeLoading(false);
     }
@@ -466,9 +511,12 @@ const EmployeeDashboard = () => {
     };
 
     socket.on(`notification:${user.id}`, (data) => {
-      if (data.type === 'SHIFT_ENDING' || data.type === 'SHIFT_ENDING_OT_APPROVED') {
+      if (
+        data.type === "SHIFT_ENDING" ||
+        data.type === "SHIFT_ENDING_OT_APPROVED"
+      ) {
         handleShiftEnding(data);
-      } else if (data.type === 'AUTO_CLOCK_OUT') {
+      } else if (data.type === "AUTO_CLOCK_OUT") {
         handleAutoClockOut();
       }
     });
@@ -481,45 +529,50 @@ const EmployeeDashboard = () => {
   // Handle "Stay Clocked In" OT request submission
   const handleShiftEndSubmit = async (e) => {
     e.preventDefault();
-    setShiftEndError('');
-    setShiftEndSuccess('');
+    setShiftEndError("");
+    setShiftEndSuccess("");
 
-    const minutes = shiftEndForm.duration === 'custom'
-      ? parseInt(shiftEndForm.customMinutes)
-      : parseInt(shiftEndForm.duration);
+    const minutes =
+      shiftEndForm.duration === "custom"
+        ? parseInt(shiftEndForm.customMinutes)
+        : parseInt(shiftEndForm.duration);
 
     if (!minutes || minutes <= 0) {
-      setShiftEndError('Please select a duration');
+      setShiftEndError("Please select a duration");
       return;
     }
     if (!shiftEndForm.reason.trim()) {
-      setShiftEndError('Please provide a reason');
+      setShiftEndError("Please provide a reason");
       return;
     }
 
     // Calculate estimated end time (current time + duration)
     const endTime = new Date(Date.now() + minutes * 60000);
-    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, "0")}:${String(endTime.getMinutes()).padStart(2, "0")}`;
 
     try {
       setShiftEndLoading(true);
       await overtimeService.createOvertimeRequest({
-        type: 'SHIFT_EXTENSION',
-        date: new Date().toISOString().split('T')[0],
+        type: "SHIFT_EXTENSION",
+        date: new Date().toISOString().split("T")[0],
         requestedHours: minutes / 60,
         reason: shiftEndForm.reason,
         estimatedEndTime,
         clientId: shiftEndData?.clientId,
       });
-      setShiftEndSuccess('Overtime request submitted! You will stay clocked in.');
+      setShiftEndSuccess(
+        "Overtime request submitted! You will stay clocked in.",
+      );
       fetchOvertimeRequests();
       setTimeout(() => {
         setShowShiftEndModal(false);
-        setShiftEndSuccess('');
-        setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+        setShiftEndSuccess("");
+        setShiftEndForm({ duration: "", customMinutes: "", reason: "" });
       }, 2000);
     } catch (err) {
-      setShiftEndError(err.error || err.message || 'Failed to submit overtime request');
+      setShiftEndError(
+        err.error || err.message || "Failed to submit overtime request",
+      );
     } finally {
       setShiftEndLoading(false);
     }
@@ -527,73 +580,128 @@ const EmployeeDashboard = () => {
 
   // Online colleagues
   const onlineColleagues = [
-    { name: 'Sarah J.', avatar: 'SJ', status: 'online', activity: 'In a meeting' },
-    { name: 'Mike C.', avatar: 'MC', status: 'online', activity: 'Available' },
-    { name: 'Emily D.', avatar: 'ED', status: 'away', activity: 'On break' },
-    { name: 'James W.', avatar: 'JW', status: 'online', activity: 'Coding' },
-    { name: 'Lisa A.', avatar: 'LA', status: 'online', activity: 'Available' },
-    { name: 'David K.', avatar: 'DK', status: 'busy', activity: 'Do not disturb' }
+    {
+      name: "Sarah J.",
+      avatar: "SJ",
+      status: "online",
+      activity: "In a meeting",
+    },
+    { name: "Mike C.", avatar: "MC", status: "online", activity: "Available" },
+    { name: "Emily D.", avatar: "ED", status: "away", activity: "On break" },
+    { name: "James W.", avatar: "JW", status: "online", activity: "Coding" },
+    { name: "Lisa A.", avatar: "LA", status: "online", activity: "Available" },
+    {
+      name: "David K.",
+      avatar: "DK",
+      status: "busy",
+      activity: "Do not disturb",
+    },
   ];
 
   // Today's meetings
   const todayMeetings = [
-    { time: '10:00 AM', title: 'Daily Standup', type: 'team', duration: '15 min', participants: 8 },
-    { time: '2:00 PM', title: 'Project Review', type: 'client', duration: '45 min', participants: 5 },
-    { time: '4:30 PM', title: '1:1 with Manager', type: 'personal', duration: '30 min', participants: 2 }
+    {
+      time: "10:00 AM",
+      title: "Daily Standup",
+      type: "team",
+      duration: "15 min",
+      participants: 8,
+    },
+    {
+      time: "2:00 PM",
+      title: "Project Review",
+      type: "client",
+      duration: "45 min",
+      participants: 5,
+    },
+    {
+      time: "4:30 PM",
+      title: "1:1 with Manager",
+      type: "personal",
+      duration: "30 min",
+      participants: 2,
+    },
   ];
 
   // Today's tasks
   const todayTasks = [
-    { id: 1, title: 'Complete project documentation', priority: 'high', completed: false },
-    { id: 2, title: 'Review pull requests', priority: 'medium', completed: true },
-    { id: 3, title: 'Update sprint board', priority: 'low', completed: false },
-    { id: 4, title: 'Prepare for client meeting', priority: 'high', completed: false }
+    {
+      id: 1,
+      title: "Complete project documentation",
+      priority: "high",
+      completed: false,
+    },
+    {
+      id: 2,
+      title: "Review pull requests",
+      priority: "medium",
+      completed: true,
+    },
+    { id: 3, title: "Update sprint board", priority: "low", completed: false },
+    {
+      id: 4,
+      title: "Prepare for client meeting",
+      priority: "high",
+      completed: false,
+    },
   ];
 
   // Company announcements
   const announcements = [
-    { id: 1, title: 'Team Outing Next Friday!', type: 'event', isNew: true },
-    { id: 2, title: 'New Health Benefits Available', type: 'hr', isNew: true },
-    { id: 3, title: 'Q4 Goals Published', type: 'company', isNew: false }
+    { id: 1, title: "Team Outing Next Friday!", type: "event", isNew: true },
+    { id: 2, title: "New Health Benefits Available", type: "hr", isNew: true },
+    { id: 3, title: "Q4 Goals Published", type: "company", isNew: false },
   ];
 
   // Weekly stats from API or defaults
   const weeklyStats = {
     hoursWorked: Math.round((weeklySummary?.totalWorkMinutes || 0) / 60),
-    hoursTarget: Math.round((weeklySummary?.scheduledWeeklyMinutes || 2400) / 60),
+    hoursTarget: Math.round(
+      (weeklySummary?.scheduledWeeklyMinutes || 2400) / 60,
+    ),
     tasksCompleted: 24,
     meetingsAttended: 12,
-    productivity: 94
+    productivity: 94,
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'online': return 'bg-green-500';
-      case 'away': return 'bg-yellow-500';
-      case 'busy': return 'bg-red-500';
-      default: return 'bg-gray-400';
+      case "online":
+        return "bg-green-500";
+      case "away":
+        return "bg-yellow-500";
+      case "busy":
+        return "bg-red-500";
+      default:
+        return "bg-gray-400";
     }
   };
 
   const getPriorityColor = (priority) => {
     switch (priority) {
-      case 'high': return 'text-red-600 bg-red-50';
-      case 'medium': return 'text-yellow-600 bg-yellow-50';
-      default: return 'text-blue-600 bg-blue-50';
+      case "high":
+        return "text-red-600 bg-red-50";
+      case "medium":
+        return "text-yellow-600 bg-yellow-50";
+      default:
+        return "text-blue-600 bg-blue-50";
     }
   };
 
   const getMeetingTypeColor = (type) => {
     switch (type) {
-      case 'team': return 'bg-primary-100 text-primary-700';
-      case 'client': return 'bg-secondary-100 text-secondary-700';
-      default: return 'bg-accent-100 text-accent-700';
+      case "team":
+        return "bg-primary-100 text-primary-700";
+      case "client":
+        return "bg-secondary-100 text-secondary-700";
+      default:
+        return "bg-accent-100 text-accent-700";
     }
   };
 
   // Determine work status
   const isWorking = sessionData?.isWorking || false;
-  const isOnBreak = sessionData?.session?.status === 'ON_BREAK';
+  const isOnBreak = sessionData?.session?.status === "ON_BREAK";
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -627,45 +735,63 @@ const EmployeeDashboard = () => {
                 <span className="text-sm font-medium">{greeting.text}</span>
                 <span className="text-lg">{greeting.emoji}</span>
               </div>
-              <h1 className="text-3xl font-bold font-heading mb-2">Welcome back, {user?.employee?.firstName || 'there'}!</h1>
-              <p className="text-primary-100 mb-4">Ready to make today productive?</p>
+              <h1 className="text-3xl font-bold font-heading mb-2">
+                Welcome back, {user?.employee?.firstName || "there"}!
+              </h1>
+              <p className="text-primary-100 mb-4">
+                Ready to make today productive?
+              </p>
 
               {/* Quote Section */}
               <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 max-w-xl">
                 <div className="flex gap-3">
                   <Quote className="w-8 h-8 text-primary-200 flex-shrink-0" />
                   <div>
-                    <p className="text-white/90 italic text-sm leading-relaxed">"{quotes[quoteIndex].text}"</p>
-                    <p className="text-primary-200 text-xs mt-2">— {quotes[quoteIndex].author}</p>
+                    <p className="text-white/90 italic text-sm leading-relaxed">
+                      "{quotes[quoteIndex].text}"
+                    </p>
+                    <p className="text-primary-200 text-xs mt-2">
+                      — {quotes[quoteIndex].author}
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Clock In Section */}
-            <div className={`flex gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 ${isWorking ? 'flex-row' : 'flex-col items-center'}`}>
+            <div
+              className={`flex gap-4 bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 ${isWorking ? "flex-row" : "flex-col items-center"}`}
+            >
               {/* Time & Buttons */}
               <div className="flex flex-col items-center gap-4">
                 <div className="text-center">
-                  <p className="text-primary-100 text-sm font-medium">Current Time</p>
+                  <p className="text-primary-100 text-sm font-medium">
+                    Current Time
+                  </p>
                   <p className="text-4xl font-bold mt-1 font-heading">
-                    {currentTime.toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit'
+                    {currentTime.toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </p>
                   <p className="text-primary-200 text-xs mt-1">
-                    {currentTime.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                    {currentTime.toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </p>
                 </div>
 
                 {isWorking && (
                   <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg w-full">
                     <p className="text-green-300 text-xs">
-                      {isOnBreak ? 'On Break' : 'Active Session'}
+                      {isOnBreak ? "On Break" : "Active Session"}
                     </p>
                     <p className="text-2xl font-bold text-white font-mono">
-                      {formatDurationWithSeconds(sessionData?.session?.startTime)}
+                      {formatDurationWithSeconds(
+                        sessionData?.session?.startTime,
+                      )}
                     </p>
                   </div>
                 )}
@@ -762,31 +888,57 @@ const EmployeeDashboard = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          { icon: Clock, label: 'Time Clock', color: 'primary', link: '/employee/time-clock' },
-          { icon: Calendar, label: 'Schedule', color: 'secondary', link: '/employee/schedule' },
-          { icon: TrendingUp, label: 'Overtime', color: 'warning', link: '#', action: 'overtime' },
-          { icon: Video, label: 'Join Meeting', color: 'accent', link: '#' },
-          { icon: MessageSquare, label: 'Messages', color: 'info', badge: 3, link: '#' }
+          {
+            icon: Clock,
+            label: "Time Clock",
+            color: "primary",
+            link: "/employee/time-clock",
+          },
+          {
+            icon: Calendar,
+            label: "Schedule",
+            color: "secondary",
+            link: "/employee/schedule",
+          },
+          {
+            icon: TrendingUp,
+            label: "Overtime",
+            color: "warning",
+            link: "#",
+            action: "overtime",
+          },
+          { icon: Video, label: "Join Meeting", color: "accent", link: "#" },
+          {
+            icon: MessageSquare,
+            label: "Messages",
+            color: "info",
+            badge: 3,
+            link: "#",
+          },
         ].map((action) => (
           <Card
             key={action.label}
             className="group cursor-pointer hover:shadow-lg transition-all"
             onClick={() => {
-              if (action.action === 'overtime') {
+              if (action.action === "overtime") {
                 setShowOvertimeModal(true);
-              } else if (action.link !== '#') {
+              } else if (action.link !== "#") {
                 navigate(action.link);
               }
             }}
           >
             <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl bg-${action.color}-100 group-hover:scale-110 transition-transform`}>
+              <div
+                className={`p-3 rounded-xl bg-${action.color}-100 group-hover:scale-110 transition-transform`}
+              >
                 <action.icon className={`w-6 h-6 text-${action.color}`} />
               </div>
               <div className="flex-1">
                 <p className="font-semibold text-gray-900">{action.label}</p>
                 {action.badge && (
-                  <Badge variant="danger" size="xs">{action.badge} new</Badge>
+                  <Badge variant="danger" size="xs">
+                    {action.badge} new
+                  </Badge>
                 )}
               </div>
               <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-primary group-hover:translate-x-1 transition-all" />
@@ -806,12 +958,16 @@ const EmployeeDashboard = () => {
                 <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
                   <Clock className="w-6 h-6 text-primary" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{weeklyStats.hoursWorked}h</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {weeklyStats.hoursWorked}h
+                </p>
                 <p className="text-xs text-gray-500">Hours This Week</p>
                 <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary rounded-full"
-                    style={{ width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%` }}
+                    style={{
+                      width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%`,
+                    }}
                   />
                 </div>
               </Card>
@@ -820,16 +976,22 @@ const EmployeeDashboard = () => {
                 <div className="w-12 h-12 mx-auto rounded-full bg-green-100 flex items-center justify-center mb-3">
                   <CheckCircle className="w-6 h-6 text-green-600" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{weeklyStats.tasksCompleted}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {weeklyStats.tasksCompleted}
+                </p>
                 <p className="text-xs text-gray-500">Tasks Done</p>
-                <Badge variant="success" size="xs" className="mt-2">+5 today</Badge>
+                <Badge variant="success" size="xs" className="mt-2">
+                  +5 today
+                </Badge>
               </Card>
 
               <Card className="text-center">
                 <div className="w-12 h-12 mx-auto rounded-full bg-secondary-100 flex items-center justify-center mb-3">
                   <Video className="w-6 h-6 text-secondary-600" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{weeklyStats.meetingsAttended}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {weeklyStats.meetingsAttended}
+                </p>
                 <p className="text-xs text-gray-500">Meetings</p>
                 <p className="text-xs text-gray-400 mt-2">This week</p>
               </Card>
@@ -838,9 +1000,13 @@ const EmployeeDashboard = () => {
                 <div className="w-12 h-12 mx-auto rounded-full bg-accent-100 flex items-center justify-center mb-3">
                   <Zap className="w-6 h-6 text-accent-600" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{weeklyStats.productivity}%</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {weeklyStats.productivity}%
+                </p>
                 <p className="text-xs text-gray-500">Productivity</p>
-                <Badge variant="accent" size="xs" className="mt-2">Excellent!</Badge>
+                <Badge variant="accent" size="xs" className="mt-2">
+                  Excellent!
+                </Badge>
               </Card>
             </div>
           </div>
@@ -864,24 +1030,32 @@ const EmployeeDashboard = () => {
                   <div
                     key={task.id}
                     className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                      task.completed ? 'bg-green-50/50' : 'bg-gray-50 hover:bg-gray-100'
+                      task.completed
+                        ? "bg-green-50/50"
+                        : "bg-gray-50 hover:bg-gray-100"
                     }`}
                   >
                     <button
                       className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
                         task.completed
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 hover:border-primary'
+                          ? "bg-green-500 border-green-500"
+                          : "border-gray-300 hover:border-primary"
                       }`}
                     >
-                      {task.completed && <CheckCircle className="w-4 h-4 text-white" />}
+                      {task.completed && (
+                        <CheckCircle className="w-4 h-4 text-white" />
+                      )}
                     </button>
                     <div className="flex-1">
-                      <p className={`font-medium ${task.completed ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                      <p
+                        className={`font-medium ${task.completed ? "text-gray-400 line-through" : "text-gray-900"}`}
+                      >
                         {task.title}
                       </p>
                     </div>
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}>
+                    <span
+                      className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}
+                    >
                       {task.priority}
                     </span>
                   </div>
@@ -893,13 +1067,16 @@ const EmployeeDashboard = () => {
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-gray-600">Daily Progress</span>
                   <span className="text-sm font-semibold text-gray-900">
-                    {todayTasks.filter(t => t.completed).length}/{todayTasks.length} tasks
+                    {todayTasks.filter((t) => t.completed).length}/
+                    {todayTasks.length} tasks
                   </span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all"
-                    style={{ width: `${(todayTasks.filter(t => t.completed).length / todayTasks.length) * 100}%` }}
+                    style={{
+                      width: `${(todayTasks.filter((t) => t.completed).length / todayTasks.length) * 100}%`,
+                    }}
                   />
                 </div>
               </div>
@@ -950,35 +1127,46 @@ const EmployeeDashboard = () => {
                     >
                       <div className="text-center min-w-[60px]">
                         <p className="text-lg font-bold text-gray-900">
-                          {new Date(request.date).toLocaleDateString('en-US', { day: 'numeric' })}
+                          {new Date(request.date).toLocaleDateString("en-US", {
+                            day: "numeric",
+                          })}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {new Date(request.date).toLocaleDateString('en-US', { month: 'short' })}
+                          {new Date(request.date).toLocaleDateString("en-US", {
+                            month: "short",
+                          })}
                         </p>
                       </div>
                       <div className="w-px h-12 bg-gray-200" />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-gray-900">
-                            {Math.round(request.requestedMinutes / 60 * 10) / 10} hours
+                            {Math.round((request.requestedMinutes / 60) * 10) /
+                              10}{" "}
+                            hours
                           </p>
                           <Badge
                             variant={
-                              request.status === 'APPROVED' ? 'success' :
-                              request.status === 'REJECTED' ? 'danger' : 'warning'
+                              request.status === "APPROVED"
+                                ? "success"
+                                : request.status === "REJECTED"
+                                  ? "danger"
+                                  : "warning"
                             }
                             size="xs"
                           >
                             {request.status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">{request.reason}</p>
-                        {request.status === 'APPROVED' && request.approver && (
+                        <p className="text-sm text-gray-500 truncate">
+                          {request.reason}
+                        </p>
+                        {request.status === "APPROVED" && request.approver && (
                           <p className="text-xs text-green-600 mt-1">
                             Approved by {request.approver.name}
                           </p>
                         )}
-                        {request.status === 'REJECTED' && (
+                        {request.status === "REJECTED" && (
                           <>
                             {request.rejecter && (
                               <p className="text-xs text-red-500 mt-1">
@@ -986,7 +1174,9 @@ const EmployeeDashboard = () => {
                               </p>
                             )}
                             {request.rejectionReason && (
-                              <p className="text-xs text-red-400">Reason: {request.rejectionReason}</p>
+                              <p className="text-xs text-red-400">
+                                Reason: {request.rejectionReason}
+                              </p>
                             )}
                           </>
                         )}
@@ -1006,7 +1196,9 @@ const EmployeeDashboard = () => {
                   <Video className="w-5 h-5 text-secondary" />
                   Today's Meetings
                 </CardTitle>
-                <Badge variant="secondary">{todayMeetings.length} scheduled</Badge>
+                <Badge variant="secondary">
+                  {todayMeetings.length} scheduled
+                </Badge>
               </div>
             </CardHeader>
             <CardContent>
@@ -1017,14 +1209,22 @@ const EmployeeDashboard = () => {
                     className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors group"
                   >
                     <div className="text-center min-w-[60px]">
-                      <p className="text-lg font-bold text-gray-900">{meeting.time.split(' ')[0]}</p>
-                      <p className="text-xs text-gray-500">{meeting.time.split(' ')[1]}</p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {meeting.time.split(" ")[0]}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {meeting.time.split(" ")[1]}
+                      </p>
                     </div>
                     <div className="w-px h-12 bg-gray-200" />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <p className="font-semibold text-gray-900">{meeting.title}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full ${getMeetingTypeColor(meeting.type)}`}>
+                        <p className="font-semibold text-gray-900">
+                          {meeting.title}
+                        </p>
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded-full ${getMeetingTypeColor(meeting.type)}`}
+                        >
                           {meeting.type}
                         </span>
                       </div>
@@ -1056,49 +1256,6 @@ const EmployeeDashboard = () => {
 
         {/* Right Column - Team & Announcements */}
         <div className="space-y-6">
-          {/* Virtual Office - Online Colleagues */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Monitor className="w-5 h-5 text-primary" />
-                  Virtual Office
-                </CardTitle>
-                <div className="flex items-center gap-1 text-green-500 text-xs">
-                  <Wifi className="w-3.5 h-3.5" />
-                  <span>{onlineColleagues.filter(c => c.status === 'online').length} online</span>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {onlineColleagues.map((colleague, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                  >
-                    <div className="relative">
-                      <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-semibold text-primary text-sm">
-                        {colleague.avatar}
-                      </div>
-                      <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(colleague.status)}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 text-sm">{colleague.name}</p>
-                      <p className="text-xs text-gray-500 truncate">{colleague.activity}</p>
-                    </div>
-                    <button className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors">
-                      <MessageSquare className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-              <Button variant="ghost" size="sm" fullWidth className="mt-4">
-                View All Team Members
-              </Button>
-            </CardContent>
-          </Card>
-
           {/* Announcements */}
           <Card>
             <CardHeader>
@@ -1115,20 +1272,37 @@ const EmployeeDashboard = () => {
                     className="p-3 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        item.type === 'event' ? 'bg-purple-100' :
-                        item.type === 'hr' ? 'bg-green-100' : 'bg-blue-100'
-                      }`}>
-                        {item.type === 'event' ? <Calendar className="w-4 h-4 text-purple-600" /> :
-                         item.type === 'hr' ? <Heart className="w-4 h-4 text-green-600" /> :
-                         <Lightbulb className="w-4 h-4 text-blue-600" />}
+                      <div
+                        className={`p-2 rounded-lg ${
+                          item.type === "event"
+                            ? "bg-purple-100"
+                            : item.type === "hr"
+                              ? "bg-green-100"
+                              : "bg-blue-100"
+                        }`}
+                      >
+                        {item.type === "event" ? (
+                          <Calendar className="w-4 h-4 text-purple-600" />
+                        ) : item.type === "hr" ? (
+                          <Heart className="w-4 h-4 text-green-600" />
+                        ) : (
+                          <Lightbulb className="w-4 h-4 text-blue-600" />
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium text-gray-900 text-sm">{item.title}</p>
-                          {item.isNew && <Badge variant="danger" size="xs">New</Badge>}
+                          <p className="font-medium text-gray-900 text-sm">
+                            {item.title}
+                          </p>
+                          {item.isNew && (
+                            <Badge variant="danger" size="xs">
+                              New
+                            </Badge>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-1 capitalize">{item.type}</p>
+                        <p className="text-xs text-gray-500 mt-1 capitalize">
+                          {item.type}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1148,8 +1322,7 @@ const EmployeeDashboard = () => {
                 <p className="text-sm text-gray-600 mb-4">
                   {isWorking && !isOnBreak
                     ? "You've been working hard. A short break can boost your productivity!"
-                    : "Remember to take regular breaks for better focus."
-                  }
+                    : "Remember to take regular breaks for better focus."}
                 </p>
                 {isWorking && !isOnBreak ? (
                   <Button
@@ -1178,9 +1351,13 @@ const EmployeeDashboard = () => {
                   <Award className="w-7 h-7 text-accent-600" />
                 </div>
                 <div>
-                  <p className="text-xs text-accent-600 font-medium">ACHIEVEMENT UNLOCKED</p>
+                  <p className="text-xs text-accent-600 font-medium">
+                    ACHIEVEMENT UNLOCKED
+                  </p>
                   <p className="font-bold text-gray-900">Productivity Star!</p>
-                  <p className="text-sm text-gray-600">5 days streak of 8+ hours</p>
+                  <p className="text-sm text-gray-600">
+                    5 days streak of 8+ hours
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -1201,7 +1378,7 @@ const EmployeeDashboard = () => {
               size="sm"
               icon={ChevronRight}
               iconPosition="right"
-              onClick={() => navigate('/employee/schedule')}
+              onClick={() => navigate("/employee/schedule")}
             >
               View Full Schedule
             </Button>
@@ -1214,7 +1391,7 @@ const EmployeeDashboard = () => {
               const startOfWeek = new Date(today);
               startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
 
-              return ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((day, index) => {
+              return ["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => {
                 const dayDate = new Date(startOfWeek);
                 dayDate.setDate(startOfWeek.getDate() + index);
                 const isToday = today.toDateString() === dayDate.toDateString();
@@ -1225,30 +1402,38 @@ const EmployeeDashboard = () => {
                     key={day}
                     className={`relative p-4 rounded-xl text-center transition-all ${
                       isToday
-                        ? 'bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105'
+                        ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
                         : isPast
-                        ? 'bg-green-50 border border-green-100'
-                        : 'bg-gray-50 border border-gray-100'
+                          ? "bg-green-50 border border-green-100"
+                          : "bg-gray-50 border border-gray-100"
                     }`}
                   >
                     {isToday && (
                       <div className="absolute -top-2 left-1/2 -translate-x-1/2">
-                        <Badge variant="accent" size="xs">Today</Badge>
+                        <Badge variant="accent" size="xs">
+                          Today
+                        </Badge>
                       </div>
                     )}
-                    <p className={`text-sm font-medium ${
-                      isToday ? 'text-primary-100' : 'text-gray-500'
-                    }`}>
+                    <p
+                      className={`text-sm font-medium ${
+                        isToday ? "text-primary-100" : "text-gray-500"
+                      }`}
+                    >
                       {day}
                     </p>
-                    <p className={`text-2xl font-bold mt-1 ${
-                      isToday ? 'text-white' : 'text-gray-900'
-                    }`}>
+                    <p
+                      className={`text-2xl font-bold mt-1 ${
+                        isToday ? "text-white" : "text-gray-900"
+                      }`}
+                    >
                       {dayDate.getDate()}
                     </p>
-                    <p className={`text-sm mt-2 ${
-                      isToday ? 'text-primary-100' : 'text-gray-600'
-                    }`}>
+                    <p
+                      className={`text-sm mt-2 ${
+                        isToday ? "text-primary-100" : "text-gray-600"
+                      }`}
+                    >
                       9AM - 6PM
                     </p>
                     {isPast && !isToday && (
@@ -1271,13 +1456,15 @@ const EmployeeDashboard = () => {
                 <div className="p-2 rounded-xl bg-orange-100">
                   <TrendingUp className="w-6 h-6 text-orange-600" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900">Request Overtime</h2>
+                <h2 className="text-xl font-bold text-gray-900">
+                  Request Overtime
+                </h2>
               </div>
               <button
                 onClick={() => {
                   setShowOvertimeModal(false);
-                  setOvertimeError('');
-                  setOvertimeSuccess('');
+                  setOvertimeError("");
+                  setOvertimeSuccess("");
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -1308,27 +1495,38 @@ const EmployeeDashboard = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setOvertimeForm({ ...overtimeForm, type: 'SHIFT_EXTENSION' })}
+                    onClick={() =>
+                      setOvertimeForm({
+                        ...overtimeForm,
+                        type: "SHIFT_EXTENSION",
+                      })
+                    }
                     className={`p-3 rounded-lg border-2 text-left transition-colors ${
-                      overtimeForm.type === 'SHIFT_EXTENSION'
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      overtimeForm.type === "SHIFT_EXTENSION"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
                     }`}
                   >
                     <p className="text-sm font-semibold">Shift Extension</p>
-                    <p className="text-xs mt-0.5 opacity-75">Continue past shift end</p>
+                    <p className="text-xs mt-0.5 opacity-75">
+                      Continue past shift end
+                    </p>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setOvertimeForm({ ...overtimeForm, type: 'OFF_SHIFT' })}
+                    onClick={() =>
+                      setOvertimeForm({ ...overtimeForm, type: "OFF_SHIFT" })
+                    }
                     className={`p-3 rounded-lg border-2 text-left transition-colors ${
-                      overtimeForm.type === 'OFF_SHIFT'
-                        ? 'border-primary bg-primary/5 text-primary'
-                        : 'border-gray-200 hover:border-gray-300 text-gray-600'
+                      overtimeForm.type === "OFF_SHIFT"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-gray-200 hover:border-gray-300 text-gray-600"
                     }`}
                   >
                     <p className="text-sm font-semibold">Off-Shift Hours</p>
-                    <p className="text-xs mt-0.5 opacity-75">Work outside schedule</p>
+                    <p className="text-xs mt-0.5 opacity-75">
+                      Work outside schedule
+                    </p>
                   </button>
                 </div>
               </div>
@@ -1340,14 +1538,16 @@ const EmployeeDashboard = () => {
                 <input
                   type="date"
                   value={overtimeForm.date}
-                  onChange={(e) => setOvertimeForm({ ...overtimeForm, date: e.target.value })}
-                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) =>
+                    setOvertimeForm({ ...overtimeForm, date: e.target.value })
+                  }
+                  min={new Date().toISOString().split("T")[0]}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                   required
                 />
               </div>
 
-              {overtimeForm.type === 'SHIFT_EXTENSION' ? (
+              {overtimeForm.type === "SHIFT_EXTENSION" ? (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Extension Hours
@@ -1359,11 +1559,18 @@ const EmployeeDashboard = () => {
                     max="8"
                     placeholder="e.g., 2"
                     value={overtimeForm.requestedHours}
-                    onChange={(e) => setOvertimeForm({ ...overtimeForm, requestedHours: e.target.value })}
+                    onChange={(e) =>
+                      setOvertimeForm({
+                        ...overtimeForm,
+                        requestedHours: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                     required
                   />
-                  <p className="text-xs text-gray-500 mt-1">How many hours past your shift end</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    How many hours past your shift end
+                  </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
@@ -1374,7 +1581,12 @@ const EmployeeDashboard = () => {
                     <input
                       type="time"
                       value={overtimeForm.requestedStartTime}
-                      onChange={(e) => setOvertimeForm({ ...overtimeForm, requestedStartTime: e.target.value })}
+                      onChange={(e) =>
+                        setOvertimeForm({
+                          ...overtimeForm,
+                          requestedStartTime: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       required
                     />
@@ -1386,12 +1598,19 @@ const EmployeeDashboard = () => {
                     <input
                       type="time"
                       value={overtimeForm.requestedEndTime}
-                      onChange={(e) => setOvertimeForm({ ...overtimeForm, requestedEndTime: e.target.value })}
+                      onChange={(e) =>
+                        setOvertimeForm({
+                          ...overtimeForm,
+                          requestedEndTime: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       required
                     />
                   </div>
-                  <p className="col-span-2 text-xs text-gray-500">Specific time range outside your schedule</p>
+                  <p className="col-span-2 text-xs text-gray-500">
+                    Specific time range outside your schedule
+                  </p>
                 </div>
               )}
 
@@ -1403,7 +1622,9 @@ const EmployeeDashboard = () => {
                   rows={3}
                   placeholder="Please explain why overtime is needed..."
                   value={overtimeForm.reason}
-                  onChange={(e) => setOvertimeForm({ ...overtimeForm, reason: e.target.value })}
+                  onChange={(e) =>
+                    setOvertimeForm({ ...overtimeForm, reason: e.target.value })
+                  }
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
                   required
                 />
@@ -1415,8 +1636,8 @@ const EmployeeDashboard = () => {
                   variant="ghost"
                   onClick={() => {
                     setShowOvertimeModal(false);
-                    setOvertimeError('');
-                    setOvertimeSuccess('');
+                    setOvertimeError("");
+                    setOvertimeSuccess("");
                   }}
                   className="flex-1"
                 >
@@ -1442,27 +1663,38 @@ const EmployeeDashboard = () => {
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-xl ${shiftEndData?.hasApprovedOT ? 'bg-green-100' : 'bg-amber-100'}`}>
-                  {shiftEndData?.hasApprovedOT
-                    ? <CheckCircle className="w-6 h-6 text-green-600" />
-                    : <AlertCircle className="w-6 h-6 text-amber-600" />
-                  }
+                <div
+                  className={`p-2 rounded-xl ${shiftEndData?.hasApprovedOT ? "bg-green-100" : "bg-amber-100"}`}
+                >
+                  {shiftEndData?.hasApprovedOT ? (
+                    <CheckCircle className="w-6 h-6 text-green-600" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6 text-amber-600" />
+                  )}
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
-                    {shiftEndData?.hasApprovedOT ? 'Approved Overtime' : 'Shift Ending'}
+                    {shiftEndData?.hasApprovedOT
+                      ? "Approved Overtime"
+                      : "Shift Ending"}
                   </h2>
                   <p className="text-sm text-gray-500">
-                    {shiftEndData?.hasApprovedOT ? 'Do you want to use it?' : 'Stay clocked in?'}
+                    {shiftEndData?.hasApprovedOT
+                      ? "Do you want to use it?"
+                      : "Stay clocked in?"}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => {
                   setShowShiftEndModal(false);
-                  setShiftEndError('');
-                  setShiftEndSuccess('');
-                  setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                  setShiftEndError("");
+                  setShiftEndSuccess("");
+                  setShiftEndForm({
+                    duration: "",
+                    customMinutes: "",
+                    reason: "",
+                  });
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -1475,7 +1707,9 @@ const EmployeeDashboard = () => {
               <div className="p-6 space-y-4">
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-green-800 text-sm font-medium">
-                    You have approved overtime. Your shift ends at {shiftEndData?.shiftEnd}. Would you like to stay clocked in and use your approved overtime?
+                    You have approved overtime. Your shift ends at{" "}
+                    {shiftEndData?.shiftEnd}. Would you like to stay clocked in
+                    and use your approved overtime?
                   </p>
                 </div>
 
@@ -1485,7 +1719,11 @@ const EmployeeDashboard = () => {
                     variant="ghost"
                     onClick={() => {
                       setShowShiftEndModal(false);
-                      setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                      setShiftEndForm({
+                        duration: "",
+                        customMinutes: "",
+                        reason: "",
+                      });
                     }}
                     className="flex-1"
                   >
@@ -1496,7 +1734,11 @@ const EmployeeDashboard = () => {
                     variant="primary"
                     onClick={() => {
                       setShowShiftEndModal(false);
-                      setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                      setShiftEndForm({
+                        duration: "",
+                        customMinutes: "",
+                        reason: "",
+                      });
                     }}
                     className="flex-1"
                   >
@@ -1510,7 +1752,9 @@ const EmployeeDashboard = () => {
                 {/* Risk Warning */}
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-800 text-sm font-medium">
-                    You will be automatically clocked out at the end of your shift. If you need overtime, request it now so your client has time to approve.
+                    You will be automatically clocked out at the end of your
+                    shift. If you need overtime, request it now so your client
+                    has time to approve.
                   </p>
                 </div>
 
@@ -1535,19 +1779,24 @@ const EmployeeDashboard = () => {
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
-                      { value: '15', label: '15 min' },
-                      { value: '30', label: '30 min' },
-                      { value: '60', label: '1 hour' },
-                      { value: 'custom', label: 'Custom' },
+                      { value: "15", label: "15 min" },
+                      { value: "30", label: "30 min" },
+                      { value: "60", label: "1 hour" },
+                      { value: "custom", label: "Custom" },
                     ].map((opt) => (
                       <button
                         key={opt.value}
                         type="button"
-                        onClick={() => setShiftEndForm({ ...shiftEndForm, duration: opt.value })}
+                        onClick={() =>
+                          setShiftEndForm({
+                            ...shiftEndForm,
+                            duration: opt.value,
+                          })
+                        }
                         className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
                           shiftEndForm.duration === opt.value
-                            ? 'border-primary bg-primary-50 text-primary ring-2 ring-primary/20'
-                            : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                            ? "border-primary bg-primary-50 text-primary ring-2 ring-primary/20"
+                            : "border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
                         }`}
                       >
                         {opt.label}
@@ -1557,7 +1806,7 @@ const EmployeeDashboard = () => {
                 </div>
 
                 {/* Custom duration input */}
-                {shiftEndForm.duration === 'custom' && (
+                {shiftEndForm.duration === "custom" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Custom Duration (minutes)
@@ -1568,7 +1817,12 @@ const EmployeeDashboard = () => {
                       max="480"
                       placeholder="e.g., 45"
                       value={shiftEndForm.customMinutes}
-                      onChange={(e) => setShiftEndForm({ ...shiftEndForm, customMinutes: e.target.value })}
+                      onChange={(e) =>
+                        setShiftEndForm({
+                          ...shiftEndForm,
+                          customMinutes: e.target.value,
+                        })
+                      }
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                       required
                     />
@@ -1584,7 +1838,12 @@ const EmployeeDashboard = () => {
                     rows={3}
                     placeholder="Why do you need to stay clocked in?"
                     value={shiftEndForm.reason}
-                    onChange={(e) => setShiftEndForm({ ...shiftEndForm, reason: e.target.value })}
+                    onChange={(e) =>
+                      setShiftEndForm({
+                        ...shiftEndForm,
+                        reason: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
                     required
                   />
@@ -1596,9 +1855,13 @@ const EmployeeDashboard = () => {
                     variant="ghost"
                     onClick={() => {
                       setShowShiftEndModal(false);
-                      setShiftEndError('');
-                      setShiftEndSuccess('');
-                      setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+                      setShiftEndError("");
+                      setShiftEndSuccess("");
+                      setShiftEndForm({
+                        duration: "",
+                        customMinutes: "",
+                        reason: "",
+                      });
                     }}
                     className="flex-1"
                   >
@@ -1630,7 +1893,9 @@ const EmployeeDashboard = () => {
                   <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Overtime Not Approved</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Overtime Not Approved
+                  </h2>
                   <p className="text-sm text-gray-500">Your shift has ended</p>
                 </div>
               </div>
@@ -1644,7 +1909,8 @@ const EmployeeDashboard = () => {
             <div className="p-6">
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
                 <p className="text-sm text-red-800">
-                  {clockInWarningMessage || 'Your overtime request has not been approved. Hours worked without approved overtime may not be compensated.'}
+                  {clockInWarningMessage ||
+                    "Your overtime request has not been approved. Hours worked without approved overtime may not be compensated."}
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
@@ -1682,7 +1948,9 @@ const EmployeeDashboard = () => {
                   <Clock className="w-6 h-6 text-amber-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Late Clock-In</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Late Clock-In
+                  </h2>
                   <p className="text-sm text-gray-500">Your shift has ended</p>
                 </div>
               </div>
@@ -1696,7 +1964,8 @@ const EmployeeDashboard = () => {
             <div className="p-6">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
                 <p className="text-sm text-amber-800">
-                  {clockInWarningMessage || 'You are clocking in after your scheduled hours. These hours may require client approval.'}
+                  {clockInWarningMessage ||
+                    "You are clocking in after your scheduled hours. These hours may require client approval."}
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
@@ -1734,8 +2003,12 @@ const EmployeeDashboard = () => {
                   <AlertCircle className="w-6 h-6 text-amber-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Early Clock-In</h2>
-                  <p className="text-sm text-gray-500">Your shift hasn't started yet</p>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Early Clock-In
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Your shift hasn't started yet
+                  </p>
                 </div>
               </div>
               <button
@@ -1748,10 +2021,12 @@ const EmployeeDashboard = () => {
             <div className="p-6">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
                 <p className="text-sm text-amber-800 font-medium mb-2">
-                  Your shift hasn't started. You may not get paid for these hours.
+                  Your shift hasn't started. You may not get paid for these
+                  hours.
                 </p>
                 <p className="text-sm text-amber-700">
-                  Hours worked before your scheduled start time will be logged as overtime and require separate approval from your client.
+                  Hours worked before your scheduled start time will be logged
+                  as overtime and require separate approval from your client.
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
@@ -1789,8 +2064,12 @@ const EmployeeDashboard = () => {
                   <Clock className="w-6 h-6 text-amber-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">Late Clock-In</h2>
-                  <p className="text-sm text-gray-500">You are past your scheduled start time</p>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Late Clock-In
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    You are past your scheduled start time
+                  </p>
                 </div>
               </div>
               <button
@@ -1803,10 +2082,12 @@ const EmployeeDashboard = () => {
             <div className="p-6">
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
                 <p className="text-sm text-amber-800 font-medium mb-2">
-                  {clockInWarningMessage || 'You are clocking in late. This will be recorded as a late arrival.'}
+                  {clockInWarningMessage ||
+                    "You are clocking in late. This will be recorded as a late arrival."}
                 </p>
                 <p className="text-sm text-amber-700">
-                  Late arrivals are tracked and reported. Please ensure you arrive on time for your scheduled shifts.
+                  Late arrivals are tracked and reported. Please ensure you
+                  arrive on time for your scheduled shifts.
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
