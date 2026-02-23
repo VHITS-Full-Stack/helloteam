@@ -46,6 +46,7 @@ import {
 } from "../../components/common";
 import workSessionService from "../../services/workSession.service";
 import overtimeService from "../../services/overtime.service";
+import notificationService from "../../services/notification.service";
 import {
   playClockInSound,
   playClockOutSound,
@@ -525,6 +526,53 @@ const EmployeeDashboard = () => {
       socket.off(`notification:${user.id}`);
     };
   }, [socket, user?.id]);
+
+  // Poll for unread SHIFT_ENDING notifications (fallback if socket event was missed)
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const checkShiftEndNotifications = async () => {
+      // Only check if modal is not already showing and there's an active session
+      if (showShiftEndModal) return;
+      if (!sessionData?.session || sessionData.session.status === "COMPLETED")
+        return;
+
+      try {
+        const response = await notificationService.getNotifications({
+          unreadOnly: "true",
+          limit: "5",
+        });
+        if (response.success && response.data?.notifications) {
+          const shiftNotif = response.data.notifications.find(
+            (n) =>
+              (n.type === "SHIFT_ENDING" ||
+                n.type === "SHIFT_ENDING_OT_APPROVED") &&
+              !n.isRead,
+          );
+          if (shiftNotif) {
+            setShiftEndData(shiftNotif.data || {});
+            setShowShiftEndModal(true);
+            // Mark it as read so we don't keep showing it
+            notificationService.markAsRead(shiftNotif.id).catch(() => {});
+          }
+        }
+      } catch (err) {
+        // Silent fail — this is a fallback mechanism
+      }
+    };
+
+    // Check immediately on mount and when session data changes
+    checkShiftEndNotifications();
+
+    // Poll every 30 seconds as a safety net
+    const pollInterval = setInterval(checkShiftEndNotifications, 30000);
+    return () => clearInterval(pollInterval);
+  }, [
+    user?.id,
+    sessionData?.session?.id,
+    sessionData?.session?.status,
+    showShiftEndModal,
+  ]);
 
   // Handle "Stay Clocked In" OT request submission
   const handleShiftEndSubmit = async (e) => {
@@ -1779,9 +1827,9 @@ const EmployeeDashboard = () => {
                   </label>
                   <div className="grid grid-cols-4 gap-2">
                     {[
+                      { value: "15", label: "15 min" },
                       { value: "30", label: "30 min" },
                       { value: "60", label: "1 hour" },
-                      { value: "120", label: "2 hours" },
                       { value: "custom", label: "Custom" },
                     ].map((opt) => (
                       <button
