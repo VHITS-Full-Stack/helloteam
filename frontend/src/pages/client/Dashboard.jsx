@@ -227,7 +227,7 @@ const ClientDashboard = () => {
                 <Button
                   variant="danger"
                   icon={AlertCircle}
-                  onClick={() => navigate("/client/time-records")}
+                  onClick={() => navigate("/client/approvals")}
                 >
                   Review & Approve Now
                 </Button>
