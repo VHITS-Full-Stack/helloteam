@@ -197,6 +197,9 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         const endTotal = endH * 60 + endM;
         if (nowTotalMinutes <= endTotal) {
           const lateMinutes = nowTotalMinutes - startTotalMinutes;
+          const lateDisplay = lateMinutes >= 60
+            ? `${Math.floor(lateMinutes / 60)} hour${Math.floor(lateMinutes / 60) > 1 ? 's' : ''} ${lateMinutes % 60 > 0 ? `${lateMinutes % 60} minutes` : ''}`
+            : `${lateMinutes} minutes`;
           const startTimeFormatted = (() => {
             const [h, m] = schedule.startTime.split(':').map(Number);
             const period = h >= 12 ? 'PM' : 'AM';
@@ -207,7 +210,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
             success: false,
             requiresConfirmation: true,
             confirmationType: 'LATE_ARRIVAL',
-            message: `You are ${lateMinutes} minutes late. Your shift started at ${startTimeFormatted}. This will be recorded as a late arrival.`,
+            message: `You are ${lateDisplay.trim()} late. Your shift started at ${startTimeFormatted}. This will be recorded as a late arrival.`,
             scheduledStart: schedule.startTime,
             lateMinutes,
           });
