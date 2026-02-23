@@ -169,7 +169,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       return;
     }
 
-    // Check early clock-in (before schedule start) and post-shift clock-in (after schedule end)
+    // Check early clock-in (before schedule start), late arrival, and post-shift clock-in (after schedule end)
     if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
       const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
       const startTotalMinutes = startHour * 60 + startMinute;
@@ -185,6 +185,32 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
           scheduledStart: schedule.startTime,
         });
         return;
+      }
+
+      // Check late arrival (more than 5 minutes after shift start, but before shift end)
+      const lateThresholdMinutes = 5;
+      if (nowTotalMinutes > startTotalMinutes + lateThresholdMinutes && !req.body?.confirmLateArrival) {
+        // Only show late arrival warning if we're still within the shift (before end time)
+        const [endH, endM] = (schedule.endTime || '23:59').split(':').map(Number);
+        const endTotal = endH * 60 + endM;
+        if (nowTotalMinutes <= endTotal) {
+          const lateMinutes = nowTotalMinutes - startTotalMinutes;
+          const startTimeFormatted = (() => {
+            const [h, m] = schedule.startTime.split(':').map(Number);
+            const period = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+          })();
+          res.status(200).json({
+            success: false,
+            requiresConfirmation: true,
+            confirmationType: 'LATE_ARRIVAL',
+            message: `You are ${lateMinutes} minutes late. Your shift started at ${startTimeFormatted}. This will be recorded as a late arrival.`,
+            scheduledStart: schedule.startTime,
+            lateMinutes,
+          });
+          return;
+        }
       }
     }
 

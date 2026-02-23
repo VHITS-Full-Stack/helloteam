@@ -35,6 +35,8 @@ const TimeClock = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
+  const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
+  const [clockInWarningMessage, setClockInWarningMessage] = useState('');
 
   // Fetch current session and summaries
   const fetchData = useCallback(async () => {
@@ -132,8 +134,11 @@ const TimeClock = () => {
       setActionLoading(true);
       const response = await workSessionService.clockIn();
       if (response.requiresConfirmation) {
+        setClockInWarningMessage(response.message || '');
         if (response.confirmationType === 'EARLY_CLOCK_IN') {
           setShowEarlyClockInWarning(true);
+        } else if (response.confirmationType === 'LATE_ARRIVAL') {
+          setShowLateArrivalWarning(true);
         } else {
           setShowPostShiftWarning(true);
         }
@@ -169,6 +174,21 @@ const TimeClock = () => {
       setActionLoading(true);
       setShowPostShiftWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
+      playClockInSound();
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to clock in');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle confirmed late arrival clock-in
+  const handleLateArrivalClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setShowLateArrivalWarning(false);
+      await workSessionService.clockIn({ confirmLateArrival: true });
       playClockInSound();
       await fetchData();
     } catch (err) {
@@ -919,6 +939,61 @@ const TimeClock = () => {
                   className="flex-1"
                 >
                   Clock In Early
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Late Arrival Warning Modal */}
+      {showLateArrivalWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-100">
+                  <Clock className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Late Clock-In</h2>
+                  <p className="text-sm text-gray-500">You are past your scheduled start time</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLateArrivalWarning(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6">
+                <p className="text-sm text-amber-800 font-medium mb-2">
+                  {clockInWarningMessage || 'You are clocking in late. This will be recorded as a late arrival.'}
+                </p>
+                <p className="text-sm text-amber-700">
+                  Late arrivals are tracked and reported. Please ensure you arrive on time for your scheduled shifts.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you want to proceed with clocking in?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowLateArrivalWarning(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleLateArrivalClockIn}
+                  loading={actionLoading}
+                  className="flex-1"
+                >
+                  Clock In Late
                 </Button>
               </div>
             </div>
