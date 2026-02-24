@@ -2329,9 +2329,9 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         },
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get client billing error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch billing data' });
+    res.status(500).json({ success: false, error: `Failed to fetch billing data: ${error.message || error}` });
   }
 };
 
