@@ -451,6 +451,9 @@ model WorkSession {
   arrivalStatus        String? // 'Early', 'On Time', 'Late', 'No Schedule'
   lateMinutes          Int? // Minutes late (null if not late)
   shiftEndNotifiedAt   DateTime? // When the 5-min shift-ending warning was sent
+  shiftEndPausedAt     DateTime? // When the controlled pause started at shift end
+  shiftEndResumedAt    DateTime? // When employee chose to continue working
+  shiftEndAction       String?   // 'CONTINUE_WORKING' | 'STAY_CLOCKED_OUT' | 'AUTO_TIMEOUT'
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 
@@ -503,6 +506,9 @@ model TimeRecord {
   totalMinutes    Int            @default(0)
   breakMinutes    Int            @default(0)
   overtimeMinutes Int            @default(0)
+  shiftExtensionStatus  ShiftExtensionStatus @default(NONE)
+  shiftExtensionMinutes Int                  @default(0)
+  shiftExtensionReason  String?
   status          ApprovalStatus @default(PENDING)
   approvedBy      String?
   approvedAt      DateTime?
@@ -851,6 +857,14 @@ enum OvertimeStatus {
 enum OvertimeType {
   SHIFT_EXTENSION
   OFF_SHIFT
+}
+
+enum ShiftExtensionStatus {
+  NONE
+  APPROVED
+  PENDING
+  UNAPPROVED
+  DENIED
 }
 
 model OvertimeRequest {

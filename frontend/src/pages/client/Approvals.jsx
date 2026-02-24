@@ -335,6 +335,15 @@ const Approvals = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
+  // Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
+  const formatTime12 = (timeStr) => {
+    if (!timeStr) return '';
+    const [h, m] = timeStr.split(':').map(Number);
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+  };
+
   const selectableItems = activeType === 'leave'
     ? approvals
     : overtimeRequests;
@@ -701,10 +710,10 @@ const Approvals = () => {
                           {request.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
                         </Badge>
                         {request.type === 'OFF_SHIFT' && request.requestedStartTime && request.requestedEndTime && (
-                          <p className="text-xs text-gray-500 mt-1">{request.requestedStartTime} – {request.requestedEndTime}</p>
+                          <p className="text-xs text-gray-500 mt-1">{formatTime12(request.requestedStartTime)} – {formatTime12(request.requestedEndTime)}</p>
                         )}
                         {request.type !== 'OFF_SHIFT' && request.estimatedEndTime && (
-                          <p className="text-xs text-gray-500 mt-1">Until {request.estimatedEndTime}</p>
+                          <p className="text-xs text-gray-500 mt-1">Until {formatTime12(request.estimatedEndTime)}</p>
                         )}
                       </div>
                     </TableCell>
@@ -830,7 +839,7 @@ const Approvals = () => {
               {activeType === 'overtime' && selectedItem.type === 'OFF_SHIFT' && selectedItem.requestedStartTime && (
                 <div className="flex justify-between">
                   <span className="text-gray-500">Time</span>
-                  <span className="font-medium">{selectedItem.requestedStartTime} – {selectedItem.requestedEndTime}</span>
+                  <span className="font-medium">{formatTime12(selectedItem.requestedStartTime)} – {formatTime12(selectedItem.requestedEndTime)}</span>
                 </div>
               )}
               {activeType === 'overtime' && selectedItem.reason && (

@@ -98,6 +98,15 @@ const EmployeeDashboard = () => {
   const [shiftEndError, setShiftEndError] = useState("");
   const [shiftEndSuccess, setShiftEndSuccess] = useState("");
 
+  // Controlled pause modal state (shift has ended)
+  const [showPauseModal, setShowPauseModal] = useState(false);
+  const [pauseData, setPauseData] = useState(null);
+  const [pauseCountdown, setPauseCountdown] = useState(120); // 2 minutes
+  const [pauseReason, setPauseReason] = useState("");
+  const [pauseLoading, setPauseLoading] = useState(false);
+  const [pauseError, setPauseError] = useState("");
+  const [isInExtension, setIsInExtension] = useState(false);
+
   // My overtime requests state
   const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
   const [overtimeRequestsLoading, setOvertimeRequestsLoading] = useState(false);
@@ -180,8 +189,8 @@ const EmployeeDashboard = () => {
     try {
       setTasksLoading(true);
       const [tasksRes, doneRes] = await Promise.all([
-        taskService.getTasks({ limit: 5 }),
-        taskService.getTasks({ limit: 1, status: "DONE" }),
+        taskService.getTasks({ limit: 5, isPersonal: false }),
+        taskService.getTasks({ limit: 1, status: "DONE", isPersonal: false }),
       ]);
       if (tasksRes.success) {
         setTodayTasks(tasksRes.data.tasks || []);
@@ -300,6 +309,14 @@ const EmployeeDashboard = () => {
     fetchOvertimeRequests();
     fetchTasks();
   }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks]);
+
+  // Detect if session is in extension mode (resumed after shift end)
+  useEffect(() => {
+    const session = sessionData?.session;
+    if (session && session.shiftEndResumedAt && session.status !== "COMPLETED") {
+      setIsInExtension(true);
+    }
+  }, [sessionData?.session?.id, sessionData?.session?.shiftEndResumedAt]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -551,7 +568,16 @@ const EmployeeDashboard = () => {
         data.type === "SHIFT_ENDING_OT_APPROVED"
       ) {
         handleShiftEnding(data);
+      } else if (data.type === "SHIFT_END_PAUSE") {
+        // Shift has ended — show controlled pause modal
+        setPauseData(data.data || data);
+        setPauseCountdown(120);
+        setPauseReason("");
+        setPauseError("");
+        setShowPauseModal(true);
       } else if (data.type === "AUTO_CLOCK_OUT") {
+        setShowPauseModal(false);
+        setIsInExtension(false);
         handleAutoClockOut();
       }
     });
@@ -607,6 +633,45 @@ const EmployeeDashboard = () => {
     sessionData?.session?.status,
     showShiftEndModal,
   ]);
+
+  // Controlled pause countdown timer
+  useEffect(() => {
+    if (!showPauseModal) return;
+    if (pauseCountdown <= 0) {
+      // Timeout expired — backend will auto-clock-out, refresh session
+      setShowPauseModal(false);
+      fetchWorkSessionData();
+      return;
+    }
+    const timer = setInterval(() => {
+      setPauseCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showPauseModal, pauseCountdown]);
+
+  // Handle controlled pause response
+  const handlePauseResponse = async (action) => {
+    if (action === "CONTINUE_WORKING" && !pauseReason.trim()) {
+      setPauseError("Please provide a reason for continuing to work");
+      return;
+    }
+    try {
+      setPauseLoading(true);
+      setPauseError("");
+      await workSessionService.shiftEndResponse(action, pauseReason || null);
+      setShowPauseModal(false);
+      if (action === "CONTINUE_WORKING") {
+        setIsInExtension(true);
+      } else {
+        setIsInExtension(false);
+      }
+      fetchWorkSessionData();
+    } catch (err) {
+      setPauseError(err.error || err.message || "Failed to process response");
+    } finally {
+      setPauseLoading(false);
+    }
+  };
 
   // Handle "Stay Clocked In" OT request submission
   const handleShiftEndSubmit = async (e) => {
@@ -867,9 +932,9 @@ const EmployeeDashboard = () => {
                 </div>
 
                 {isWorking && (
-                  <div className="text-center py-2 px-4 bg-green-500/20 rounded-lg w-full">
-                    <p className="text-green-300 text-xs">
-                      {isOnBreak ? "On Break" : "Active Session"}
+                  <div className={`text-center py-2 px-4 rounded-lg w-full ${isInExtension ? "bg-orange-500/20" : "bg-green-500/20"}`}>
+                    <p className={`text-xs ${isInExtension ? "text-orange-300" : "text-green-300"}`}>
+                      {isOnBreak ? "On Break" : isInExtension ? "Shift Extension" : "Active Session"}
                     </p>
                     <p className="text-2xl font-bold text-white font-mono">
                       {formatDurationWithSeconds(
@@ -1996,6 +2061,93 @@ const EmployeeDashboard = () => {
                 </div>
               </form>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Controlled Pause Modal — Shift has ended, choose to continue or stay clocked out */}
+      {showPauseModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-red-100">
+                  <Clock className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Shift Has Ended
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    Scheduled end: {pauseData?.shiftEnd}
+                  </p>
+                </div>
+              </div>
+              {/* Countdown badge */}
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                <span className="text-sm font-bold text-red-700 font-mono">
+                  {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-amber-800 text-sm font-medium">
+                  Your scheduled shift has ended. You will be automatically
+                  clocked out if you don't respond within{" "}
+                  <span className="font-bold">
+                    {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
+                  </span>.
+                </p>
+              </div>
+
+              {pauseError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+                  <p className="text-red-700 text-sm">{pauseError}</p>
+                </div>
+              )}
+
+              {/* Reason field (required for continue working) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Reason for continuing <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Why do you need to continue working past your shift?"
+                  value={pauseReason}
+                  onChange={(e) => setPauseReason(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Required if you choose to continue working
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => handlePauseResponse("STAY_CLOCKED_OUT")}
+                  loading={pauseLoading}
+                  className="flex-1"
+                >
+                  Stay Clocked Out
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={() => handlePauseResponse("CONTINUE_WORKING")}
+                  loading={pauseLoading}
+                  className="flex-1 !bg-orange-600 hover:!bg-orange-700"
+                >
+                  Continue Working
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

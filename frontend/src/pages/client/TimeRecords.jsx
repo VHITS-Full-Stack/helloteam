@@ -142,8 +142,11 @@ const TimeRecords = () => {
     }
   };
 
-  const getCellClass = (hours, hasUnapprovedOT) => {
+  const getCellClass = (hours, hasUnapprovedOT, shiftExtensionStatus) => {
     if (!hours || hours === 0) return 'text-gray-300';
+    if (shiftExtensionStatus === 'DENIED') return 'text-red-600 font-medium';
+    if (shiftExtensionStatus === 'UNAPPROVED' || shiftExtensionStatus === 'PENDING') return 'text-orange-600 font-medium';
+    if (shiftExtensionStatus === 'APPROVED') return 'text-green-700 font-medium';
     if (hasUnapprovedOT) return 'text-orange-600 font-medium';
     return 'text-green-700 font-medium';
   };
@@ -494,20 +497,23 @@ const TimeRecords = () => {
                                   {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
                                     const rec = dayMap[day];
                                     const ot = rec ? (rec.overtimeMinutes || 0) / 60 : 0;
+                                    const extStatus = rec?.shiftExtensionStatus || 'NONE';
                                     const otStatus = rec?.overtimeStatus ? rec.overtimeStatus.toLowerCase() : (rec && rec.overtimeMinutes > 0 ? (rec.status || '').toLowerCase() : null);
-                                    const isApproved = otStatus === 'approved' || otStatus === 'auto_approved';
+                                    const isApproved = otStatus === 'approved' || otStatus === 'auto_approved' || extStatus === 'APPROVED';
+                                    const isDenied = otStatus === 'rejected' || extStatus === 'DENIED';
+                                    const isPending = extStatus === 'PENDING' || otStatus === 'pending';
+                                    // Color: Green=approved, Red=denied, Orange=unapproved/pending
+                                    const colorClass = isApproved ? 'text-green-700' : isDenied ? 'text-red-700' : 'text-orange-700';
+                                    const badgeBg = isApproved ? 'bg-green-100 text-green-700' : isDenied ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700';
+                                    const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : isPending ? 'Pending' : 'Unapproved';
                                     return (
                                       <div key={day} className="text-center">
                                         {ot > 0 ? (
                                           <div className="flex flex-col items-center gap-0.5">
-                                            <span className={`text-sm font-medium ${isApproved ? 'text-green-700' : 'text-orange-700'}`}>+{formatHours(ot)}</span>
-                                            {otStatus && (
-                                              <span className={`text-[9px] font-bold uppercase px-1 py-px rounded ${
-                                                isApproved ? 'bg-green-100 text-green-700' :
-                                                otStatus === 'rejected' ? 'bg-red-100 text-red-700' :
-                                                'bg-orange-100 text-orange-700'
-                                              }`}>
-                                                {otStatus === 'rejected' ? 'Denied' : isApproved ? 'Approved' : 'Pending'}
+                                            <span className={`text-sm font-medium ${colorClass}`}>+{formatHours(ot)}</span>
+                                            {(otStatus || extStatus !== 'NONE') && (
+                                              <span className={`text-[9px] font-bold uppercase px-1 py-px rounded ${badgeBg}`}>
+                                                {badgeLabel}
                                               </span>
                                             )}
                                           </div>
@@ -711,17 +717,26 @@ const TimeRecords = () => {
       {/* Legend */}
       <div className="flex flex-wrap items-center gap-6 text-sm text-gray-500">
         <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-blue-500" />
+          <span>Scheduled Time</span>
+        </div>
+        <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-500" />
-          <span>Scheduled / Approved OT (payable)</span>
+          <span>Approved OT</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-orange-500" />
-          <span>Unapproved OT (needs approval)</span>
+          <span>Unapproved / Pending OT</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-red-500" />
+          <span>Denied OT</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">Pending</span>
           <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-green-100 text-green-700">Approved</span>
           <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-red-100 text-red-700">Denied</span>
+          <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-orange-100 text-orange-700">Unapproved</span>
           <span>OT Status</span>
         </div>
       </div>

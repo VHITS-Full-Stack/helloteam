@@ -64,6 +64,11 @@ const workSessionService = {
   async getSessionLogs(sessionId) {
     return await api.get(`/work-sessions/${sessionId}/logs`);
   },
+
+  // Respond to shift-end controlled pause
+  async shiftEndResponse(action, reason = null) {
+    return await api.post('/work-sessions/shift-end-response', { action, reason });
+  },
 };
 
 export default workSessionService;

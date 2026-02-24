@@ -509,11 +509,21 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
       const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
 
+      // Calculate shift extension (minutes worked past scheduled end)
+      const shiftExtensionMinutes = scheduledEnd && endTime > scheduledEnd
+        ? Math.round((endTime.getTime() - scheduledEnd.getTime()) / 60000)
+        : 0;
+      const shiftExtensionReason = activeSession.shiftEndAction === 'CONTINUE_WORKING'
+        ? (activeSession.notes || null)
+        : null;
+
       // Create/update time record for each assigned client
       await Promise.all(
         clientAssignments.map(async (assignment) => {
           // Check if there's a pre-approved OvertimeRequest for this employee/client/date
           let status: 'PENDING' | 'APPROVED' = 'PENDING';
+          let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
+
           if (overtimeMinutes > 0) {
             const approvedOT = await prisma.overtimeRequest.findFirst({
               where: {
@@ -526,6 +536,32 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             if (approvedOT) {
               // Pre-approved OT → auto-approve the time record immediately
               status = 'APPROVED';
+            }
+          }
+
+          // Determine shift extension approval status
+          if (shiftExtensionMinutes > 0) {
+            const otRequest = await prisma.overtimeRequest.findFirst({
+              where: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                type: 'SHIFT_EXTENSION',
+              },
+              orderBy: { createdAt: 'desc' },
+            });
+
+            if (otRequest) {
+              if (otRequest.status === 'APPROVED') {
+                shiftExtensionStatus = 'APPROVED';
+              } else if (otRequest.status === 'PENDING') {
+                shiftExtensionStatus = 'PENDING';
+              } else if (otRequest.status === 'REJECTED') {
+                shiftExtensionStatus = 'DENIED';
+              }
+            } else {
+              // Worked past shift end without any OT request
+              shiftExtensionStatus = 'UNAPPROVED';
             }
           }
 
@@ -553,6 +589,9 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               totalMinutes: newTotal,
               breakMinutes: newBreak,
               overtimeMinutes: newOvertime,
+              shiftExtensionMinutes,
+              shiftExtensionStatus,
+              shiftExtensionReason,
               scheduledStart: scheduledStart || existing.scheduledStart,
               scheduledEnd: scheduledEnd || existing.scheduledEnd,
             };
@@ -578,6 +617,9 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 totalMinutes: totalWorkMinutes,
                 breakMinutes: totalBreakMinutes,
                 overtimeMinutes,
+                shiftExtensionMinutes,
+                shiftExtensionStatus,
+                shiftExtensionReason,
                 status,
                 approvedAt: status === 'APPROVED' ? new Date() : undefined,
               },
@@ -1094,6 +1136,9 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             revisionReason: true,
             revisionRequestedBy: true,
             revisionRequestedAt: true,
+            shiftExtensionStatus: true,
+            shiftExtensionMinutes: true,
+            shiftExtensionReason: true,
           },
         })
       : [];
@@ -1125,6 +1170,9 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         approvedAt: timeRecord?.approvedAt || null,
         timeRecordId: timeRecord?.id || null,
         revisionReason: timeRecord?.revisionReason || null,
+        shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
+        shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
+        shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
       };
     });
 
@@ -1654,5 +1702,119 @@ export const getSessionLogs = async (req: AuthenticatedRequest, res: Response): 
   } catch (error) {
     console.error('Get session logs error:', error);
     res.status(500).json({ success: false, message: 'Failed to get session logs' });
+  }
+};
+
+/**
+ * Handle employee's response to the controlled pause at shift end.
+ * POST /api/work-sessions/shift-end-response
+ * Body: { action: 'CONTINUE_WORKING' | 'STAY_CLOCKED_OUT', reason?: string }
+ */
+export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { action, reason } = req.body;
+
+    if (!['CONTINUE_WORKING', 'STAY_CLOCKED_OUT'].includes(action)) {
+      res.status(400).json({ success: false, error: 'Invalid action. Must be CONTINUE_WORKING or STAY_CLOCKED_OUT' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({ where: { userId } });
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    // Find the active session that is in controlled pause
+    const session = await prisma.workSession.findFirst({
+      where: {
+        employeeId: employee.id,
+        status: { in: ['ACTIVE', 'ON_BREAK'] },
+        shiftEndPausedAt: { not: null },
+        shiftEndAction: null, // Not yet responded
+      },
+      orderBy: { startTime: 'desc' },
+    });
+
+    if (!session) {
+      res.status(404).json({ success: false, error: 'No active shift-end pause found' });
+      return;
+    }
+
+    if (action === 'CONTINUE_WORKING') {
+      if (!reason || !reason.trim()) {
+        res.status(400).json({ success: false, error: 'Reason is required when continuing to work' });
+        return;
+      }
+
+      await prisma.workSession.update({
+        where: { id: session.id },
+        data: {
+          shiftEndResumedAt: new Date(),
+          shiftEndAction: 'CONTINUE_WORKING',
+          notes: reason.trim(),
+        },
+      });
+
+      res.json({ success: true, message: 'Session resumed. Shift extension time will be tracked as unapproved overtime.' });
+    } else {
+      // STAY_CLOCKED_OUT — clock out at scheduled end time
+      // Find the schedule to get the exact shift end time
+      const now = new Date();
+      const clientAssignment = await prisma.clientEmployee.findFirst({
+        where: { employeeId: employee.id, isActive: true },
+        include: { client: { select: { timezone: true } } },
+      });
+
+      let clockOutTime = session.shiftEndPausedAt || now; // Default to pause time
+
+      if (clientAssignment?.client?.timezone) {
+        const tz = clientAssignment.client.timezone;
+        const dayOfWeek = parseInt(
+          new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'narrow' })
+            .formatToParts(now)
+            .find((p) => p.type === 'weekday')?.value === 'S' ? '0' : '1', // simplified
+          10
+        );
+
+        const schedule = await prisma.schedule.findFirst({
+          where: { employeeId: employee.id, isActive: true, dayOfWeek },
+        });
+
+        if (schedule?.endTime) {
+          clockOutTime = buildScheduleTimestamp(tz, schedule.endTime, now);
+        }
+      }
+
+      // End the session at scheduled end time
+      const totalMs = clockOutTime.getTime() - session.startTime.getTime();
+      const totalBreakMs = session.totalBreakMinutes * 60000;
+      const totalWorkMinutes = Math.max(0, Math.round((totalMs - totalBreakMs) / 60000));
+
+      await prisma.workSession.update({
+        where: { id: session.id },
+        data: {
+          endTime: clockOutTime,
+          status: 'COMPLETED',
+          shiftEndAction: 'STAY_CLOCKED_OUT',
+        },
+      });
+
+      // Log the clock-out
+      await prisma.sessionLog.create({
+        data: {
+          workSessionId: session.id,
+          userId,
+          action: 'CLOCK_OUT',
+          message: 'Clocked out at shift end (employee chose to stay clocked out)',
+        },
+      });
+
+      res.json({ success: true, message: 'Clocked out at scheduled shift end time.' });
+    }
+  } catch (error) {
+    console.error('Shift end response error:', error);
+    res.status(500).json({ success: false, error: 'Failed to process shift end response' });
   }
 };

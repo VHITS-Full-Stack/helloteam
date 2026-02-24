@@ -151,7 +151,7 @@ export const finalizePayrollPeriod = async (req: AuthenticatedRequest, res: Resp
     });
 
     const approvedMinutes = timeRecords
-      .filter((r) => r.status === 'APPROVED')
+      .filter((r) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED')
       .reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
 
     const pendingMinutes = timeRecords
@@ -321,13 +321,13 @@ export const getCurrentPayrollPeriod = async (req: AuthenticatedRequest, res: Re
 
     const totalMinutes = timeRecords.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
     const approvedMinutes = timeRecords
-      .filter((r) => r.status === 'APPROVED')
+      .filter((r) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED')
       .reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
 
     const stats = {
       totalRecords: timeRecords.length,
       pending: timeRecords.filter((r) => r.status === 'PENDING').length,
-      approved: timeRecords.filter((r) => r.status === 'APPROVED').length,
+      approved: timeRecords.filter((r) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED').length,
       rejected: timeRecords.filter((r) => r.status === 'REJECTED').length,
       totalHours: Math.round(totalMinutes / 60 * 100) / 100,
       approvedHours: Math.round(approvedMinutes / 60 * 100) / 100,
@@ -425,7 +425,7 @@ export const getPayrollReadinessDashboard = async (req: AuthenticatedRequest, re
 
         const totalMinutes = timeRecords.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
         const overtimeMinutes = timeRecords.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0);
-        const approvedRecords = timeRecords.filter((r) => r.status === 'APPROVED');
+        const approvedRecords = timeRecords.filter((r) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED');
         const pendingRecords = timeRecords.filter((r) => r.status === 'PENDING');
         const rejectedRecords = timeRecords.filter((r) => r.status === 'REJECTED');
         const disputedRecords = timeRecords.filter((r) => r.adjustments.length > 0);

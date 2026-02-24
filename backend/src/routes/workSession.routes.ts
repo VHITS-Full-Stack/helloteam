@@ -11,6 +11,7 @@ import {
   updateSessionNotes,
   addManualEntry,
   getSessionLogs,
+  shiftEndResponse,
 } from '../controllers/workSession.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -23,6 +24,9 @@ router.use(authorizeRoles(['EMPLOYEE']));
 // Clock in/out
 router.post('/clock-in', clockIn);
 router.post('/clock-out', clockOut);
+
+// Shift end controlled pause response
+router.post('/shift-end-response', shiftEndResponse);
 
 // Break management
 router.post('/break/start', startBreak);

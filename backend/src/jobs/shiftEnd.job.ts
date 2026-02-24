@@ -160,8 +160,15 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         console.log(`[Shift-End] Notified ${employee.firstName} ${employee.lastName} — shift ends at ${schedule.endTime} (${minutesLeft} min)${approvedOT ? ' [OT approved]' : ''}`);
       }
 
-      // --- Auto-clock-out at shift end ---
+      // --- Controlled pause / Auto-clock-out at shift end ---
       if (minutesUntilEnd <= 0) {
+        // Skip sessions that started AFTER the scheduled shift end.
+        // These are "Extra Time" sessions — the employee deliberately clocked in
+        // after their shift to do additional work. Don't auto-clock them out.
+        if (session.startTime > shiftEndUTC) {
+          continue;
+        }
+
         // Check if the employee has an active/pending OT request for today
         const otRequest = await prisma.overtimeRequest.findFirst({
           where: {
@@ -177,8 +184,47 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           continue;
         }
 
-        // Auto-clock out the employee
-        await autoClockOut(session, employee, now, schedule, io);
+        // If already handled (employee responded to pause), skip
+        if (session.shiftEndAction) {
+          continue;
+        }
+
+        // If not yet paused, initiate controlled pause
+        if (!session.shiftEndPausedAt) {
+          await prisma.workSession.update({
+            where: { id: session.id },
+            data: { shiftEndPausedAt: now },
+          });
+
+          // Emit SHIFT_END_PAUSE socket event for frontend modal
+          if (io) {
+            io.emit(`notification:${employee.userId}`, {
+              type: 'SHIFT_END_PAUSE',
+              message: 'Your shift has ended. Choose to continue working or stay clocked out.',
+              data: {
+                sessionId: session.id,
+                shiftEnd: schedule.endTime,
+                clientId: assignment.clientId,
+              },
+            });
+          }
+
+          console.log(`[Shift-End] Controlled pause initiated for ${employee.firstName} ${employee.lastName} — shift ended at ${schedule.endTime}`);
+          continue;
+        }
+
+        // If paused and 2-minute timeout expired, auto-clock-out at scheduled end time
+        const pausedMinutes = (now.getTime() - session.shiftEndPausedAt.getTime()) / 60000;
+        if (pausedMinutes >= 2) {
+          await prisma.workSession.update({
+            where: { id: session.id },
+            data: { shiftEndAction: 'AUTO_TIMEOUT' },
+          });
+          // Auto-clock out at scheduled end time (not current time)
+          await autoClockOut(session, employee, shiftEndUTC, schedule, io);
+          console.log(`[Shift-End] Auto-clock-out (2-min timeout) for ${employee.firstName} ${employee.lastName}`);
+        }
+        // else: still within 2-minute window, wait for employee response
       }
     }
   } catch (error) {
@@ -240,8 +286,7 @@ async function autoClockOut(
 
     const today = new Date(Date.UTC(endTime.getFullYear(), endTime.getMonth(), endTime.getDate()));
 
-    // Calculate early overtime (pre-schedule minutes)
-    let earlyOvertimeMinutes = 0;
+    // Calculate scheduled start/end timestamps for the time record
     let scheduledStart: Date | null = null;
     let scheduledEnd: Date | null = null;
 
@@ -249,12 +294,6 @@ async function autoClockOut(
       const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
       scheduledStart = new Date(endTime);
       scheduledStart.setHours(startHour, startMinute, 0, 0);
-
-      if (session.startTime < scheduledStart) {
-        earlyOvertimeMinutes = Math.round(
-          (scheduledStart.getTime() - session.startTime.getTime()) / 60000
-        );
-      }
     }
 
     if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
@@ -263,10 +302,9 @@ async function autoClockOut(
       scheduledEnd.setHours(endHour, endMinute, 0, 0);
     }
 
-    // Overtime = early pre-schedule minutes + hours beyond 8h regular work
-    const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
-    const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - 480);
-    const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
+    // Auto-clock-out happens at scheduled end time, so overtime is 0 by definition.
+    // The employee did not work past their shift — no overtime to report to client.
+    const overtimeMinutes = 0;
 
     // Create/update time records for each client assignment
     const clientAssignments = employee.clientAssignments || [];
@@ -284,16 +322,13 @@ async function autoClockOut(
       if (existing) {
         const newTotal = existing.totalMinutes + totalWorkMinutes;
         const newBreak = existing.breakMinutes + totalBreakMinutes;
-        const newRegular = newTotal - earlyOvertimeMinutes;
-        const newLateOT = Math.max(0, newRegular - 480);
-        const newOvertime = earlyOvertimeMinutes + newLateOT;
         await prisma.timeRecord.update({
           where: { id: existing.id },
           data: {
             actualEnd: endTime,
             totalMinutes: newTotal,
             breakMinutes: newBreak,
-            overtimeMinutes: newOvertime,
+            overtimeMinutes: 0,
             scheduledStart: scheduledStart || existing.scheduledStart,
             scheduledEnd: scheduledEnd || existing.scheduledEnd,
           },
@@ -310,7 +345,7 @@ async function autoClockOut(
             actualEnd: endTime,
             totalMinutes: totalWorkMinutes,
             breakMinutes: totalBreakMinutes,
-            overtimeMinutes,
+            overtimeMinutes: 0,
             status: 'PENDING',
           },
         });

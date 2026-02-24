@@ -337,13 +337,20 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
     });
 
     if (existingTimeRecord) {
+      const updateData: any = {
+        status: 'APPROVED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+      };
+
+      // Cascade shift extension status if this is a SHIFT_EXTENSION request
+      if (request.type === 'SHIFT_EXTENSION') {
+        updateData.shiftExtensionStatus = 'APPROVED';
+      }
+
       await prisma.timeRecord.update({
         where: { id: existingTimeRecord.id },
-        data: {
-          status: 'APPROVED',
-          approvedBy: userId,
-          approvedAt: new Date(),
-        },
+        data: updateData,
       });
     }
 
@@ -406,6 +413,25 @@ export const rejectOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
         rejectionReason: reason,
       },
     });
+
+    // Cascade denial to TimeRecord shiftExtensionStatus
+    if (request.type === 'SHIFT_EXTENSION') {
+      const existingTimeRecord = await prisma.timeRecord.findFirst({
+        where: {
+          employeeId: request.employeeId,
+          clientId: request.clientId,
+          date: request.date,
+          shiftExtensionMinutes: { gt: 0 },
+        },
+      });
+
+      if (existingTimeRecord) {
+        await prisma.timeRecord.update({
+          where: { id: existingTimeRecord.id },
+          data: { shiftExtensionStatus: 'DENIED' },
+        });
+      }
+    }
 
     // Notify the employee
     const employee = await prisma.employee.findUnique({

@@ -595,6 +595,16 @@ const TimeRecords = () => {
                                 OT +{formatDuration(session.overtimeMinutes)}
                               </span>
                             )}
+                            {session.shiftExtensionMinutes > 0 && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                                session.shiftExtensionStatus === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                session.shiftExtensionStatus === 'DENIED' ? 'bg-red-100 text-red-800' :
+                                session.shiftExtensionStatus === 'PENDING' ? 'bg-amber-100 text-amber-800' :
+                                'bg-orange-100 text-orange-800'
+                              }`}>
+                                Ext +{formatDuration(session.shiftExtensionMinutes)}
+                              </span>
+                            )}
                           </div>
                         )}
                       </td>

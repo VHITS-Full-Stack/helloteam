@@ -246,6 +246,9 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       select: {
         id: true,
         overtimeMinutes: true,
+        shiftExtensionStatus: true,
+        shiftExtensionMinutes: true,
+        shiftExtensionReason: true,
         date: true,
         createdAt: true,
         employee: { select: { firstName: true, lastName: true } },
@@ -672,7 +675,7 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
         ) - (tr.breakMinutes || 0);
       }
       const totalHours = totalMinutes / 60;
-      const overtimeMinutes = tr.overtimeMinutes || Math.max(0, totalMinutes - 480);
+      const overtimeMinutes = tr.overtimeMinutes || 0;
       approvals.push({
         id: tr.id,
         type: overtimeMinutes > 0 ? 'overtime' : 'time-entry',
@@ -1241,6 +1244,9 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         date: true,
         totalMinutes: true,
         overtimeMinutes: true,
+        shiftExtensionStatus: true,
+        shiftExtensionMinutes: true,
+        shiftExtensionReason: true,
         status: true,
         revisionReason: true,
       },
@@ -1299,8 +1305,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         // Look up the actual TimeRecord for this day to get approval status
         const trKey = `${empId}_${dateStr}`;
         const timeRecord = timeRecordMap.get(trKey);
-        const dayOvertime = timeRecord ? (timeRecord.overtimeMinutes || 0) : Math.max(0, dayMinutes - 480);
-        const dayOvertimeStatus = timeRecord ? timeRecord.status : 'PENDING';
+        const dayOvertime = timeRecord ? (timeRecord.overtimeMinutes || 0) : 0;
+        const dayOvertimeStatus = timeRecord ? timeRecord.status : null;
 
         const dayHours = Math.round((dayMinutes / 60) * 10) / 10;
         empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + dayHours;
@@ -1324,6 +1330,9 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           date,
           totalMinutes: dayMinutes,
           overtimeMinutes: dayOvertime,
+          shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
+          shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
+          shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
           status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
           overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
           revisionReason: timeRecord?.revisionReason || null,
@@ -1496,7 +1505,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         ) - (tr.breakMinutes || 0);
       }
       const totalHours = totalMinutes / 60;
-      const overtimeMinutes = tr.overtimeMinutes || Math.max(0, totalMinutes - 480);
+      const overtimeMinutes = tr.overtimeMinutes || 0;
       const isOvertime = overtimeMinutes > 0;
       const profilePhoto = await refreshProfilePhotoUrl(tr.employee.profilePhoto);
       approvals.push({
@@ -1510,6 +1519,9 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         date: tr.date,
         hours: Math.round(totalHours * 10) / 10,
         status: tr.status.toLowerCase(),
+        shiftExtensionStatus: tr.shiftExtensionStatus || 'NONE',
+        shiftExtensionMinutes: tr.shiftExtensionMinutes || 0,
+        shiftExtensionReason: tr.shiftExtensionReason || null,
         submittedAt: tr.createdAt,
         approvedAt: tr.approvedAt,
       });

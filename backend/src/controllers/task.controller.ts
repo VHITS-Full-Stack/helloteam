@@ -109,6 +109,7 @@ export const getTasks = async (
       priority = "",
       employeeId = "",
       clientId = "",
+      isPersonal,
     } = req.query;
 
     const pageNum = parseInt(page as string, 10);
@@ -155,6 +156,9 @@ export const getTasks = async (
     }
     if (clientId && userRole !== "CLIENT") {
       where.clientId = clientId as string;
+    }
+    if (isPersonal !== undefined && isPersonal !== "") {
+      where.isPersonal = isPersonal === "true";
     }
     if (search) {
       where.OR = [
