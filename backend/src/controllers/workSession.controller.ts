@@ -501,18 +501,27 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         scheduledEnd = buildScheduleTimestamp(clockOutTz, schedule.endTime, now);
       }
 
+      // Detect Extra Time: session started AFTER scheduled end (not a shift extension)
+      const isExtraTime = scheduledEnd && activeSession.startTime > scheduledEnd;
+
       // Overtime = early pre-schedule minutes + any hours beyond scheduled duration
       const scheduledDurationMinutes = scheduledEnd && scheduledStart
         ? Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000)
         : 480; // fallback to 8h if no schedule
       const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
       const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
-      const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
+      let overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
 
       // Calculate shift extension (minutes worked past scheduled end)
-      const shiftExtensionMinutes = scheduledEnd && endTime > scheduledEnd
+      let shiftExtensionMinutes = scheduledEnd && endTime > scheduledEnd
         ? Math.round((endTime.getTime() - scheduledEnd.getTime()) / 60000)
         : 0;
+
+      // Extra Time override: ALL work is overtime, no shift extension
+      if (isExtraTime) {
+        overtimeMinutes = totalWorkMinutes;
+        shiftExtensionMinutes = 0;
+      }
       const shiftExtensionReason = activeSession.shiftEndAction === 'CONTINUE_WORKING'
         ? (activeSession.notes || null)
         : null;
@@ -588,10 +597,11 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               actualEnd: endTime,
               totalMinutes: newTotal,
               breakMinutes: newBreak,
-              overtimeMinutes: newOvertime,
-              shiftExtensionMinutes,
-              shiftExtensionStatus,
-              shiftExtensionReason,
+              overtimeMinutes: isExtraTime ? (existing.overtimeMinutes + totalWorkMinutes) : newOvertime,
+              // For Extra Time sessions, preserve existing shift extension data from the regular shift
+              shiftExtensionMinutes: isExtraTime ? (existing.shiftExtensionMinutes || 0) : shiftExtensionMinutes,
+              shiftExtensionStatus: isExtraTime ? existing.shiftExtensionStatus : shiftExtensionStatus,
+              shiftExtensionReason: isExtraTime ? existing.shiftExtensionReason : shiftExtensionReason,
               scheduledStart: scheduledStart || existing.scheduledStart,
               scheduledEnd: scheduledEnd || existing.scheduledEnd,
             };
