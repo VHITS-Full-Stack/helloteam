@@ -7,6 +7,8 @@ import {
   saveEmergencyContacts,
   saveGovernmentIdType,
   uploadGovernmentId,
+  uploadGovernmentId2,
+  uploadProofOfAddress,
   completeOnboarding,
 } from '../controllers/employeeOnboarding.controller';
 
@@ -23,6 +25,8 @@ router.post('/personal-info', savePersonalInfo);
 router.post('/emergency-contacts', saveEmergencyContacts);
 router.post('/government-id-type', saveGovernmentIdType);
 router.post('/government-id', upload.single('file'), uploadGovernmentId);
+router.post('/government-id-2', upload.single('file'), uploadGovernmentId2);
+router.post('/proof-of-address', upload.single('file'), uploadProofOfAddress);
 router.post('/complete', completeOnboarding);
 
 export default router;

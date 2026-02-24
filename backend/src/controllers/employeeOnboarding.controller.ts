@@ -33,6 +33,10 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
         address: employee.address,
         governmentIdType: employee.governmentIdType,
         governmentIdUrl: employee.governmentIdUrl,
+        governmentId2Type: employee.governmentId2Type,
+        governmentId2Url: employee.governmentId2Url,
+        proofOfAddressType: employee.proofOfAddressType,
+        proofOfAddressUrl: employee.proofOfAddressUrl,
         emergencyContacts: employee.emergencyContacts.map((c) => ({
           id: c.id,
           name: c.name,
@@ -95,7 +99,7 @@ export const savePersonalInfo = async (req: AuthenticatedRequest, res: Response)
 
 /**
  * POST /employee-onboarding/emergency-contacts
- * Save Step 2: array of 3 emergency contacts. Uses replace strategy.
+ * Save Step 2: array of 2-3 emergency contacts. Uses replace strategy.
  */
 export const saveEmergencyContacts = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
@@ -106,8 +110,8 @@ export const saveEmergencyContacts = async (req: AuthenticatedRequest, res: Resp
 
     const { contacts } = req.body;
 
-    if (!Array.isArray(contacts) || contacts.length !== 3) {
-      res.status(400).json({ success: false, error: 'Exactly 3 emergency contacts are required' });
+    if (!Array.isArray(contacts) || contacts.length < 2 || contacts.length > 3) {
+      res.status(400).json({ success: false, error: 'At least 2 emergency contacts are required' });
       return;
     }
 
@@ -250,6 +254,104 @@ export const uploadGovernmentId = async (req: AuthenticatedRequest, res: Respons
 };
 
 /**
+ * POST /employee-onboarding/government-id-2
+ * Upload Step 3b: second government ID file.
+ */
+export const uploadGovernmentId2 = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      res.status(400).json({ success: false, error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF, PDF' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({ where: { userId: req.user.userId } });
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const uploadResult = await uploadGovernmentIdFile(file);
+    if (!uploadResult.success) {
+      res.status(400).json({ success: false, error: uploadResult.error });
+      return;
+    }
+
+    const governmentId2Type = req.body?.governmentId2Type || null;
+
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { governmentId2Url: uploadResult.url, governmentId2Type },
+    });
+
+    res.json({ success: true, message: 'Second government ID uploaded', data: { governmentId2Url: uploadResult.url, governmentId2Type } });
+  } catch (error) {
+    console.error('Upload government ID 2 error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload second government ID' });
+  }
+};
+
+/**
+ * POST /employee-onboarding/proof-of-address
+ * Upload Step 3c: proof of address document.
+ */
+export const uploadProofOfAddress = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const file = req.file;
+    if (!file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      res.status(400).json({ success: false, error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF, PDF' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({ where: { userId: req.user.userId } });
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const uploadResult = await uploadGovernmentIdFile(file);
+    if (!uploadResult.success) {
+      res.status(400).json({ success: false, error: uploadResult.error });
+      return;
+    }
+
+    const proofOfAddressType = req.body?.proofOfAddressType || null;
+
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: { proofOfAddressUrl: uploadResult.url, proofOfAddressType },
+    });
+
+    res.json({ success: true, message: 'Proof of address uploaded', data: { proofOfAddressUrl: uploadResult.url, proofOfAddressType } });
+  } catch (error) {
+    console.error('Upload proof of address error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload proof of address' });
+  }
+};
+
+/**
  * POST /employee-onboarding/complete
  * Mark onboarding as complete after verifying all steps.
  */
@@ -276,8 +378,9 @@ export const completeOnboarding = async (req: AuthenticatedRequest, res: Respons
     if (!employee.phone) errors.push('Phone number is required');
     if (!employee.address) errors.push('Address is required');
     if (!employee.personalEmail) errors.push('Personal email is required');
-    if (employee.emergencyContacts.length < 3) errors.push('3 emergency contacts are required');
-    if (!employee.governmentIdUrl) errors.push('Government ID upload is required');
+    if (employee.emergencyContacts.length < 2) errors.push('At least 2 emergency contacts are required');
+    const docCount = [employee.governmentIdUrl, employee.governmentId2Url, employee.proofOfAddressUrl].filter(Boolean).length;
+    if (docCount < 2) errors.push('At least 2 of 3 identity documents are required (Government ID #1, Government ID #2, Proof of Address)');
 
     if (errors.length > 0) {
       res.status(400).json({ success: false, error: errors.join('. ') });

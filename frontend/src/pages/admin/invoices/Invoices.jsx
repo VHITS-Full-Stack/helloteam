@@ -186,22 +186,27 @@ const Invoices = () => {
     } else {
       params.month = generateMonth;
     }
+    if (selectedClient !== 'all') {
+      params.clientId = selectedClient;
+    }
     return params;
   };
 
+  const [generateError, setGenerateError] = useState('');
+
   const handlePreview = async () => {
     setPreviewing(true);
-    setError('');
+    setGenerateError('');
     try {
       const response = await invoiceService.previewInvoices(getGenerateParams());
       if (response.success) {
         setPreviewData(response.data);
         setGenerateStep('preview');
       } else {
-        setError(response.error || 'Failed to preview invoices');
+        setGenerateError(response.error || 'Failed to preview invoices');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to preview invoices');
+      setGenerateError(err.error || err.message || 'Failed to preview invoices');
     } finally {
       setPreviewing(false);
     }
@@ -209,21 +214,22 @@ const Invoices = () => {
 
   const handleGenerate = async () => {
     setGenerating(true);
-    setError('');
+    setGenerateError('');
     try {
       const response = await invoiceService.generateInvoices(getGenerateParams());
       if (response.success) {
         setShowGenerateModal(false);
         setGenerateStep('params');
         setPreviewData(null);
+        setGenerateError('');
         setSuccess(response.message || 'Invoices generated successfully');
         setTimeout(() => setSuccess(''), 5000);
         fetchInvoices();
       } else {
-        setError(response.error || 'Failed to generate invoices');
+        setGenerateError(response.error || 'Failed to generate invoices');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to generate invoices');
+      setGenerateError(err.error || err.message || 'Failed to generate invoices');
     } finally {
       setGenerating(false);
     }
@@ -239,6 +245,19 @@ const Invoices = () => {
       setError(err.error || 'Failed to download PDF');
     } finally {
       setDownloadingId(null);
+    }
+  };
+
+  const [downloadingTimesheetId, setDownloadingTimesheetId] = useState(null);
+
+  const handleDownloadTimesheetPdf = async (invoiceId, invoiceNumber) => {
+    setDownloadingTimesheetId(invoiceId);
+    try {
+      await invoiceService.downloadTimesheetPdf(invoiceId, invoiceNumber);
+    } catch (err) {
+      setError(err.error || 'Failed to download timesheet PDF');
+    } finally {
+      setDownloadingTimesheetId(null);
     }
   };
 
@@ -450,13 +469,25 @@ const Invoices = () => {
                         <button
                           onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
                           className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                          title="Download PDF"
+                          title="Download Invoice PDF"
                           disabled={downloadingId === invoice.id}
                         >
                           {downloadingId === invoice.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
                           ) : (
                             <Download className="w-4 h-4" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleDownloadTimesheetPdf(invoice.id, invoice.invoiceNumber)}
+                          className="p-1.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                          title="Download Timesheet PDF"
+                          disabled={downloadingTimesheetId === invoice.id}
+                        >
+                          {downloadingTimesheetId === invoice.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <FileText className="w-4 h-4" />
                           )}
                         </button>
                         {invoice.status === 'DRAFT' && (
@@ -528,10 +559,19 @@ const Invoices = () => {
       {/* Generate Invoices Modal */}
       <Modal
         isOpen={showGenerateModal}
-        onClose={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); }}
+        onClose={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); setGenerateError(''); }}
         title={generateStep === 'params' ? 'Generate Invoices' : 'Preview — Invoices to Generate'}
         size={generateStep === 'params' ? 'sm' : 'md'}
       >
+        {generateError && (
+          <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-600 flex-1">{generateError}</p>
+            <button onClick={() => setGenerateError('')} className="text-red-400 hover:text-red-600">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        )}
         {generateStep === 'params' ? (
           <div className="space-y-4">
             <p className="text-sm text-gray-600">
@@ -621,9 +661,11 @@ const Invoices = () => {
             )}
 
             <p className="text-xs text-gray-400">
-              {generateFrequency === 'monthly'
-                ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
-                : 'Weekly invoices will be generated for Weekly and Bi-Weekly agreement clients only (Mon-Sun period). Existing invoices will be skipped.'
+              {selectedClient !== 'all'
+                ? `Invoice will be generated for the selected client only. Existing invoices for the same period will be skipped.`
+                : generateFrequency === 'monthly'
+                  ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
+                  : 'Weekly invoices will be generated for Weekly and Bi-Weekly agreement clients only (Mon-Sun period). Existing invoices will be skipped.'
               }
             </p>
             <div className="flex justify-end gap-2 pt-2">
@@ -831,6 +873,15 @@ const Invoices = () => {
                 disabled={downloadingId === selectedInvoice.id}
               >
                 Download PDF
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={downloadingTimesheetId === selectedInvoice.id ? Loader2 : FileText}
+                onClick={() => handleDownloadTimesheetPdf(selectedInvoice.id, selectedInvoice.invoiceNumber)}
+                disabled={downloadingTimesheetId === selectedInvoice.id}
+              >
+                Download Timesheet
               </Button>
               {selectedInvoice.status === 'DRAFT' && (
                 <>

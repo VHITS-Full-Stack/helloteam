@@ -703,7 +703,7 @@ export const getEmployeeStats = async (req: AuthenticatedRequest, res: Response)
     const [total, active, onLeave, inactive] = await Promise.all([
       prisma.employee.count(),
       prisma.employee.count({
-        where: { user: { status: 'ACTIVE' } },
+        where: { user: { status: 'ACTIVE' }, onboardingStatus: 'COMPLETED' },
       }),
       prisma.leaveRequest.count({
         where: {
@@ -713,7 +713,12 @@ export const getEmployeeStats = async (req: AuthenticatedRequest, res: Response)
         },
       }),
       prisma.employee.count({
-        where: { user: { status: 'INACTIVE' } },
+        where: {
+          OR: [
+            { user: { status: 'INACTIVE' } },
+            { onboardingStatus: { not: 'COMPLETED' } },
+          ],
+        },
       }),
     ]);
 

@@ -23,7 +23,8 @@ const DEFAULT_SETTINGS = {
     enforce2FAForAdmins: true,
   },
   general: {
-    companyName: 'Hello Team',
+    companyName: 'The Hello Team LLC',
+    companyAddress: '422 Butterfly road Jackson NJ 08527',
     defaultTimezone: 'America/New_York',
     dateFormat: 'MM/DD/YYYY',
     workWeekStart: 'Sunday',

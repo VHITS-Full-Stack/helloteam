@@ -36,7 +36,11 @@ const Clients = () => {
     refresh,
   } = useClientData({ mode: 'list' });
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (client) => {
+    if (client.onboardingStatus !== 'COMPLETED') {
+      return <Badge variant="default">Inactive</Badge>;
+    }
+    const status = client.user?.status;
     switch (status) {
       case 'ACTIVE':
         return <Badge variant="success">Active</Badge>;
@@ -218,7 +222,7 @@ const Clients = () => {
 
                     {/* Status */}
                     <td className="px-4 py-3 text-center">
-                      {getStatusBadge(client.user?.status)}
+                      {getStatusBadge(client)}
                     </td>
 
                     {/* Onboarding */}

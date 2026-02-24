@@ -47,6 +47,7 @@ import {
 import workSessionService from "../../services/workSession.service";
 import overtimeService from "../../services/overtime.service";
 import notificationService from "../../services/notification.service";
+import taskService from "../../services/task.service";
 import {
   playClockInSound,
   playClockOutSound,
@@ -100,6 +101,12 @@ const EmployeeDashboard = () => {
   // My overtime requests state
   const [myOvertimeRequests, setMyOvertimeRequests] = useState([]);
   const [overtimeRequestsLoading, setOvertimeRequestsLoading] = useState(false);
+
+  // Tasks state
+  const [todayTasks, setTodayTasks] = useState([]);
+  const [totalTaskCount, setTotalTaskCount] = useState(0);
+  const [doneTaskCount, setDoneTaskCount] = useState(0);
+  const [tasksLoading, setTasksLoading] = useState(false);
 
   // Clock-in warning states
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
@@ -162,6 +169,32 @@ const EmployeeDashboard = () => {
     } finally {
       setOvertimeRequestsLoading(false);
       fetchingOvertimeRef.current = false;
+    }
+  }, []);
+
+  // Fetch tasks assigned to this employee (show 5 on dashboard)
+  const fetchingTasksRef = useRef(false);
+  const fetchTasks = useCallback(async () => {
+    if (fetchingTasksRef.current) return;
+    fetchingTasksRef.current = true;
+    try {
+      setTasksLoading(true);
+      const [tasksRes, doneRes] = await Promise.all([
+        taskService.getTasks({ limit: 5 }),
+        taskService.getTasks({ limit: 1, status: "DONE" }),
+      ]);
+      if (tasksRes.success) {
+        setTodayTasks(tasksRes.data.tasks || []);
+        setTotalTaskCount(tasksRes.data.pagination?.total || 0);
+      }
+      if (doneRes.success) {
+        setDoneTaskCount(doneRes.data.pagination?.total || 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch tasks:", err);
+    } finally {
+      setTasksLoading(false);
+      fetchingTasksRef.current = false;
     }
   }, []);
 
@@ -265,7 +298,8 @@ const EmployeeDashboard = () => {
   useEffect(() => {
     fetchWorkSessionData();
     fetchOvertimeRequests();
-  }, [fetchWorkSessionData, fetchOvertimeRequests]);
+    fetchTasks();
+  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -671,28 +705,27 @@ const EmployeeDashboard = () => {
     },
   ];
 
-  // Today's tasks
-  const todayTasks = [
-    {
-      id: 1,
-      title: "Complete project documentation",
-      priority: "high",
-      completed: false,
-    },
-    {
-      id: 2,
-      title: "Review pull requests",
-      priority: "medium",
-      completed: true,
-    },
-    { id: 3, title: "Update sprint board", priority: "low", completed: false },
-    {
-      id: 4,
-      title: "Prepare for client meeting",
-      priority: "high",
-      completed: false,
-    },
-  ];
+  // Toggle task status (TODO/IN_PROGRESS ↔ DONE)
+  const handleTaskToggle = async (task) => {
+    const newStatus = task.status === "DONE" ? "TODO" : "DONE";
+    const delta = newStatus === "DONE" ? 1 : -1;
+    // Optimistic update
+    setTodayTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t)),
+    );
+    setDoneTaskCount((prev) => prev + delta);
+    try {
+      await taskService.updateTaskStatus(task.id, newStatus);
+    } catch (err) {
+      // Revert on failure
+      setTodayTasks((prev) =>
+        prev.map((t) =>
+          t.id === task.id ? { ...t, status: task.status } : t,
+        ),
+      );
+      setDoneTaskCount((prev) => prev - delta);
+    }
+  };
 
   // Company announcements
   const announcements = [
@@ -726,11 +759,13 @@ const EmployeeDashboard = () => {
   };
 
   const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
+    switch (priority?.toUpperCase()) {
+      case "HIGH":
+      case "URGENT":
         return "text-red-600 bg-red-50";
-      case "medium":
+      case "MEDIUM":
         return "text-yellow-600 bg-yellow-50";
+      case "LOW":
       default:
         return "text-blue-600 bg-blue-50";
     }
@@ -1067,67 +1102,99 @@ const EmployeeDashboard = () => {
                   <Target className="w-5 h-5 text-primary" />
                   Today's Focus
                 </CardTitle>
-                <Button variant="ghost" size="sm" icon={Sparkles}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={Sparkles}
+                  onClick={() => navigate("/employee/tasks?tab=personal")}
+                >
                   Add Task
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {todayTasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className={`flex items-center gap-4 p-4 rounded-xl transition-all ${
-                      task.completed
-                        ? "bg-green-50/50"
-                        : "bg-gray-50 hover:bg-gray-100"
-                    }`}
-                  >
-                    <button
-                      className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                        task.completed
-                          ? "bg-green-500 border-green-500"
-                          : "border-gray-300 hover:border-primary"
-                      }`}
-                    >
-                      {task.completed && (
-                        <CheckCircle className="w-4 h-4 text-white" />
-                      )}
-                    </button>
-                    <div className="flex-1">
-                      <p
-                        className={`font-medium ${task.completed ? "text-gray-400 line-through" : "text-gray-900"}`}
+              {tasksLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                </div>
+              ) : todayTasks.length === 0 ? (
+                <div className="text-center py-8">
+                  <Target className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No tasks assigned yet</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {todayTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                          task.status === "DONE"
+                            ? "bg-green-50/50"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
                       >
-                        {task.title}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-xs font-medium px-2 py-1 rounded-full ${getPriorityColor(task.priority)}`}
-                    >
-                      {task.priority}
-                    </span>
+                        <button
+                          onClick={() => handleTaskToggle(task)}
+                          className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                            task.status === "DONE"
+                              ? "bg-green-500 border-green-500"
+                              : "border-gray-300 hover:border-primary"
+                          }`}
+                        >
+                          {task.status === "DONE" && (
+                            <CheckCircle className="w-3.5 h-3.5 text-white" />
+                          )}
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm font-medium truncate ${task.status === "DONE" ? "text-gray-400 line-through" : "text-gray-900"}`}
+                          >
+                            {task.title}
+                          </p>
+                          {task.client?.companyName && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {task.client.companyName}
+                            </p>
+                          )}
+                        </div>
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${getPriorityColor(task.priority)}`}
+                        >
+                          {task.priority?.toLowerCase()}
+                        </span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              {/* Progress */}
-              <div className="mt-6 pt-4 border-t border-gray-100">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-600">Daily Progress</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {todayTasks.filter((t) => t.completed).length}/
-                    {todayTasks.length} tasks
-                  </span>
-                </div>
-                <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all"
-                    style={{
-                      width: `${(todayTasks.filter((t) => t.completed).length / todayTasks.length) * 100}%`,
-                    }}
-                  />
-                </div>
-              </div>
+                  {/* Progress */}
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-gray-600">Overall Progress</span>
+                      <span className="text-sm font-semibold text-gray-900">
+                        {doneTaskCount}/{totalTaskCount} done
+                      </span>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all"
+                        style={{
+                          width: `${totalTaskCount > 0 ? (doneTaskCount / totalTaskCount) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {totalTaskCount > 5 && (
+                    <button
+                      onClick={() => navigate("/employee/tasks")}
+                      className="w-full mt-3 py-2.5 text-sm font-medium text-primary hover:bg-primary-50 rounded-xl transition-colors"
+                    >
+                      View all {totalTaskCount} tasks
+                    </button>
+                  )}
+                </>
+              )}
             </CardContent>
           </Card>
 

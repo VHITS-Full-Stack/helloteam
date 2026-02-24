@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -83,12 +84,13 @@ const getActivityMessage = (activity) => {
 };
 
 const Tasks = () => {
+  const [searchParams] = useSearchParams();
   const [allTasks, setAllTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Tabs
-  const [activeTab, setActiveTab] = useState('assigned');
+  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'assigned');
 
   // View
   const [viewMode, setViewMode] = useState('board');

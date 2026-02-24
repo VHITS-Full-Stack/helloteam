@@ -341,7 +341,8 @@ const generateInvoiceForClient = async (
 export const generateInvoicesForPeriod = async (
   year: number,
   month: number, // 1-indexed (1 = January)
-  io?: Server
+  io?: Server,
+  clientId?: string
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -351,11 +352,14 @@ export const generateInvoicesForPeriod = async (
     const periodEnd = new Date(Date.UTC(year, month, 0)); // Last day of month
 
     // Only monthly clients (MONTHLY or null/unset — backward compatible)
+    const clientWhere: any = {
+      user: { status: 'ACTIVE' },
+      agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
+    };
+    if (clientId) clientWhere.id = clientId;
+
     const clients = await prisma.client.findMany({
-      where: {
-        user: { status: 'ACTIVE' },
-        agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
-      },
+      where: clientWhere,
       include: {
         clientPolicies: true,
         user: { select: { id: true, email: true } },
@@ -411,7 +415,8 @@ export const generateInvoicesForPeriod = async (
 export const generateWeeklyInvoicesForWeek = async (
   year: number,
   week: number, // ISO week number (1-53)
-  io?: Server
+  io?: Server,
+  clientId?: string
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -422,11 +427,14 @@ export const generateWeeklyInvoicesForWeek = async (
     sunday.setUTCDate(monday.getUTCDate() + 6);
 
     // Only weekly and bi-weekly clients
+    const clientWhere: any = {
+      user: { status: 'ACTIVE' },
+      agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
+    };
+    if (clientId) clientWhere.id = clientId;
+
     const clients = await prisma.client.findMany({
-      where: {
-        user: { status: 'ACTIVE' },
-        agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
-      },
+      where: clientWhere,
       include: {
         clientPolicies: true,
         user: { select: { id: true, email: true } },
@@ -621,15 +629,19 @@ const previewInvoiceForClient = async (
 export const previewInvoicesForPeriod = async (
   year: number,
   month: number,
+  clientId?: string,
 ): Promise<InvoicePreviewItem[]> => {
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 0));
 
+  const clientWhere: any = {
+    user: { status: 'ACTIVE' },
+    agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
+  };
+  if (clientId) clientWhere.id = clientId;
+
   const clients = await prisma.client.findMany({
-    where: {
-      user: { status: 'ACTIVE' },
-      agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
-    },
+    where: clientWhere,
     include: {
       clientPolicies: true,
       user: { select: { id: true, email: true } },
@@ -658,16 +670,20 @@ export const previewInvoicesForPeriod = async (
 export const previewWeeklyInvoicesForWeek = async (
   year: number,
   week: number,
+  clientId?: string,
 ): Promise<InvoicePreviewItem[]> => {
   const monday = getMondayOfISOWeek(year, week);
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
+  const clientWhere: any = {
+    user: { status: 'ACTIVE' },
+    agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
+  };
+  if (clientId) clientWhere.id = clientId;
+
   const clients = await prisma.client.findMany({
-    where: {
-      user: { status: 'ACTIVE' },
-      agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
-    },
+    where: clientWhere,
     include: {
       clientPolicies: true,
       user: { select: { id: true, email: true } },

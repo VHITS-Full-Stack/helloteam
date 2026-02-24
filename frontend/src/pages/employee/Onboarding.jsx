@@ -31,14 +31,28 @@ const Onboarding = () => {
   });
 
   // Step 2: Emergency Contacts
-  const [contacts, setContacts] = useState([emptyContact(), emptyContact(), emptyContact()]);
+  const [contacts, setContacts] = useState([emptyContact(), emptyContact()]);
 
-  // Step 3: Government ID
+  // Step 3: Government ID 1
   const [idType, setIdType] = useState('');
   const [idFile, setIdFile] = useState(null);
   const [idPreview, setIdPreview] = useState(null);
   const [existingIdUrl, setExistingIdUrl] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Step 3: Government ID 2
+  const [id2Type, setId2Type] = useState('');
+  const [id2File, setId2File] = useState(null);
+  const [id2Preview, setId2Preview] = useState(null);
+  const [existingId2Url, setExistingId2Url] = useState(null);
+  const fileInput2Ref = useRef(null);
+
+  // Step 3: Proof of Address
+  const [proofType, setProofType] = useState('');
+  const [proofFile, setProofFile] = useState(null);
+  const [proofPreview, setProofPreview] = useState(null);
+  const [existingProofUrl, setExistingProofUrl] = useState(null);
+  const proofFileInputRef = useRef(null);
 
   useEffect(() => {
     fetchStatus();
@@ -72,17 +86,17 @@ const Onboarding = () => {
               customRelationship: isCustom ? c.relationship : '',
             };
           });
-          // Pad to 3 if fewer
-          while (filled.length < 3) filled.push(emptyContact());
+          // Pad to 2 if fewer
+          while (filled.length < 2) filled.push(emptyContact());
           setContacts(filled);
         }
 
-        if (d.governmentIdType) {
-          setIdType(d.governmentIdType);
-        }
-        if (d.governmentIdUrl) {
-          setExistingIdUrl(d.governmentIdUrl);
-        }
+        if (d.governmentIdType) setIdType(d.governmentIdType);
+        if (d.governmentIdUrl) setExistingIdUrl(d.governmentIdUrl);
+        if (d.governmentId2Type) setId2Type(d.governmentId2Type);
+        if (d.governmentId2Url) setExistingId2Url(d.governmentId2Url);
+        if (d.proofOfAddressType) setProofType(d.proofOfAddressType);
+        if (d.proofOfAddressUrl) setExistingProofUrl(d.proofOfAddressUrl);
       }
     } catch (err) {
       console.error('Failed to fetch onboarding status:', err);
@@ -164,72 +178,125 @@ const Onboarding = () => {
     }
   };
 
-  // Step 3: Upload & Complete
-  const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Step 3: File handling helpers
+  const validateFile = (file) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
     if (!allowed.includes(file.type)) {
       setError('Invalid file type. Allowed: JPEG, PNG, WebP, GIF, PDF');
-      return;
+      return false;
     }
     if (file.size > 10 * 1024 * 1024) {
       setError('File too large. Maximum size is 10MB');
-      return;
+      return false;
     }
+    return true;
+  };
 
+  const createFileHandler = (setFile, setPreview, setExistingUrl) => (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!validateFile(file)) return;
     setError('');
-    setIdFile(file);
-    setExistingIdUrl(null);
-
+    setFile(file);
+    setExistingUrl(null);
     if (file.type.startsWith('image/')) {
       const reader = new FileReader();
-      reader.onload = (ev) => setIdPreview(ev.target.result);
+      reader.onload = (ev) => setPreview(ev.target.result);
       reader.readAsDataURL(file);
     } else {
-      setIdPreview(null);
+      setPreview(null);
     }
   };
+
+  const handleFileSelect = createFileHandler(setIdFile, setIdPreview, setExistingIdUrl);
+  const handleFile2Select = createFileHandler(setId2File, setId2Preview, setExistingId2Url);
+  const handleProofFileSelect = createFileHandler(setProofFile, setProofPreview, setExistingProofUrl);
 
   const handleDrop = (e) => {
     e.preventDefault();
     const file = e.dataTransfer.files?.[0];
-    if (file) {
-      // Simulate a file input event
-      const event = { target: { files: [file] } };
-      handleFileSelect(event);
-    }
+    if (file) handleFileSelect({ target: { files: [file] } });
+  };
+  const handleDrop2 = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleFile2Select({ target: { files: [file] } });
+  };
+  const handleProofDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file) handleProofFileSelect({ target: { files: [file] } });
   };
 
   const handleSubmit = async () => {
     setError('');
 
-    if (!idType) {
-      setError('Please select the type of government ID');
+    // Validate: each filled document must have both type and file
+    const hasDoc1 = !!(idFile || existingIdUrl);
+    const hasDoc2 = !!(id2File || existingId2Url);
+    const hasProof = !!(proofFile || existingProofUrl);
+
+    if (hasDoc1 && !idType) {
+      setError('Please select the type of first government ID');
+      return;
+    }
+    if (idType && !hasDoc1) {
+      setError('Please upload your first government-issued ID');
+      return;
+    }
+    if (hasDoc2 && !id2Type) {
+      setError('Please select the type of second government ID');
+      return;
+    }
+    if (id2Type && !hasDoc2) {
+      setError('Please upload your second government-issued ID');
+      return;
+    }
+    if (hasProof && !proofType) {
+      setError('Please select the type of proof of address');
+      return;
+    }
+    if (proofType && !hasProof) {
+      setError('Please upload your proof of address document');
       return;
     }
 
-    if (!idFile && !existingIdUrl) {
-      setError('Please upload your government-issued ID');
+    // Require at least 2 out of 3 documents
+    const docCount = [hasDoc1 && idType, hasDoc2 && id2Type, hasProof && proofType].filter(Boolean).length;
+    if (docCount < 2) {
+      setError('Please upload at least 2 of the 3 documents');
       return;
     }
 
     setSaving(true);
     try {
-      // Upload file if a new one was selected
+      // Upload first government ID (if provided)
       if (idFile) {
         const uploadRes = await employeeOnboardingService.uploadGovernmentId(idFile, idType);
         if (!uploadRes.success) {
-          setError(uploadRes.error || 'Failed to upload government ID');
+          setError(uploadRes.error || 'Failed to upload first government ID');
           setSaving(false);
           return;
         }
-      } else {
-        // Save ID type even if file wasn't re-uploaded
-        const typeRes = await employeeOnboardingService.saveGovernmentIdType(idType);
-        if (!typeRes.success) {
-          setError(typeRes.error || 'Failed to save ID type');
+      } else if (idType && existingIdUrl) {
+        await employeeOnboardingService.saveGovernmentIdType(idType);
+      }
+
+      // Upload second government ID (if provided)
+      if (id2File) {
+        const uploadRes = await employeeOnboardingService.uploadGovernmentId2(id2File, id2Type);
+        if (!uploadRes.success) {
+          setError(uploadRes.error || 'Failed to upload second government ID');
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Upload proof of address (if provided)
+      if (proofFile) {
+        const uploadRes = await employeeOnboardingService.uploadProofOfAddress(proofFile, proofType);
+        if (!uploadRes.success) {
+          setError(uploadRes.error || 'Failed to upload proof of address');
           setSaving(false);
           return;
         }
@@ -239,7 +306,6 @@ const Onboarding = () => {
       const completeRes = await employeeOnboardingService.complete();
       if (completeRes.success) {
         setCompleted(true);
-        // Redirect to dashboard after a brief delay
         setTimeout(() => {
           window.location.href = '/employee/dashboard';
         }, 2000);
@@ -440,12 +506,23 @@ const Onboarding = () => {
           {currentStep === 1 && (
             <div>
               <h2 className="text-xl font-semibold text-gray-900 mb-1">Emergency Contacts</h2>
-              <p className="text-gray-500 text-sm mb-6">Please provide 3 emergency contacts</p>
+              <p className="text-gray-500 text-sm mb-6">Please provide at least 2 emergency contacts</p>
 
               <div className="space-y-6">
                 {contacts.map((contact, i) => (
                   <div key={i} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-3">Contact {i + 1}</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700">Contact {i + 1} {i < 2 ? <span className="text-red-500">*</span> : <span className="text-xs font-normal text-gray-400">(Optional)</span>}</h3>
+                      {i >= 2 && (
+                        <button
+                          type="button"
+                          onClick={() => setContacts((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-xs text-red-500 hover:text-red-700 flex items-center gap-1"
+                        >
+                          <X className="w-3.5 h-3.5" /> Remove
+                        </button>
+                      )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">
@@ -503,6 +580,15 @@ const Onboarding = () => {
                     </div>
                   </div>
                 ))}
+                {contacts.length < 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setContacts((prev) => [...prev, emptyContact()])}
+                    className="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-primary-400 hover:text-primary-600 transition-colors"
+                  >
+                    + Add another contact (optional)
+                  </button>
+                )}
               </div>
 
               <div className="flex justify-between mt-8">
@@ -531,91 +617,177 @@ const Onboarding = () => {
             </div>
           )}
 
-          {/* Step 3: Government ID Upload */}
+          {/* Step 3: Document Uploads */}
           {currentStep === 2 && (
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 mb-1">Government ID</h2>
+              <h2 className="text-xl font-semibold text-gray-900 mb-1">Identity Documents</h2>
               <p className="text-gray-500 text-sm mb-6">
-                Select the type and upload a clear photo or scan of your government-issued ID
+                Upload at least 2 of the following 3 documents
               </p>
 
-              {/* ID Type Selection */}
-              <div className="mb-5">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ID Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={idType}
-                  onChange={(e) => setIdType(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
-                >
-                  <option value="">Select ID type...</option>
-                  <option value="Passport">Passport</option>
-                  <option value="Driving License">Driving License</option>
-                  <option value="Identity Card">Identity Card</option>
-                </select>
+              {/* --- Government ID 1 --- */}
+              <div className="mb-6 p-4 border border-gray-200 rounded-xl">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Government ID #1</h3>
+                <div className="mb-3">
+                  <select
+                    value={idType}
+                    onChange={(e) => setIdType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                  >
+                    <option value="">Select ID type...</option>
+                    <option value="Passport">Passport</option>
+                    <option value="Driving License">Driving License</option>
+                    <option value="Identity Card">Identity Card</option>
+                    <option value="State ID">State ID</option>
+                    <option value="Military ID">Military ID</option>
+                  </select>
+                </div>
+                {!idFile && !existingIdUrl ? (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-700 text-sm font-medium">Drop file or click to browse</p>
+                    <p className="text-gray-400 text-xs mt-1">JPEG, PNG, WebP, GIF, or PDF (max 10MB)</p>
+                    <input ref={fileInputRef} type="file" accept="image/*,.pdf" onChange={handleFileSelect} className="hidden" />
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    {idPreview ? (
+                      <img src={idPreview} alt="ID 1 preview" className="max-h-40 mx-auto rounded-lg object-contain" />
+                    ) : existingIdUrl ? (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <span className="text-gray-700 text-sm font-medium">Uploaded</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <FileText className="w-6 h-6 text-red-500" />
+                        <span className="text-gray-700 text-sm">{idFile?.name}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setIdFile(null); setIdPreview(null); setExistingIdUrl(null); }}
+                      className="mt-3 flex items-center gap-1.5 mx-auto px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      <X className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {/* Drop Zone */}
-              {!idFile && !existingIdUrl ? (
-                <div
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors"
-                >
-                  <Upload className="w-10 h-10 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-700 font-medium">Drop your file here or click to browse</p>
-                  <p className="text-gray-400 text-sm mt-1">JPEG, PNG, WebP, GIF, or PDF (max 10MB)</p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleFileSelect}
-                    className="hidden"
-                  />
-                </div>
-              ) : (
-                <div className="border border-gray-200 rounded-xl p-6">
-                  {/* Preview */}
-                  {idPreview ? (
-                    <div className="relative">
-                      <img
-                        src={idPreview}
-                        alt="Government ID preview"
-                        className="max-h-64 mx-auto rounded-lg object-contain"
-                      />
-                    </div>
-                  ) : existingIdUrl ? (
-                    <div className="flex items-center justify-center gap-3 py-4">
-                      <CheckCircle className="w-6 h-6 text-green-500" />
-                      <span className="text-gray-700 font-medium">Government ID already uploaded</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-3 py-4">
-                      <FileText className="w-8 h-8 text-red-500" />
-                      <div>
-                        <p className="text-gray-700 font-medium">{idFile?.name}</p>
-                        <p className="text-gray-400 text-sm">
-                          {(idFile?.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setIdFile(null);
-                      setIdPreview(null);
-                      setExistingIdUrl(null);
-                    }}
-                    className="mt-4 flex items-center gap-2 mx-auto px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              {/* --- Government ID 2 --- */}
+              <div className="mb-6 p-4 border border-gray-200 rounded-xl">
+                <h3 className="text-sm font-semibold text-gray-800 mb-3">Government ID #2</h3>
+                <div className="mb-3">
+                  <select
+                    value={id2Type}
+                    onChange={(e) => setId2Type(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                   >
-                    <X className="w-4 h-4" />
-                    Remove & Upload Different
-                  </button>
+                    <option value="">Select ID type...</option>
+                    <option value="Passport">Passport</option>
+                    <option value="Driving License">Driving License</option>
+                    <option value="Identity Card">Identity Card</option>
+                    <option value="State ID">State ID</option>
+                    <option value="Military ID">Military ID</option>
+                  </select>
                 </div>
-              )}
+                {!id2File && !existingId2Url ? (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop2}
+                    onClick={() => fileInput2Ref.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-700 text-sm font-medium">Drop file or click to browse</p>
+                    <p className="text-gray-400 text-xs mt-1">JPEG, PNG, WebP, GIF, or PDF (max 10MB)</p>
+                    <input ref={fileInput2Ref} type="file" accept="image/*,.pdf" onChange={handleFile2Select} className="hidden" />
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    {id2Preview ? (
+                      <img src={id2Preview} alt="ID 2 preview" className="max-h-40 mx-auto rounded-lg object-contain" />
+                    ) : existingId2Url ? (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <span className="text-gray-700 text-sm font-medium">Uploaded</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <FileText className="w-6 h-6 text-red-500" />
+                        <span className="text-gray-700 text-sm">{id2File?.name}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setId2File(null); setId2Preview(null); setExistingId2Url(null); }}
+                      className="mt-3 flex items-center gap-1.5 mx-auto px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      <X className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* --- Proof of Address --- */}
+              <div className="mb-6 p-4 border border-gray-200 rounded-xl">
+                <h3 className="text-sm font-semibold text-gray-800 mb-1">Proof of Address</h3>
+                <p className="text-xs text-gray-400 mb-3">Utility bill, bank statement, phone bill, or any official document with your address</p>
+                <div className="mb-3">
+                  <select
+                    value={proofType}
+                    onChange={(e) => setProofType(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                  >
+                    <option value="">Select document type...</option>
+                    <option value="Utility Bill">Utility Bill</option>
+                    <option value="Bank Statement">Bank Statement</option>
+                    <option value="Phone Bill">Phone Bill</option>
+                    <option value="Internet Bill">Internet Bill</option>
+                    <option value="Tax Document">Tax Document</option>
+                    <option value="Other">Other Official Document</option>
+                  </select>
+                </div>
+                {!proofFile && !existingProofUrl ? (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleProofDrop}
+                    onClick={() => proofFileInputRef.current?.click()}
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-primary-400 hover:bg-primary-50/50 transition-colors"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-700 text-sm font-medium">Drop file or click to browse</p>
+                    <p className="text-gray-400 text-xs mt-1">JPEG, PNG, WebP, GIF, or PDF (max 10MB)</p>
+                    <input ref={proofFileInputRef} type="file" accept="image/*,.pdf" onChange={handleProofFileSelect} className="hidden" />
+                  </div>
+                ) : (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    {proofPreview ? (
+                      <img src={proofPreview} alt="Proof preview" className="max-h-40 mx-auto rounded-lg object-contain" />
+                    ) : existingProofUrl ? (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <CheckCircle className="w-5 h-5 text-green-500" />
+                        <span className="text-gray-700 text-sm font-medium">Uploaded</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 py-2">
+                        <FileText className="w-6 h-6 text-red-500" />
+                        <span className="text-gray-700 text-sm">{proofFile?.name}</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setProofFile(null); setProofPreview(null); setExistingProofUrl(null); }}
+                      className="mt-3 flex items-center gap-1.5 mx-auto px-3 py-1.5 text-xs text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+                    >
+                      <X className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-between mt-8">
                 <button

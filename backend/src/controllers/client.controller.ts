@@ -1188,7 +1188,7 @@ export const getClientStats = async (req: AuthenticatedRequest, res: Response): 
     const [total, active, totalEmployees, activeEmployees] = await Promise.all([
       prisma.client.count(),
       prisma.client.count({
-        where: { user: { status: 'ACTIVE' } },
+        where: { user: { status: 'ACTIVE' }, onboardingStatus: 'COMPLETED' },
       }),
       prisma.clientEmployee.count({
         where: { isActive: true },

@@ -12,7 +12,7 @@ const getTimeInTimezone = (timezone: string, date: Date = new Date()) => {
     timeZone: timezone,
     hour: 'numeric',
     minute: 'numeric',
-    hour12: false,
+    hourCycle: 'h23',
   });
   const timeParts = timeFmt.formatToParts(date);
   const hour = parseInt(timeParts.find((p) => p.type === 'hour')?.value || '0');
@@ -138,7 +138,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
     // Get current time in the client's timezone for schedule comparison
     const now = new Date();
-    const clientTz = clientAssignment.client.timezone || 'America/New_York';
+    const clientTz = clientAssignment.client.timezone || 'UTC';
     const clientTime = getTimeInTimezone(clientTz, now);
     const { totalMinutes: nowTotalMinutes, dayOfWeek } = clientTime;
 
@@ -443,9 +443,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
     ) - totalBreakMinutes;
 
     // Create or update time record for today
-    // Use UTC midnight of the local date to avoid timezone shift when storing in PostgreSQL DATE column
     const now = new Date();
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
     // Get all active client assignments for the employee
     const clientAssignments = await prisma.clientEmployee.findMany({
@@ -461,7 +459,12 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         where: { id: clientAssignments[0].clientId },
         select: { timezone: true },
       });
-      const clockOutTz = firstClient?.timezone || 'America/New_York';
+      const clockOutTz = firstClient?.timezone || 'UTC';
+
+      // Use client timezone to determine "today" date (same approach as clock-in)
+      // This ensures the TimeRecord date matches the employee's local calendar date
+      const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clockOutTz }));
+      const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
       const { dayOfWeek: clockOutDow } = getTimeInTimezone(clockOutTz, now);
 
       const schedule = await prisma.schedule.findFirst({
@@ -498,9 +501,12 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         scheduledEnd = buildScheduleTimestamp(clockOutTz, schedule.endTime, now);
       }
 
-      // Overtime = early pre-schedule minutes + any hours beyond 8h of regular work
+      // Overtime = early pre-schedule minutes + any hours beyond scheduled duration
+      const scheduledDurationMinutes = scheduledEnd && scheduledStart
+        ? Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000)
+        : 480; // fallback to 8h if no schedule
       const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
-      const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - 480);
+      const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
       const overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
 
       // Create/update time record for each assigned client
@@ -538,7 +544,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             const newBreak = existing.breakMinutes + totalBreakMinutes;
             // Recalculate overtime with early minutes considered
             const newRegular = newTotal - earlyOvertimeMinutes;
-            const newLateOT = Math.max(0, newRegular - 480);
+            const newLateOT = Math.max(0, newRegular - scheduledDurationMinutes);
             const newOvertime = earlyOvertimeMinutes + newLateOT;
 
             // If overtime was added and pre-approved, update status
@@ -903,7 +909,7 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
       where: { employeeId: employee.id, isActive: true },
       include: { client: { select: { timezone: true } } },
     });
-    const tz = clientAsgn?.client?.timezone || 'America/New_York';
+    const tz = clientAsgn?.client?.timezone || 'UTC';
     const todayNow = new Date();
     const { dayOfWeek } = getTimeInTimezone(tz, todayNow);
 

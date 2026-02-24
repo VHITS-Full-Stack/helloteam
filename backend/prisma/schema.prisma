@@ -186,8 +186,12 @@ model Employee {
   billingRate      Decimal?         @db.Decimal(10, 2)
   onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
   personalEmail    String?
-  governmentIdType String?
-  governmentIdUrl  String?
+  governmentIdType  String?
+  governmentIdUrl   String?
+  governmentId2Type String?
+  governmentId2Url  String?
+  proofOfAddressType String?
+  proofOfAddressUrl  String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 

@@ -9,6 +9,7 @@ import {
   deleteInvoice,
   downloadInvoicePdf,
 } from '../controllers/invoice.controller';
+import { downloadTimesheetForInvoice } from '../controllers/timesheet.controller';
 
 const router = Router();
 
@@ -19,6 +20,9 @@ router.get('/', authenticate, authorize(...adminRoles), getInvoices);
 
 // Download invoice PDF (must be before /:invoiceId to avoid conflict)
 router.get('/:invoiceId/pdf', authenticate, authorize(...adminRoles), downloadInvoicePdf);
+
+// Download timesheet PDF for an invoice
+router.get('/:invoiceId/timesheet-pdf', authenticate, authorize(...adminRoles), downloadTimesheetForInvoice);
 
 // Get single invoice
 router.get('/:invoiceId', authenticate, authorize(...adminRoles), getInvoiceById);

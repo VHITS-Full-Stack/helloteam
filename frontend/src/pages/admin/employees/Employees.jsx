@@ -43,6 +43,9 @@ const Employees = () => {
     if (employee.terminationDate) {
       return <Badge variant="error">Terminated</Badge>;
     }
+    if (employee.onboardingStatus !== 'COMPLETED') {
+      return <Badge variant="default">Inactive</Badge>;
+    }
     const status = employee.user?.status;
     switch (status) {
       case 'ACTIVE':

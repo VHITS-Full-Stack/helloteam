@@ -187,7 +187,7 @@ export const getTasks = async (
             select: { comments: true, activities: true },
           },
         },
-        orderBy: [{ createdAt: "desc" }],
+        orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
       }),
       prisma.task.count({ where }),
     ]);

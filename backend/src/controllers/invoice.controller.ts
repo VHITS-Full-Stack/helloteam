@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { PDFDocument, rgb, StandardFonts, PDFFont, PDFPage } from 'pdf-lib';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
@@ -8,27 +8,14 @@ import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoic
 // PDF GENERATION HELPER
 // ============================================
 
-const formatCurrency = (amount: number | any): string => {
-  const num = typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0;
-  return `$${num.toFixed(2)}`;
-};
 
-const formatDate = (date: Date | string): string => {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-};
-
-const formatPeriod = (start: Date | string, end: Date | string): string => {
-  const s = new Date(start);
-  const e = new Date(end);
-  return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
-};
-
-const drawLine = (page: PDFPage, x: number, y: number, width: number, color = rgb(0.85, 0.85, 0.85)) => {
-  page.drawLine({ start: { x, y }, end: { x: x + width, y }, thickness: 1, color });
-};
-
-const buildInvoicePdf = async (invoice: any): Promise<Uint8Array> => {
+const buildInvoicePdf = async (
+  invoice: any,
+  companyInfo: { companyName: string; companyAddress: string } = {
+    companyName: 'The Hello Team LLC',
+    companyAddress: '422 Butterfly road Jackson NJ 08527',
+  },
+): Promise<Uint8Array> => {
   const pdfDoc = await PDFDocument.create();
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -37,188 +24,329 @@ const buildInvoicePdf = async (invoice: any): Promise<Uint8Array> => {
   const pageHeight = 842;
   const margin = 50;
   const contentWidth = pageWidth - margin * 2;
+  const black = rgb(0, 0, 0);
+  const darkGray = rgb(0.15, 0.15, 0.15);
 
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   let y = pageHeight - margin;
 
-  // Helper to add a new page and reset y position
+  // Date formatter: MM/DD/YYYY
+  const fmtDate = (d: Date | string): string => {
+    const dt = new Date(d);
+    const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(dt.getUTCDate()).padStart(2, '0');
+    const yyyy = dt.getUTCFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+  };
+
+  // Helper: draw bordered rectangle (outline only)
+  const drawRect = (x: number, yBottom: number, w: number, h: number) => {
+    page.drawRectangle({
+      x, y: yBottom, width: w, height: h,
+      borderColor: black, borderWidth: 0.5, color: rgb(1, 1, 1),
+    });
+  };
+
+  // Helper: draw a horizontal line
+  const hLine = (x: number, yPos: number, w: number) => {
+    page.drawLine({ start: { x, y: yPos }, end: { x: x + w, y: yPos }, thickness: 0.5, color: black });
+  };
+
+  // Helper to add a new page
   const addNewPage = () => {
     page = pdfDoc.addPage([pageWidth, pageHeight]);
     y = pageHeight - margin;
-    // Add a subtle header on continuation pages
-    page.drawText('HelloTeam', { x: margin, y, size: 14, font: fontBold, color: rgb(0.2, 0.4, 0.8) });
-    page.drawText(`Invoice ${invoice.invoiceNumber} (continued)`, {
-      x: margin + 80, y, size: 10, font, color: rgb(0.5, 0.5, 0.5),
-    });
-    y -= 15;
-    drawLine(page, margin, y, contentWidth, rgb(0.2, 0.4, 0.8));
-    y -= 25;
   };
 
-  // --- Header ---
-  page.drawText('HelloTeam', { x: margin, y, size: 24, font: fontBold, color: rgb(0.2, 0.4, 0.8) });
-  page.drawText('INVOICE', { x: pageWidth - margin - fontBold.widthOfTextAtSize('INVOICE', 28), y, size: 28, font: fontBold, color: rgb(0.3, 0.3, 0.3) });
-  y -= 15;
-  drawLine(page, margin, y, contentWidth, rgb(0.2, 0.4, 0.8));
-  y -= 25;
+  // ===== TOP SECTION =====
+  // Company name + address (top-left)
+  page.drawText(companyInfo.companyName, { x: margin, y, size: 11, font: fontBold, color: darkGray });
+  y -= 14;
+  page.drawText(companyInfo.companyAddress, { x: margin, y, size: 10, font, color: darkGray });
 
-  // --- Invoice Info (left) + Status (right) ---
-  const infoX = margin;
-  const rightX = pageWidth - margin - 180;
+  // "I N V O I C E" (top-right, large spaced text)
+  const invoiceTitle = 'I N V O I C E';
+  const titleWidth = fontBold.widthOfTextAtSize(invoiceTitle, 22);
+  page.drawText(invoiceTitle, {
+    x: pageWidth - margin - titleWidth,
+    y: pageHeight - margin,
+    size: 22, font: fontBold, color: darkGray,
+  });
 
-  const drawInfoRow = (label: string, value: string, xPos: number, yPos: number) => {
-    page.drawText(label, { x: xPos, y: yPos, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
-    page.drawText(value, { x: xPos + 90, y: yPos, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-  };
+  y -= 50;
 
-  drawInfoRow('Invoice #:', invoice.invoiceNumber, infoX, y);
-  drawInfoRow('Status:', invoice.status, rightX, y);
-  y -= 16;
-  drawInfoRow('Issue Date:', formatDate(invoice.createdAt), infoX, y);
-  drawInfoRow('Due Date:', formatDate(invoice.dueDate), rightX, y);
-  y -= 16;
-  drawInfoRow('Period:', formatPeriod(invoice.periodStart, invoice.periodEnd), infoX, y);
-  drawInfoRow('Currency:', invoice.currency || 'USD', rightX, y);
-  y -= 30;
+  // ===== CLIENT INFO (left) + INVOICE META (right) =====
+  const metaLabelX = pageWidth - margin - 190;
+  const metaValueX = pageWidth - margin - 70;
 
-  // --- Bill To ---
-  page.drawText('Bill To:', { x: margin, y, size: 10, font: fontBold, color: rgb(0.3, 0.3, 0.3) });
-  y -= 16;
+  // Client name + address
   if (invoice.client?.companyName) {
-    page.drawText(invoice.client.companyName, { x: margin, y, size: 11, font: fontBold, color: rgb(0.15, 0.15, 0.15) });
-    y -= 14;
-  }
-  if (invoice.client?.contactPerson) {
-    page.drawText(invoice.client.contactPerson, { x: margin, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText(invoice.client.companyName, { x: margin, y, size: 10, font: fontBold, color: darkGray });
     y -= 14;
   }
   if (invoice.client?.address) {
     const addressLines = String(invoice.client.address).split('\n');
     for (const line of addressLines) {
-      page.drawText(line.trim(), { x: margin, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
+      page.drawText(line.trim(), { x: margin, y, size: 10, font, color: darkGray });
       y -= 14;
     }
   }
-  if (invoice.client?.user?.email) {
-    page.drawText(invoice.client.user.email, { x: margin, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
-    y -= 14;
-  }
-  y -= 15;
 
-  // --- Line Items Table ---
-  // Table columns: Employee | Hours | Rate | OT Hours | OT Rate | Amount
-  const colX = [margin, margin + 160, margin + 225, margin + 295, margin + 370, margin + 440];
-  const colLabels = ['Employee', 'Hours', 'Rate', 'OT Hours', 'OT Rate', 'Amount'];
+  // Invoice meta (right-aligned) — draw at same Y level as client info start
+  let metaY = (invoice.client?.companyName ? pageHeight - margin - 64 : y);
 
-  // Table header background
-  page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 20, color: rgb(0.93, 0.93, 0.95) });
+  // Invoice #
+  page.drawText('Invoice #', { x: metaLabelX, y: metaY, size: 10, font: fontBold, color: darkGray });
+  const invNumStr = invoice.invoiceNumber || '';
+  const invNumWidth = font.widthOfTextAtSize(invNumStr, 10);
+  page.drawText(invNumStr, { x: pageWidth - margin - invNumWidth, y: metaY, size: 10, font, color: darkGray });
+  metaY -= 18;
 
-  // Table header text
-  for (let i = 0; i < colLabels.length; i++) {
-    const align = i === 0 ? colX[i] + 5 : colX[i];
-    page.drawText(colLabels[i], { x: align, y: y, size: 8, font: fontBold, color: rgb(0.3, 0.3, 0.3) });
-  }
-  y -= 22;
+  // Invoice Date
+  page.drawText('Invoice Date', { x: metaLabelX, y: metaY, size: 10, font: fontBold, color: darkGray });
+  const invDateStr = fmtDate(invoice.createdAt);
+  const invDateWidth = font.widthOfTextAtSize(invDateStr, 10);
+  page.drawText(invDateStr, { x: pageWidth - margin - invDateWidth, y: metaY, size: 10, font, color: darkGray });
+  metaY -= 18;
 
-  // Table rows
+  // Due Date
+  page.drawText('Due Date', { x: metaLabelX, y: metaY, size: 10, font: fontBold, color: darkGray });
+  const dueDateStr = fmtDate(invoice.dueDate);
+  const dueDateWidth = font.widthOfTextAtSize(dueDateStr, 10);
+  page.drawText(dueDateStr, { x: pageWidth - margin - dueDateWidth, y: metaY, size: 10, font, color: darkGray });
+
+  // Move y below both sections
+  y = Math.min(y, metaY) - 30;
+
+  // ===== LINE ITEMS TABLE =====
+  // Column positions: Item | Description | Unit Price | Quantity | Amount
+  const col = {
+    item: margin,
+    desc: margin + 70,
+    unitPrice: margin + 290,
+    qty: margin + 380,
+    amount: margin + 440,
+  };
+  const tableRight = margin + contentWidth;
+  const rowHeight = 28;
+  const headerHeight = 28;
+
+  // Build line item rows from invoice data
   const lineItems = invoice.lineItems || [];
-  for (let idx = 0; idx < lineItems.length; idx++) {
-    const item = lineItems[idx];
-    const hours = parseFloat(String(item.hours)) || 0;
-    const rate = parseFloat(String(item.rate)) || 0;
-    const otHours = parseFloat(String(item.overtimeHours)) || 0;
-    const otRate = parseFloat(String(item.overtimeRate)) || 0;
-    const amount = parseFloat(String(item.amount)) || 0;
+  const tableRows: { item: string; desc: string; unitPrice: string; qty: string; amount: string }[] = [];
 
-    // Alternate row background
-    if (idx % 2 === 0) {
-      page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 18, color: rgb(0.97, 0.97, 0.98) });
+  for (const li of lineItems) {
+    const hours = parseFloat(String(li.hours)) || 0;
+    const rate = parseFloat(String(li.rate)) || 0;
+    const otHours = parseFloat(String(li.overtimeHours)) || 0;
+    const otRate = parseFloat(String(li.overtimeRate)) || 0;
+    const empName = li.employeeName || 'Unknown';
+
+    if (hours > 0) {
+      const regularAmount = Math.round(hours * rate * 100) / 100;
+      tableRows.push({
+        item: 'Hours',
+        desc: empName,
+        unitPrice: rate.toFixed(2),
+        qty: hours.toFixed(2),
+        amount: regularAmount.toFixed(2),
+      });
     }
 
-    // Truncate employee name if too long
-    let empName = item.employeeName || 'Unknown';
-    if (fontBold.widthOfTextAtSize(empName, 9) > 150) {
-      while (fontBold.widthOfTextAtSize(empName + '...', 9) > 150 && empName.length > 3) {
-        empName = empName.slice(0, -1);
-      }
-      empName += '...';
+    if (otHours > 0) {
+      const otAmount = Math.round(otHours * otRate * 100) / 100;
+      tableRows.push({
+        item: 'OT Hours',
+        desc: empName,
+        unitPrice: otRate.toFixed(2),
+        qty: otHours.toFixed(2),
+        amount: otAmount.toFixed(2),
+      });
     }
+  }
 
-    page.drawText(empName, { x: colX[0] + 5, y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    page.drawText(hours.toFixed(2), { x: colX[1], y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    page.drawText(formatCurrency(rate), { x: colX[2], y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    page.drawText(otHours.toFixed(2), { x: colX[3], y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    page.drawText(formatCurrency(otRate), { x: colX[4], y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    page.drawText(formatCurrency(amount), { x: colX[5], y, size: 9, font: fontBold, color: rgb(0.15, 0.15, 0.15) });
+  // Draw table header
+  const headerTop = y;
+  drawRect(col.item, headerTop - headerHeight, contentWidth, headerHeight);
 
-    y -= 18;
+  // Header vertical lines
+  const headerMidY = headerTop - headerHeight / 2 + 4;
+  page.drawText('Item', { x: col.item + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
+  page.drawText('Description', { x: col.desc + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
+  page.drawText('Unit Price', { x: col.unitPrice + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
+  page.drawText('Quantity', { x: col.qty + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
+  page.drawText('Amount', { x: col.amount + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
 
-    // Add new page if running out of space (reserve space for totals + footer)
-    if (y < 120 && idx < lineItems.length - 1) {
+  // Vertical column lines in header
+  for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
+    page.drawLine({
+      start: { x: cx, y: headerTop },
+      end: { x: cx, y: headerTop - headerHeight },
+      thickness: 0.5, color: black,
+    });
+  }
+
+  y = headerTop - headerHeight;
+
+  // Draw rows
+  for (let idx = 0; idx < tableRows.length; idx++) {
+    const row = tableRows[idx];
+
+    // Check if we need a new page (reserve space for notes + totals)
+    if (y - rowHeight < 180 && idx < tableRows.length) {
+      // Close table bottom line on current page
+      hLine(margin, y, contentWidth);
       addNewPage();
 
       // Re-draw table header on new page
-      page.drawRectangle({ x: margin, y: y - 4, width: contentWidth, height: 20, color: rgb(0.93, 0.93, 0.95) });
-      for (let i = 0; i < colLabels.length; i++) {
-        const align = i === 0 ? colX[i] + 5 : colX[i];
-        page.drawText(colLabels[i], { x: align, y: y, size: 8, font: fontBold, color: rgb(0.3, 0.3, 0.3) });
+      const newHeaderTop = y;
+      drawRect(col.item, newHeaderTop - headerHeight, contentWidth, headerHeight);
+      page.drawText('Item', { x: col.item + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
+      page.drawText('Description', { x: col.desc + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
+      page.drawText('Unit Price', { x: col.unitPrice + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
+      page.drawText('Quantity', { x: col.qty + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
+      page.drawText('Amount', { x: col.amount + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
+      for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
+        page.drawLine({ start: { x: cx, y: newHeaderTop }, end: { x: cx, y: newHeaderTop - headerHeight }, thickness: 0.5, color: black });
       }
-      y -= 22;
+      y = newHeaderTop - headerHeight;
     }
+
+    const rowTop = y;
+    const rowBottom = rowTop - rowHeight;
+
+    // Row borders: left, right, bottom
+    // Left border
+    page.drawLine({ start: { x: margin, y: rowTop }, end: { x: margin, y: rowBottom }, thickness: 0.5, color: black });
+    // Right border
+    page.drawLine({ start: { x: tableRight, y: rowTop }, end: { x: tableRight, y: rowBottom }, thickness: 0.5, color: black });
+    // Bottom border
+    hLine(margin, rowBottom, contentWidth);
+    // Vertical column lines
+    for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
+      page.drawLine({ start: { x: cx, y: rowTop }, end: { x: cx, y: rowBottom }, thickness: 0.5, color: black });
+    }
+
+    // Row text (vertically centered)
+    const textY = rowTop - rowHeight / 2 - 3;
+    page.drawText(row.item, { x: col.item + 8, y: textY, size: 10, font, color: darkGray });
+
+    // Truncate description if needed
+    let desc = row.desc;
+    const maxDescWidth = col.unitPrice - col.desc - 16;
+    if (font.widthOfTextAtSize(desc, 10) > maxDescWidth) {
+      while (font.widthOfTextAtSize(desc + '...', 10) > maxDescWidth && desc.length > 3) {
+        desc = desc.slice(0, -1);
+      }
+      desc += '...';
+    }
+    page.drawText(desc, { x: col.desc + 8, y: textY, size: 10, font, color: darkGray });
+
+    // Right-align numbers in their cells
+    const upWidth = font.widthOfTextAtSize(row.unitPrice, 10);
+    page.drawText(row.unitPrice, { x: col.qty - 8 - upWidth, y: textY, size: 10, font, color: darkGray });
+
+    const qtyWidth = font.widthOfTextAtSize(row.qty, 10);
+    page.drawText(row.qty, { x: col.amount - 8 - qtyWidth, y: textY, size: 10, font, color: darkGray });
+
+    const amtWidth = font.widthOfTextAtSize(row.amount, 10);
+    page.drawText(row.amount, { x: tableRight - 8 - amtWidth, y: textY, size: 10, font, color: darkGray });
+
+    y = rowBottom;
   }
 
-  // Line below table
-  drawLine(page, margin, y, contentWidth);
   y -= 25;
 
-  // --- Totals ---
-  const totalsX = pageWidth - margin - 180;
-  const valuesX = pageWidth - margin - 60;
+  // ===== NOTES SECTION =====
+  const periodStartStr = fmtDate(invoice.periodStart);
+  const periodEndStr = fmtDate(invoice.periodEnd);
 
-  const totalHours = parseFloat(String(invoice.totalHours)) || 0;
-  const overtimeHours = parseFloat(String(invoice.overtimeHours)) || 0;
-  const subtotal = parseFloat(String(invoice.subtotal)) || 0;
-  const total = parseFloat(String(invoice.total)) || 0;
+  // Build notes text
+  const notesLines: string[] = [];
+  notesLines.push(`The invoice covers the billing cycle from ${periodStartStr} to ${periodEndStr}.`);
+  for (const li of lineItems) {
+    const hours = parseFloat(String(li.hours)) || 0;
+    const rate = parseFloat(String(li.rate)) || 0;
+    const otHours = parseFloat(String(li.overtimeHours)) || 0;
+    const otRate = parseFloat(String(li.overtimeRate)) || 0;
+    const empName = li.employeeName || 'Unknown';
 
-  page.drawText('Total Hours:', { x: totalsX, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
-  page.drawText(totalHours.toFixed(2), { x: valuesX, y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-  y -= 16;
-
-  if (overtimeHours > 0) {
-    page.drawText('Overtime Hours:', { x: totalsX, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
-    page.drawText(overtimeHours.toFixed(2), { x: valuesX, y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-    y -= 16;
+    if (hours > 0) {
+      notesLines.push(`${empName}. ${hours.toFixed(0)} Hours at $${rate.toFixed(0)} per hour`);
+    }
+    if (otHours > 0) {
+      notesLines.push(`${empName}. ${otHours.toFixed(0)} OT Hours at $${otRate.toFixed(0)} per hour`);
+    }
   }
 
-  page.drawText('Subtotal:', { x: totalsX, y, size: 9, font, color: rgb(0.4, 0.4, 0.4) });
-  page.drawText(formatCurrency(subtotal), { x: valuesX, y, size: 9, font, color: rgb(0.15, 0.15, 0.15) });
-  y -= 16;
-
-  drawLine(page, totalsX, y + 6, 180);
+  // Draw underlined "NOTES:"
+  page.drawText('NOTES:', { x: margin, y, size: 10, font: fontBold, color: darkGray });
+  const notesLabelWidth = fontBold.widthOfTextAtSize('NOTES:', 10);
+  page.drawLine({
+    start: { x: margin, y: y - 2 },
+    end: { x: margin + notesLabelWidth, y: y - 2 },
+    thickness: 0.5, color: darkGray,
+  });
   y -= 4;
 
-  page.drawText('TOTAL:', { x: totalsX, y, size: 12, font: fontBold, color: rgb(0.15, 0.15, 0.15) });
-  page.drawText(formatCurrency(total), { x: valuesX, y, size: 12, font: fontBold, color: rgb(0.2, 0.4, 0.8) });
-  y -= 30;
-
-  // --- Notes ---
-  if (invoice.notes) {
-    page.drawText('Notes:', { x: margin, y, size: 9, font: fontBold, color: rgb(0.4, 0.4, 0.4) });
+  // Notes content
+  for (const line of notesLines) {
     y -= 14;
-    const noteLines = String(invoice.notes).split('\n');
-    for (const line of noteLines) {
-      page.drawText(line.trim(), { x: margin, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
-      y -= 14;
-    }
-    y -= 10;
+    page.drawText(line, { x: margin, y, size: 9, font, color: darkGray });
   }
 
-  // --- Footer ---
-  const footerY = 40;
-  drawLine(page, margin, footerY + 15, contentWidth, rgb(0.85, 0.85, 0.85));
-  const thankYou = 'Thank you for your business!';
-  const thankYouWidth = font.widthOfTextAtSize(thankYou, 9);
-  page.drawText(thankYou, { x: (pageWidth - thankYouWidth) / 2, y: footerY, size: 9, font, color: rgb(0.5, 0.5, 0.5) });
+  // Include any invoice-level notes (late OT etc.)
+  if (invoice.notes) {
+    const extraLines = String(invoice.notes).split('\n');
+    for (const line of extraLines) {
+      y -= 14;
+      page.drawText(line.trim(), { x: margin, y, size: 9, font, color: darkGray });
+    }
+  }
+
+  y -= 30;
+
+  // ===== TOTALS SECTION (right-aligned, with borders) =====
+  const subtotal = parseFloat(String(invoice.subtotal)) || 0;
+  const total = parseFloat(String(invoice.total)) || 0;
+  const amountPaid = invoice.status === 'PAID' ? total : 0;
+  const balanceDue = total - amountPaid;
+
+  const totalsLabelX = pageWidth - margin - 200;
+  const totalsValueX = pageWidth - margin - 80;
+  const totalsRight = pageWidth - margin;
+  const totalsRowH = 22;
+
+  const totalRows = [
+    { label: 'Subtotal', value: subtotal.toFixed(2), bold: false },
+    { label: 'Total', value: total.toFixed(2), bold: false },
+    { label: 'Amount Paid', value: amountPaid.toFixed(2), bold: false },
+    { label: 'Balance Due', value: `$${balanceDue.toFixed(2)}`, bold: true },
+  ];
+
+  // Draw totals table with borders
+  const totalsTop = y;
+  for (let i = 0; i < totalRows.length; i++) {
+    const tr = totalRows[i];
+    const rowTop = totalsTop - i * totalsRowH;
+    const rowBot = rowTop - totalsRowH;
+
+    // Borders
+    drawRect(totalsLabelX, rowBot, totalsRight - totalsLabelX, totalsRowH);
+    // Vertical divider between label and value
+    page.drawLine({
+      start: { x: totalsValueX, y: rowTop },
+      end: { x: totalsValueX, y: rowBot },
+      thickness: 0.5, color: black,
+    });
+
+    const textY = rowTop - totalsRowH / 2 - 3;
+    const useFont = tr.bold ? fontBold : font;
+    page.drawText(tr.label, { x: totalsLabelX + 10, y: textY, size: 10, font: fontBold, color: darkGray });
+
+    const valWidth = useFont.widthOfTextAtSize(tr.value, 10);
+    page.drawText(tr.value, { x: totalsRight - 10 - valWidth, y: textY, size: 10, font: useFont, color: darkGray });
+  }
 
   return await pdfDoc.save();
 };
@@ -380,7 +508,7 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
 // Preview: dry-run invoice generation to show what would be created
 export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, frequency = 'monthly' } = req.body;
+    const { year, month, week, frequency = 'monthly', clientId } = req.body;
 
     let preview;
     if (frequency === 'weekly') {
@@ -388,13 +516,13 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         res.status(400).json({ success: false, error: 'Valid year and week (1-53) are required' });
         return;
       }
-      preview = await previewWeeklyInvoicesForWeek(year, week);
+      preview = await previewWeeklyInvoicesForWeek(year, week, clientId);
     } else {
       if (!year || !month || month < 1 || month > 12) {
         res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
         return;
       }
-      preview = await previewInvoicesForPeriod(year, month);
+      preview = await previewInvoicesForPeriod(year, month, clientId);
     }
 
     res.json({
@@ -420,7 +548,7 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
 // Supports both monthly (year + month) and weekly (year + week) frequency
 export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, frequency = 'monthly' } = req.body;
+    const { year, month, week, frequency = 'monthly', clientId } = req.body;
     const io = req.app.get('io');
 
     if (frequency === 'weekly') {
@@ -439,7 +567,7 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
 
-      const result = await generateWeeklyInvoicesForWeek(year, week, io);
+      const result = await generateWeeklyInvoicesForWeek(year, week, io, clientId);
 
       res.json({
         success: true,
@@ -462,7 +590,7 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
 
-      const result = await generateInvoicesForPeriod(year, month, io);
+      const result = await generateInvoicesForPeriod(year, month, io, clientId);
 
       res.json({
         success: true,
@@ -631,7 +759,26 @@ export const downloadInvoicePdf = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    const pdfBytes = await buildInvoicePdf(invoice);
+    // Fetch company settings
+    const companySettings = await prisma.systemSettings.findMany({
+      where: { category: 'general', key: { in: ['companyName', 'companyAddress'] } },
+    });
+    const companyInfo = {
+      companyName: 'The Hello Team LLC',
+      companyAddress: '422 Butterfly road Jackson NJ 08527',
+    };
+    for (const s of companySettings) {
+      try {
+        const val = JSON.parse(s.value);
+        if (s.key === 'companyName') companyInfo.companyName = val;
+        if (s.key === 'companyAddress') companyInfo.companyAddress = val;
+      } catch {
+        if (s.key === 'companyName') companyInfo.companyName = s.value;
+        if (s.key === 'companyAddress') companyInfo.companyAddress = s.value;
+      }
+    }
+
+    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
@@ -679,7 +826,26 @@ export const downloadClientInvoicePdf = async (req: AuthenticatedRequest, res: R
       return;
     }
 
-    const pdfBytes = await buildInvoicePdf(invoice);
+    // Fetch company settings
+    const companySettings = await prisma.systemSettings.findMany({
+      where: { category: 'general', key: { in: ['companyName', 'companyAddress'] } },
+    });
+    const companyInfo = {
+      companyName: 'The Hello Team LLC',
+      companyAddress: '422 Butterfly road Jackson NJ 08527',
+    };
+    for (const s of companySettings) {
+      try {
+        const val = JSON.parse(s.value);
+        if (s.key === 'companyName') companyInfo.companyName = val;
+        if (s.key === 'companyAddress') companyInfo.companyAddress = val;
+      } catch {
+        if (s.key === 'companyName') companyInfo.companyName = s.value;
+        if (s.key === 'companyAddress') companyInfo.companyAddress = s.value;
+      }
+    }
+
+    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
