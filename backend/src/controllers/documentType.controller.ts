@@ -3,9 +3,40 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Default document types to seed if table is empty
+const DEFAULT_DOCUMENT_TYPES = [
+  { name: 'Passport', category: 'GOVERNMENT_ID' },
+  { name: 'Driving License', category: 'GOVERNMENT_ID' },
+  { name: 'Identity Card', category: 'GOVERNMENT_ID' },
+  { name: 'Utility Bill', category: 'PROOF_OF_ADDRESS' },
+  { name: 'Bank Statement', category: 'PROOF_OF_ADDRESS' },
+  { name: 'Phone Bill', category: 'PROOF_OF_ADDRESS' },
+  { name: 'Internet Bill', category: 'PROOF_OF_ADDRESS' },
+  { name: 'Tax Document', category: 'PROOF_OF_ADDRESS' },
+  { name: 'Other Official Document', category: 'PROOF_OF_ADDRESS' },
+];
+
+// Auto-seed defaults if table is empty (runs once on first request)
+let seeded = false;
+const ensureSeeded = async () => {
+  if (seeded) return;
+  const count = await prisma.documentType.count();
+  if (count === 0) {
+    console.log('Seeding default document types...');
+    await prisma.documentType.createMany({
+      data: DEFAULT_DOCUMENT_TYPES,
+      skipDuplicates: true,
+    });
+    console.log(`Seeded ${DEFAULT_DOCUMENT_TYPES.length} document types.`);
+  }
+  seeded = true;
+};
+
 // Get all document types (optionally filter by category and active status)
 export const getDocumentTypes = async (req: Request, res: Response) => {
   try {
+    await ensureSeeded();
+
     const { category, active } = req.query;
 
     const where: any = {};
