@@ -775,6 +775,29 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
       },
     });
 
+    // Also approve any matching OvertimeRequest records so the pending count stays in sync
+    await prisma.overtimeRequest.updateMany({
+      where: {
+        employeeId: timeRecord.employeeId,
+        clientId: timeRecord.clientId,
+        date: timeRecord.date,
+        status: { in: ['PENDING'] },
+      },
+      data: {
+        status: 'APPROVED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+      },
+    });
+
+    // Also update shiftExtensionStatus on the time record if it had a pending extension
+    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+      await prisma.timeRecord.update({
+        where: { id: recordId },
+        data: { shiftExtensionStatus: 'APPROVED' },
+      });
+    }
+
     // Create approval log
     await createClientApprovalLog(recordId, userId!, 'APPROVED', approverName);
 
@@ -852,6 +875,30 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
         status: 'REJECTED',
       },
     });
+
+    // Also reject any matching OvertimeRequest records so the pending count stays in sync
+    await prisma.overtimeRequest.updateMany({
+      where: {
+        employeeId: timeRecord.employeeId,
+        clientId: timeRecord.clientId,
+        date: timeRecord.date,
+        status: { in: ['PENDING'] },
+      },
+      data: {
+        status: 'REJECTED',
+        rejectedBy: userId,
+        rejectedAt: new Date(),
+        rejectionReason: reason || 'Rejected via time record',
+      },
+    });
+
+    // Also update shiftExtensionStatus on the time record if it had a pending/unapproved extension
+    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+      await prisma.timeRecord.update({
+        where: { id: recordId },
+        data: { shiftExtensionStatus: 'DENIED' },
+      });
+    }
 
     // Create rejection log
     await createClientApprovalLog(recordId, userId!, 'REJECTED', rejecterName, reason);
@@ -1550,39 +1597,38 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
     // Sort by submittedAt
     approvals.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
 
-    // Calculate summary counts
-    const [pendingTimeCount, pendingLeaveCount, approvedWeekCount, rejectedWeekCount] = await Promise.all([
-      prisma.timeRecord.count({ where: { clientId, status: 'PENDING' } }),
+    // Calculate summary counts — leave-only counts for the leave tab
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const [pendingLeaveCount, approvedLeaveWeekCount, rejectedLeaveWeekCount, overtimePendingCount] = await Promise.all([
       prisma.leaveRequest.count({ where: { employeeId: { in: employeeIds }, status: 'PENDING' } }),
-      prisma.timeRecord.count({
+      prisma.leaveRequest.count({
         where: {
-          clientId,
-          status: { in: ['APPROVED', 'AUTO_APPROVED'] },
-          approvedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          employeeId: { in: employeeIds },
+          status: 'APPROVED',
+          updatedAt: { gte: oneWeekAgo },
         },
       }),
-      prisma.timeRecord.count({
+      prisma.leaveRequest.count({
         where: {
-          clientId,
+          employeeId: { in: employeeIds },
           status: 'REJECTED',
-          updatedAt: { gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+          updatedAt: { gte: oneWeekAgo },
         },
+      }),
+      prisma.overtimeRequest.count({
+        where: { clientId, status: 'PENDING' },
       }),
     ]);
-
-    const overtimePendingCount = await prisma.timeRecord.count({
-      where: { clientId, status: 'PENDING', overtimeMinutes: { gt: 0 } },
-    });
 
     res.json({
       success: true,
       data: {
         approvals,
         summary: {
-          pending: pendingTimeCount + pendingLeaveCount,
+          pending: pendingLeaveCount,
           overtimePending: overtimePendingCount,
-          approvedThisWeek: approvedWeekCount,
-          rejectedThisWeek: rejectedWeekCount,
+          approvedThisWeek: approvedLeaveWeekCount,
+          rejectedThisWeek: rejectedLeaveWeekCount,
         },
         pagination: {
           page: pageNum,
