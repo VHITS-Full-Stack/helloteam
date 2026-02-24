@@ -20,7 +20,8 @@ import {
   Briefcase,
   FolderOpen,
   ClipboardList,
-  TrendingUp
+  TrendingUp,
+  FileCheck
 } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -127,6 +128,12 @@ const Sidebar = ({
       icon: TrendingUp,
       label: 'Billing History',
       permission: PERMISSIONS.EMPLOYEES.VIEW
+    },
+    {
+      to: '/admin/document-types',
+      icon: FileCheck,
+      label: 'Document Types',
+      permission: PERMISSIONS.SETTINGS.EDIT
     },
     {
       to: '/admin/settings',

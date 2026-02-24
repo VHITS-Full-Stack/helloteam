@@ -1179,6 +1179,22 @@ model InvoiceLineItem {
 }
 
 // ============================================
+// DOCUMENT TYPES (Master Data)
+// ============================================
+
+model DocumentType {
+  id        String   @id @default(uuid())
+  name      String
+  category  String   // "GOVERNMENT_ID" or "PROOF_OF_ADDRESS"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([name, category])
+  @@map("document_types")
+}
+
+// ============================================
 // RATE CHANGE HISTORY
 // ============================================
 

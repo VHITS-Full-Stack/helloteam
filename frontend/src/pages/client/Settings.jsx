@@ -30,7 +30,7 @@ const Settings = () => {
     allowOvertime: true,
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
-    autoApproveMinutes: 15,
+    autoApproveMinutes: 1440,
   });
 
   const [assignedEmployees, setAssignedEmployees] = useState([]);
@@ -497,7 +497,7 @@ const Settings = () => {
                     <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                       <div>
                         <p className="font-medium text-gray-900">Auto-Approve Timesheets</p>
-                        <p className="text-sm text-gray-500">Automatically approve pending time entries after a set period</p>
+                        <p className="text-sm text-gray-500">Automatically approve scheduled timesheets after a set time (overtime timesheets are never auto-approved)</p>
                       </div>
                       <label className="relative inline-flex items-center cursor-pointer">
                         <input
@@ -520,14 +520,13 @@ const Settings = () => {
                             type="number"
                             className="input w-24"
                             value={policies.autoApproveMinutes}
-                            onChange={(e) => handlePolicyChange('autoApproveMinutes', parseInt(e.target.value) || 15)}
+                            onChange={(e) => handlePolicyChange('autoApproveMinutes', parseInt(e.target.value) || 1440)}
                             min={1}
-                            max={1440}
                           />
                           <span className="text-gray-500">minutes</span>
                         </div>
                         <p className="text-xs text-gray-400 mt-2">
-                          Pending time entries will be automatically approved if not reviewed within this time.
+                          Scheduled timesheets will be automatically approved after this many minutes past the shift end time. Default: 1440 minutes (24 hours).
                         </p>
                       </div>
                     )}

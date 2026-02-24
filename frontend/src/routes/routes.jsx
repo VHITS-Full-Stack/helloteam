@@ -62,6 +62,7 @@ const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
 const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
 const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
+const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -221,6 +222,7 @@ const AppRoutes = () => {
           <Route path="audit-log" element={<AuditLog />} />
           <Route path="leave-policy" element={<LeavePolicy />} />
           <Route path="schedules" element={<ScheduleManagement />} />
+          <Route path="document-types" element={<DocumentTypes />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="profile" element={<AdminProfile />} />
         </Route>

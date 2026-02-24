@@ -25,6 +25,7 @@ import onboardingRoutes from './onboarding.routes';
 import employeeOnboardingRoutes from './employeeOnboarding.routes';
 import invoiceRoutes from './invoice.routes';
 import rateHistoryRoutes from './rateHistory.routes';
+import documentTypeRoutes from './documentType.routes';
 
 const router = Router();
 
@@ -64,6 +65,7 @@ router.use('/onboarding', onboardingRoutes);
 router.use('/employee-onboarding', employeeOnboardingRoutes);
 router.use('/invoices', invoiceRoutes);
 router.use('/rate-history', rateHistoryRoutes);
+router.use('/document-types', documentTypeRoutes);
 // router.use('/support-tickets', supportTicketRoutes);
 
 export default router;
