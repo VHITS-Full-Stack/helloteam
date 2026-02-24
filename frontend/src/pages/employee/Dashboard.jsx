@@ -1897,18 +1897,17 @@ const EmployeeDashboard = () => {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={async () => {
+                    onClick={() => {
                       setShowShiftEndModal(false);
                       setShiftEndForm({
                         duration: "",
                         customMinutes: "",
                         reason: "",
                       });
-                      await handleClockOut();
                     }}
                     className="flex-1"
                   >
-                    No, Clock Out
+                    No, I'm Good
                   </Button>
                   <Button
                     type="button"
@@ -2034,7 +2033,7 @@ const EmployeeDashboard = () => {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={async () => {
+                    onClick={() => {
                       setShowShiftEndModal(false);
                       setShiftEndError("");
                       setShiftEndSuccess("");
@@ -2043,11 +2042,10 @@ const EmployeeDashboard = () => {
                         customMinutes: "",
                         reason: "",
                       });
-                      await handleClockOut();
                     }}
                     className="flex-1"
                   >
-                    Clock Out
+                    No, I'm Good
                   </Button>
                   <Button
                     type="submit"
