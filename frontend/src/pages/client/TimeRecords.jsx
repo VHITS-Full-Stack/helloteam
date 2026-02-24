@@ -128,6 +128,7 @@ const TimeRecords = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
+      case 'auto_approved':
         return <Badge variant="success">Approved</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
@@ -148,7 +149,7 @@ const TimeRecords = () => {
     if (shiftExtensionStatus === 'UNAPPROVED' || shiftExtensionStatus === 'PENDING') return 'text-orange-600 font-medium';
     if (shiftExtensionStatus === 'APPROVED') return 'text-green-700 font-medium';
     if (hasUnapprovedOT) return 'text-orange-600 font-medium';
-    return 'text-green-700 font-medium';
+    return 'text-blue-700 font-medium'; // Scheduled time = blue
   };
 
   const formatHours = (decimalHours) => {
@@ -421,7 +422,7 @@ const TimeRecords = () => {
                       });
                       const hasUnapprovedOT = dayRec?.overtimeMinutes > 0 && dayRec?.overtimeStatus !== 'APPROVED' && dayRec?.overtimeStatus !== 'AUTO_APPROVED';
                       return (
-                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day], hasUnapprovedOT)}`}>
+                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day], hasUnapprovedOT, dayRec?.shiftExtensionStatus)}`}>
                           {record.dailyHours?.[day] > 0 ? formatHours(record.dailyHours[day]) : '-'}
                         </div>
                       );
@@ -466,15 +467,17 @@ const TimeRecords = () => {
 
                           return (
                             <>
-                              {/* Work Hours row */}
+                              {/* Regular Hours row */}
                               <div className="grid grid-cols-12 gap-2 px-4 py-2 items-center">
-                                <div className="col-span-3 pl-11 text-xs font-medium text-gray-500">Work Hours</div>
+                                <div className="col-span-3 pl-11 text-xs font-medium text-gray-500">Regular Hours</div>
                                 {['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map((day) => {
                                   const rec = dayMap[day];
-                                  const hrs = rec ? (rec.totalMinutes || 0) / 60 : 0;
+                                  const totalMins = rec ? (rec.totalMinutes || 0) : 0;
+                                  const otMins = rec ? (rec.overtimeMinutes || 0) : 0;
+                                  const regularHrs = (totalMins - otMins) / 60;
                                   return (
-                                    <div key={day} className={`text-center text-sm ${hrs > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
-                                      {hrs > 0 ? formatHours(hrs) : '-'}
+                                    <div key={day} className={`text-center text-sm ${regularHrs > 0 ? 'text-gray-900' : 'text-gray-300'}`}>
+                                      {regularHrs > 0 ? formatHours(regularHrs) : '-'}
                                     </div>
                                   );
                                 })}

@@ -1290,6 +1290,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         employeeId: true,
         date: true,
         totalMinutes: true,
+        breakMinutes: true,
         overtimeMinutes: true,
         shiftExtensionStatus: true,
         shiftExtensionMinutes: true,
@@ -1339,19 +1340,21 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 
         if (!daySessions || daySessions.length === 0) continue;
 
-        let dayMinutes = 0;
+        let sessionMinutes = 0;
         let hasActive = false;
         for (const session of daySessions) {
           if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
           const totalMins = session.endTime
             ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
             : 0;
-          dayMinutes += totalMins;
+          sessionMinutes += totalMins;
         }
 
         // Look up the actual TimeRecord for this day to get approval status
         const trKey = `${empId}_${dateStr}`;
         const timeRecord = timeRecordMap.get(trKey);
+        // Prefer TimeRecord totalMinutes (authoritative) over session calculation
+        const dayMinutes = timeRecord ? (timeRecord.totalMinutes || sessionMinutes) : sessionMinutes;
         const dayOvertime = timeRecord ? (timeRecord.overtimeMinutes || 0) : 0;
         const dayOvertimeStatus = timeRecord ? timeRecord.status : null;
 
@@ -1403,7 +1406,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
         approvedOvertimeHours: Math.round((emp.approvedOvertimeMinutes / 60) * 10) / 10,
         unapprovedOvertimeHours: Math.round((emp.unapprovedOvertimeMinutes / 60) * 10) / 10,
-        status: emp.hasActiveRecord ? 'active' : 'pending',
+        status: emp.hasActiveRecord
+          ? 'active'
+          : (() => {
+              const statuses = (emp.records || []).map((r: any) => r.status);
+              if (statuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
+              if (statuses.some((s: string) => s === 'REJECTED')) return 'rejected';
+              if (statuses.some((s: string) => s === 'PENDING')) return 'pending';
+              if (statuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
+              return 'pending';
+            })(),
       }))
     );
 
