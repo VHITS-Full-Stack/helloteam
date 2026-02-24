@@ -21,6 +21,7 @@ const ClientChat = () => {
   const [nextCursor, setNextCursor] = useState(null);
   const [typingUser, setTypingUser] = useState(null);
   const [showMobileList, setShowMobileList] = useState(true);
+  const [messagesError, setMessagesError] = useState(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -46,7 +47,10 @@ const ClientChat = () => {
   // Fetch messages when selecting a conversation
   const fetchMessages = useCallback(async (conversationId, cursor = null) => {
     try {
-      if (!cursor) setMessagesLoading(true);
+      if (!cursor) {
+        setMessagesLoading(true);
+        setMessagesError(null);
+      }
       const res = await chatService.getMessages(conversationId, cursor);
       if (res.success) {
         if (cursor) {
@@ -56,9 +60,12 @@ const ClientChat = () => {
         }
         setHasMore(res.data.hasMore);
         setNextCursor(res.data.nextCursor);
+      } else {
+        if (!cursor) setMessagesError(res.error || 'Failed to load messages');
       }
     } catch (err) {
       console.error('Failed to load messages:', err);
+      if (!cursor) setMessagesError(err.message || 'Failed to load messages');
     } finally {
       setMessagesLoading(false);
     }
@@ -349,6 +356,16 @@ const ClientChat = () => {
               {messagesLoading && messages.length === 0 ? (
                 <div className="flex items-center justify-center py-12">
                   <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : messagesError ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <p className="text-sm text-red-500 mb-2">{messagesError}</p>
+                  <button
+                    onClick={() => fetchMessages(selectedConversation.id)}
+                    className="text-sm text-primary font-medium hover:text-primary-dark"
+                  >
+                    Retry
+                  </button>
                 </div>
               ) : (
                 <>

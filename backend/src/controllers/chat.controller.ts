@@ -12,8 +12,12 @@ const refreshMessageUrls = async (messages: any[]) => {
   return Promise.all(
     messages.map(async (msg) => {
       if (msg.fileKey) {
-        const freshUrl = await getPresignedUrl(msg.fileKey);
-        return { ...msg, fileUrl: freshUrl };
+        try {
+          const freshUrl = await getPresignedUrl(msg.fileKey);
+          return { ...msg, fileUrl: freshUrl };
+        } catch {
+          return { ...msg, fileUrl: msg.fileUrl || null };
+        }
       }
       return msg;
     })
@@ -260,9 +264,9 @@ export const getMessages = async (req: AuthenticatedRequest, res: Response) => {
         nextCursor,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get messages error:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch messages' });
+    res.status(500).json({ success: false, error: `Failed to fetch messages: ${error.message || error}` });
   }
 };
 
