@@ -103,6 +103,8 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       const shiftEndUTC = toUTCDate(recordDate, schedule.endTime, clientTimezone);
       const minutesUntilEnd = (shiftEndUTC.getTime() - now.getTime()) / 60000;
 
+      console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: schedule=${schedule.endTime}, tz=${clientTimezone}, shiftEndUTC=${shiftEndUTC.toISOString()}, now=${now.toISOString()}, minutesUntilEnd=${minutesUntilEnd.toFixed(1)}`);
+
       // --- 30-minute warning ---
       if (minutesUntilEnd <= 30 && minutesUntilEnd > 0 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
