@@ -6,8 +6,6 @@ import {
   ChevronRight,
   AlertCircle,
   Eye,
-  FileText,
-  Trash2,
   Plus,
   Search,
   Coffee,
@@ -374,11 +372,6 @@ const TimeRecords = () => {
               Add Time
             </Button>
 
-            {/* Actions Dropdown - placeholder */}
-            <button className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              Actions
-              <ChevronRight className="w-4 h-4 rotate-90" />
-            </button>
           </div>
 
           <div className="flex items-center gap-4">
@@ -513,13 +506,13 @@ const TimeRecords = () => {
                       Duration
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Customer
+                      Overtime
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Break
                     </th>
                     <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Notes
+                      Customer
                     </th>
                     <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">
                       Actions
@@ -581,22 +574,28 @@ const TimeRecords = () => {
                         )}
                       </td>
 
-                      {/* Duration */}
+                      {/* Duration (total worked time) */}
                       <td className="py-3 px-4">
                         {isActiveSession(session) ? (
                           <span className="text-green-600">-</span>
                         ) : (
-                          <div className="flex items-center gap-2">
-                            <span className={`font-medium ${isOT ? 'text-amber-700' : 'text-gray-900'}`}>
-                              {formatDuration(session.workMinutes)}
+                          <span className="font-medium text-gray-900">
+                            {formatDuration(session.totalMinutes || session.workMinutes)}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Overtime */}
+                      <td className="py-3 px-4">
+                        {isActiveSession(session) ? (
+                          <span className="text-gray-400">-</span>
+                        ) : isOT ? (
+                          <div className="flex flex-col gap-1">
+                            <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-bold rounded bg-amber-200 text-amber-800 w-fit">
+                              +{formatDuration(session.overtimeMinutes)}
                             </span>
-                            {isOT && (
-                              <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-200 text-amber-800">
-                                OT +{formatDuration(session.overtimeMinutes)}
-                              </span>
-                            )}
                             {session.shiftExtensionMinutes > 0 && (
-                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${
+                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded w-fit ${
                                 session.shiftExtensionStatus === 'APPROVED' ? 'bg-green-100 text-green-800' :
                                 session.shiftExtensionStatus === 'DENIED' ? 'bg-red-100 text-red-800' :
                                 session.shiftExtensionStatus === 'PENDING' ? 'bg-amber-100 text-amber-800' :
@@ -606,6 +605,20 @@ const TimeRecords = () => {
                               </span>
                             )}
                           </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+
+                      {/* Break */}
+                      <td className="py-3 px-4">
+                        {(session.breakMinutes || session.totalBreakMinutes) > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
+                            <Coffee className="w-3.5 h-3.5" />
+                            {formatDuration(session.breakMinutes || session.totalBreakMinutes)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
                         )}
                       </td>
 
@@ -625,29 +638,6 @@ const TimeRecords = () => {
                         </div>
                       </td>
 
-                      {/* Break */}
-                      <td className="py-3 px-4">
-                        {session.totalBreakMinutes > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
-                            <Coffee className="w-3.5 h-3.5" />
-                            {session.totalBreakMinutes}m
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      {/* Notes */}
-                      <td className="py-3 px-4">
-                        {session.notes ? (
-                          <p className="text-sm text-gray-600 max-w-xs truncate" title={session.notes}>
-                            {session.notes}
-                          </p>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
                       {/* Actions */}
                       <td className="py-3 px-4">
                         <div className="flex items-center justify-end gap-1">
@@ -658,28 +648,6 @@ const TimeRecords = () => {
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
-                            title="Edit"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          {!isActiveSession(session) && (
-                            <button
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {isActiveSession(session) && (
-                            <button
-                              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                              title="Clock history"
-                            >
-                              <Clock className="w-4 h-4" />
-                            </button>
-                          )}
                           {session.approvalStatus === 'REVISION_REQUESTED' && session.timeRecordId && (
                             <button
                               onClick={() => handleResubmit(session.timeRecordId)}

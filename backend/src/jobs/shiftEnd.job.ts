@@ -24,6 +24,17 @@ const toUTCDate = (date: Date, timeStr: string, timezone: string): Date => {
 };
 
 /**
+ * Convert "HH:MM" (24h) to "h:MM AM/PM" (12h).
+ */
+const formatTime12 = (timeStr: string): string => {
+  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
+/**
  * Shift End Job — runs every minute.
  *
  * 1. 5 minutes before shift end → notify employee: "Your shift is ending."
@@ -121,9 +132,10 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
 
         const notificationType = approvedOT ? 'SHIFT_ENDING_OT_APPROVED' : 'SHIFT_ENDING';
         const notificationTitle = approvedOT ? 'Approved Overtime Available' : 'Shift Ending Soon';
+        const endTime12 = formatTime12(schedule.endTime);
         const notificationMessage = approvedOT
-          ? `You have approved overtime. Do you want to use it? Your shift ends at ${schedule.endTime}.`
-          : `You will be automatically clocked out at ${schedule.endTime}. If you need overtime, please request it now.`;
+          ? `You have approved overtime. Do you want to use it? Your shift ends at ${endTime12}.`
+          : `You will be automatically clocked out at ${endTime12}. If you need overtime, please request it now.`;
 
         await createNotification(
           employee.userId,

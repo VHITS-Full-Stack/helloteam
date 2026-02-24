@@ -22,6 +22,15 @@ import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '
 import workSessionService from '../../services/workSession.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
 
+// Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
+const formatTime12 = (timeStr) => {
+  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -309,7 +318,7 @@ const TimeClock = () => {
                 <div className="bg-white/10 rounded-lg p-3 inline-block">
                   <p className="text-sm text-primary-100">Today's Schedule</p>
                   <p className="text-lg font-semibold">
-                    {sessionData.schedule.startTime} - {sessionData.schedule.endTime}
+                    {formatTime12(sessionData.schedule.startTime)} - {formatTime12(sessionData.schedule.endTime)}
                   </p>
                 </div>
               )}

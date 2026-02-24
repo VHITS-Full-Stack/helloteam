@@ -57,6 +57,15 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
+// Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
+const formatTime12 = (timeStr) => {
+  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
+  const [h, m] = timeStr.split(':').map(Number);
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+};
+
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -696,6 +705,7 @@ const EmployeeDashboard = () => {
     // Calculate estimated end time (current time + duration)
     const endTime = new Date(Date.now() + minutes * 60000);
     const estimatedEndTime = `${String(endTime.getHours()).padStart(2, "0")}:${String(endTime.getMinutes()).padStart(2, "0")}`;
+    // estimatedEndTime is sent to backend in 24h format (HH:MM) — display uses formatTime12
 
     try {
       setShiftEndLoading(true);
@@ -1888,7 +1898,7 @@ const EmployeeDashboard = () => {
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-green-800 text-sm font-medium">
                     You have approved overtime. Your shift ends at{" "}
-                    {shiftEndData?.shiftEnd}. Would you like to stay clocked in
+                    {formatTime12(shiftEndData?.shiftEnd)}. Would you like to stay clocked in
                     and use your approved overtime?
                   </p>
                 </div>
@@ -2077,7 +2087,7 @@ const EmployeeDashboard = () => {
                     Shift Has Ended
                   </h2>
                   <p className="text-sm text-gray-500">
-                    Scheduled end: {pauseData?.shiftEnd}
+                    Scheduled end: {formatTime12(pauseData?.shiftEnd)}
                   </p>
                 </div>
               </div>

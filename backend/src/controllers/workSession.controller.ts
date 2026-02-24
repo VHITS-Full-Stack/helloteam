@@ -1133,6 +1133,13 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             date: true,
             status: true,
             approvedAt: true,
+            totalMinutes: true,
+            breakMinutes: true,
+            overtimeMinutes: true,
+            scheduledStart: true,
+            scheduledEnd: true,
+            actualStart: true,
+            actualEnd: true,
             revisionReason: true,
             revisionRequestedBy: true,
             revisionRequestedAt: true,
@@ -1152,19 +1159,27 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
 
     // Calculate work minutes for each session
     const sessionsWithStats = sessions.map(session => {
-      const totalMinutes = session.endTime
-        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
-        : 0;
-      const workMinutes = totalMinutes - (session.totalBreakMinutes || 0);
-
       // Match time record by date
       const sessionDateKey = session.startTime.toISOString().split('T')[0];
       const timeRecord = timeRecordMap.get(sessionDateKey);
+
+      // Prefer TimeRecord data (authoritative) over session calculation
+      const sessionTotalMinutes = session.endTime
+        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
+        : 0;
+      const totalMinutes = timeRecord?.totalMinutes || sessionTotalMinutes - (session.totalBreakMinutes || 0);
+      const breakMinutes = timeRecord?.breakMinutes ?? session.totalBreakMinutes ?? 0;
+      const overtimeMinutes = timeRecord?.overtimeMinutes || 0;
+      const workMinutes = totalMinutes - overtimeMinutes;
 
       return {
         ...session,
         totalMinutes,
         workMinutes,
+        breakMinutes,
+        overtimeMinutes,
+        scheduledStart: timeRecord?.scheduledStart || null,
+        scheduledEnd: timeRecord?.scheduledEnd || null,
         client: clientAssignment?.client || null,
         approvalStatus: timeRecord?.status || null,
         approvedAt: timeRecord?.approvedAt || null,
