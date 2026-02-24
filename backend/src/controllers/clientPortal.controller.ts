@@ -2249,12 +2249,12 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
     // Get per-employee billing rates
     const clientEmployees = await prisma.clientEmployee.findMany({
       where: { clientId, isActive: true },
-      select: { employeeId: true, billingRate: true },
+      select: { employeeId: true, hourlyRate: true },
     });
 
     const employeeRateMap: Record<string, number> = {};
     for (const ce of clientEmployees) {
-      employeeRateMap[ce.employeeId] = ce.billingRate ? Number(ce.billingRate) : defaultHourlyRate;
+      employeeRateMap[ce.employeeId] = ce.hourlyRate ? Number(ce.hourlyRate) : defaultHourlyRate;
     }
 
     // Current period (this month so far)
