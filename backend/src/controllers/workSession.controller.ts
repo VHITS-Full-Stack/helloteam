@@ -189,9 +189,9 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         return;
       }
 
-      // Check late arrival (more than 5 minutes after shift start, but before shift end)
-      const lateThresholdMinutes = 5;
-      if (nowTotalMinutes > startTotalMinutes + lateThresholdMinutes && !req.body?.confirmLateArrival) {
+      // Check late arrival (1+ minutes after shift start, but before shift end)
+      const lateThresholdMinutes = 1;
+      if (nowTotalMinutes >= startTotalMinutes + lateThresholdMinutes && !req.body?.confirmLateArrival) {
         // Only show late arrival warning if we're still within the shift (before end time)
         const [endH, endM] = (schedule.endTime || '23:59').split(':').map(Number);
         const endTotal = endH * 60 + endM;
