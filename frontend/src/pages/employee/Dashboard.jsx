@@ -107,7 +107,9 @@ const EmployeeDashboard = () => {
   const [shiftEndError, setShiftEndError] = useState("");
   const [shiftEndSuccess, setShiftEndSuccess] = useState("");
 
-  const shiftEndDismissedRef = useRef(false);
+  const shiftEndDismissedRef = useRef(
+    sessionStorage.getItem("shiftEndDismissed") === "true",
+  );
 
   // Controlled pause modal state (shift has ended)
   const [showPauseModal, setShowPauseModal] = useState(false);
@@ -383,6 +385,8 @@ const EmployeeDashboard = () => {
         return;
       }
       playClockInSound();
+      sessionStorage.removeItem("shiftEndDismissed");
+      shiftEndDismissedRef.current = false;
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -567,6 +571,7 @@ const EmployeeDashboard = () => {
       const stored = sessionStorage.getItem('shiftEndNotification');
       if (stored) {
         sessionStorage.removeItem('shiftEndNotification');
+        sessionStorage.removeItem('shiftEndDismissed');
         shiftEndDismissedRef.current = false;
         setShiftEndData(JSON.parse(stored));
         setShowShiftEndModal(true);
@@ -576,6 +581,7 @@ const EmployeeDashboard = () => {
 
     // Listen for same-page custom event from Header
     const handleShowShiftEnd = (e) => {
+      sessionStorage.removeItem('shiftEndDismissed');
       shiftEndDismissedRef.current = false;
       setShiftEndData(e.detail || {});
       setShowShiftEndModal(true);
@@ -589,7 +595,7 @@ const EmployeeDashboard = () => {
     if (!socket || !user?.id) return;
 
     const handleShiftEnding = (data) => {
-      shiftEndDismissedRef.current = false;
+      if (shiftEndDismissedRef.current) return; // Don't re-show if already dismissed/submitted
       setShiftEndData(data.data || data);
       setShowShiftEndModal(true);
     };
@@ -710,6 +716,35 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // Persist dismissed state so popup doesn't reappear on refresh (notification stays unread)
+  const dismissShiftEndPopup = () => {
+    shiftEndDismissedRef.current = true;
+    sessionStorage.setItem("shiftEndDismissed", "true");
+  };
+
+  // Mark notifications as read — only call when user takes real action (submits OT, accepts approved OT)
+  const markShiftEndNotificationsRead = async () => {
+    dismissShiftEndPopup();
+    try {
+      const response = await notificationService.getNotifications({
+        unreadOnly: "true",
+        limit: "10",
+      });
+      if (response.success && response.data?.notifications) {
+        response.data.notifications
+          .filter(
+            (n) =>
+              (n.type === "SHIFT_ENDING" ||
+                n.type === "SHIFT_ENDING_OT_APPROVED") &&
+              !n.isRead,
+          )
+          .forEach((n) => notificationService.markAsRead(n.id).catch(() => {}));
+      }
+    } catch {
+      // Silent fail
+    }
+  };
+
   // Handle "Stay Clocked In" OT request submission
   const handleShiftEndSubmit = async (e) => {
     e.preventDefault();
@@ -748,6 +783,7 @@ const EmployeeDashboard = () => {
       setShiftEndSuccess(
         "Overtime request submitted! You will stay clocked in.",
       );
+      markShiftEndNotificationsRead();
       fetchOvertimeRequests();
       setTimeout(() => {
         setShowShiftEndModal(false);
@@ -1905,7 +1941,7 @@ const EmployeeDashboard = () => {
               </div>
               <button
                 onClick={() => {
-                  shiftEndDismissedRef.current = true;
+                  dismissShiftEndPopup();
                   setShowShiftEndModal(false);
                   setShiftEndError("");
                   setShiftEndSuccess("");
@@ -1937,7 +1973,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      shiftEndDismissedRef.current = true;
+                      dismissShiftEndPopup();
                       setShowShiftEndModal(false);
                       setShiftEndForm({
                         duration: "",
@@ -1953,7 +1989,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="primary"
                     onClick={() => {
-                      shiftEndDismissedRef.current = true;
+                      markShiftEndNotificationsRead();
                       setShowShiftEndModal(false);
                       setShiftEndForm({
                         duration: "",
@@ -2075,7 +2111,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="ghost"
                     onClick={() => {
-                      shiftEndDismissedRef.current = true;
+                      dismissShiftEndPopup();
                       setShowShiftEndModal(false);
                       setShiftEndError("");
                       setShiftEndSuccess("");

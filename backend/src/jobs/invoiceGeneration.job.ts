@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { createNotification, createBulkNotifications } from '../controllers/notification.controller';
 import type { Server } from 'socket.io';
+import { getISOWeekNumber } from '../utils/timezone';
 
 interface EmployeeTimeAggregation {
   employeeId: string;
@@ -27,21 +28,6 @@ type ClientWithRelations = {
     hourlyRate: any;
     overtimeRate: any;
   }[];
-};
-
-// ============================================
-// SHARED HELPERS
-// ============================================
-
-/**
- * Get ISO week number for a date.
- */
-const getISOWeekNumber = (date: Date): number => {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayNum = d.getUTCDay() || 7; // Make Sunday = 7
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum); // Set to nearest Thursday
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 };
 
 /**

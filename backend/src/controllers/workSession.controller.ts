@@ -5,50 +5,7 @@ import { WorkSessionStatus } from '@prisma/client';
 import { sendOTWorkedEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
 import { createNotification } from './notification.controller';
-
-// Helper: get current hours/minutes and day-of-week in a given timezone
-const getTimeInTimezone = (timezone: string, date: Date = new Date()) => {
-  const timeFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    hour: 'numeric',
-    minute: 'numeric',
-    hourCycle: 'h23',
-  });
-  const timeParts = timeFmt.formatToParts(date);
-  const hour = parseInt(timeParts.find((p) => p.type === 'hour')?.value || '0');
-  const minute = parseInt(timeParts.find((p) => p.type === 'minute')?.value || '0');
-
-  const dayFmt = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' });
-  const dayName = dayFmt.format(date);
-  const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
-
-  return {
-    hour,
-    minute,
-    totalMinutes: hour * 60 + minute,
-    dayOfWeek: dayMap[dayName] ?? date.getDay(),
-  };
-};
-
-// Helper: build a UTC Date for "today at HH:MM" in a given timezone
-const buildScheduleTimestamp = (timezone: string, timeStr: string, refDate: Date = new Date()): Date => {
-  const [h, m] = timeStr.split(':').map(Number);
-  // Get today's date components in client timezone
-  const dateFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  });
-  const dp = dateFmt.formatToParts(refDate);
-  const year = dp.find((p) => p.type === 'year')?.value;
-  const month = dp.find((p) => p.type === 'month')?.value;
-  const day = dp.find((p) => p.type === 'day')?.value;
-  // Build ISO string in UTC and compute timezone offset
-  const isoAsUTC = new Date(`${year}-${month}-${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
-  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
-  const tzStr = refDate.toLocaleString('en-US', { timeZone: timezone });
-  const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-  return new Date(isoAsUTC.getTime() + offsetMs);
-};
+import { getTimeInTimezone, buildScheduleTimestamp } from '../utils/timezone';
 
 // Helper function to get client IP address
 const getClientIp = (req: Request): string => {

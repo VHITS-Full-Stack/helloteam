@@ -2,67 +2,7 @@ import { Response } from 'express';
 import { PDFDocument, rgb, StandardFonts, PDFPage, PDFFont } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-
-// ============================================
-// TIMEZONE HELPERS
-// ============================================
-
-const getTimezoneAbbr = (date: Date, tz: string): string => {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
-      timeZoneName: 'short',
-    });
-    const parts = formatter.formatToParts(date);
-    return parts.find((p) => p.type === 'timeZoneName')?.value || tz;
-  } catch {
-    return 'UTC';
-  }
-};
-
-const formatTimeInTz = (date: Date, tz: string): string => {
-  try {
-    const formatter = new Intl.DateTimeFormat('en-US', {
-      timeZone: tz,
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-    const timeStr = formatter.format(date).toLowerCase();
-    const abbr = getTimezoneAbbr(date, tz);
-    return `${timeStr} (${abbr})`;
-  } catch {
-    return date.toISOString();
-  }
-};
-
-/** Get YYYY-MM-DD date string in a given timezone (for grouping sessions by day) */
-/** Get YYYY-MM-DD date key by converting a timestamp to client timezone */
-const getDateKeyInTz = (date: Date, tz: string): string => {
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const parts = formatter.formatToParts(date);
-  const y = parts.find((p) => p.type === 'year')?.value;
-  const m = parts.find((p) => p.type === 'month')?.value;
-  const d = parts.find((p) => p.type === 'day')?.value;
-  return `${y}-${m}-${d}`;
-};
-
-/**
- * Get YYYY-MM-DD from a Prisma @db.Date field.
- * These are stored as midnight UTC but represent a calendar date, NOT a point in time.
- * Must use UTC components directly — do NOT convert through timezone.
- */
-const getDateKeyFromDateField = (date: Date): string => {
-  const y = date.getUTCFullYear();
-  const m = String(date.getUTCMonth() + 1).padStart(2, '0');
-  const d = String(date.getUTCDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
+import { getTimezoneAbbr, formatTimeInTz, getDateKeyInTz, getDateKeyFromDateField, formatLongDate } from '../utils/timezone';
 
 /** Format date as MM/DD/YYYY */
 const fmtDate = (d: Date | string): string => {
@@ -71,22 +11,6 @@ const fmtDate = (d: Date | string): string => {
   const dd = String(dt.getUTCDate()).padStart(2, '0');
   const yyyy = dt.getUTCFullYear();
   return `${mm}/${dd}/${yyyy}`;
-};
-
-/** Format date as long form: "January 12, 2026" using client timezone */
-const formatLongDate = (dateKey: string, tz: string): string => {
-  // dateKey is "YYYY-MM-DD", parse as UTC to avoid timezone drift
-  const [y, m, d] = dateKey.split('-').map(Number);
-  // Build a Date that represents this calendar date at noon in the target timezone
-  // to avoid DST boundary issues
-  const refDate = new Date(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}T12:00:00Z`);
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz,
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  return formatter.format(refDate);
 };
 
 // ============================================

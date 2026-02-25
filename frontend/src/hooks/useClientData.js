@@ -243,7 +243,7 @@ function useClientDetail(id) {
 
   const fetchAllEmployees = async () => {
     try {
-      const response = await employeeService.getEmployees({ limit: 100 });
+      const response = await employeeService.getEmployees({ limit: 500 });
       if (response.success) {
         setAllEmployees(response.data.employees);
       }

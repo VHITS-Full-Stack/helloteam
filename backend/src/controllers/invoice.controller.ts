@@ -3,6 +3,7 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
+import { getISOWeekNumber } from '../utils/timezone';
 
 // ============================================
 // PDF GENERATION HELPER
@@ -604,14 +605,6 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
   }
 };
 
-// Helper: get ISO week number (duplicated here for controller use)
-const getISOWeekNumber = (date: Date): number => {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  const dayNum = d.getUTCDay() || 7;
-  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-};
 
 // Delete invoice (only DRAFT invoices)
 export const deleteInvoice = async (req: AuthenticatedRequest, res: Response): Promise<void> => {

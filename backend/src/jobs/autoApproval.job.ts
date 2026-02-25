@@ -1,29 +1,7 @@
 import prisma from '../config/database';
 import { createNotification } from '../controllers/notification.controller';
 import type { Server } from 'socket.io';
-
-/**
- * Convert a date + HH:MM time string in a given timezone to a UTC Date object.
- * e.g., date=2026-02-16, time="17:00", timezone="America/New_York" → UTC Date for 5 PM ET
- */
-const toUTCDate = (date: Date, timeStr: string, timezone: string): Date => {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
-
-  // Parse as UTC (Z suffix) so the offset calculation works regardless of server timezone
-  const naiveUTC = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`);
-
-  try {
-    // Get the timezone offset by comparing formatted times
-    const utcStr = naiveUTC.toLocaleString('en-US', { timeZone: 'UTC' });
-    const tzStr = naiveUTC.toLocaleString('en-US', { timeZone: timezone });
-    const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-    return new Date(naiveUTC.getTime() + offsetMs);
-  } catch {
-    // If timezone is invalid, treat as UTC
-    return naiveUTC;
-  }
-};
+import { buildTimestampFromDate } from '../utils/timezone';
 
 interface ApprovalCandidate {
   record: any;
@@ -141,7 +119,7 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
             continue;
           }
           scheduledEndTimeStr = matchingSchedule.endTime;
-          scheduledEndDateTime = toUTCDate(recordDate, matchingSchedule.endTime, clientTimezone);
+          scheduledEndDateTime = buildTimestampFromDate(recordDate, matchingSchedule.endTime, clientTimezone);
         } else if (record.scheduledEnd) {
           scheduledEndDateTime = record.scheduledEnd;
           scheduledEndTimeStr = `${String(record.scheduledEnd.getUTCHours()).padStart(2, '0')}:${String(record.scheduledEnd.getUTCMinutes()).padStart(2, '0')}`;

@@ -3,50 +3,7 @@ import { createNotification } from '../controllers/notification.controller';
 import { sendOTWorkedEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
 import type { Server } from 'socket.io';
-
-/**
- * Build a UTC Date for "today at HH:MM" in a given timezone.
- * Uses the same approach as buildScheduleTimestamp in workSession.controller.ts.
- */
-const buildScheduleTimestamp = (timezone: string, timeStr: string, refDate: Date = new Date()): Date => {
-  const [h, m] = timeStr.split(':').map(Number);
-  // Get today's date components IN THE CLIENT TIMEZONE
-  const dateFmt = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  });
-  const dp = dateFmt.formatToParts(refDate);
-  const year = dp.find((p) => p.type === 'year')?.value;
-  const month = dp.find((p) => p.type === 'month')?.value;
-  const day = dp.find((p) => p.type === 'day')?.value;
-  // Build ISO string as UTC, then adjust by timezone offset
-  const isoAsUTC = new Date(`${year}-${month}-${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
-  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
-  const tzStr = refDate.toLocaleString('en-US', { timeZone: timezone });
-  const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-  return new Date(isoAsUTC.getTime() + offsetMs);
-};
-
-/**
- * Get day-of-week in a given timezone (0=Sun, 1=Mon, ..., 6=Sat).
- */
-const getDayOfWeekInTimezone = (timezone: string, refDate: Date = new Date()): number => {
-  const dayFmt = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' });
-  const dayName = dayFmt.format(refDate);
-  const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
-  return dayMap[dayName] ?? refDate.getDay();
-};
-
-/**
- * Convert "HH:MM" (24h) to "h:MM AM/PM" (12h).
- */
-const formatTime12 = (timeStr: string): string => {
-  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
-  const [h, m] = timeStr.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
-};
+import { buildScheduleTimestamp, getDayOfWeekInTimezone, formatTime12 } from '../utils/timezone';
 
 /**
  * Shift End Job — runs every minute.

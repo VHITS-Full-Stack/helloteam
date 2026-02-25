@@ -79,7 +79,7 @@ const ScheduleManagement = () => {
     if (fetchingEmployeesRef.current) return;
     fetchingEmployeesRef.current = true;
     try {
-      const response = await api.get('/employees');
+      const response = await api.get('/employees?limit=500');
       if (response.success) {
         // Handle different response structures
         const employeeData = response.data?.employees || response.data || [];
