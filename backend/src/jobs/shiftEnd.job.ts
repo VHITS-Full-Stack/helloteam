@@ -5,22 +5,36 @@ import { sendSMS } from '../services/sms.service';
 import type { Server } from 'socket.io';
 
 /**
- * Convert a date + HH:MM time string in a given timezone to a UTC Date object.
+ * Build a UTC Date for "today at HH:MM" in a given timezone.
+ * Uses the same approach as buildScheduleTimestamp in workSession.controller.ts.
  */
-const toUTCDate = (date: Date, timeStr: string, timezone: string): Date => {
-  const [hours, minutes] = timeStr.split(':').map(Number);
-  const dateStr = date.toISOString().split('T')[0];
-  // Parse as UTC (Z suffix) so the offset calculation works regardless of server timezone
-  const naiveUTC = new Date(`${dateStr}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00Z`);
+const buildScheduleTimestamp = (timezone: string, timeStr: string, refDate: Date = new Date()): Date => {
+  const [h, m] = timeStr.split(':').map(Number);
+  // Get today's date components IN THE CLIENT TIMEZONE
+  const dateFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  const dp = dateFmt.formatToParts(refDate);
+  const year = dp.find((p) => p.type === 'year')?.value;
+  const month = dp.find((p) => p.type === 'month')?.value;
+  const day = dp.find((p) => p.type === 'day')?.value;
+  // Build ISO string as UTC, then adjust by timezone offset
+  const isoAsUTC = new Date(`${year}-${month}-${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
+  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
+  const tzStr = refDate.toLocaleString('en-US', { timeZone: timezone });
+  const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
+  return new Date(isoAsUTC.getTime() + offsetMs);
+};
 
-  try {
-    const utcStr = naiveUTC.toLocaleString('en-US', { timeZone: 'UTC' });
-    const tzStr = naiveUTC.toLocaleString('en-US', { timeZone: timezone });
-    const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
-    return new Date(naiveUTC.getTime() + offsetMs);
-  } catch {
-    return naiveUTC;
-  }
+/**
+ * Get day-of-week in a given timezone (0=Sun, 1=Mon, ..., 6=Sat).
+ */
+const getDayOfWeekInTimezone = (timezone: string, refDate: Date = new Date()): number => {
+  const dayFmt = new Intl.DateTimeFormat('en-US', { timeZone: timezone, weekday: 'long' });
+  const dayName = dayFmt.format(refDate);
+  const dayMap: Record<string, number> = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
+  return dayMap[dayName] ?? refDate.getDay();
 };
 
 /**
@@ -85,9 +99,10 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       const assignment = employee.clientAssignments[0];
       const clientTimezone = assignment.client.timezone || 'UTC';
 
-      // Get the record date (today in UTC terms)
-      const recordDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-      const dayOfWeek = recordDate.getUTCDay();
+      // Get today's date and day-of-week IN THE CLIENT TIMEZONE
+      const dayOfWeek = getDayOfWeekInTimezone(clientTimezone, now);
+      const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clientTimezone }));
+      const recordDate = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
 
       // Find the employee's schedule for today
       const schedule = await prisma.schedule.findFirst({
@@ -111,7 +126,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         continue;
       }
 
-      const shiftEndUTC = toUTCDate(recordDate, schedule.endTime, clientTimezone);
+      const shiftEndUTC = buildScheduleTimestamp(clientTimezone, schedule.endTime, now);
       const minutesUntilEnd = (shiftEndUTC.getTime() - now.getTime()) / 60000;
 
       console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: schedule=${schedule.endTime}, tz=${clientTimezone}, shiftEndUTC=${shiftEndUTC.toISOString()}, now=${now.toISOString()}, minutesUntilEnd=${minutesUntilEnd.toFixed(1)}`);

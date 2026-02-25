@@ -1341,13 +1341,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         if (!daySessions || daySessions.length === 0) continue;
 
         let sessionMinutes = 0;
+        let sessionBreakMinutes = 0;
         let hasActive = false;
         for (const session of daySessions) {
           if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
+          const breakMins = session.totalBreakMinutes || 0;
           const totalMins = session.endTime
-            ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
+            ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - breakMins
             : 0;
           sessionMinutes += totalMins;
+          sessionBreakMinutes += breakMins;
         }
 
         // Look up the actual TimeRecord for this day to get approval status
@@ -1379,6 +1382,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           timeRecordId: timeRecord ? timeRecord.id : null,
           date,
           totalMinutes: dayMinutes,
+          breakMinutes: timeRecord ? (timeRecord.breakMinutes || 0) : sessionBreakMinutes,
           overtimeMinutes: dayOvertime,
           shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
           shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,

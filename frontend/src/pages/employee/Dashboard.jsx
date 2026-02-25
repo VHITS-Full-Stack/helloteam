@@ -559,6 +559,31 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // Handle shift end modal triggered from notification click (Header)
+  useEffect(() => {
+    // Check sessionStorage for cross-page navigation
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('showShiftEnd')) {
+      const stored = sessionStorage.getItem('shiftEndNotification');
+      if (stored) {
+        sessionStorage.removeItem('shiftEndNotification');
+        shiftEndDismissedRef.current = false;
+        setShiftEndData(JSON.parse(stored));
+        setShowShiftEndModal(true);
+      }
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
+    // Listen for same-page custom event from Header
+    const handleShowShiftEnd = (e) => {
+      shiftEndDismissedRef.current = false;
+      setShiftEndData(e.detail || {});
+      setShowShiftEndModal(true);
+    };
+    window.addEventListener('show-shift-end-modal', handleShowShiftEnd);
+    return () => window.removeEventListener('show-shift-end-modal', handleShowShiftEnd);
+  }, []);
+
   // Listen for SHIFT_ENDING socket events
   useEffect(() => {
     if (!socket || !user?.id) return;

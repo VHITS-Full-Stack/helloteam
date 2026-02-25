@@ -895,10 +895,13 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
       },
     });
 
-    // Update session status back to ACTIVE
+    // Update session status back to ACTIVE and accumulate break time
     await prisma.workSession.update({
       where: { id: activeSession.id },
-      data: { status: 'ACTIVE' },
+      data: {
+        status: 'ACTIVE',
+        totalBreakMinutes: { increment: durationMinutes },
+      },
     });
 
     // Create session log for break end
@@ -1177,8 +1180,18 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const sessionTotalMinutes = session.endTime
         ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
         : 0;
-      const totalMinutes = timeRecord?.totalMinutes || sessionTotalMinutes - (session.totalBreakMinutes || 0);
-      const breakMinutes = timeRecord?.breakMinutes ?? session.totalBreakMinutes ?? 0;
+
+      // Calculate break minutes from actual break records (more reliable than totalBreakMinutes for active sessions)
+      const computedBreakMinutes = (session.breaks || []).reduce((total: number, brk: any) => {
+        if (brk.endTime) {
+          return total + (brk.durationMinutes || Math.round((new Date(brk.endTime).getTime() - new Date(brk.startTime).getTime()) / 60000));
+        }
+        // Ongoing break — count time so far
+        return total + Math.round((Date.now() - new Date(brk.startTime).getTime()) / 60000);
+      }, 0);
+
+      const breakMinutes = timeRecord?.breakMinutes ?? computedBreakMinutes;
+      const totalMinutes = timeRecord?.totalMinutes || sessionTotalMinutes - breakMinutes;
       const overtimeMinutes = timeRecord?.overtimeMinutes || 0;
       const workMinutes = totalMinutes - overtimeMinutes;
 

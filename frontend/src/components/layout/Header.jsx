@@ -290,6 +290,20 @@ const Header = ({
                           if (!notification.isRead) {
                             handleMarkAsRead(notification.id);
                           }
+                          // SHIFT_ENDING notifications open the extend shift modal on Dashboard
+                          if (notification.type === 'SHIFT_ENDING' || notification.type === 'SHIFT_ENDING_OT_APPROVED') {
+                            const notifData = notification.data || {};
+                            setShowNotifications(false);
+                            if (window.location.pathname.includes('/employee/dashboard')) {
+                              // Already on dashboard — fire event directly
+                              window.dispatchEvent(new CustomEvent('show-shift-end-modal', { detail: notifData }));
+                            } else {
+                              // Navigate to dashboard with data in sessionStorage
+                              sessionStorage.setItem('shiftEndNotification', JSON.stringify(notifData));
+                              window.location.href = '/employee/dashboard?showShiftEnd=true';
+                            }
+                            return;
+                          }
                           if (notification.actionUrl) {
                             window.location.href = notification.actionUrl;
                           }

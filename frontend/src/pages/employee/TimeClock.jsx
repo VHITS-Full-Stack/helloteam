@@ -137,6 +137,24 @@ const TimeClock = () => {
 
   const greeting = getGreeting();
 
+  // Compute live work/break minutes from session data (recalculates every second via currentTime)
+  const liveStats = (() => {
+    if (!sessionData?.session?.startTime) return { workMinutes: 0, breakMinutes: 0 };
+    const start = new Date(sessionData.session.startTime);
+    const elapsed = Math.round((currentTime.getTime() - start.getTime()) / 60000);
+    let breakMins = 0;
+    if (sessionData.session.breaks) {
+      for (const brk of sessionData.session.breaks) {
+        if (brk.endTime) {
+          breakMins += brk.durationMinutes || Math.round((new Date(brk.endTime).getTime() - new Date(brk.startTime).getTime()) / 60000);
+        } else {
+          breakMins += Math.round((currentTime.getTime() - new Date(brk.startTime).getTime()) / 60000);
+        }
+      }
+    }
+    return { workMinutes: Math.max(0, elapsed - breakMins), breakMinutes: breakMins };
+  })();
+
   // Handle clock in
   const handleClockIn = async () => {
     try {
@@ -529,13 +547,13 @@ const TimeClock = () => {
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
                   <span className="text-gray-600">Work Duration</span>
                   <span className="font-semibold text-green-600">
-                    {formatDuration(sessionData.session.currentWorkMinutes)}
+                    {formatDuration(liveStats.workMinutes)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
                   <span className="text-gray-600">Break Time</span>
                   <span className="font-semibold text-yellow-600">
-                    {formatDuration(sessionData.session.totalBreakMinutes)}
+                    {formatDuration(liveStats.breakMinutes)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2">
@@ -800,13 +818,13 @@ const TimeClock = () => {
             <div className="flex justify-between items-center mb-2">
               <span className="text-gray-600">Work Duration</span>
               <span className="font-semibold text-green-600">
-                {formatDuration(sessionData?.session?.currentWorkMinutes)}
+                {formatDuration(liveStats.workMinutes)}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600">Total Breaks</span>
               <span className="font-semibold text-yellow-600">
-                {formatDuration(sessionData?.session?.totalBreakMinutes)}
+                {formatDuration(liveStats.breakMinutes)}
               </span>
             </div>
           </div>
