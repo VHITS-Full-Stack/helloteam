@@ -100,6 +100,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
                   id: true,
                   companyName: true,
                   contactPerson: true,
+                  timezone: true,
                 },
               },
             },
