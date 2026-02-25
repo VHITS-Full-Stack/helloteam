@@ -17,7 +17,7 @@ export const config = {
   },
 
   session: {
-    timeoutMinutes: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '30', 10),
+    timeoutMinutes: parseInt(process.env.SESSION_TIMEOUT_MINUTES || '180', 10),
   },
 
   cors: {
