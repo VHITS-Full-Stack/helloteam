@@ -214,7 +214,7 @@ const ClientDashboard = () => {
                 Your employees have worked <strong>{pendingOT.totalHours}</strong> of unapproved overtime.
                 We cannot pay your employees for these hours until you approve or deny.
               </p>
-              {pendingOT.employees && pendingOT.employees.length > 0 && (
+              {/* {pendingOT.employees && pendingOT.employees.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-3">
                   {pendingOT.employees.slice(0, 5).map((emp, i) => (
                     <span key={i} className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-100 text-red-800 text-sm font-medium rounded-full">
@@ -223,19 +223,19 @@ const ClientDashboard = () => {
                   ))}
                   {pendingOT.employees.length > 5 && (
                     <button
-                      onClick={() => navigate("/client/approvals")}
+                      onClick={() => navigate("/client/approvals?type=overtime")}
                       className="inline-flex items-center gap-1 px-3 py-1 bg-red-200 text-red-800 text-sm font-semibold rounded-full hover:bg-red-300 transition-colors"
                     >
                       +{pendingOT.employees.length - 5} more
                     </button>
                   )}
                 </div>
-              )}
+              )} */}
               <div className="mt-4">
                 <Button
                   variant="danger"
                   icon={AlertCircle}
-                  onClick={() => navigate("/client/approvals")}
+                  onClick={() => navigate("/client/approvals?type=overtime")}
                 >
                   Review & Approve Now
                 </Button>

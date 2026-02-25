@@ -237,18 +237,16 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       return;
     }
 
-    const unapprovedOT = await prisma.timeRecord.findMany({
+    const unapprovedOT = await prisma.overtimeRequest.findMany({
       where: {
         clientId: client.id,
-        overtimeMinutes: { gt: 0 },
         status: 'PENDING',
+        requestedMinutes: { gt: 0 },
       },
       select: {
         id: true,
-        overtimeMinutes: true,
-        shiftExtensionStatus: true,
-        shiftExtensionMinutes: true,
-        shiftExtensionReason: true,
+        requestedMinutes: true,
+        type: true,
         date: true,
         createdAt: true,
         employee: { select: { firstName: true, lastName: true } },
@@ -264,7 +262,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       return;
     }
 
-    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.overtimeMinutes, 0);
+    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.requestedMinutes, 0);
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     const totalHours = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
@@ -274,7 +272,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
     for (const r of unapprovedOT) {
       const name = `${r.employee.firstName} ${r.employee.lastName}`;
       if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
-      empMap[name].minutes += r.overtimeMinutes;
+      empMap[name].minutes += r.requestedMinutes;
       empMap[name].count += 1;
     }
     const employees = Object.values(empMap).map(e => ({
@@ -680,11 +678,11 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
         id: tr.id,
         type: overtimeMinutes > 0 ? 'overtime' : 'time-entry',
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
-        hours: Math.round(totalHours * 10) / 10,
+        hours: Math.round(totalHours * 100) / 100,
         date: tr.date,
         description: overtimeMinutes > 0
-          ? `${Math.round(overtimeMinutes / 60 * 10) / 10} overtime hours`
-          : `${Math.round(totalHours * 10) / 10} regular hours`,
+          ? `${Math.round(overtimeMinutes / 60 * 100) / 100} overtime hours`
+          : `${Math.round(totalHours * 100) / 100} regular hours`,
         createdAt: tr.createdAt,
       });
     });
@@ -1080,9 +1078,9 @@ export const getWeeklyHoursOverview = async (req: AuthenticatedRequest, res: Res
 
     // Round values
     dailyData.forEach(d => {
-      d.approved = Math.round(d.approved * 10) / 10;
-      d.pending = Math.round(d.pending * 10) / 10;
-      d.total = Math.round(d.total * 10) / 10;
+      d.approved = Math.round(d.approved * 100) / 100;
+      d.pending = Math.round(d.pending * 100) / 100;
+      d.total = Math.round(d.total * 100) / 100;
     });
 
     res.json({
@@ -1308,6 +1306,37 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       timeRecordMap.set(key, tr);
     }
 
+    // Fetch OvertimeRequests for these employees in the date range
+    const overtimeRequests = await prisma.overtimeRequest.findMany({
+      where: {
+        clientId,
+        employeeId: { in: employeeIds },
+        date: { gte: startUTC, lte: endUTC },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        date: true,
+        type: true,
+        requestedMinutes: true,
+        requestedStartTime: true,
+        requestedEndTime: true,
+        estimatedEndTime: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // Build OvertimeRequest lookup: employeeId_dateStr -> overtimeRequest[]
+    const otRequestMap = new Map<string, typeof overtimeRequests>();
+    for (const ot of overtimeRequests) {
+      const dateStr = toLocalDateStr(ot.date);
+      const key = `${ot.employeeId}_${dateStr}`;
+      if (!otRequestMap.has(key)) otRequestMap.set(key, []);
+      otRequestMap.get(key)!.push(ot);
+    }
+
     // Generate weekly data per employee (only from actual work sessions)
     const allDates = getDatesInRange(start, end);
     const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
@@ -1326,6 +1355,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         overtimeMinutes: 0,
         approvedOvertimeMinutes: 0,
         unapprovedOvertimeMinutes: 0,
+        rejectedOvertimeMinutes: 0,
         records: [] as any[],
         hasActiveRecord: false,
         hasOvertimeRecord: false,
@@ -1358,22 +1388,38 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         const timeRecord = timeRecordMap.get(trKey);
         // Prefer TimeRecord totalMinutes (authoritative) over session calculation
         const dayMinutes = timeRecord ? (timeRecord.totalMinutes || sessionMinutes) : sessionMinutes;
-        const dayOvertime = timeRecord ? (timeRecord.overtimeMinutes || 0) : 0;
         const dayOvertimeStatus = timeRecord ? timeRecord.status : null;
 
-        const dayHours = Math.round((dayMinutes / 60) * 10) / 10;
+        // Get individual OvertimeRequests for this employee+day
+        const otKey = `${empId}_${dateStr}`;
+        const dayOTRequests = otRequestMap.get(otKey) || [];
+
+        // Calculate overtime from actual OvertimeRequest entries (exclude rejected)
+        const dayOvertime = dayOTRequests
+          .filter(ot => ot.status !== 'REJECTED')
+          .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+        const rejectedOTMinutes = dayOTRequests
+          .filter(ot => ot.status === 'REJECTED')
+          .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+
+        // Deduct rejected OT from total hours
+        const effectiveDayMinutes = Math.max(0, dayMinutes - rejectedOTMinutes);
+        const dayHours = Math.round((effectiveDayMinutes / 60) * 100) / 100;
         empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + dayHours;
         if (dayOvertime > 0) {
-          empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((dayOvertime / 60) * 10) / 10;
+          empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((dayOvertime / 60) * 100) / 100;
         }
-        empData.totalMinutes += dayMinutes;
+        empData.totalMinutes += effectiveDayMinutes;
         empData.overtimeMinutes += dayOvertime;
 
-        if (dayOvertime > 0) {
-          if (dayOvertimeStatus === 'APPROVED' || dayOvertimeStatus === 'AUTO_APPROVED') {
-            empData.approvedOvertimeMinutes += dayOvertime;
-          } else {
-            empData.unapprovedOvertimeMinutes += dayOvertime;
+        // Derive approved/pending/rejected from individual OvertimeRequest statuses
+        for (const ot of dayOTRequests) {
+          if (ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') {
+            empData.approvedOvertimeMinutes += (ot.requestedMinutes || 0);
+          } else if (ot.status === 'PENDING') {
+            empData.unapprovedOvertimeMinutes += (ot.requestedMinutes || 0);
+          } else if (ot.status === 'REJECTED') {
+            empData.rejectedOvertimeMinutes += (ot.requestedMinutes || 0);
           }
         }
 
@@ -1381,7 +1427,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           id: timeRecord ? timeRecord.id : daySessions[0].id,
           timeRecordId: timeRecord ? timeRecord.id : null,
           date,
-          totalMinutes: dayMinutes,
+          totalMinutes: effectiveDayMinutes,
           breakMinutes: timeRecord ? (timeRecord.breakMinutes || 0) : sessionBreakMinutes,
           overtimeMinutes: dayOvertime,
           shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
@@ -1390,6 +1436,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
           overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
           revisionReason: timeRecord?.revisionReason || null,
+          overtimeEntries: dayOTRequests.map(ot => ({
+            id: ot.id,
+            type: ot.type,
+            requestedMinutes: ot.requestedMinutes,
+            requestedStartTime: ot.requestedStartTime,
+            requestedEndTime: ot.requestedEndTime,
+            estimatedEndTime: ot.estimatedEndTime,
+            status: ot.status,
+          })),
         });
 
         if (hasActive) empData.hasActiveRecord = true;
@@ -1406,10 +1461,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       Array.from(employeeRecordsMap.values()).map(async (emp: any) => ({
         ...emp,
         profilePhoto: await refreshProfilePhotoUrl(emp.profilePhoto),
-        totalHours: Math.round((emp.totalMinutes / 60) * 10) / 10,
-        overtimeHours: Math.round((emp.overtimeMinutes / 60) * 10) / 10,
-        approvedOvertimeHours: Math.round((emp.approvedOvertimeMinutes / 60) * 10) / 10,
-        unapprovedOvertimeHours: Math.round((emp.unapprovedOvertimeMinutes / 60) * 10) / 10,
+        totalHours: Math.round((emp.totalMinutes / 60) * 100) / 100,
+        overtimeHours: Math.round((emp.overtimeMinutes / 60) * 100) / 100,
+        approvedOvertimeHours: Math.round((emp.approvedOvertimeMinutes / 60) * 100) / 100,
+        unapprovedOvertimeHours: Math.round((emp.unapprovedOvertimeMinutes / 60) * 100) / 100,
+        rejectedOvertimeHours: Math.round((emp.rejectedOvertimeMinutes / 60) * 100) / 100,
         status: emp.hasActiveRecord
           ? 'active'
           : (() => {
@@ -1431,11 +1487,12 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Calculate summary
     const summary = {
       totalEmployees: employeeWeeklyData.length,
-      totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 10) / 10,
-      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours - e.overtimeHours, 0) * 10) / 10,
-      overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 10) / 10,
-      approvedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.approvedOvertimeHours || 0), 0) * 10) / 10,
-      unapprovedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.unapprovedOvertimeHours || 0), 0) * 10) / 10,
+      totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 100) / 100,
+      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours - e.overtimeHours, 0) * 100) / 100,
+      overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 100) / 100,
+      approvedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.approvedOvertimeHours || 0), 0) * 100) / 100,
+      unapprovedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.unapprovedOvertimeHours || 0), 0) * 100) / 100,
+      rejectedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.rejectedOvertimeHours || 0), 0) * 100) / 100,
       pendingCount: employeeWeeklyData.filter((e: any) => e.status === 'pending').length,
     };
 
@@ -1577,10 +1634,10 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
         profilePhoto,
         description: isOvertime
-          ? `${Math.round(overtimeMinutes / 60 * 10) / 10}h overtime`
-          : `${Math.round(totalHours * 10) / 10}h regular work`,
+          ? `${Math.round(overtimeMinutes / 60 * 100) / 100}h overtime`
+          : `${Math.round(totalHours * 100) / 100}h regular work`,
         date: tr.date,
-        hours: Math.round(totalHours * 10) / 10,
+        hours: Math.round(totalHours * 100) / 100,
         status: tr.status.toLowerCase(),
         shiftExtensionStatus: tr.shiftExtensionStatus || 'NONE',
         shiftExtensionMinutes: tr.shiftExtensionMinutes || 0,
@@ -1962,7 +2019,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
     const topPerformersRaw = Array.from(employeeHoursMap.values())
       .map(e => ({
         ...e,
-        hours: Math.round(e.hours * 10) / 10,
+        hours: Math.round(e.hours * 100) / 100,
         productivity: e.hours > 0 ? Math.round((e.approvedHours / e.hours) * 100) : 0,
       }))
       .sort((a, b) => b.hours - a.hours)
@@ -1991,7 +2048,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
 
       weeklyActivity.push({
         day: daysOfWeek[i],
-        hours: Math.round(dayHours * 10) / 10,
+        hours: Math.round(dayHours * 100) / 100,
         target: targetHoursPerDay,
       });
     }
@@ -2002,7 +2059,7 @@ export const getClientAnalytics = async (req: AuthenticatedRequest, res: Respons
         overview: {
           activeWorkforce: assignedEmployees.length,
           onlineNow: activeSessions.length,
-          hoursThisPeriod: Math.round(currentHours * 10) / 10,
+          hoursThisPeriod: Math.round(currentHours * 100) / 100,
           hoursChange,
           productivity,
         },
@@ -2384,7 +2441,7 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
       data: {
         currentPeriod: {
           period: `${now.toLocaleString('default', { month: 'long' })} ${now.getFullYear()}`,
-          hoursWorked: Math.round(currentMonthHours * 10) / 10,
+          hoursWorked: Math.round(currentMonthHours * 100) / 100,
           estimatedAmount: Math.round(estimatedAmount * 100) / 100,
           daysRemaining,
           employees: employeeCount,
@@ -2393,7 +2450,7 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         stats: {
           ytdTotal: Math.round(ytdTotal * 100) / 100,
           avgMonthly: Math.round(avgMonthly * 100) / 100,
-          totalHours: Math.round(ytdHours * 10) / 10,
+          totalHours: Math.round(ytdHours * 100) / 100,
         },
         invoices,
         billingInfo: {

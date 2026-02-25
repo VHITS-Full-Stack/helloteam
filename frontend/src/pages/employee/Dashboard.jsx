@@ -417,6 +417,9 @@ const EmployeeDashboard = () => {
       setShowPostShiftWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
+      // Post-shift session — suppress shift end popup and mark old notifications as read
+      dismissShiftEndPopup();
+      markShiftEndNotificationsRead();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -432,6 +435,9 @@ const EmployeeDashboard = () => {
       setShowLateClockInWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
+      // Post-shift session — suppress shift end popup and mark old notifications as read
+      dismissShiftEndPopup();
+      markShiftEndNotificationsRead();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -2238,9 +2244,7 @@ const EmployeeDashboard = () => {
                   <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Overtime Not Approved
-                  </h2>
+                  <h2 className="text-xl font-bold text-gray-900">No Approved Overtime</h2>
                   <p className="text-sm text-gray-500">Your shift has ended</p>
                 </div>
               </div>
@@ -2253,9 +2257,11 @@ const EmployeeDashboard = () => {
             </div>
             <div className="p-6">
               <div className="p-4 bg-red-50 border border-red-200 rounded-xl mb-6">
-                <p className="text-sm text-red-800">
-                  {clockInWarningMessage ||
-                    "Your overtime request has not been approved. Hours worked without approved overtime may not be compensated."}
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  No approved overtime. You may not get paid.
+                </p>
+                <p className="text-sm text-red-700">
+                  This requires special approval at client's discretion. Hours worked outside your schedule without prior overtime approval may not be compensated.
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">

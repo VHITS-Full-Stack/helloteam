@@ -150,6 +150,32 @@ export const formatLongDate = (dateKey: string, tz: string): string => {
   return formatter.format(refDate);
 };
 
+/** Convert minutes to decimal hours with 2-decimal precision */
+export const minutesToHours = (minutes: number): number => {
+  return Math.round((minutes / 60) * 100) / 100;
+};
+
+/** Format minutes into human-readable duration (e.g., "2h 30m", "45m", "8h") */
+export const formatDuration = (minutes: number): string => {
+  if (!minutes || minutes === 0) return '0m';
+  const hrs = Math.floor(minutes / 60);
+  const mins = Math.round(minutes % 60);
+  if (hrs === 0) return `${mins}m`;
+  if (mins === 0) return `${hrs}h`;
+  return `${hrs}h ${mins}m`;
+};
+
+/** Format decimal hours into human-readable duration (e.g., "2h 30m", "45m", "8h") */
+export const formatHoursDisplay = (decimalHours: number): string => {
+  if (decimalHours === null || decimalHours === undefined || decimalHours === 0) return '0m';
+  const totalMinutes = Math.round(decimalHours * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (hours === 0) return `${minutes}m`;
+  if (minutes === 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+};
+
 /** Get ISO week number for a date */
 export const getISOWeekNumber = (date: Date): number => {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));

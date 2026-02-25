@@ -30,6 +30,8 @@ import {
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { useAuth } from '../../../context/AuthContext';
 
+import { formatDuration } from '../../../utils/formatTime';
+
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const InfoRow = ({ label, value, icon: Icon }) => (
@@ -414,11 +416,11 @@ const EmployeeDetail = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-blue-50 rounded-lg p-2.5">
                     <p className="text-xs text-blue-600">Total Hours</p>
-                    <p className="text-lg font-bold text-blue-700">{timeStats.totalHours}h</p>
+                    <p className="text-lg font-bold text-blue-700">{formatDuration(timeStats.totalMinutes)}</p>
                   </div>
                   <div className="bg-orange-50 rounded-lg p-2.5">
                     <p className="text-xs text-orange-600">Overtime</p>
-                    <p className="text-lg font-bold text-orange-700">{timeStats.overtimeHours}h</p>
+                    <p className="text-lg font-bold text-orange-700">{formatDuration(timeStats.overtimeMinutes)}</p>
                   </div>
                   <div className="bg-green-50 rounded-lg p-2.5">
                     <p className="text-xs text-green-600">Work Days</p>
@@ -426,7 +428,7 @@ const EmployeeDetail = () => {
                   </div>
                   <div className="bg-purple-50 rounded-lg p-2.5">
                     <p className="text-xs text-purple-600">Avg/Day</p>
-                    <p className="text-lg font-bold text-purple-700">{timeStats.avgHoursPerDay}h</p>
+                    <p className="text-lg font-bold text-purple-700">{formatDuration(timeStats.avgMinutesPerDay)}</p>
                   </div>
                 </div>
 
@@ -442,7 +444,7 @@ const EmployeeDetail = () => {
                           <span className="text-gray-600">{formatDate(record.date)}</span>
                           <div className="flex items-center gap-2">
                             <span className="font-medium">
-                              {Math.round((record.totalMinutes || 0) / 60 * 10) / 10}h
+                              {formatDuration(record.totalMinutes || 0)}
                             </span>
                             <Badge
                               variant={

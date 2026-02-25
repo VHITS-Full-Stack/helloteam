@@ -225,7 +225,7 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
         activities.push({
           id: `tr-${tr.id}`,
           type: 'approval',
-          message: `${tr.client?.companyName || 'Client'} approved ${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours for ${tr.employee.firstName} ${tr.employee.lastName}`,
+          message: `${tr.client?.companyName || 'Client'} approved ${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours for ${tr.employee.firstName} ${tr.employee.lastName}`,
           time: tr.approvedAt,
         });
       }
@@ -611,7 +611,41 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       sessionsByEmpDate.get(key)!.push(session);
     }
 
-    // Build daily records from work sessions only
+    // Fetch OvertimeRequests in this date range for all relevant employees
+    const overtimeRequests = sessionEmployeeIds.length > 0
+      ? await prisma.overtimeRequest.findMany({
+          where: {
+            employeeId: { in: sessionEmployeeIds },
+            date: { gte: rangeStart, lte: rangeEndWithTime },
+          },
+          select: {
+            id: true,
+            employeeId: true,
+            clientId: true,
+            date: true,
+            type: true,
+            requestedMinutes: true,
+            requestedStartTime: true,
+            requestedEndTime: true,
+            estimatedEndTime: true,
+            status: true,
+            reason: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+
+    // Build OvertimeRequest lookup: employeeId_dateStr -> overtimeRequest[]
+    const otRequestMap = new Map<string, typeof overtimeRequests>();
+    for (const ot of overtimeRequests) {
+      const dateStr = toLocalDateStr(ot.date);
+      const key = `${ot.employeeId}_${dateStr}`;
+      if (!otRequestMap.has(key)) otRequestMap.set(key, []);
+      otRequestMap.get(key)!.push(ot);
+    }
+
+    // Build daily records from work sessions + OvertimeRequests
     const allRecords: any[] = [];
 
     for (const [key, daySessions] of sessionsByEmpDate) {
@@ -645,8 +679,33 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const hours = Math.round(totalWorkMinutes / 60 * 100) / 100;
       const breakHours = Math.round(totalBreakMins / 60 * 100) / 100;
       const recordStatus = hasActive ? 'active' : 'pending';
-      const overtimeHours = Math.max(0, Math.round((hours - 8) * 100) / 100);
+
+      // Get actual overtime from OvertimeRequest entries
+      const otKey = `${firstSession.employeeId}_${dateStr}`;
+      const dayOTRequests = otRequestMap.get(otKey) || [];
+      const overtimeMinutes = dayOTRequests.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+      const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
+
+      // Build individual session details
+      const sessionDetails = daySessions.map(session => {
+        const sessionMins = session.endTime
+          ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
+          : 0;
+        const breakMins = session.totalBreakMinutes || 0;
+        const workMins = Math.max(0, sessionMins - breakMins);
+        return {
+          id: session.id,
+          clockIn: new Date(session.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          clockOut: session.endTime
+            ? new Date(session.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+            : null,
+          hours: Math.round(workMins / 60 * 100) / 100,
+          breakMinutes: breakMins,
+          status: session.status,
+          notes: session.notes || null,
+        };
+      });
 
       allRecords.push({
         id: firstSession.id,
@@ -666,6 +725,17 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         notes: daySessions.map(s => s.notes).filter(Boolean).join('; ') || null,
         arrivalStatus: firstSession.arrivalStatus || null,
         lateMinutes: firstSession.lateMinutes || null,
+        sessions: sessionDetails,
+        overtimeEntries: dayOTRequests.map(ot => ({
+          id: ot.id,
+          type: ot.type,
+          requestedMinutes: ot.requestedMinutes,
+          requestedStartTime: ot.requestedStartTime,
+          requestedEndTime: ot.requestedEndTime,
+          estimatedEndTime: ot.estimatedEndTime,
+          status: ot.status,
+          reason: ot.reason,
+        })),
       });
     }
 
@@ -708,6 +778,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         notes: record.notes,
         arrivalStatus: record.arrivalStatus,
         lateMinutes: record.lateMinutes,
+        sessions: record.sessions || [],
+        overtimeEntries: record.overtimeEntries || [],
       });
     }
 
@@ -771,13 +843,55 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
-// Adjust a time record
+// Adjust a time record (legacy — operates on TimeRecord)
 export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const recordId = req.params.recordId as string;
-    const { clockIn, clockOut, notes } = req.body;
+    const { clockIn, clockOut, notes, sessions: sessionAdjustments } = req.body;
     const adminId = req.user?.userId;
 
+    // New flow: adjust individual work sessions
+    if (sessionAdjustments && Array.isArray(sessionAdjustments) && sessionAdjustments.length > 0) {
+      const results = [];
+      for (const adj of sessionAdjustments) {
+        if (!adj.id || (!adj.clockIn && !adj.clockOut)) continue;
+
+        const session = await prisma.workSession.findUnique({ where: { id: adj.id } });
+        if (!session) continue;
+
+        // Use local dates (matching how times are displayed via toLocaleTimeString)
+        const toLocalDate = (d: Date) =>
+          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const updateData: any = {};
+
+        if (adj.clockIn) {
+          const startDateStr = toLocalDate(session.startTime);
+          updateData.startTime = new Date(`${startDateStr}T${adj.clockIn}:00`);
+        }
+        if (adj.clockOut) {
+          const endRef = session.endTime || session.startTime;
+          const endDateStr = toLocalDate(endRef);
+          updateData.endTime = new Date(`${endDateStr}T${adj.clockOut}:00`);
+        }
+        if (adj.notes) {
+          updateData.notes = adj.notes;
+        }
+
+        const updated = await prisma.workSession.update({
+          where: { id: adj.id },
+          data: updateData,
+        });
+        results.push(updated);
+      }
+
+      res.json({
+        success: true,
+        message: `${results.length} session(s) adjusted successfully`,
+      });
+      return;
+    }
+
+    // Legacy flow: adjust TimeRecord directly
     const record = await prisma.timeRecord.findUnique({
       where: { id: recordId },
     });
@@ -787,7 +901,6 @@ export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    // Calculate new minutes if times are provided
     let updateData: any = {
       adjustmentNotes: notes || record.adjustmentNotes,
     };
@@ -796,7 +909,7 @@ export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response)
       const startTime = new Date(`${record.date.toISOString().split('T')[0]}T${clockIn}Z`);
       const endTime = new Date(`${record.date.toISOString().split('T')[0]}T${clockOut}Z`);
       const totalMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-      const regularMinutes = Math.min(totalMinutes, 480); // 8 hours max regular
+      const regularMinutes = Math.min(totalMinutes, 480);
       const overtimeMinutes = Math.max(0, totalMinutes - 480);
 
       updateData = {
@@ -907,10 +1020,10 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           description: isAdjustment
             ? 'Clock-out time correction'
             : isOvertime
-              ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 10) / 10}h overtime`
-              : `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours total`,
+              ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 100) / 100}h overtime`
+              : `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours total`,
           date: tr.date.toISOString().split('T')[0],
-          details: tr.adjustmentNotes || `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 10) / 10} hours`,
+          details: tr.adjustmentNotes || `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours`,
           submitted: tr.createdAt,
           submittedBy: isAdjustment ? 'System' : 'Employee',
           clientApproved: tr.approvedBy ? true : status === 'approved' ? true : undefined,

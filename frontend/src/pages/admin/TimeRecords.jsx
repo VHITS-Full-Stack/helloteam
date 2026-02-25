@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw, ChevronDown, ChevronRight } from 'lucide-react';
+import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Coffee, Loader2, Users } from 'lucide-react';
 import {
   Card,
   Button,
@@ -9,6 +9,7 @@ import {
 } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
 import clientService from '../../services/client.service';
+import { formatHours, formatDuration, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
   const [loading, setLoading] = useState(true);
@@ -29,11 +30,8 @@ const TimeRecords = () => {
     flagged: 0,
   });
   const [clients, setClients] = useState([{ id: 'all', name: 'All Clients' }]);
-  const [adjustmentData, setAdjustmentData] = useState({
-    clockIn: '',
-    clockOut: '',
-    notes: '',
-  });
+  const [sessionEdits, setSessionEdits] = useState([]);
+  const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Set default date range (current week)
@@ -106,7 +104,7 @@ const TimeRecords = () => {
     }
   };
 
-  // Fetch on filter/date changes (not searchTerm — that's debounced below)
+  // Fetch on filter/date changes
   useEffect(() => {
     if (startDate && endDate) {
       fetchTimeRecords();
@@ -153,11 +151,8 @@ const TimeRecords = () => {
   const toggleClient = (clientId) => {
     setExpandedClients(prev => {
       const next = new Set(prev);
-      if (next.has(clientId)) {
-        next.delete(clientId);
-      } else {
-        next.add(clientId);
-      }
+      if (next.has(clientId)) next.delete(clientId);
+      else next.add(clientId);
       return next;
     });
   };
@@ -165,11 +160,8 @@ const TimeRecords = () => {
   const toggleEmployee = (employeeId) => {
     setExpandedEmployees(prev => {
       const next = new Set(prev);
-      if (next.has(employeeId)) {
-        next.delete(employeeId);
-      } else {
-        next.add(employeeId);
-      }
+      if (next.has(employeeId)) next.delete(employeeId);
+      else next.add(employeeId);
       return next;
     });
   };
@@ -187,17 +179,17 @@ const TimeRecords = () => {
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
-        return <Badge variant="success">Approved</Badge>;
+        return <Badge variant="success" size="xs">Approved</Badge>;
       case 'pending':
-        return <Badge variant="warning">Pending</Badge>;
+        return <Badge variant="warning" size="xs">Pending</Badge>;
       case 'active':
-        return <Badge variant="info">Active</Badge>;
+        return <Badge variant="info" size="xs">Active</Badge>;
       case 'adjusted':
-        return <Badge variant="primary">Adjusted</Badge>;
+        return <Badge variant="primary" size="xs">Adjusted</Badge>;
       case 'rejected':
-        return <Badge variant="danger">Rejected</Badge>;
+        return <Badge variant="danger" size="xs">Rejected</Badge>;
       default:
-        return <Badge variant="default">{status}</Badge>;
+        return <Badge variant="default" size="xs">{status}</Badge>;
     }
   };
 
@@ -206,14 +198,23 @@ const TimeRecords = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  const formatHours = (decimalHours) => {
-    if (decimalHours === null || decimalHours === undefined || decimalHours === 0) return '0m';
-    const totalMinutes = Math.round(decimalHours * 60);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    if (hours === 0) return `${minutes}m`;
-    if (minutes === 0) return `${hours}h`;
-    return `${hours}h ${minutes}m`;
+  // Format clock time to 12h display (handles both 24h and 12h input)
+  const fmtTime = (timeStr) => timeStr ? formatTime12(timeStr) : '-';
+
+  // Convert 12h time string "HH:MM AM/PM" to 24h "HH:MM" for input
+  const to24h = (timeStr) => {
+    if (!timeStr) return '';
+    // Already 24h format
+    if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
+    // Parse "HH:MM AM/PM" or "H:MM AM/PM"
+    const match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return '';
+    let h = parseInt(match[1], 10);
+    const m = match[2];
+    const period = match[3].toUpperCase();
+    if (period === 'AM' && h === 12) h = 0;
+    if (period === 'PM' && h !== 12) h += 12;
+    return `${String(h).padStart(2, '0')}:${m}`;
   };
 
   const handleAdjust = (record, employeeRecord) => {
@@ -222,19 +223,48 @@ const TimeRecords = () => {
       employee: employeeRecord.employee,
       client: employeeRecord.client,
     });
-    setAdjustmentData({
-      clockIn: record.clockIn ? record.clockIn.replace(' AM', '').replace(' PM', '') : '',
-      clockOut: record.clockOut ? record.clockOut.replace(' AM', '').replace(' PM', '') : '',
-      notes: record.notes || '',
-    });
+    // Initialize editable session data
+    const sessions = record.sessions && record.sessions.length > 0
+      ? record.sessions.map((s) => ({
+          id: s.id,
+          clockIn: to24h(s.clockIn),
+          clockOut: to24h(s.clockOut),
+          hours: s.hours,
+          breakMinutes: s.breakMinutes,
+          status: s.status,
+          notes: s.notes || '',
+        }))
+      : [{
+          id: record.id,
+          clockIn: to24h(record.clockIn),
+          clockOut: to24h(record.clockOut),
+          hours: record.hours,
+          breakMinutes: 0,
+          status: record.status,
+          notes: '',
+        }];
+    setSessionEdits(sessions);
+    setAdjustmentNotes(record.notes || '');
     setShowAdjustment(true);
+  };
+
+  const updateSessionEdit = (idx, field, value) => {
+    setSessionEdits(prev => prev.map((s, i) => i === idx ? { ...s, [field]: value } : s));
   };
 
   const handleSaveAdjustment = async () => {
     if (!selectedRecord) return;
     setSaving(true);
     try {
-      const response = await adminPortalService.adjustTimeRecord(selectedRecord.id, adjustmentData);
+      const response = await adminPortalService.adjustTimeRecord(selectedRecord.id, {
+        sessions: sessionEdits.map(s => ({
+          id: s.id,
+          clockIn: s.clockIn,
+          clockOut: s.clockOut,
+          notes: s.notes,
+        })),
+        notes: adjustmentNotes,
+      });
       if (response?.success) {
         setShowAdjustment(false);
         fetchTimeRecords();
@@ -255,8 +285,8 @@ const TimeRecords = () => {
           `"${emp.employee}"`,
           `"${emp.client}"`,
           day.date,
-          day.clockIn || 'N/A',
-          day.clockOut || 'N/A',
+          fmtTime(day.clockIn) || 'N/A',
+          fmtTime(day.clockOut) || 'N/A',
           day.hours || 0,
           day.overtimeHours || 0,
           day.breaks || 0,
@@ -277,79 +307,71 @@ const TimeRecords = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Compute totals from all records
+  const totals = useMemo(() => {
+    let totalHours = 0;
+    let overtimeHours = 0;
+    for (const r of timeRecords) {
+      totalHours += r.totalHours || 0;
+      overtimeHours += r.overtimeHours || 0;
+    }
+    return {
+      totalHours: Math.round(totalHours * 100) / 100,
+      overtimeHours: Math.round(overtimeHours * 100) / 100,
+      regularHours: Math.round((totalHours - overtimeHours) * 100) / 100,
+    };
+  }, [timeRecords]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
-          <p className="text-gray-500">View and manage all employee time records</p>
+          <p className="text-sm text-gray-500 mt-1">View and manage all employee time records</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" icon={RefreshCw} onClick={fetchTimeRecords}>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchTimeRecords}>
             Refresh
           </Button>
-          <Button variant="outline" icon={Download} onClick={handleExport}>
+          <Button variant="outline" size="sm" icon={Download} onClick={handleExport}>
             Export
           </Button>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Clock className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalRecords}</p>
-              <p className="text-sm text-gray-500">Total Employees</p>
-            </div>
-          </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Employees</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalRecords}</p>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Clock className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.pendingReview}</p>
-              <p className="text-sm text-gray-500">Pending Review</p>
-            </div>
-          </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{formatHours(totals.totalHours)}</p>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Clock className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.adjustments}</p>
-              <p className="text-sm text-gray-500">Active Now</p>
-            </div>
-          </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Regular</p>
+          <p className="text-2xl font-bold text-green-600 mt-1">{formatHours(totals.regularHours)}</p>
         </Card>
         <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.flagged}</p>
-              <p className="text-sm text-gray-500">Overtime</p>
-            </div>
-          </div>
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime</p>
+          <p className={`text-2xl font-bold mt-1 ${totals.overtimeHours > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+            {formatHours(totals.overtimeHours)}
+          </p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Now</p>
+          <p className="text-2xl font-bold text-blue-600 mt-1">{stats.adjustments}</p>
         </Card>
       </div>
 
       {/* Filters */}
       <Card>
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <div className="flex items-center gap-3">
-            <Building2 className="w-5 h-5 text-gray-400" />
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             <select
-              className="input w-48"
+              className="input py-2 text-sm w-44"
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
             >
@@ -359,11 +381,8 @@ const TimeRecords = () => {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="flex items-center gap-3">
-            <Filter className="w-5 h-5 text-gray-400" />
             <select
-              className="input w-36"
+              className="input py-2 text-sm w-32"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
@@ -372,30 +391,30 @@ const TimeRecords = () => {
               <option value="active">Active</option>
             </select>
           </div>
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-gray-400" />
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
             <input
               type="date"
-              className="input w-40"
+              className="input py-2 text-sm w-36"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
             />
-            <span className="text-gray-400">to</span>
+            <span className="text-gray-400 text-sm">to</span>
             <input
               type="date"
-              className="input w-40"
+              className="input py-2 text-sm w-36"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
               <input
                 type="text"
                 placeholder="Search employees..."
-                className="input w-full"
-                style={{ paddingLeft: '2.5rem' }}
+                className="input w-full py-2 text-sm"
+                style={{ paddingLeft: '2.25rem' }}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -407,30 +426,26 @@ const TimeRecords = () => {
       {/* Time Records Accordion */}
       <Card padding="none">
         {loading ? (
-          <div className="p-12 text-center">
-            <RefreshCw className="w-8 h-8 text-primary animate-spin mx-auto" />
-            <p className="text-gray-500 mt-2">Loading time records...</p>
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : clientGroups.length > 0 ? (
           <div>
             {/* Accordion Header */}
-            <div className="flex items-center justify-between px-6 py-3 border-b border-gray-100 bg-gray-50">
-              <div className="flex items-center gap-4">
-                <span className="text-sm font-medium text-gray-500">
-                  {clientGroups.length} client{clientGroups.length !== 1 ? 's' : ''} &middot; {timeRecords.length} employee{timeRecords.length !== 1 ? 's' : ''}
-                </span>
-              </div>
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+              <span className="text-sm text-gray-500">
+                {clientGroups.length} client{clientGroups.length !== 1 ? 's' : ''} · {timeRecords.length} employee{timeRecords.length !== 1 ? 's' : ''}
+              </span>
               <div className="flex items-center gap-2">
                 <button
                   onClick={expandAll}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  className="text-xs text-primary hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                 >
                   Expand All
                 </button>
-                <span className="text-gray-300">|</span>
                 <button
                   onClick={collapseAll}
-                  className="text-xs text-primary-600 hover:text-primary-700 font-medium"
+                  className="text-xs text-primary hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
                 >
                   Collapse All
                 </button>
@@ -445,36 +460,30 @@ const TimeRecords = () => {
                   <div key={clientGroup.clientId}>
                     {/* Client Header Row */}
                     <div
-                      className="flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition-colors bg-white"
+                      className="flex items-center gap-4 px-5 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() => toggleClient(clientGroup.clientId)}
                     >
-                      <div className="flex-shrink-0 text-gray-400">
-                        {isClientExpanded ? (
-                          <ChevronDown className="w-5 h-5" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 min-w-[200px]">
-                        <div className="p-2 bg-primary-100 rounded-lg">
-                          <Building2 className="w-5 h-5 text-primary-600" />
+                      <ChevronDown
+                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isClientExpanded ? '' : '-rotate-90'}`}
+                      />
+                      <div className="flex items-center gap-2.5 min-w-[180px]">
+                        <div className="p-1.5 bg-primary-100 rounded-lg">
+                          <Building2 className="w-4 h-4 text-primary-600" />
                         </div>
                         <div>
-                          <p className="font-semibold text-gray-900">{clientGroup.clientName}</p>
-                          <p className="text-sm text-gray-500">
-                            {clientGroup.employeeCount} employee{clientGroup.employeeCount !== 1 ? 's' : ''}
-                          </p>
+                          <p className="font-semibold text-gray-900 text-sm">{clientGroup.clientName}</p>
+                          <p className="text-xs text-gray-400">{clientGroup.employeeCount} employee{clientGroup.employeeCount !== 1 ? 's' : ''}</p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-6 flex-1 justify-end">
+                      <div className="flex items-center gap-5 flex-1 justify-end">
                         <div className="text-right">
                           <p className="text-sm font-semibold text-gray-900">{formatHours(clientGroup.totalHours)}</p>
-                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-[10px] text-gray-400 uppercase">Total</p>
                         </div>
                         {clientGroup.overtimeHours > 0 && (
                           <div className="text-right">
                             <p className="text-sm font-semibold text-orange-600">{formatHours(clientGroup.overtimeHours)}</p>
-                            <p className="text-xs text-gray-500">Overtime</p>
+                            <p className="text-[10px] text-gray-400 uppercase">Overtime</p>
                           </div>
                         )}
                       </div>
@@ -482,127 +491,227 @@ const TimeRecords = () => {
 
                     {/* Employees under this client */}
                     {isClientExpanded && (
-                      <div className="divide-y divide-gray-100">
+                      <div className="divide-y divide-gray-100 bg-gray-50/30">
                         {clientGroup.employees.map((empRecord) => {
                           const isEmpExpanded = expandedEmployees.has(empRecord.employeeId);
                           return (
                             <div key={empRecord.employeeId}>
                               {/* Employee Summary Row */}
                               <div
-                                className="flex items-center gap-4 px-6 py-3 cursor-pointer hover:bg-gray-50 transition-colors pl-14"
+                                className="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-100/60 transition-colors pl-12"
                                 onClick={() => toggleEmployee(empRecord.employeeId)}
                               >
-                                <div className="flex-shrink-0 text-gray-400">
-                                  {isEmpExpanded ? (
-                                    <ChevronDown className="w-4 h-4" />
-                                  ) : (
-                                    <ChevronRight className="w-4 h-4" />
-                                  )}
+                                <ChevronDown
+                                  className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isEmpExpanded ? '' : '-rotate-90'}`}
+                                />
+                                <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
+                                <div className="min-w-[140px]">
+                                  <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
+                                  <p className="text-xs text-gray-400">{empRecord.workedDays} day{empRecord.workedDays !== 1 ? 's' : ''} worked</p>
                                 </div>
-                                <div className="flex items-center gap-3 min-w-[180px]">
-                                  <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
-                                  <p className="font-medium text-gray-900">{empRecord.employee}</p>
-                                </div>
-                                <div className="flex items-center gap-6 flex-1 justify-end">
+                                <div className="flex items-center gap-4 flex-1 justify-end">
                                   <div className="text-right">
                                     <p className="text-sm font-semibold text-gray-900">{formatHours(empRecord.totalHours)}</p>
-                                    <p className="text-xs text-gray-500">Total</p>
+                                    <p className="text-[10px] text-gray-400 uppercase">Total</p>
                                   </div>
                                   {empRecord.overtimeHours > 0 && (
                                     <div className="text-right">
                                       <p className="text-sm font-semibold text-orange-600">{formatHours(empRecord.overtimeHours)}</p>
-                                      <p className="text-xs text-gray-500">Overtime</p>
+                                      <p className="text-[10px] text-gray-400 uppercase">OT</p>
                                     </div>
                                   )}
-                                  <div className="text-right">
-                                    <p className="text-sm text-gray-700">{empRecord.workedDays}d</p>
-                                    <p className="text-xs text-gray-500">Days</p>
-                                  </div>
-                                  <div className="min-w-[90px] text-right">
+                                  <div className="min-w-[80px] text-right">
                                     {getStatusBadge(empRecord.status)}
                                   </div>
                                 </div>
                               </div>
 
-                              {/* Daily Records (expanded) */}
+                              {/* Daily Records */}
                               {isEmpExpanded && (
-                                <div className="bg-gray-50/50">
-                                  <div className="grid grid-cols-12 gap-2 px-6 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider border-t border-gray-100">
+                                <div className="bg-white border-t border-gray-100">
+                                  {/* Table Header */}
+                                  <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                     <div className="col-span-2 pl-16">Date</div>
-                                    <div className="col-span-2">Clock In</div>
-                                    <div className="col-span-2">Clock Out</div>
-                                    <div className="col-span-2">Hours</div>
-                                    <div className="col-span-1">Breaks</div>
+                                    <div className="col-span-2">Time</div>
+                                    <div className="col-span-2">Duration</div>
+                                    <div className="col-span-2">Overtime</div>
+                                    <div className="col-span-1">Break</div>
                                     <div className="col-span-2">Status</div>
-                                    <div className="col-span-1">Actions</div>
+                                    <div className="col-span-1"></div>
                                   </div>
+
                                   {empRecord.dailyRecords.map((day) => (
-                                    <div
-                                      key={day.id}
-                                      className="grid grid-cols-12 gap-2 px-6 py-3 text-sm border-t border-gray-100 hover:bg-gray-100/50 items-center"
-                                    >
-                                      <div className="col-span-2 pl-16 text-gray-700 font-medium">
-                                        {formatDate(day.date)}
-                                      </div>
-                                      <div className="col-span-2 text-gray-600">
-                                        <div className="flex items-center gap-1.5">
-                                          {day.clockIn || '-'}
+                                    <div key={day.id}>
+                                      {/* Desktop row */}
+                                      <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2.5 text-sm border-b border-gray-50 hover:bg-gray-50/50 items-center">
+                                        {/* Date */}
+                                        <div className="col-span-2 pl-16">
+                                          <span className="font-medium text-gray-900 text-xs">{formatDate(day.date)}</span>
                                           {day.arrivalStatus === 'Late' && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700">
-                                              Late{day.lateMinutes ? ` ${day.lateMinutes >= 60 ? `${Math.floor(day.lateMinutes / 60)}h ${day.lateMinutes % 60}m` : `${day.lateMinutes}m`}` : ''}
+                                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
+                                              Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
                                             </span>
                                           )}
                                           {day.arrivalStatus === 'Early' && (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700">
+                                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700">
                                               Early
                                             </span>
                                           )}
                                         </div>
-                                      </div>
-                                      <div className="col-span-2 text-gray-600">
-                                        {day.clockOut || (
-                                          day.status === 'active' ? (
-                                            <span className="text-green-600 flex items-center gap-1">
-                                              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                              Active
+
+                                        {/* Time */}
+                                        <div className="col-span-2 text-xs text-gray-600">
+                                          {fmtTime(day.clockIn)}
+                                          <span className="text-gray-300 mx-1">→</span>
+                                          {day.clockOut ? fmtTime(day.clockOut) : (
+                                            day.status === 'active' ? (
+                                              <span className="text-green-600 inline-flex items-center gap-1">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                                Now
+                                              </span>
+                                            ) : '-'
+                                          )}
+                                        </div>
+
+                                        {/* Duration */}
+                                        <div className="col-span-2">
+                                          <span className="font-semibold text-gray-900 text-xs">
+                                            {day.hours != null ? formatHours(day.hours) : '-'}
+                                          </span>
+                                        </div>
+
+                                        {/* Overtime */}
+                                        <div className="col-span-2">
+                                          {day.overtimeEntries && day.overtimeEntries.length > 0 ? (
+                                            <div className="flex flex-col gap-1">
+                                              {day.overtimeEntries.map((ot, otIdx) => {
+                                                const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                                                const isDenied = ot.status === 'REJECTED';
+                                                const badgeBg = isApproved
+                                                  ? 'bg-green-100 text-green-800'
+                                                  : isDenied
+                                                  ? 'bg-red-100 text-red-800'
+                                                  : 'bg-amber-100 text-amber-800';
+                                                const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                                                const timeRange = ot.type === 'OFF_SHIFT'
+                                                  ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
+                                                  : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
+                                                return (
+                                                  <div key={ot.id || otIdx} className="flex flex-col gap-0.5">
+                                                    <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded w-fit ${badgeBg}`}>
+                                                      +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
+                                                    </span>
+                                                    {timeRange && (
+                                                      <span className="text-[9px] text-gray-400">{timeRange}</span>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          ) : day.overtimeHours > 0 ? (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 w-fit">
+                                              +{formatHours(day.overtimeHours)}
                                             </span>
-                                          ) : '-'
-                                        )}
+                                          ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                          )}
+                                        </div>
+
+                                        {/* Break */}
+                                        <div className="col-span-1">
+                                          {day.breaks > 0 ? (
+                                            <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
+                                              <Coffee className="w-3 h-3" />
+                                              {formatHours(day.breaks)}
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                          )}
+                                        </div>
+
+                                        {/* Status */}
+                                        <div className="col-span-2">
+                                          {getStatusBadge(day.status)}
+                                          {day.notes && (
+                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[130px]" title={day.notes}>
+                                              {day.notes}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        {/* Actions */}
+                                        <div className="col-span-1 text-right">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleAdjust(day, empRecord);
+                                            }}
+                                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                                            title="Adjust"
+                                          >
+                                            <Edit className="w-3.5 h-3.5" />
+                                          </button>
+                                        </div>
                                       </div>
-                                      <div className="col-span-2">
-                                        {day.hours !== null && day.hours !== undefined ? (
-                                          <span className={day.overtimeHours > 0 ? 'text-orange-600 font-medium' : 'text-gray-900'}>
-                                            {formatHours(day.hours)}
-                                            {day.overtimeHours > 0 && (
-                                              <span className="text-xs text-orange-500 ml-1">
-                                                (+{formatHours(day.overtimeHours)} OT)
+
+                                      {/* Mobile card */}
+                                      <div className="md:hidden p-4 border-b border-gray-50">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-medium text-gray-900 text-sm">{formatDate(day.date)}</span>
+                                            {day.arrivalStatus === 'Late' && (
+                                              <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
+                                                Late
                                               </span>
                                             )}
-                                          </span>
-                                        ) : '-'}
-                                      </div>
-                                      <div className="col-span-1 text-gray-600">
-                                        {day.breaks ? formatHours(day.breaks) : '-'}
-                                      </div>
-                                      <div className="col-span-2">
-                                        {getStatusBadge(day.status)}
-                                        {day.notes && (
-                                          <p className="text-xs text-gray-500 mt-1 truncate max-w-[140px]" title={day.notes}>
-                                            {day.notes}
-                                          </p>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            {getStatusBadge(day.status)}
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAdjust(day, empRecord);
+                                              }}
+                                              className="p-1 text-gray-400 hover:text-primary rounded"
+                                            >
+                                              <Edit className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">
+                                          {fmtTime(day.clockIn)} → {day.clockOut ? fmtTime(day.clockOut) : (day.status === 'active' ? 'Now' : '-')}
+                                        </p>
+                                        <div className="flex items-center gap-4 text-xs">
+                                          <div>
+                                            <span className="text-gray-400">Duration</span>
+                                            <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(day.hours) : '-'}</p>
+                                          </div>
+                                          {day.breaks > 0 && (
+                                            <div>
+                                              <span className="text-gray-400">Break</span>
+                                              <p className="text-yellow-600">{formatHours(day.breaks)}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {day.overtimeEntries && day.overtimeEntries.length > 0 && (
+                                          <div className="mt-2 flex flex-wrap gap-1">
+                                            {day.overtimeEntries.map((ot, otIdx) => {
+                                              const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                                              const isDenied = ot.status === 'REJECTED';
+                                              const badgeBg = isApproved
+                                                ? 'bg-green-100 text-green-800'
+                                                : isDenied
+                                                ? 'bg-red-100 text-red-800'
+                                                : 'bg-amber-100 text-amber-800';
+                                              const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                                              return (
+                                                <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
+                                                  +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
+                                                </span>
+                                              );
+                                            })}
+                                          </div>
                                         )}
-                                      </div>
-                                      <div className="col-span-1">
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleAdjust(day, empRecord);
-                                          }}
-                                          className="text-gray-400 hover:text-primary-600 transition-colors p-1 rounded"
-                                          title="Adjust"
-                                        >
-                                          <Edit className="w-4 h-4" />
-                                        </button>
                                       </div>
                                     </div>
                                   ))}
@@ -619,10 +728,10 @@ const TimeRecords = () => {
             </div>
           </div>
         ) : (
-          <div className="p-12 text-center">
+          <div className="py-16 text-center">
             <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <h3 className="text-lg font-medium text-gray-900 mb-1">No time records found</h3>
-            <p className="text-gray-500">Try adjusting your filters or date range</p>
+            <p className="text-sm text-gray-500">Try adjusting your filters or date range</p>
           </div>
         )}
       </Card>
@@ -632,7 +741,7 @@ const TimeRecords = () => {
         isOpen={showAdjustment}
         onClose={() => setShowAdjustment(false)}
         title="Adjust Time Record"
-        size="md"
+        size="lg"
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowAdjustment(false)}>
@@ -645,47 +754,155 @@ const TimeRecords = () => {
         }
       >
         {selectedRecord && (
-          <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Employee</p>
-              <p className="font-medium text-gray-900">{selectedRecord.employee}</p>
-              <p className="text-sm text-gray-500 mt-2">Client</p>
-              <p className="font-medium text-gray-900">{selectedRecord.client}</p>
-              <p className="text-sm text-gray-500 mt-2">Date</p>
-              <p className="font-medium text-gray-900">{selectedRecord.date ? formatDate(selectedRecord.date) : '-'}</p>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="label">Clock In</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={adjustmentData.clockIn}
-                  onChange={(e) => setAdjustmentData({ ...adjustmentData, clockIn: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="label">Clock Out</label>
-                <input
-                  type="time"
-                  className="input"
-                  value={adjustmentData.clockOut}
-                  onChange={(e) => setAdjustmentData({ ...adjustmentData, clockOut: e.target.value })}
-                />
+          <div className="space-y-5">
+            {/* Header Info */}
+            <div className="p-4 bg-gray-50 rounded-xl border border-gray-100">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Employee</p>
+                  <p className="font-medium text-gray-900 text-sm mt-0.5">{selectedRecord.employee}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Client</p>
+                  <p className="font-medium text-gray-900 text-sm mt-0.5">{selectedRecord.client}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Date</p>
+                  <p className="font-medium text-gray-900 text-sm mt-0.5">{selectedRecord.date ? formatDate(selectedRecord.date) : '-'}</p>
+                </div>
               </div>
             </div>
+
+            {/* Editable Sessions */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Sessions ({sessionEdits.length})
+              </p>
+              <div className="border border-gray-200 rounded-lg overflow-hidden divide-y divide-gray-100">
+                {sessionEdits.map((session, idx) => (
+                  <div key={session.id || idx} className="p-4 bg-white">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-gray-900">Session {idx + 1}</span>
+                      <div className="flex items-center gap-2">
+                        {session.hours != null && (
+                          <span className="text-xs text-gray-500">{formatHours(session.hours)}</span>
+                        )}
+                        {session.breakMinutes > 0 && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-yellow-600">
+                            <Coffee className="w-3 h-3" />
+                            {session.breakMinutes}m break
+                          </span>
+                        )}
+                        {session.status === 'ACTIVE' && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            Active
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-medium text-gray-400 uppercase">Clock In</label>
+                        <input
+                          type="time"
+                          className="input mt-1 text-sm"
+                          value={session.clockIn}
+                          onChange={(e) => updateSessionEdit(idx, 'clockIn', e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-medium text-gray-400 uppercase">Clock Out</label>
+                        {session.status === 'ACTIVE' ? (
+                          <p className="text-sm font-medium text-green-600 mt-1 py-2">In Progress</p>
+                        ) : (
+                          <input
+                            type="time"
+                            className="input mt-1 text-sm"
+                            value={session.clockOut}
+                            onChange={(e) => updateSessionEdit(idx, 'clockOut', e.target.value)}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Overtime Entries (read-only) */}
+            {selectedRecord.overtimeEntries && selectedRecord.overtimeEntries.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                  Overtime ({selectedRecord.overtimeEntries.length})
+                </p>
+                <div className="space-y-2">
+                  {selectedRecord.overtimeEntries.map((ot, otIdx) => {
+                    const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                    const isDenied = ot.status === 'REJECTED';
+                    const borderColor = isApproved ? 'border-green-200 bg-green-50' : isDenied ? 'border-red-200 bg-red-50' : 'border-amber-200 bg-amber-50';
+                    const badgeColor = isApproved ? 'bg-green-100 text-green-800' : isDenied ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800';
+                    const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                    const timeRange = ot.type === 'OFF_SHIFT'
+                      ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
+                      : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
+                    return (
+                      <div key={ot.id || otIdx} className={`p-3 rounded-lg border ${borderColor}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded ${badgeColor}`}>
+                              +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
+                            </span>
+                            <span className="text-[10px] text-gray-500 uppercase">
+                              {ot.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
+                            </span>
+                          </div>
+                        </div>
+                        {timeRange && (
+                          <p className="text-xs text-gray-500 mt-1">{timeRange}</p>
+                        )}
+                        {ot.reason && (
+                          <p className="text-[10px] text-gray-400 mt-1 italic">{ot.reason}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Day Totals */}
+            <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-400 uppercase">Total</p>
+                <p className="font-semibold text-gray-900 text-sm">{formatHours(selectedRecord.hours)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-400 uppercase">Overtime</p>
+                <p className={`font-semibold text-sm ${selectedRecord.overtimeHours > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+                  {formatHours(selectedRecord.overtimeHours)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-medium text-gray-400 uppercase">Breaks</p>
+                <p className="font-semibold text-yellow-600 text-sm">{formatHours(selectedRecord.breaks)}</p>
+              </div>
+            </div>
+
+            {/* Notes */}
             <div>
               <label className="label">Adjustment Reason</label>
               <textarea
                 className="input min-h-[80px] resize-none"
                 placeholder="Reason for adjustment..."
-                value={adjustmentData.notes}
-                onChange={(e) => setAdjustmentData({ ...adjustmentData, notes: e.target.value })}
+                value={adjustmentNotes}
+                onChange={(e) => setAdjustmentNotes(e.target.value)}
               />
             </div>
-            <div className="p-3 bg-yellow-50 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-yellow-700">
+
+            <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-100 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-yellow-700">
                 This adjustment will be logged and visible to the client for approval.
               </p>
             </div>

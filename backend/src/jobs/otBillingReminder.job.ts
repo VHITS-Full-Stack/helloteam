@@ -74,7 +74,7 @@ async function sendReminderNotifications(
       isFinal ? 'Final OT Approval Reminder' : 'Unapproved Overtime Hours',
       `${urgencyPrefix}You have ${unapprovedCount} unapproved overtime entr${unapprovedCount === 1 ? 'y' : 'ies'} (${unapprovedHours}). Unapproved hours won't appear on this cycle's invoice. Billing cycle ends in ${dayLabel}.`,
       { unapprovedCount, unapprovedHours, daysLeft, isFinal },
-      '/client/approvals?tab=overtime'
+      '/client/approvals?type=overtime'
     );
   } catch (e) {
     console.error('[OT-Billing] In-app notification failed:', e);

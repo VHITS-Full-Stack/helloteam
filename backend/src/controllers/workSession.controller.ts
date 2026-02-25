@@ -592,8 +592,45 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               },
             });
           }
+
+          // --- Auto-create OvertimeRequest if overtime was worked without a prior request ---
+          // Use this session's overtime (not accumulated day total)
+          const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
+
+          if (sessionOT > 0 || overtimeMinutes > 0) {
+            try {
+              const otType = isExtraTime ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
+              const otMinutes = sessionOT > 0 ? sessionOT : overtimeMinutes;
+              const fmtHHMM = (d: Date) => {
+                const parts = d.toLocaleString('en-US', { timeZone: clockOutTz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
+                return `${parts[0].padStart(2, '0')}:${parts[1]}`;
+              };
+
+              await prisma.overtimeRequest.create({
+                data: {
+                  employeeId: employee.id,
+                  clientId: assignment.clientId,
+                  date: today,
+                  type: otType,
+                  requestedMinutes: otMinutes,
+                  reason: 'Auto-generated — employee worked overtime without prior request',
+                  status: 'PENDING',
+                  ...(otType === 'SHIFT_EXTENSION'
+                    ? { estimatedEndTime: fmtHHMM(endTime) }
+                    : {
+                        requestedStartTime: fmtHHMM(activeSession.startTime),
+                        requestedEndTime: fmtHHMM(endTime),
+                      }),
+                },
+              });
+              console.log(`[OT-Auto] Created ${otType} OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${otMinutes} min`);
+            } catch (e) {
+              console.error(`[OT-Auto] Failed to auto-create OvertimeRequest:`, e);
+            }
+          }
         })
       );
+
       // --- Send OT notifications to client(s) if overtime was worked ---
       if (overtimeMinutes > 0) {
         const employeeName = `${employee.firstName} ${employee.lastName}`;
@@ -626,7 +663,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 'Employee Worked Overtime',
                 `${employeeName} worked ${overtimeHoursStr} overtime on ${dateStr}. Approve or deny.`,
                 { employeeId: employee.id, date: dateStr },
-                '/client/approvals?tab=overtime'
+                '/client/approvals?type=overtime'
               );
             } catch (e) { console.error('[OT-Notify] In-app failed:', e); }
 
@@ -1127,6 +1164,35 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       timeRecordMap.set(dateKey, tr);
     }
 
+    // Fetch OvertimeRequests for this employee in the date range
+    const otDateFilter: any = {};
+    if (sessionDates.length > 0) {
+      const minDate = new Date(Math.min(...sessionDates.map(d => d.getTime())));
+      const maxDate = new Date(Math.max(...sessionDates.map(d => d.getTime())));
+      otDateFilter.gte = minDate;
+      otDateFilter.lte = maxDate;
+    }
+    const overtimeRequests = sessionDates.length > 0
+      ? await prisma.overtimeRequest.findMany({
+          where: {
+            employeeId: employee.id,
+            date: otDateFilter,
+          },
+          select: {
+            id: true,
+            date: true,
+            type: true,
+            requestedMinutes: true,
+            requestedStartTime: true,
+            requestedEndTime: true,
+            estimatedEndTime: true,
+            status: true,
+            createdAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      : [];
+
     // Calculate work minutes for each session
     const sessionsWithStats = sessions.map(session => {
       // Match time record by date
@@ -1147,17 +1213,51 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         return total + Math.round((Date.now() - new Date(brk.startTime).getTime()) / 60000);
       }, 0);
 
-      const breakMinutes = timeRecord?.breakMinutes ?? computedBreakMinutes;
-      const totalMinutes = timeRecord?.totalMinutes || sessionTotalMinutes - breakMinutes;
-      const overtimeMinutes = timeRecord?.overtimeMinutes || 0;
-      const workMinutes = totalMinutes - overtimeMinutes;
+      const breakMinutes = computedBreakMinutes;
+      const totalMinutes = sessionTotalMinutes - breakMinutes;
+
+      // Match OvertimeRequests to this session — find the closest OT by createdAt to session endTime
+      const sessionEnd = session.endTime;
+      const matchedOTEntries: typeof overtimeRequests = [];
+      if (sessionEnd) {
+        const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
+        // Find the OT request whose createdAt is closest to this session's endTime
+        let bestOT: typeof overtimeRequests[0] | null = null;
+        let bestDiff = Infinity;
+        for (const ot of sameDayOTs) {
+          const diff = Math.abs(ot.createdAt.getTime() - sessionEnd.getTime());
+          if (diff < bestDiff) {
+            bestDiff = diff;
+            bestOT = ot;
+          }
+        }
+        // Only match if within 5 minutes and this OT is closest to THIS session (not another)
+        if (bestOT && bestDiff < 300000) {
+          // Verify this session is also the closest session to this OT
+          const otTime = bestOT.createdAt.getTime();
+          const isClosest = sessions.every(other => {
+            if (!other.endTime || other.id === session.id) return true;
+            const otherDateKey = other.startTime.toISOString().split('T')[0];
+            if (otherDateKey !== sessionDateKey) return true;
+            return Math.abs(otTime - other.endTime.getTime()) >= bestDiff;
+          });
+          if (isClosest) {
+            matchedOTEntries.push(bestOT);
+          }
+        }
+      }
+
+      const sessionOvertimeMinutes = matchedOTEntries.length > 0
+        ? matchedOTEntries.reduce((sum, ot) => sum + ot.requestedMinutes, 0)
+        : 0;
+      const workMinutes = totalMinutes - sessionOvertimeMinutes;
 
       return {
         ...session,
         totalMinutes,
         workMinutes,
         breakMinutes,
-        overtimeMinutes,
+        overtimeMinutes: sessionOvertimeMinutes,
         scheduledStart: timeRecord?.scheduledStart || null,
         scheduledEnd: timeRecord?.scheduledEnd || null,
         client: clientAssignment?.client || null,
@@ -1168,6 +1268,15 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
         shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
         shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
+        overtimeEntries: matchedOTEntries.map(ot => ({
+          id: ot.id,
+          type: ot.type,
+          requestedMinutes: ot.requestedMinutes,
+          requestedStartTime: ot.requestedStartTime,
+          requestedEndTime: ot.requestedEndTime,
+          estimatedEndTime: ot.estimatedEndTime,
+          status: ot.status,
+        })),
       };
     });
 
@@ -1280,8 +1389,24 @@ export const getTodaySummary = async (req: AuthenticatedRequest, res: Response):
       scheduledMinutes = (endHour * 60 + endMin) - (startHour * 60 + startMin);
     }
 
-    // Calculate overtime
-    const overtimeMinutes = Math.max(0, totalWorkMinutes - scheduledMinutes);
+    // Get actual overtime from OvertimeRequest entries today
+    const todayOvertimeRequests = await prisma.overtimeRequest.findMany({
+      where: {
+        employeeId: employee.id,
+        date: {
+          gte: todayStart,
+          lte: todayEnd,
+        },
+      },
+      select: {
+        requestedMinutes: true,
+      },
+    });
+
+    const overtimeMinutes = todayOvertimeRequests.reduce(
+      (sum, ot) => sum + (ot.requestedMinutes || 0),
+      0
+    );
 
     res.json({
       success: true,
@@ -1414,13 +1539,32 @@ export const getWeeklySummary = async (req: AuthenticatedRequest, res: Response)
       scheduledWeeklyMinutes += (endHour * 60 + endMin) - (startHour * 60 + startMin);
     }
 
+    // Get actual overtime from OvertimeRequest entries this week
+    const weeklyOvertimeRequests = await prisma.overtimeRequest.findMany({
+      where: {
+        employeeId: employee.id,
+        date: {
+          gte: startOfWeek,
+          lt: endOfWeek,
+        },
+      },
+      select: {
+        requestedMinutes: true,
+      },
+    });
+
+    const overtimeMinutes = weeklyOvertimeRequests.reduce(
+      (sum, ot) => sum + (ot.requestedMinutes || 0),
+      0
+    );
+
     res.json({
       success: true,
       summary: {
         totalWorkMinutes,
         totalBreakMinutes,
         scheduledWeeklyMinutes,
-        overtimeMinutes: Math.max(0, totalWorkMinutes - scheduledWeeklyMinutes),
+        overtimeMinutes,
         dailyBreakdown: dailySummary,
         daysWorked: Object.keys(dailySummary).length,
         weekStart: startOfWeek,

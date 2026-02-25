@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   XCircle,
@@ -26,10 +27,13 @@ import clientPortalService from '../../services/clientPortal.service';
 import overtimeService from '../../services/overtime.service';
 
 const Approvals = () => {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('pending');
-  const [activeType, setActiveType] = useState('leave'); // 'leave' or 'overtime'
+  const [activeType, setActiveType] = useState(
+    searchParams.get('type') === 'overtime' || searchParams.get('tab') === 'overtime' ? 'overtime' : 'leave'
+  );
   const [approvals, setApprovals] = useState([]);
   const [overtimeRequests, setOvertimeRequests] = useState([]);
   const [summary, setSummary] = useState({

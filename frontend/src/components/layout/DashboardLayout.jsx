@@ -77,7 +77,7 @@ const OvertimeLoginBlocker = ({ onDismiss }) => {
 
           <div className="flex flex-col gap-2 pt-2">
             <button
-              onClick={() => { onDismiss(); navigate('/client/time-records'); }}
+              onClick={() => { onDismiss(); navigate('/client/approvals?type=overtime'); }}
               className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-colors"
             >
               Review & Approve Now

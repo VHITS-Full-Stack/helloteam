@@ -290,7 +290,7 @@ export const sendOvertimeRequestEmail = async (
   date: string,
   reason: string
 ): Promise<EmailResult> => {
-  const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
+  const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
   const content = `
     <h2 style="${styles.h2}">New Overtime Request</h2>
@@ -505,7 +505,7 @@ export const sendOTWorkedEmail = async (
   overtimeHours: string,
   totalHours: string
 ): Promise<EmailResult> => {
-  const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
+  const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
   const content = `
     <h2 style="${styles.h2}">Employee Worked Overtime</h2>
@@ -544,7 +544,7 @@ export const sendOTBillingReminderEmail = async (
   unapprovedCount: number,
   unapprovedHours: string
 ): Promise<EmailResult> => {
-  const actionUrl = `${config.frontendUrl}/client/approvals?tab=overtime`;
+  const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
   const content = `
     <h2 style="${styles.h2}">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? 's' : ''}</h2>

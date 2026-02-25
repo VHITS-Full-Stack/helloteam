@@ -216,7 +216,7 @@ const Schedule = () => {
 
     return {
       totalMinutes,
-      totalHours: Math.round(totalMinutes / 60 * 10) / 10,
+      totalHours: Math.round(totalMinutes / 60 * 100) / 100,
       workingDays,
       daysOff,
     };

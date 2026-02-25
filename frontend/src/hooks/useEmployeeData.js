@@ -181,10 +181,13 @@ function useEmployeeDetail(id) {
             const avgMinutesPerDay = Math.round(totalMinutes / workDays);
 
             setTimeStats({
-              totalHours: Math.round(totalMinutes / 60 * 10) / 10,
-              overtimeHours: Math.round(overtimeMinutes / 60 * 10) / 10,
+              totalMinutes,
+              overtimeMinutes,
+              totalHours: Math.round(totalMinutes / 60 * 100) / 100,
+              overtimeHours: Math.round(overtimeMinutes / 60 * 100) / 100,
               workDays,
-              avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 10) / 10,
+              avgMinutesPerDay,
+              avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 100) / 100,
             });
           } else {
             setTimeStats(null);

@@ -151,7 +151,9 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         // Skip sessions that started AFTER the scheduled shift end.
         // These are "Extra Time" sessions — the employee deliberately clocked in
         // after their shift to do additional work. Don't auto-clock them out.
+        console.log(`[Shift-End] Extra-time check: session.startTime=${session.startTime.toISOString()} vs shiftEndUTC=${shiftEndUTC.toISOString()} → isExtraTime=${session.startTime > shiftEndUTC}`);
         if (session.startTime > shiftEndUTC) {
+          console.log(`[Shift-End] SKIPPING extra-time session for ${employee.firstName} ${employee.lastName} (clocked in after shift end)`);
           continue;
         }
 
@@ -367,7 +369,7 @@ async function autoClockOut(
               'Employee Worked Overtime',
               `${employeeName} worked ${overtimeHoursStr} overtime on ${dateStr}. Approve or deny.`,
               { employeeId: employee.id, date: dateStr },
-              '/client/approvals?tab=overtime'
+              '/client/approvals?type=overtime'
             );
           } catch (e) { console.error('[Shift-End OT] In-app notify failed:', e); }
 

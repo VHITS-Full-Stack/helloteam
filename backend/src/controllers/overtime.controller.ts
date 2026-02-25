@@ -245,7 +245,7 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
     });
 
     if (client && employee) {
-      const hours = Math.round(finalRequestedMinutes / 60 * 10) / 10;
+      const hours = Math.round(finalRequestedMinutes / 60 * 100) / 100;
       const dateStr = new Date(date).toLocaleDateString();
       const employeeName = `${employee.firstName} ${employee.lastName}`;
       const timeInfo = overtimeType === 'OFF_SHIFT'

@@ -174,7 +174,7 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
         // Send notification
         try {
           const dateStr = record.date.toISOString().split('T')[0];
-          const hours = Math.round(((record.totalMinutes || 0) / 60) * 10) / 10;
+          const hours = Math.round(((record.totalMinutes || 0) / 60) * 100) / 100;
 
           await createNotification(
             record.employee.userId,

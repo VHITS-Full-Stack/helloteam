@@ -294,7 +294,7 @@ export const notifyOvertimeRequest = async (
     'Overtime Request',
     `${employeeName} has requested ${hours} hours of overtime for ${date}${endTimeInfo}`,
     { employeeName, hours, date, estimatedEndTime },
-    '/client/approvals?tab=overtime'
+    '/client/approvals?type=overtime'
   );
 };
 

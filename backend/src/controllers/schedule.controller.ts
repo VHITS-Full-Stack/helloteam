@@ -82,7 +82,7 @@ export const getMySchedule = async (req: AuthenticatedRequest, res: Response): P
       weekEnd: new Date(endDate.getTime() - 1).toISOString().split('T')[0],
       schedule: weekSchedule,
       totalScheduledMinutes,
-      totalScheduledHours: Math.round(totalScheduledMinutes / 60 * 10) / 10,
+      totalScheduledHours: Math.round(totalScheduledMinutes / 60 * 100) / 100,
     });
   } catch (error) {
     console.error('Get schedule error:', error);

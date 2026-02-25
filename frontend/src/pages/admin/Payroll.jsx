@@ -691,12 +691,12 @@ const Payroll = () => {
                     <TableCell>{record.client?.companyName || '-'}</TableCell>
                     <TableCell>{formatDate(record.date)}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {Math.round(record.totalMinutes / 60 * 10) / 10}h
+                      {Math.round(record.totalMinutes / 60 * 100) / 100}h
                     </TableCell>
                     <TableCell className="text-right">
                       {record.overtimeMinutes > 0 ? (
                         <span className="text-orange-600">
-                          {Math.round(record.overtimeMinutes / 60 * 10) / 10}h
+                          {Math.round(record.overtimeMinutes / 60 * 100) / 100}h
                         </span>
                       ) : '-'}
                     </TableCell>
@@ -750,7 +750,7 @@ const Payroll = () => {
                     <TableCell>{record.client?.companyName || '-'}</TableCell>
                     <TableCell>{formatDate(record.date)}</TableCell>
                     <TableCell className="text-right font-medium">
-                      {Math.round(record.totalMinutes / 60 * 10) / 10}h
+                      {Math.round(record.totalMinutes / 60 * 100) / 100}h
                     </TableCell>
                     <TableCell>
                       {record.adjustments?.[0] && (

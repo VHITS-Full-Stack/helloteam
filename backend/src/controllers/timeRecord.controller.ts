@@ -185,11 +185,11 @@ export const getMyTimeRecordSummary = async (req: AuthenticatedRequest, res: Res
       endDate: endDate.toISOString().split('T')[0],
       summary: {
         ...summary,
-        totalHours: Math.round(summary.totalMinutes / 60 * 10) / 10,
+        totalHours: Math.round(summary.totalMinutes / 60 * 100) / 100,
         netWorkMinutes: summary.totalMinutes - summary.totalBreakMinutes,
-        netWorkHours: Math.round((summary.totalMinutes - summary.totalBreakMinutes) / 60 * 10) / 10,
-        approvedHours: Math.round(summary.approvedMinutes / 60 * 10) / 10,
-        pendingHours: Math.round(summary.pendingMinutes / 60 * 10) / 10,
+        netWorkHours: Math.round((summary.totalMinutes - summary.totalBreakMinutes) / 60 * 100) / 100,
+        approvedHours: Math.round(summary.approvedMinutes / 60 * 100) / 100,
+        pendingHours: Math.round(summary.pendingMinutes / 60 * 100) / 100,
       },
     });
   } catch (error) {
@@ -293,11 +293,11 @@ export const getMyPayrollSummary = async (req: AuthenticatedRequest, res: Respon
       },
       summary: {
         totalApprovedMinutes,
-        totalApprovedHours: Math.round(totalApprovedMinutes / 60 * 10) / 10,
+        totalApprovedHours: Math.round(totalApprovedMinutes / 60 * 100) / 100,
         totalOvertimeMinutes,
-        totalOvertimeHours: Math.round(totalOvertimeMinutes / 60 * 10) / 10,
+        totalOvertimeHours: Math.round(totalOvertimeMinutes / 60 * 100) / 100,
         regularMinutes: totalApprovedMinutes - totalOvertimeMinutes,
-        regularHours: Math.round((totalApprovedMinutes - totalOvertimeMinutes) / 60 * 10) / 10,
+        regularHours: Math.round((totalApprovedMinutes - totalOvertimeMinutes) / 60 * 100) / 100,
         pendingRecordsCount: pendingCount,
         daysWorked: records.length,
       },

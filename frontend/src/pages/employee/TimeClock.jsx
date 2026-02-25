@@ -671,7 +671,7 @@ const TimeClock = () => {
                         </td>
                         <td className="py-3 px-4 text-center">
                           <span className="font-semibold text-green-600">
-                            {formatDuration(session.workMinutes)}
+                            {formatDuration(session.totalMinutes || session.workMinutes)}
                           </span>
                         </td>
                         <td className="py-3 px-4 text-center">

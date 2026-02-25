@@ -10,12 +10,14 @@ import {
   Search,
   Coffee,
   X,
-  Settings,
   RotateCcw,
+  FileText,
+  Loader2,
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
 import timeRecordService from '../../services/timeRecord.service';
+import { formatDuration as formatDurationShort, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
   const [activeTab, setActiveTab] = useState('timesheets');
@@ -47,7 +49,7 @@ const TimeRecords = () => {
   const getWeekRange = useCallback((date) => {
     const start = new Date(date);
     const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
     start.setDate(diff);
     start.setHours(0, 0, 0, 0);
 
@@ -136,7 +138,7 @@ const TimeRecords = () => {
     setCurrentDate(new Date());
   };
 
-  // Helper to format date as YYYY-MM-DD using local timezone (avoids UTC shift from toISOString)
+  // Helper to format date as YYYY-MM-DD using local timezone
   const toLocalDateString = (date) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -164,10 +166,8 @@ const TimeRecords = () => {
 
   const formatDateHeader = (dateString) => {
     if (!dateString) return 'Invalid Date';
-    // Parse the date and extract local date components to avoid timezone shifts
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return 'Invalid Date';
-    // Build a date using local year/month/day to avoid any UTC-to-local shift
     const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     return localDate.toLocaleDateString('en-US', {
       weekday: 'short',
@@ -254,53 +254,73 @@ const TimeRecords = () => {
     }
   };
 
-  // Get status badge - uses distinct OT colors when session has overtime
+  // Get status badge — checks overtime entry statuses first, then falls back to TimeRecord status
   const getStatusBadge = (session) => {
     if (session.status === 'ACTIVE') {
-      return null; // Active sessions show time in green instead
+      return <Badge variant="info" size="xs">Working</Badge>;
     }
     if (session.status === 'ON_BREAK') {
       return <Badge variant="warning" size="xs">On Break</Badge>;
     }
 
-    const isOT = session.overtimeMinutes > 0;
+    // If session has overtime entries, derive status from their actual statuses
+    const otEntries = session.overtimeEntries || [];
+    if (otEntries.length > 0) {
+      const hasRejected = otEntries.some(ot => ot.status === 'REJECTED');
+      const hasPending = otEntries.some(ot => ot.status === 'PENDING');
+      if (hasRejected) {
+        return <Badge variant="danger" size="xs">OT Rejected</Badge>;
+      }
+      if (hasPending) {
+        return <Badge variant="warning" size="xs">Pending</Badge>;
+      }
+      // All approved/auto-approved
+      return <Badge variant="success" size="xs">Approved</Badge>;
+    }
 
-    // Show approval status from time record
     if (session.approvalStatus === 'APPROVED') {
-      return isOT ? (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-green-100 text-green-800 ring-1 ring-green-300">
-          Approved
-        </span>
-      ) : (
-        <Badge variant="success" size="xs">Approved</Badge>
-      );
+      return <Badge variant="success" size="xs">Approved</Badge>;
     }
     if (session.approvalStatus === 'AUTO_APPROVED') {
       return <Badge variant="success" size="xs">Auto-Approved</Badge>;
     }
     if (session.approvalStatus === 'REJECTED') {
-      return isOT ? (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-100 text-red-800 ring-1 ring-red-300">
-          Denied
-        </span>
-      ) : (
-        <Badge variant="danger" size="xs">Rejected</Badge>
-      );
+      return <Badge variant="danger" size="xs">Rejected</Badge>;
     }
     if (session.approvalStatus === 'REVISION_REQUESTED') {
       return (
         <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 ring-1 ring-amber-300">
-          Revision Requested
+          Revision
         </span>
       );
     }
     if (session.approvalStatus === 'PENDING' || !session.approvedAt) {
-      return isOT ? (
-        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 ring-1 ring-amber-300">
-          Pending
+      return <Badge variant="warning" size="xs">Pending</Badge>;
+    }
+    return null;
+  };
+
+  // Get arrival badge
+  const getArrivalBadge = (session) => {
+    if (session.arrivalStatus === 'Late') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700">
+          Late{session.lateMinutes ? ` ${session.lateMinutes >= 60 ? `${Math.floor(session.lateMinutes / 60)}h ${session.lateMinutes % 60}m` : `${session.lateMinutes}m`}` : ''}
         </span>
-      ) : (
-        <Badge variant="warning" size="xs">Pending</Badge>
+      );
+    }
+    if (session.arrivalStatus === 'On Time') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700">
+          On Time
+        </span>
+      );
+    }
+    if (session.arrivalStatus === 'Early') {
+      return (
+        <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-blue-100 text-blue-700">
+          Early
+        </span>
       );
     }
     return null;
@@ -325,141 +345,150 @@ const TimeRecords = () => {
     }
   };
 
+  // Compute summary stats
+  const summary = useMemo(() => {
+    let totalMinutes = 0;
+    let overtimeMinutes = 0;
+    let breakMinutes = 0;
+    for (const s of sessions) {
+      totalMinutes += s.totalMinutes || 0;
+      overtimeMinutes += s.overtimeMinutes || 0;
+      breakMinutes += s.breakMinutes || s.totalBreakMinutes || 0;
+    }
+    return { totalMinutes, overtimeMinutes, breakMinutes, count: sessions.length };
+  }, [sessions]);
+
   const tabs = [
     { id: 'timesheets', label: 'Timesheets' },
-    { id: 'manual', label: 'Manual Time Card' },
-    { id: 'slider', label: 'Time Slider' },
+    { id: 'manual', label: 'Manual Entry' },
   ];
 
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Page Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Time Entries</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Time Entries</h1>
+          <p className="text-sm text-gray-500 mt-1">Track and manage your work sessions</p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          icon={Plus}
+          onClick={() => setShowAddTimeModal(true)}
+        >
+          Add Time
+        </Button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card padding="sm">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{summary.count}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">{formatDurationShort(summary.totalMinutes)}</p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime</p>
+          <p className={`text-2xl font-bold mt-1 ${summary.overtimeMinutes > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+            {formatDurationShort(summary.overtimeMinutes)}
+          </p>
+        </Card>
+        <Card padding="sm">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Breaks</p>
+          <p className="text-2xl font-bold text-yellow-600 mt-1">{formatDurationShort(summary.breakMinutes)}</p>
+        </Card>
       </div>
 
       {/* Main Card */}
-      <Card className="overflow-hidden">
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex items-center gap-1 px-4 pt-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-gray-100 text-gray-900 border-b-2 border-primary'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 p-4 border-b border-gray-200">
-          <div className="flex items-center gap-3">
-            {/* Add Time Button */}
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Plus}
-              onClick={() => setShowAddTimeModal(true)}
-            >
-              Add Time
-            </Button>
-
-          </div>
-
-          <div className="flex items-center gap-4">
-            {/* Week/Day Toggle */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('week')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'week'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Week
-              </button>
-              <button
-                onClick={() => setViewMode('day')}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'day'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                Day
-              </button>
+      <Card className="overflow-hidden" padding="none">
+        {/* Tabs + Toolbar */}
+        <div className="border-b border-gray-200 bg-gray-50/50">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 p-4">
+            {/* Left: Tabs */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            {/* Today Button */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={goToToday}
-              className="text-primary hover:text-primary-dark"
-            >
-              Today
-            </Button>
-
-            {/* Date Navigation */}
+            {/* Right: Navigation + View Toggle */}
             <div className="flex items-center gap-2">
-              <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                <Calendar className="w-5 h-5" />
-              </button>
-              <button
-                onClick={goToPrevious}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              <button
-                onClick={goToNext}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <span className="text-sm font-medium text-gray-700 min-w-[160px]">
-                {formatDateDisplay()}
-              </span>
-            </div>
-          </div>
+              {/* View Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('week')}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'week'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setViewMode('day')}
+                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'day'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Day
+                </button>
+              </div>
 
-          <div className="flex items-center gap-3">
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary w-48"
-              />
-            </div>
+              {/* Date Navigation */}
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={goToPrevious}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg min-w-[160px] justify-center">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700">{formatDateDisplay()}</span>
+                </div>
+                <button
+                  onClick={goToNext}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
 
-            {/* Settings */}
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-              <Settings className="w-5 h-5" />
-            </button>
+              <button
+                onClick={goToToday}
+                className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50 rounded-lg transition-colors"
+              >
+                Today
+              </button>
+            </div>
           </div>
         </div>
 
         {/* Error Alert */}
         {error && (
-          <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-            <p className="text-red-700">{error}</p>
+          <div className="mx-4 mt-4 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+            <p className="text-sm text-red-700 flex-1">{error}</p>
             <button
               onClick={() => setError(null)}
-              className="ml-auto text-red-500 hover:text-red-700"
+              className="text-red-400 hover:text-red-600"
             >
               <X className="w-4 h-4" />
             </button>
@@ -468,21 +497,21 @@ const TimeRecords = () => {
 
         {/* Content based on active tab */}
         {activeTab === 'timesheets' && (
-          <div className="overflow-x-auto">
-            {/* Loading State */}
+          <>
             {isLoading ? (
               <div className="flex items-center justify-center py-16">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
             ) : sessions.length === 0 ? (
               <div className="text-center py-16">
-                <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Time Entries</h3>
-                <p className="text-gray-500 mb-4">
+                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-1">No Time Entries</h3>
+                <p className="text-gray-500 mb-4 text-sm">
                   No time entries found for this period.
                 </p>
                 <Button
                   variant="primary"
+                  size="sm"
                   icon={Plus}
                   onClick={() => setShowAddTimeModal(true)}
                 >
@@ -490,238 +519,321 @@ const TimeRecords = () => {
                 </Button>
               </div>
             ) : (
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Time in - out
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Arrival
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Duration
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Overtime
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Break
-                    </th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="text-right py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-32">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
+              <>
+                {/* Desktop Table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Date & Time
+                        </th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Duration
+                        </th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Break
+                        </th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Overtime
+                        </th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">
+
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {sessions.map((session) => {
+                        const isOT = session.overtimeMinutes > 0;
+                        return (
+                          <React.Fragment key={session.id}>
+                            <tr
+                              className={`transition-colors ${
+                                isOT
+                                  ? 'bg-amber-50/40 hover:bg-amber-50/80'
+                                  : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              {/* Date & Time (combined) */}
+                              <td className="py-3 px-5">
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold text-gray-900 text-sm">
+                                      {formatDateHeader(session.startTime)}
+                                    </span>
+                                    {getArrivalBadge(session)}
+                                  </div>
+                                  <span className="text-sm text-gray-500">
+                                    {isActiveSession(session) ? (
+                                      <span className="text-green-600 font-medium">
+                                        {formatTime(session.startTime)} - Now
+                                      </span>
+                                    ) : session.endTime ? (
+                                      `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
+                                    ) : (
+                                      <span className="italic">Manual</span>
+                                    )}
+                                  </span>
+                                  {session.client && (
+                                    <span className="text-xs text-gray-400">{session.client.companyName}</span>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Duration */}
+                              <td className="py-3 px-4 text-center">
+                                {isActiveSession(session) ? (
+                                  <span className="text-green-600 font-medium text-sm">In Progress</span>
+                                ) : (
+                                  <span className="font-semibold text-gray-900 text-sm">
+                                    {formatDuration(session.totalMinutes)}
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Break */}
+                              <td className="py-3 px-4 text-center">
+                                {(session.breakMinutes || session.totalBreakMinutes) > 0 ? (
+                                  <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
+                                    <Coffee className="w-3.5 h-3.5" />
+                                    {formatDurationShort(session.breakMinutes || session.totalBreakMinutes)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </td>
+
+                              {/* Overtime */}
+                              <td className="py-3 px-4 text-center">
+                                {isActiveSession(session) ? (
+                                  <span className="text-gray-300">-</span>
+                                ) : session.overtimeEntries && session.overtimeEntries.length > 0 ? (
+                                  <div className="flex flex-col items-center gap-1">
+                                    {session.overtimeEntries.map((ot, otIdx) => {
+                                      const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                                      const isDenied = ot.status === 'REJECTED';
+                                      const badgeBg = isApproved
+                                        ? 'bg-green-100 text-green-800'
+                                        : isDenied
+                                        ? 'bg-red-100 text-red-800'
+                                        : 'bg-amber-100 text-amber-800';
+                                      const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                                      const timeRange = ot.type === 'OFF_SHIFT'
+                                        ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
+                                        : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
+                                      return (
+                                        <div key={ot.id || otIdx} className="flex flex-col items-center gap-0.5">
+                                          <span className={`inline-flex items-center px-2 py-0.5 text-[11px] font-bold rounded ${badgeBg}`}>
+                                            +{formatDurationShort(ot.requestedMinutes)} · {badgeLabel}
+                                          </span>
+                                          {timeRange && (
+                                            <span className="text-[10px] text-gray-400">{timeRange}</span>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : isOT ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-bold rounded bg-amber-100 text-amber-800">
+                                    +{formatDuration(session.overtimeMinutes)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">-</span>
+                                )}
+                              </td>
+
+                              {/* Status */}
+                              <td className="py-3 px-4 text-center">
+                                {getStatusBadge(session)}
+                              </td>
+
+                              {/* Actions */}
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <button
+                                    onClick={() => handleViewDetail(session)}
+                                    className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                                    title="View details"
+                                  >
+                                    <Eye className="w-4 h-4" />
+                                  </button>
+                                  {session.approvalStatus === 'REVISION_REQUESTED' && session.timeRecordId && (
+                                    <button
+                                      onClick={() => handleResubmit(session.timeRecordId)}
+                                      disabled={resubmitLoading === session.timeRecordId}
+                                      className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                                      title="Resubmit timesheet"
+                                    >
+                                      <RotateCcw className={`w-4 h-4 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+
+                            {/* Revision requested banner */}
+                            {session.approvalStatus === 'REVISION_REQUESTED' && (
+                              <tr className="bg-amber-50 border-b border-amber-100">
+                                <td colSpan={6} className="px-5 py-2">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 text-sm text-amber-700">
+                                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                                      <span>
+                                        <strong>Revision requested:</strong>{' '}
+                                        {session.revisionReason || 'Please review and resubmit your timesheet.'}
+                                      </span>
+                                    </div>
+                                    {session.timeRecordId && (
+                                      <button
+                                        onClick={() => handleResubmit(session.timeRecordId)}
+                                        disabled={resubmitLoading === session.timeRecordId}
+                                        className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
+                                      >
+                                        <RotateCcw className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                                        {resubmitLoading === session.timeRecordId ? 'Resubmitting...' : 'Resubmit'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile Card Layout */}
+                <div className="md:hidden divide-y divide-gray-100">
                   {sessions.map((session) => {
                     const isOT = session.overtimeMinutes > 0;
                     return (
-                    <React.Fragment key={session.id}>
-                    <tr
-                      className={`border-b border-gray-100 transition-colors ${
-                        isOT
-                          ? 'bg-amber-50/60 hover:bg-amber-100/60'
-                          : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      {/* Date */}
-                      <td className="py-3 px-4">
-                        <span className="font-medium text-gray-900">
-                          {formatDateHeader(session.startTime)}
-                        </span>
-                      </td>
-
-                      {/* Time in - out */}
-                      <td className="py-3 px-4">
-                        {isActiveSession(session) ? (
-                          <span className="text-green-600 font-medium">
-                            {formatTime(session.startTime)} - Now
-                          </span>
-                        ) : (
-                          <span className="text-gray-600">
-                            {session.endTime ? (
-                              `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
-                            ) : (
-                              'Manual'
-                            )}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Arrival Status */}
-                      <td className="py-3 px-4">
-                        {session.arrivalStatus === 'Late' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">
-                            Late{session.lateMinutes ? ` (${session.lateMinutes >= 60 ? `${Math.floor(session.lateMinutes / 60)}h ${session.lateMinutes % 60}m` : `${session.lateMinutes}m`})` : ''}
-                          </span>
-                        ) : session.arrivalStatus === 'On Time' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
-                            On Time
-                          </span>
-                        ) : session.arrivalStatus === 'Early' ? (
-                          <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">
-                            Early
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      {/* Duration (total worked time) */}
-                      <td className="py-3 px-4">
-                        {isActiveSession(session) ? (
-                          <span className="text-green-600">-</span>
-                        ) : (
-                          <span className="font-medium text-gray-900">
-                            {formatDuration(session.totalMinutes || session.workMinutes)}
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Overtime */}
-                      <td className="py-3 px-4">
-                        {isActiveSession(session) ? (
-                          <span className="text-gray-400">-</span>
-                        ) : isOT ? (
-                          <div className="flex flex-col gap-1">
-                            <span className="inline-flex items-center px-1.5 py-0.5 text-[11px] font-bold rounded bg-amber-200 text-amber-800 w-fit">
-                              +{formatDuration(session.overtimeMinutes)}
+                      <div
+                        key={session.id}
+                        className={`p-4 ${isOT ? 'bg-amber-50/40' : ''}`}
+                      >
+                        {/* Top row: date + status */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-gray-900 text-sm">
+                              {formatDateHeader(session.startTime)}
                             </span>
-                            {session.shiftExtensionMinutes > 0 && (
-                              <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded w-fit ${
-                                session.shiftExtensionStatus === 'APPROVED' ? 'bg-green-100 text-green-800' :
-                                session.shiftExtensionStatus === 'DENIED' ? 'bg-red-100 text-red-800' :
-                                session.shiftExtensionStatus === 'PENDING' ? 'bg-amber-100 text-amber-800' :
-                                'bg-orange-100 text-orange-800'
-                              }`}>
-                                Ext +{formatDuration(session.shiftExtensionMinutes)}
-                              </span>
-                            )}
+                            {getArrivalBadge(session)}
                           </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      {/* Break */}
-                      <td className="py-3 px-4">
-                        {(session.breakMinutes || session.totalBreakMinutes) > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
-                            <Coffee className="w-3.5 h-3.5" />
-                            {formatDuration(session.breakMinutes || session.totalBreakMinutes)}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </td>
-
-                      {/* Customer */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          {session.client ? (
-                            <>
-                              <Badge variant="info" size="xs">
-                                {session.client.companyName?.substring(0, 3).toUpperCase() || 'CLI'}
-                              </Badge>
-                              {getStatusBadge(session)}
-                            </>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center justify-end gap-1">
-                          <button
-                            onClick={() => handleViewDetail(session)}
-                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded transition-colors"
-                            title="View details"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {session.approvalStatus === 'REVISION_REQUESTED' && session.timeRecordId && (
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(session)}
                             <button
-                              onClick={() => handleResubmit(session.timeRecordId)}
-                              disabled={resubmitLoading === session.timeRecordId}
-                              className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors"
-                              title="Resubmit timesheet"
+                              onClick={() => handleViewDetail(session)}
+                              className="p-1.5 text-gray-400 hover:text-primary rounded-lg"
                             >
-                              <RotateCcw className={`w-4 h-4 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                              <Eye className="w-4 h-4" />
                             </button>
+                          </div>
+                        </div>
+
+                        {/* Time range */}
+                        <p className="text-sm text-gray-500 mb-3">
+                          {isActiveSession(session) ? (
+                            <span className="text-green-600 font-medium">{formatTime(session.startTime)} - Now</span>
+                          ) : session.endTime ? (
+                            `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
+                          ) : (
+                            <span className="italic">Manual entry</span>
+                          )}
+                          {session.client && (
+                            <span className="text-gray-400"> · {session.client.companyName}</span>
+                          )}
+                        </p>
+
+                        {/* Stats row */}
+                        <div className="flex items-center gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-400 text-xs">Duration</span>
+                            <p className="font-semibold text-gray-900">
+                              {isActiveSession(session) ? 'In Progress' : formatDuration(session.totalMinutes)}
+                            </p>
+                          </div>
+                          {(session.breakMinutes || session.totalBreakMinutes) > 0 && (
+                            <div>
+                              <span className="text-gray-400 text-xs">Break</span>
+                              <p className="font-medium text-yellow-600">
+                                {formatDurationShort(session.breakMinutes || session.totalBreakMinutes)}
+                              </p>
+                            </div>
+                          )}
+                          {session.overtimeEntries && session.overtimeEntries.length > 0 && (
+                            <div>
+                              <span className="text-gray-400 text-xs">Overtime</span>
+                              <div className="flex flex-col gap-0.5 mt-0.5">
+                                {session.overtimeEntries.map((ot, otIdx) => {
+                                  const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                                  const isDenied = ot.status === 'REJECTED';
+                                  const badgeBg = isApproved
+                                    ? 'bg-green-100 text-green-800'
+                                    : isDenied
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-amber-100 text-amber-800';
+                                  const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                                  return (
+                                    <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
+                                      +{formatDurationShort(ot.requestedMinutes)} · {badgeLabel}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
                           )}
                         </div>
-                      </td>
-                    </tr>
-                    {/* Revision requested banner */}
-                    {session.approvalStatus === 'REVISION_REQUESTED' && (
-                      <tr className="bg-amber-50 border-b border-amber-100">
-                        <td colSpan={8} className="px-4 py-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2 text-sm text-amber-700">
-                              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                              <span>
-                                <strong>Revision requested:</strong>{' '}
-                                {session.revisionReason || 'Please review and resubmit your timesheet.'}
-                              </span>
+
+                        {/* Revision banner */}
+                        {session.approvalStatus === 'REVISION_REQUESTED' && (
+                          <div className="mt-3 p-2 bg-amber-100 rounded-lg">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs text-amber-700">
+                                <strong>Revision:</strong> {session.revisionReason || 'Please review and resubmit.'}
+                              </p>
+                              {session.timeRecordId && (
+                                <button
+                                  onClick={() => handleResubmit(session.timeRecordId)}
+                                  disabled={resubmitLoading === session.timeRecordId}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded bg-amber-500 text-white hover:bg-amber-600 flex-shrink-0"
+                                >
+                                  <RotateCcw className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
+                                  Resubmit
+                                </button>
+                              )}
                             </div>
-                            {session.timeRecordId && (
-                              <button
-                                onClick={() => handleResubmit(session.timeRecordId)}
-                                disabled={resubmitLoading === session.timeRecordId}
-                                className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
-                              >
-                                <RotateCcw className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? 'animate-spin' : ''}`} />
-                                {resubmitLoading === session.timeRecordId ? 'Resubmitting...' : 'Resubmit'}
-                              </button>
-                            )}
                           </div>
-                        </td>
-                      </tr>
-                    )}
-                    </React.Fragment>
+                        )}
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
+                </div>
+              </>
             )}
-          </div>
+          </>
         )}
 
         {/* Manual Time Card Tab */}
         {activeTab === 'manual' && (
           <div className="p-8 text-center">
-            <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Manual Time Card</h3>
-            <p className="text-gray-500 mb-4">
+            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <h3 className="text-lg font-medium text-gray-900 mb-1">Manual Time Card</h3>
+            <p className="text-gray-500 text-sm mb-4">
               Enter time manually for days you forgot to clock in.
             </p>
             <Button
               variant="primary"
+              size="sm"
               icon={Plus}
               onClick={() => setShowAddTimeModal(true)}
             >
               Add Manual Entry
             </Button>
-          </div>
-        )}
-
-        {/* Time Slider Tab */}
-        {activeTab === 'slider' && (
-          <div className="p-8 text-center">
-            <Clock className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Time Slider</h3>
-            <p className="text-gray-500">
-              Visual time slider feature coming soon.
-            </p>
           </div>
         )}
       </Card>
@@ -808,101 +920,105 @@ const TimeRecords = () => {
           setSelectedSession(null);
           setSessionLogs([]);
         }}
-        title={
-          <div className="flex items-center gap-2">
-            <span>Timesheet History</span>
-            {selectedSession && (
-              <span className="text-sm text-gray-500">
-                ({selectedSession.id?.slice(0, 8)})
-              </span>
-            )}
-          </div>
-        }
+        title="Session Details"
         size="xl"
       >
         {selectedSession && (
           <div className="space-y-6">
-            {/* Session Summary Header */}
-            <div className="bg-gray-600 text-white rounded-t-lg p-3">
-              <p className="font-medium">
-                USER: {selectedSession.employee?.firstName} {selectedSession.employee?.lastName || 'Employee'}
-              </p>
-            </div>
-
             {/* Session Summary */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                 <div>
-                  <p className="text-sm text-gray-500">Date</p>
-                  <p className="font-medium text-gray-900">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Date</p>
+                  <p className="font-semibold text-gray-900 mt-1">
                     {formatDateHeader(selectedSession.startTime)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <Badge
-                    variant={
-                      selectedSession.status === 'COMPLETED' ? 'success' :
-                      selectedSession.status === 'ACTIVE' ? 'info' :
-                      'warning'
-                    }
-                  >
-                    {selectedSession.status}
-                  </Badge>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Time</p>
-                  <p className="font-medium text-gray-900">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Time</p>
+                  <p className="font-semibold text-gray-900 mt-1">
                     {formatTime(selectedSession.startTime)}
                     {selectedSession.endTime && ` - ${formatTime(selectedSession.endTime)}`}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Duration</p>
-                  <p className="font-medium text-green-600">
-                    {formatDuration(selectedSession.workMinutes)}
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Duration</p>
+                  <p className="font-semibold text-green-600 mt-1">
+                    {formatDuration(selectedSession.totalMinutes)}
                   </p>
                 </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">Status</p>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedSession)}
+                  </div>
+                </div>
               </div>
+
+              {/* Overtime entries in detail */}
+              {selectedSession.overtimeEntries && selectedSession.overtimeEntries.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Overtime</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedSession.overtimeEntries.map((ot, otIdx) => {
+                      const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                      const isDenied = ot.status === 'REJECTED';
+                      const badgeBg = isApproved
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : isDenied
+                        ? 'bg-red-50 border-red-200 text-red-800'
+                        : 'bg-amber-50 border-amber-200 text-amber-800';
+                      const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                      const timeRange = ot.type === 'OFF_SHIFT'
+                        ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
+                        : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
+                      return (
+                        <div key={ot.id || otIdx} className={`px-3 py-1.5 rounded-lg border text-xs font-medium ${badgeBg}`}>
+                          +{formatDurationShort(ot.requestedMinutes)} · {badgeLabel}
+                          {timeRange && <span className="text-gray-500 ml-1">({timeRange})</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Notes */}
             {selectedSession.notes && (
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Notes</h4>
-                <p className="text-gray-600 bg-gray-50 rounded-lg p-3">
+                <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Notes</h4>
+                <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 border border-gray-100">
                   {selectedSession.notes}
                 </p>
               </div>
             )}
 
-            {/* Timesheet History / Logs */}
+            {/* Activity Log */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Activity Log</h4>
+              <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-3">Activity Log</h4>
               {logsLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
                 </div>
               ) : sessionLogs.length > 0 ? (
                 <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* Log Table Header */}
-                  <div className="bg-gray-600 text-white">
-                    <div className="grid grid-cols-12 gap-2 p-3 text-sm font-medium">
+                  <div className="bg-gray-700 text-white">
+                    <div className="grid grid-cols-12 gap-2 px-4 py-2.5 text-xs font-medium">
                       <div className="col-span-4">Time</div>
                       <div className="col-span-3">User</div>
                       <div className="col-span-5">Log Message</div>
                     </div>
                   </div>
-                  {/* Log Table Body */}
                   <div className="divide-y divide-gray-100">
                     {sessionLogs.map((log, index) => (
                       <div
                         key={log.id || index}
-                        className={`grid grid-cols-12 gap-2 p-3 text-sm ${
-                          index % 2 === 0 ? 'bg-blue-50' : 'bg-white'
+                        className={`grid grid-cols-12 gap-2 px-4 py-2.5 text-sm ${
+                          index % 2 === 0 ? 'bg-blue-50/50' : 'bg-white'
                         }`}
                       >
-                        <div className="col-span-4 text-gray-600">
+                        <div className="col-span-4 text-gray-500 text-xs">
                           <div>
                             {new Date(log.createdAt).toLocaleDateString('en-US', {
                               month: 'short',
@@ -914,14 +1030,11 @@ const TimeRecords = () => {
                               hour12: true,
                             }).toLowerCase()}
                           </div>
-                          <div className="text-xs text-gray-400">
-                            ({Intl.DateTimeFormat().resolvedOptions().timeZone})
-                          </div>
                         </div>
-                        <div className="col-span-3 text-gray-900">
+                        <div className="col-span-3 text-gray-900 text-xs font-medium">
                           {log.userName || 'System'}
                         </div>
-                        <div className="col-span-5 text-gray-700">
+                        <div className="col-span-5 text-gray-600 text-xs">
                           {log.message}
                         </div>
                       </div>
@@ -929,9 +1042,9 @@ const TimeRecords = () => {
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-lg">
+                <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-lg border border-gray-100">
                   <Clock className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p>No activity logs available</p>
+                  <p className="text-sm">No activity logs available</p>
                 </div>
               )}
             </div>
@@ -939,17 +1052,20 @@ const TimeRecords = () => {
             {/* Breaks List */}
             {selectedSession.breaks && selectedSession.breaks.length > 0 && (
               <div>
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Breaks</h4>
+                <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Breaks</h4>
                 <div className="space-y-2">
                   {selectedSession.breaks.map((brk, index) => (
                     <div
                       key={brk.id || index}
-                      className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg border border-yellow-100"
                     >
-                      <span className="text-sm text-gray-600">
-                        {formatTime(brk.startTime)}
-                        {brk.endTime && ` - ${formatTime(brk.endTime)}`}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Coffee className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm text-gray-600">
+                          {formatTime(brk.startTime)}
+                          {brk.endTime && ` - ${formatTime(brk.endTime)}`}
+                        </span>
+                      </div>
                       <span className="text-sm font-medium text-yellow-600">
                         {brk.durationMinutes ? `${brk.durationMinutes} min` : 'In Progress'}
                       </span>
