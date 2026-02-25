@@ -107,6 +107,8 @@ const EmployeeDashboard = () => {
   const [shiftEndError, setShiftEndError] = useState("");
   const [shiftEndSuccess, setShiftEndSuccess] = useState("");
 
+  const shiftEndDismissedRef = useRef(false);
+
   // Controlled pause modal state (shift has ended)
   const [showPauseModal, setShowPauseModal] = useState(false);
   const [pauseData, setPauseData] = useState(null);
@@ -562,6 +564,7 @@ const EmployeeDashboard = () => {
     if (!socket || !user?.id) return;
 
     const handleShiftEnding = (data) => {
+      shiftEndDismissedRef.current = false;
       setShiftEndData(data.data || data);
       setShowShiftEndModal(true);
     };
@@ -601,8 +604,8 @@ const EmployeeDashboard = () => {
     if (!user?.id) return;
 
     const checkShiftEndNotifications = async () => {
-      // Only check if modal is not already showing and there's an active session
-      if (showShiftEndModal) return;
+      // Only check if modal is not already showing/dismissed and there's an active session
+      if (showShiftEndModal || shiftEndDismissedRef.current) return;
       if (!sessionData?.session || sessionData.session.status === "COMPLETED")
         return;
 
@@ -1877,6 +1880,7 @@ const EmployeeDashboard = () => {
               </div>
               <button
                 onClick={() => {
+                  shiftEndDismissedRef.current = true;
                   setShowShiftEndModal(false);
                   setShiftEndError("");
                   setShiftEndSuccess("");
@@ -1908,6 +1912,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="ghost"
                     onClick={() => {
+                      shiftEndDismissedRef.current = true;
                       setShowShiftEndModal(false);
                       setShiftEndForm({
                         duration: "",
@@ -1923,6 +1928,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="primary"
                     onClick={() => {
+                      shiftEndDismissedRef.current = true;
                       setShowShiftEndModal(false);
                       setShiftEndForm({
                         duration: "",
@@ -2044,6 +2050,7 @@ const EmployeeDashboard = () => {
                     type="button"
                     variant="ghost"
                     onClick={() => {
+                      shiftEndDismissedRef.current = true;
                       setShowShiftEndModal(false);
                       setShiftEndError("");
                       setShiftEndSuccess("");
