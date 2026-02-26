@@ -1148,7 +1148,7 @@ const EmployeeDashboard = () => {
             link: "#",
             action: "overtime",
           },
-          { icon: Video, label: "Join Meeting", color: "accent", link: "#", action: "comingSoon" },
+          // { icon: Video, label: "Join Meeting", color: "accent", link: "#", action: "comingSoon" },
           {
             icon: MessageSquare,
             label: "Messages",
