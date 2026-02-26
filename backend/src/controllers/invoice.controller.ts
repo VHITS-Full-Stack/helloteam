@@ -4,6 +4,8 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
 import { getISOWeekNumber } from '../utils/timezone';
+import { sendInvoiceEmail } from '../services/email.service';
+import { createNotification } from './notification.controller';
 
 // ============================================
 // PDF GENERATION HELPER
@@ -494,6 +496,100 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
       where: { id: invoiceId },
       data: updateData,
     });
+
+    // When marking as SENT: email PDF to client, send notification, emit socket event
+    if (status.toUpperCase() === 'SENT') {
+      try {
+        // Fetch full invoice with client and line items for PDF generation
+        const fullInvoice = await prisma.invoice.findUnique({
+          where: { id: invoiceId },
+          include: {
+            client: {
+              select: {
+                companyName: true,
+                contactPerson: true,
+                address: true,
+                phone: true,
+                userId: true,
+                user: { select: { id: true, email: true } },
+              },
+            },
+            lineItems: true,
+          },
+        });
+
+        if (fullInvoice?.client?.user?.email) {
+          // Fetch company settings for PDF
+          const companySettings = await prisma.systemSettings.findMany({
+            where: { category: 'general', key: { in: ['companyName', 'companyAddress'] } },
+          });
+          const companyInfo = {
+            companyName: 'The Hello Team LLC',
+            companyAddress: '422 Butterfly road Jackson NJ 08527',
+          };
+          for (const s of companySettings) {
+            try {
+              const val = JSON.parse(s.value);
+              if (s.key === 'companyName') companyInfo.companyName = val;
+              if (s.key === 'companyAddress') companyInfo.companyAddress = val;
+            } catch {
+              if (s.key === 'companyName') companyInfo.companyName = s.value;
+              if (s.key === 'companyAddress') companyInfo.companyAddress = s.value;
+            }
+          }
+
+          // Generate PDF
+          const pdfBytes = await buildInvoicePdf(fullInvoice, companyInfo);
+          const pdfBuffer = Buffer.from(pdfBytes);
+
+          // Format period and due date for email
+          const fmtDate = (d: Date | string) => {
+            const dt = new Date(d);
+            const mm = String(dt.getUTCMonth() + 1).padStart(2, '0');
+            const dd = String(dt.getUTCDate()).padStart(2, '0');
+            const yyyy = dt.getUTCFullYear();
+            return `${mm}/${dd}/${yyyy}`;
+          };
+          const periodLabel = `${fmtDate(fullInvoice.periodStart)} - ${fmtDate(fullInvoice.periodEnd)}`;
+          const totalFormatted = `$${parseFloat(String(fullInvoice.total)).toFixed(2)}`;
+          const dueDate = fmtDate(fullInvoice.dueDate);
+
+          // Send email with PDF attachment
+          await sendInvoiceEmail(
+            fullInvoice.client.user.email,
+            fullInvoice.client.contactPerson || fullInvoice.client.companyName,
+            fullInvoice.invoiceNumber,
+            periodLabel,
+            totalFormatted,
+            dueDate,
+            pdfBuffer
+          );
+
+          // Create in-app notification
+          const clientUserId = fullInvoice.client.user.id;
+          await createNotification(
+            clientUserId,
+            'INVOICE_GENERATED',
+            'Invoice Sent',
+            `Invoice ${fullInvoice.invoiceNumber} for ${periodLabel} (${totalFormatted}) is ready. Due: ${dueDate}.`,
+            { invoiceId: fullInvoice.id },
+            '/client/billing'
+          );
+
+          // Emit real-time socket event
+          const io = req.app.get('io');
+          if (io) {
+            io.emit(`notification:${clientUserId}`, {
+              type: 'INVOICE_GENERATED',
+              message: `Invoice ${fullInvoice.invoiceNumber} has been sent to you.`,
+            });
+          }
+        }
+      } catch (sendErr) {
+        // Log but don't fail the status update — invoice is already marked as SENT
+        console.error('Failed to send invoice email/notification:', sendErr);
+      }
+    }
 
     res.json({
       success: true,

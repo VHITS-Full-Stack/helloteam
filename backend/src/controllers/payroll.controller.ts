@@ -150,9 +150,16 @@ export const finalizePayrollPeriod = async (req: AuthenticatedRequest, res: Resp
       },
     });
 
+    // Only count payable time: regular hours + approved OT (denied OT deducted)
     const approvedMinutes = timeRecords
       .filter((r) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED')
-      .reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
+      .reduce((sum, r) => {
+        let approvedOT = 0;
+        if (r.shiftExtensionStatus === 'APPROVED') approvedOT += r.shiftExtensionMinutes || 0;
+        if (r.extraTimeStatus === 'APPROVED') approvedOT += r.extraTimeMinutes || 0;
+        const deniedOT = Math.max(0, (r.overtimeMinutes || 0) - approvedOT);
+        return sum + Math.max(0, (r.totalMinutes || 0) - deniedOT);
+      }, 0);
 
     const pendingMinutes = timeRecords
       .filter((r) => r.status === 'PENDING')
@@ -856,17 +863,25 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
         };
       }
 
+      // Only include approved OT in export (denied OT excluded from payable time)
+      let approvedOT = 0;
+      if (record.shiftExtensionStatus === 'APPROVED') approvedOT += record.shiftExtensionMinutes || 0;
+      if (record.extraTimeStatus === 'APPROVED') approvedOT += record.extraTimeMinutes || 0;
+      const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
+      const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOT);
+      const payableRegular = payableMinutes - approvedOT;
+
       employeeData[empId].records.push({
         date: record.date,
-        totalMinutes: record.totalMinutes,
-        regularMinutes: record.totalMinutes - (record.overtimeMinutes || 0),
-        overtimeMinutes: record.overtimeMinutes || 0,
+        totalMinutes: payableMinutes,
+        regularMinutes: payableRegular,
+        overtimeMinutes: approvedOT,
         breakMinutes: record.breakMinutes || 0,
       });
 
-      employeeData[empId].totalMinutes += record.totalMinutes || 0;
-      employeeData[empId].regularMinutes += (record.totalMinutes || 0) - (record.overtimeMinutes || 0);
-      employeeData[empId].overtimeMinutes += record.overtimeMinutes || 0;
+      employeeData[empId].totalMinutes += payableMinutes;
+      employeeData[empId].regularMinutes += payableRegular;
+      employeeData[empId].overtimeMinutes += approvedOT;
       employeeData[empId].breakMinutes += record.breakMinutes || 0;
       employeeData[empId].workDays += 1;
     });
@@ -1082,12 +1097,23 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
         };
       }
 
-      employeeSummary[empId].totalMinutes += record.totalMinutes || 0;
-      employeeSummary[empId].overtimeMinutes += record.overtimeMinutes || 0;
       employeeSummary[empId].workDays += 1;
 
-      if (record.status === 'APPROVED') {
-        employeeSummary[empId].approvedMinutes += record.totalMinutes || 0;
+      if (record.status === 'APPROVED' || record.status === 'AUTO_APPROVED') {
+        // Calculate approved OT from the record's own fields
+        let approvedOTMinutes = 0;
+        if (record.shiftExtensionStatus === 'APPROVED') {
+          approvedOTMinutes += record.shiftExtensionMinutes || 0;
+        }
+        if (record.extraTimeStatus === 'APPROVED') {
+          approvedOTMinutes += record.extraTimeMinutes || 0;
+        }
+        const deniedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
+        const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
+
+        employeeSummary[empId].totalMinutes += payableMinutes;
+        employeeSummary[empId].overtimeMinutes += approvedOTMinutes;
+        employeeSummary[empId].approvedMinutes += payableMinutes;
         employeeSummary[empId].approvedDays += 1;
       } else if (record.status === 'PENDING') {
         employeeSummary[empId].pendingMinutes += record.totalMinutes || 0;
@@ -1100,11 +1126,12 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
     // Convert to array with calculated fields including gross pay
     const employees = Object.values(employeeSummary).map((emp: any) => {
       const status = emp.pendingDays > 0 ? 'pending' : emp.rejectedDays > 0 ? 'flagged' : 'ready';
+      // Pay only for approved time: regular hours + approved OT
       const totalHours = emp.totalMinutes / 60;
       const overtimeHours = emp.overtimeMinutes / 60;
       const regularHours = totalHours - overtimeHours;
 
-      // Calculate gross pay
+      // Calculate gross pay (only approved time is payable)
       const regularPay = regularHours * emp.hourlyRate;
       const overtimePay = overtimeHours * emp.overtimeRate;
       const grossPay = regularPay + overtimePay;

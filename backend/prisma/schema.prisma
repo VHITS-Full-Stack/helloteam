@@ -526,6 +526,8 @@ model TimeRecord {
   shiftExtensionStatus  ShiftExtensionStatus @default(NONE)
   shiftExtensionMinutes Int                  @default(0)
   shiftExtensionReason  String?
+  extraTimeStatus       ShiftExtensionStatus @default(NONE)
+  extraTimeMinutes      Int                  @default(0)
   status          ApprovalStatus @default(PENDING)
   approvedBy      String?
   approvedAt      DateTime?

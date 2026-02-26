@@ -237,19 +237,22 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       return;
     }
 
-    const unapprovedOT = await prisma.overtimeRequest.findMany({
+    // Query TimeRecord (worked time) — NOT OvertimeRequest (which may include future requests).
+    // Spec: "System heavily nags ONLY for worked time not approved yet."
+    const unapprovedOT = await prisma.timeRecord.findMany({
       where: {
         clientId: client.id,
+        overtimeMinutes: { gt: 0 },
         status: 'PENDING',
-        requestedMinutes: { gt: 0 },
       },
       select: {
         id: true,
         employeeId: true,
-        requestedMinutes: true,
-        type: true,
+        overtimeMinutes: true,
         date: true,
         createdAt: true,
+        shiftExtensionStatus: true,
+        extraTimeStatus: true,
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -273,7 +276,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       empNameMap[emp.id] = `${emp.firstName} ${emp.lastName}`;
     }
 
-    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.requestedMinutes, 0);
+    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.overtimeMinutes, 0);
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     const totalHours = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
@@ -283,7 +286,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
     for (const r of unapprovedOT) {
       const name = empNameMap[r.employeeId] || 'Unknown';
       if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
-      empMap[name].minutes += r.requestedMinutes;
+      empMap[name].minutes += r.overtimeMinutes;
       empMap[name].count += 1;
     }
     const employees = Object.values(empMap).map(e => ({
@@ -799,11 +802,18 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
       },
     });
 
-    // Also update shiftExtensionStatus on the time record if it had a pending extension
+    // Also update shiftExtensionStatus / extraTimeStatus on the time record if unapproved
+    const statusUpdates: any = {};
     if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+      statusUpdates.shiftExtensionStatus = 'APPROVED';
+    }
+    if (timeRecord.extraTimeStatus === 'PENDING' || timeRecord.extraTimeStatus === 'UNAPPROVED') {
+      statusUpdates.extraTimeStatus = 'APPROVED';
+    }
+    if (Object.keys(statusUpdates).length > 0) {
       await prisma.timeRecord.update({
         where: { id: recordId },
-        data: { shiftExtensionStatus: 'APPROVED' },
+        data: statusUpdates,
       });
     }
 
@@ -877,15 +887,30 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
     });
     const rejecterName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
 
-    // Update the time record
+    // Deny the overtime portion only — regular hours stay approved for invoicing.
+    // Spec: Invoice includes Scheduled Time + Approved OT, excludes Unapproved/Denied OT.
+    const denyUpdates: any = {};
+    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+      denyUpdates.shiftExtensionStatus = 'DENIED';
+    }
+    if (timeRecord.extraTimeStatus === 'PENDING' || timeRecord.extraTimeStatus === 'UNAPPROVED') {
+      denyUpdates.extraTimeStatus = 'DENIED';
+    }
+
+    // Approve the TimeRecord so the regular hours are invoiced.
+    // The invoice logic uses shiftExtensionStatus/extraTimeStatus on the TimeRecord
+    // to determine billable OT minutes — denied OT is excluded, so only regular hours are billed.
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
       data: {
-        status: 'REJECTED',
+        status: 'APPROVED',
+        approvedBy: userId,
+        approvedAt: new Date(),
+        ...denyUpdates,
       },
     });
 
-    // Also reject any matching OvertimeRequest records so the pending count stays in sync
+    // Reject the matching OvertimeRequest records so the denied OT is excluded from invoices
     await prisma.overtimeRequest.updateMany({
       where: {
         employeeId: timeRecord.employeeId,
@@ -900,14 +925,6 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
         rejectionReason: reason || 'Rejected via time record',
       },
     });
-
-    // Also update shiftExtensionStatus on the time record if it had a pending/unapproved extension
-    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
-      await prisma.timeRecord.update({
-        where: { id: recordId },
-        data: { shiftExtensionStatus: 'DENIED' },
-      });
-    }
 
     // Create rejection log
     await createClientApprovalLog(recordId, userId!, 'REJECTED', rejecterName, reason);
@@ -1304,6 +1321,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         shiftExtensionStatus: true,
         shiftExtensionMinutes: true,
         shiftExtensionReason: true,
+        extraTimeStatus: true,
+        extraTimeMinutes: true,
         status: true,
         revisionReason: true,
       },
@@ -1425,7 +1444,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 
         // Derive approved/pending/rejected from individual OvertimeRequest statuses
         for (const ot of dayOTRequests) {
-          if (ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') {
+          if (ot.status === 'APPROVED' || (ot.status as string) === 'AUTO_APPROVED') {
             empData.approvedOvertimeMinutes += (ot.requestedMinutes || 0);
           } else if (ot.status === 'PENDING') {
             empData.unapprovedOvertimeMinutes += (ot.requestedMinutes || 0);
@@ -1444,6 +1463,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
           shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
           shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
+          extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
+          extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
           status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
           overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
           revisionReason: timeRecord?.revisionReason || null,
@@ -1653,6 +1674,8 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
         shiftExtensionStatus: tr.shiftExtensionStatus || 'NONE',
         shiftExtensionMinutes: tr.shiftExtensionMinutes || 0,
         shiftExtensionReason: tr.shiftExtensionReason || null,
+        extraTimeStatus: tr.extraTimeStatus || 'NONE',
+        extraTimeMinutes: tr.extraTimeMinutes || 0,
         submittedAt: tr.createdAt,
         approvedAt: tr.approvedAt,
       });

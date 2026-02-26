@@ -122,7 +122,7 @@ export const createDocumentType = async (req: Request, res: Response) => {
 // Update a document type
 export const updateDocumentType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { name, isActive } = req.body;
 
     const existing = await prisma.documentType.findUnique({ where: { id } });
@@ -172,8 +172,7 @@ export const updateDocumentType = async (req: Request, res: Response) => {
 // Delete a document type (hard delete)
 export const deleteDocumentType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-
+    const id = req.params.id as string;
     const existing = await prisma.documentType.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({

@@ -775,109 +775,6 @@ async function main() {
 
   } // end if (existingTimeRecords === 0)
 
-  // ══════════════════════════════════════════════════════════════
-  // ADDITIONAL TEST EMPLOYEES & CLIENTS (5 employees, 3 clients)
-  // ══════════════════════════════════════════════════════════════
-
-  const newClientDefs = [
-    { email: 'techstart@demo.com', companyName: 'TechStart Inc', contactPerson: 'Amit Verma', phone: '+91 98765 43210', timezone: 'Asia/Kolkata', agreementType: 'WEEKLY' as const, hourlyRate: 30.00, overtimeRate: 45.00, shiftStart: '09:00', shiftEnd: '17:00' },
-    { email: 'dataflow@demo.com', companyName: 'DataFlow Solutions', contactPerson: 'Robert Chen', phone: '+1 312 555 0101', timezone: 'America/Chicago', agreementType: 'BI_WEEKLY' as const, hourlyRate: 45.00, overtimeRate: 67.50, shiftStart: '09:00', shiftEnd: '17:00' },
-    { email: 'cloudnine@demo.com', companyName: 'CloudNine Labs', contactPerson: 'Sophie Taylor', phone: '+44 20 7946 0958', timezone: 'Europe/London', agreementType: 'MONTHLY' as const, hourlyRate: 50.00, overtimeRate: 75.00, shiftStart: '08:00', shiftEnd: '16:00' },
-    { email: 'westcoast@demo.com', companyName: 'West Coast Digital', contactPerson: 'Lisa Park', phone: '+1 415 555 0202', timezone: 'America/Los_Angeles', agreementType: 'WEEKLY' as const, hourlyRate: 55.00, overtimeRate: 82.50, shiftStart: '09:00', shiftEnd: '17:00' },
-    { email: 'outback@demo.com', companyName: 'Outback Tech', contactPerson: 'James Murray', phone: '+61 2 9876 5432', timezone: 'Australia/Sydney', agreementType: 'MONTHLY' as const, hourlyRate: 60.00, overtimeRate: 90.00, shiftStart: '08:30', shiftEnd: '16:30' },
-    { email: 'gulfstream@demo.com', companyName: 'Gulf Stream Corp', contactPerson: 'Omar Al-Rashid', phone: '+971 4 555 6789', timezone: 'Asia/Dubai', agreementType: 'BI_WEEKLY' as const, hourlyRate: 40.00, overtimeRate: 60.00, shiftStart: '09:00', shiftEnd: '18:00' },
-  ];
-
-  const newClients: Record<string, any> = {};
-  for (const def of newClientDefs) {
-    const user = await prisma.user.upsert({
-      where: { email: def.email },
-      update: { roleId: clientRole?.id },
-      create: {
-        email: def.email, password: hashedPassword, role: 'CLIENT', roleId: clientRole?.id, status: 'ACTIVE',
-        client: { create: { companyName: def.companyName, contactPerson: def.contactPerson, phone: def.phone, timezone: def.timezone, agreementType: def.agreementType, onboardingStatus: 'COMPLETED' } },
-      },
-      include: { client: true },
-    });
-    newClients[def.email] = { ...user.client!, def };
-    console.log(`Created client: ${def.email} → ${def.companyName} (${def.timezone})`);
-  }
-
-  // Client contacts, agreements, policies for new clients
-  for (const def of newClientDefs) {
-    const c = newClients[def.email];
-    const contactCount = await prisma.clientContact.count({ where: { clientId: c.id } });
-    if (contactCount === 0) {
-      await prisma.clientContact.create({ data: { clientId: c.id, name: def.contactPerson, position: 'Director', phone: def.phone, email: def.email, isPrimary: true } });
-    }
-    await prisma.clientAgreement.upsert({ where: { clientId: c.id }, update: {}, create: { clientId: c.id, agreementType: def.agreementType, signedAt: new Date('2026-02-01'), signedByName: def.contactPerson } });
-    await prisma.clientPolicy.upsert({
-      where: { clientId: c.id }, update: {},
-      create: {
-        clientId: c.id, defaultHourlyRate: def.hourlyRate, defaultOvertimeRate: def.overtimeRate,
-        allowPaidLeave: true, paidLeaveEntitlementType: 'FIXED', annualPaidLeaveDays: 12, allowUnpaidLeave: true,
-        requireTwoWeeksNotice: true, requireTwoWeeksNoticePaidLeave: true, requireTwoWeeksNoticeUnpaidLeave: true,
-        allowOvertime: true, overtimeRequiresApproval: true, autoApproveTimesheets: false, autoApproveMinutes: 1440,
-      },
-    });
-    await prisma.clientGroup.upsert({
-      where: { clientId_groupId: { clientId: c.id, groupId: defaultGroup.id } },
-      update: {}, create: { clientId: c.id, groupId: defaultGroup.id },
-    });
-  }
-  console.log('Created contacts, agreements, policies for new clients');
-
-  // New employees
-  const newEmpDefs = [
-    { email: 'mike@demo.com', firstName: 'Mike', lastName: 'Wilson', phone: '+1 555 100 2001', billingRate: 32.00, payableRate: 22.00, clientEmail: 'techstart@demo.com' },
-    { email: 'priya@demo.com', firstName: 'Priya', lastName: 'Sharma', phone: '+91 99887 76655', billingRate: 28.00, payableRate: 20.00, clientEmail: 'techstart@demo.com' },
-    { email: 'alex@demo.com', firstName: 'Alex', lastName: 'Rivera', phone: '+1 555 100 2003', billingRate: 42.00, payableRate: 30.00, clientEmail: 'dataflow@demo.com' },
-    { email: 'emma@demo.com', firstName: 'Emma', lastName: 'Chen', phone: '+44 7700 900123', billingRate: 48.00, payableRate: 35.00, clientEmail: 'cloudnine@demo.com' },
-    { email: 'raj@demo.com', firstName: 'Raj', lastName: 'Kumar', phone: '+91 98765 11223', billingRate: 46.00, payableRate: 33.00, clientEmail: 'cloudnine@demo.com' },
-    { email: 'tyler@demo.com', firstName: 'Tyler', lastName: 'Brooks', phone: '+1 415 555 3001', billingRate: 52.00, payableRate: 38.00, clientEmail: 'westcoast@demo.com' },
-    { email: 'mia@demo.com', firstName: 'Mia', lastName: 'Nguyen', phone: '+1 415 555 3002', billingRate: 50.00, payableRate: 36.00, clientEmail: 'westcoast@demo.com' },
-    { email: 'liam@demo.com', firstName: 'Liam', lastName: 'O\'Brien', phone: '+61 4 1234 5678', billingRate: 58.00, payableRate: 42.00, clientEmail: 'outback@demo.com' },
-    { email: 'fatima@demo.com', firstName: 'Fatima', lastName: 'Hassan', phone: '+971 50 555 1234', billingRate: 38.00, payableRate: 27.00, clientEmail: 'gulfstream@demo.com' },
-    { email: 'carlos@demo.com', firstName: 'Carlos', lastName: 'Mendez', phone: '+1 312 555 4001', billingRate: 44.00, payableRate: 31.00, clientEmail: 'dataflow@demo.com' },
-  ];
-
-  const newEmployees: Record<string, any> = {};
-  for (const def of newEmpDefs) {
-    const user = await prisma.user.upsert({
-      where: { email: def.email },
-      update: { roleId: employeeRole?.id },
-      create: {
-        email: def.email, password: hashedPassword, role: 'EMPLOYEE', roleId: employeeRole?.id, status: 'ACTIVE',
-        employee: { create: { firstName: def.firstName, lastName: def.lastName, phone: def.phone, billingRate: def.billingRate, payableRate: def.payableRate, onboardingStatus: 'COMPLETED' } },
-      },
-      include: { employee: true },
-    });
-    newEmployees[def.email] = { ...user.employee!, def };
-    console.log(`Created employee: ${def.email} → ${def.firstName} ${def.lastName}`);
-  }
-
-  // Assign new employees to their clients + create schedules
-  for (const def of newEmpDefs) {
-    const emp = newEmployees[def.email];
-    const client = newClients[def.clientEmail];
-    const clientDef = newClientDefs.find(c => c.email === def.clientEmail)!;
-
-    await prisma.clientEmployee.upsert({
-      where: { clientId_employeeId: { clientId: client.id, employeeId: emp.id } },
-      update: {}, create: { clientId: client.id, employeeId: emp.id, isActive: true },
-    });
-
-    const existingSchedules = await prisma.schedule.count({ where: { employeeId: emp.id } });
-    if (existingSchedules === 0) {
-      for (let day = 1; day <= 5; day++) {
-        await prisma.schedule.create({
-          data: { employeeId: emp.id, dayOfWeek: day, startTime: clientDef.shiftStart, endTime: clientDef.shiftEnd, isActive: true, effectiveFrom: scheduleStart },
-        });
-      }
-    }
-  }
-  console.log('Assigned new employees to clients + created schedules');
-
   // ── Summary ──
   console.log('\n========================================');
   console.log('Seed completed!');
@@ -890,26 +787,10 @@ async function main() {
   console.log('  employee@demo.com    (John Doe → ABC Corp)');
   console.log('  jigar@demo.com       (Jigar Patel → Virtual Height)');
   console.log('  sarah@demo.com       (Sarah Johnson → ABC Corp)');
-  console.log('  mike@demo.com        (Mike Wilson → TechStart Inc)');
-  console.log('  priya@demo.com       (Priya Sharma → TechStart Inc)');
-  console.log('  alex@demo.com        (Alex Rivera → DataFlow Solutions)');
-  console.log('  carlos@demo.com      (Carlos Mendez → DataFlow Solutions)');
-  console.log('  emma@demo.com        (Emma Chen → CloudNine Labs)');
-  console.log('  raj@demo.com         (Raj Kumar → CloudNine Labs)');
-  console.log('  tyler@demo.com       (Tyler Brooks → West Coast Digital)');
-  console.log('  mia@demo.com         (Mia Nguyen → West Coast Digital)');
-  console.log('  liam@demo.com        (Liam O\'Brien → Outback Tech)');
-  console.log('  fatima@demo.com      (Fatima Hassan → Gulf Stream Corp)');
   console.log('');
   console.log('Clients:');
   console.log('  client@demo.com      (ABC Corporation    — America/New_York   UTC-5)');
   console.log('  vhits@demo.com       (Virtual Height     — America/New_York   UTC-5)');
-  console.log('  techstart@demo.com   (TechStart Inc      — Asia/Kolkata       UTC+5:30)');
-  console.log('  dataflow@demo.com    (DataFlow Solutions  — America/Chicago    UTC-6)');
-  console.log('  cloudnine@demo.com   (CloudNine Labs     — Europe/London      UTC+0)');
-  console.log('  westcoast@demo.com   (West Coast Digital  — America/Los_Angeles UTC-8)');
-  console.log('  outback@demo.com     (Outback Tech       — Australia/Sydney   UTC+11)');
-  console.log('  gulfstream@demo.com  (Gulf Stream Corp   — Asia/Dubai         UTC+4)');
   console.log('');
   console.log('Time Records (past weeks, all PENDING):');
   console.log('  ABC Corp:');
@@ -923,8 +804,6 @@ async function main() {
   console.log('1. REQUEST REVISIONS FLOW:');
   console.log('   John Doe  — Feb 17: REVISION_REQUESTED ("Hours do not match task log")');
   console.log('   Sarah J   — Feb 17: REVISION_REQUESTED ("Missing break time entry")');
-  console.log('   → Employee login: see banner + "Resubmit" button');
-  console.log('   → Client login: see amber "Revision Requested" badge');
   console.log('');
   console.log('2. OVERTIME REQUESTS:');
   console.log('   John Doe  — Feb 18: APPROVED shift extension (+1h), time record APPROVED');
@@ -932,14 +811,8 @@ async function main() {
   console.log('   Jigar P   — Feb 18: REJECTED shift extension ("Deployment can wait")');
   console.log('');
   console.log('3. ADMIN APPROVALS PAGE:');
-  console.log('   John Doe  — Feb 19: PENDING regular 8h → shows "Request Revisions" button (not Reject)');
-  console.log('   Sarah J   — Feb 18: PENDING 9h + 1h OT → shows "Reject" button (OT can be denied)');
-  console.log('');
-  console.log('4. SHIFT-END WARNING (live):');
-  console.log('   Sarah J   — ACTIVE session today (started 7h ago) → cron will trigger 30-min warning');
-  console.log('');
-  console.log('5. POST-SHIFT CLOCK-IN (live):');
-  console.log('   Jigar P   — COMPLETED today (auto-clocked out 1h ago) → clock in again to see warning');
+  console.log('   John Doe  — Feb 19: PENDING regular 8h');
+  console.log('   Sarah J   — Feb 18: PENDING 9h + 1h OT');
   console.log('');
   console.log('Expected auto-approval behavior:');
   console.log('  ABC Corp (auto-approve ON, 24h):');

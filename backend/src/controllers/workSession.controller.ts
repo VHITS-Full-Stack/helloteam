@@ -489,6 +489,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           // Check if there's a pre-approved OvertimeRequest for this employee/client/date
           let status: 'PENDING' | 'APPROVED' = 'PENDING';
           let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
+          let extraTimeStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
+          let extraTimeMinutes = 0;
 
           if (overtimeMinutes > 0) {
             const approvedOT = await prisma.overtimeRequest.findFirst({
@@ -521,13 +523,42 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               if (otRequest.status === 'APPROVED') {
                 shiftExtensionStatus = 'APPROVED';
               } else if (otRequest.status === 'PENDING') {
-                shiftExtensionStatus = 'PENDING';
+                // Pending ≠ Approved: if employee actually worked past shift end,
+                // status is UNAPPROVED (spec: "pending ≠ approved")
+                shiftExtensionStatus = 'UNAPPROVED';
               } else if (otRequest.status === 'REJECTED') {
                 shiftExtensionStatus = 'DENIED';
               }
             } else {
               // Worked past shift end without any OT request
               shiftExtensionStatus = 'UNAPPROVED';
+            }
+          }
+
+          // Determine extra time approval status (early clock-in or post-shift session)
+          const hasExtraTime = isExtraTime || earlyOvertimeMinutes > 0;
+          if (hasExtraTime) {
+            extraTimeMinutes = isExtraTime ? totalWorkMinutes : earlyOvertimeMinutes;
+            const otRequest = await prisma.overtimeRequest.findFirst({
+              where: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                type: 'OFF_SHIFT',
+              },
+              orderBy: { createdAt: 'desc' },
+            });
+
+            if (otRequest) {
+              if (otRequest.status === 'APPROVED') {
+                extraTimeStatus = 'APPROVED';
+              } else if (otRequest.status === 'PENDING') {
+                extraTimeStatus = 'UNAPPROVED';
+              } else if (otRequest.status === 'REJECTED') {
+                extraTimeStatus = 'DENIED';
+              }
+            } else {
+              extraTimeStatus = 'UNAPPROVED';
             }
           }
 
@@ -559,6 +590,11 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               shiftExtensionMinutes: isExtraTime ? (existing.shiftExtensionMinutes || 0) : shiftExtensionMinutes,
               shiftExtensionStatus: isExtraTime ? existing.shiftExtensionStatus : shiftExtensionStatus,
               shiftExtensionReason: isExtraTime ? existing.shiftExtensionReason : shiftExtensionReason,
+              // Extra Time: accumulate minutes, update status
+              extraTimeMinutes: isExtraTime
+                ? (existing.extraTimeMinutes || 0) + totalWorkMinutes
+                : (earlyOvertimeMinutes > 0 ? earlyOvertimeMinutes : (existing.extraTimeMinutes || 0)),
+              extraTimeStatus: hasExtraTime ? extraTimeStatus : existing.extraTimeStatus,
               scheduledStart: scheduledStart || existing.scheduledStart,
               scheduledEnd: scheduledEnd || existing.scheduledEnd,
             };
@@ -587,32 +623,54 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 shiftExtensionMinutes,
                 shiftExtensionStatus,
                 shiftExtensionReason,
+                extraTimeStatus,
+                extraTimeMinutes,
                 status,
                 approvedAt: status === 'APPROVED' ? new Date() : undefined,
               },
             });
           }
 
-          // --- Auto-create OvertimeRequest if overtime was worked without a prior request ---
-          // Use this session's overtime (not accumulated day total)
-          const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
+          // --- Auto-create OvertimeRequest(s) if overtime was worked without a prior request ---
+          const fmtHHMM = (d: Date) => {
+            const parts = d.toLocaleString('en-US', { timeZone: clockOutTz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
+            return `${parts[0].padStart(2, '0')}:${parts[1]}`;
+          };
 
-          if (sessionOT > 0 || overtimeMinutes > 0) {
+          // Early clock-in overtime → OFF_SHIFT (Extra Time per spec: "early clock-in is Extra Time, not Shift Extension")
+          if (earlyOvertimeMinutes > 0 && !isExtraTime) {
+            try {
+              await prisma.overtimeRequest.create({
+                data: {
+                  employeeId: employee.id,
+                  clientId: assignment.clientId,
+                  date: today,
+                  type: 'OFF_SHIFT',
+                  requestedMinutes: earlyOvertimeMinutes,
+                  requestedStartTime: fmtHHMM(activeSession.startTime),
+                  requestedEndTime: scheduledStart ? fmtHHMM(scheduledStart) : undefined,
+                  reason: 'Auto-generated — employee clocked in before scheduled shift',
+                  status: 'PENDING',
+                },
+              });
+              console.log(`[OT-Auto] Created OFF_SHIFT (early clock-in) OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${earlyOvertimeMinutes} min`);
+            } catch (e) {
+              console.error(`[OT-Auto] Failed to auto-create early OvertimeRequest:`, e);
+            }
+          }
+
+          // Shift extension overtime (stayed late) or full extra time session (post-shift clock-in)
+          const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
+          if (sessionOT > 0) {
             try {
               const otType = isExtraTime ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
-              const otMinutes = sessionOT > 0 ? sessionOT : overtimeMinutes;
-              const fmtHHMM = (d: Date) => {
-                const parts = d.toLocaleString('en-US', { timeZone: clockOutTz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
-                return `${parts[0].padStart(2, '0')}:${parts[1]}`;
-              };
-
               await prisma.overtimeRequest.create({
                 data: {
                   employeeId: employee.id,
                   clientId: assignment.clientId,
                   date: today,
                   type: otType,
-                  requestedMinutes: otMinutes,
+                  requestedMinutes: sessionOT,
                   reason: 'Auto-generated — employee worked overtime without prior request',
                   status: 'PENDING',
                   ...(otType === 'SHIFT_EXTENSION'
@@ -623,7 +681,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                       }),
                 },
               });
-              console.log(`[OT-Auto] Created ${otType} OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${otMinutes} min`);
+              console.log(`[OT-Auto] Created ${otType} OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${sessionOT} min`);
             } catch (e) {
               console.error(`[OT-Auto] Failed to auto-create OvertimeRequest:`, e);
             }
@@ -1153,6 +1211,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             shiftExtensionStatus: true,
             shiftExtensionMinutes: true,
             shiftExtensionReason: true,
+            extraTimeStatus: true,
+            extraTimeMinutes: true,
           },
         })
       : [];
@@ -1268,6 +1328,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
         shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
         shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
+        extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
+        extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
         overtimeEntries: matchedOTEntries.map(ot => ({
           id: ot.id,
           type: ot.type,

@@ -216,12 +216,13 @@ export const getEmployeeRateHistory = async (req: AuthenticatedRequest, res: Res
     const employeeClientMap = new Map<string, string>();
     const hasRecordsWithoutClient = history.some(h => !h.clientId);
     if (hasRecordsWithoutClient) {
+      const empId = employeeId as string;
       const assignments = await prisma.clientEmployee.findMany({
-        where: { employeeId, isActive: true },
-        select: { client: { select: { companyName: true } } },
+        where: { employeeId: empId, isActive: true },
+        include: { client: { select: { companyName: true } } },
       });
       if (assignments.length > 0) {
-        employeeClientMap.set(employeeId, assignments[0].client.companyName);
+        employeeClientMap.set(empId, assignments[0].client.companyName);
       }
     }
 

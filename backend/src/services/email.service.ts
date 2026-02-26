@@ -9,11 +9,18 @@ import {
   detailBoxHtml,
 } from './email.styles';
 
+interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 interface EmailOptions {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }
 
 interface EmailResult {
@@ -70,7 +77,7 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
  * Send an email
  */
 export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => {
-  const { to, subject, html, text } = options;
+  const { to, subject, html, text, attachments } = options;
 
   try {
     const mailer = await getTransporter();
@@ -80,6 +87,11 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => 
       subject,
       text,
       html,
+      attachments: attachments?.map(a => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      })),
     });
 
     const previewUrl = nodemailer.getTestMessageUrl(info);
@@ -619,6 +631,55 @@ export const sendAggressiveOTReminderEmail = async (
   });
 };
 
+/**
+ * Send invoice email to client with PDF attachment
+ */
+export const sendInvoiceEmail = async (
+  email: string,
+  clientName: string,
+  invoiceNumber: string,
+  periodLabel: string,
+  totalFormatted: string,
+  dueDate: string,
+  pdfBuffer: Buffer
+): Promise<EmailResult> => {
+  const actionUrl = `${config.frontendUrl}/client/billing`;
+
+  const content = `
+    <h2 style="${styles.h2}">Invoice ${invoiceNumber}</h2>
+    <p style="${styles.paragraph}">
+      Hi ${clientName},
+    </p>
+    <p style="${styles.paragraph}">
+      A new invoice has been generated for your account. Please find the details below and the PDF attached.
+    </p>
+    ${detailBoxHtml(`
+      <p style="margin: 0 0 8px 0;"><strong>Invoice Number:</strong> ${invoiceNumber}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Billing Period:</strong> ${periodLabel}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Total Amount:</strong> ${totalFormatted}</p>
+      <p style="margin: 0;"><strong>Due Date:</strong> ${dueDate}</p>
+    `)}
+    ${buttonHtml(actionUrl, 'View Invoice')}
+    <p style="${styles.paragraph}; color: ${colors.muted}; font-size: 13px;">
+      The invoice PDF is also attached to this email for your records.
+    </p>
+  `;
+
+  const html = emailLayout('Invoice from Hello Team', content);
+
+  return sendEmail({
+    to: email,
+    subject: `Invoice ${invoiceNumber} from Hello Team`,
+    html,
+    text: `Hi ${clientName}, Invoice ${invoiceNumber} for ${periodLabel} is ready. Total: ${totalFormatted}. Due: ${dueDate}. View at: ${actionUrl}`,
+    attachments: [{
+      filename: `${invoiceNumber}.pdf`,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    }],
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -632,4 +693,5 @@ export default {
   sendOTWorkedEmail,
   sendOTBillingReminderEmail,
   sendAggressiveOTReminderEmail,
+  sendInvoiceEmail,
 };

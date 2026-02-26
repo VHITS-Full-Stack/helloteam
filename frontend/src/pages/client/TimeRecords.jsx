@@ -29,6 +29,9 @@ const TimeRecords = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState('');
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
+  const [showDenyModal, setShowDenyModal] = useState(false);
+  const [denyReason, setDenyReason] = useState('');
+  const [denyRecordId, setDenyRecordId] = useState(null);
 
   // Get week start/end dates
   const getWeekDates = (date) => {
@@ -144,11 +147,11 @@ const TimeRecords = () => {
     }
   };
 
-  const getCellClass = (hours, hasUnapprovedOT, shiftExtensionStatus) => {
+  const getCellClass = (hours, hasUnapprovedOT, shiftExtensionStatus, extraTimeStatus) => {
     if (!hours || hours === 0) return 'text-gray-300';
-    if (shiftExtensionStatus === 'DENIED') return 'text-red-600 font-medium';
-    if (shiftExtensionStatus === 'UNAPPROVED' || shiftExtensionStatus === 'PENDING') return 'text-orange-600 font-medium';
-    if (shiftExtensionStatus === 'APPROVED') return 'text-green-700 font-medium';
+    if (shiftExtensionStatus === 'DENIED' || extraTimeStatus === 'DENIED') return 'text-red-600 font-medium';
+    if (shiftExtensionStatus === 'UNAPPROVED' || shiftExtensionStatus === 'PENDING' || extraTimeStatus === 'UNAPPROVED' || extraTimeStatus === 'PENDING') return 'text-orange-600 font-medium';
+    if (shiftExtensionStatus === 'APPROVED' || extraTimeStatus === 'APPROVED') return 'text-green-700 font-medium';
     if (hasUnapprovedOT) return 'text-orange-600 font-medium';
     return 'text-blue-700 font-medium'; // Scheduled time = blue
   };
@@ -200,12 +203,21 @@ const TimeRecords = () => {
     }
   };
 
-  const handleDenyOvertime = async (timeRecordId, reason = 'Overtime denied by client') => {
-    if (!timeRecordId) return;
+  const handleOpenDenyModal = (timeRecordId) => {
+    setDenyRecordId(timeRecordId);
+    setDenyReason('');
+    setShowDenyModal(true);
+  };
+
+  const confirmDenyOvertime = async () => {
+    if (!denyRecordId || !denyReason.trim()) return;
     try {
       setActionLoading(true);
-      const response = await clientPortalService.rejectTimeRecord(timeRecordId, reason);
+      const response = await clientPortalService.rejectTimeRecord(denyRecordId, denyReason);
       if (response.success) {
+        setShowDenyModal(false);
+        setDenyReason('');
+        setDenyRecordId(null);
         fetchTimeRecords();
       }
     } catch (err) {
@@ -418,7 +430,7 @@ const TimeRecords = () => {
                       });
                       const hasUnapprovedOT = dayRec?.overtimeMinutes > 0 && dayRec?.overtimeStatus !== 'APPROVED' && dayRec?.overtimeStatus !== 'AUTO_APPROVED';
                       return (
-                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day], hasUnapprovedOT, dayRec?.shiftExtensionStatus)}`}>
+                        <div key={day} className={`hidden md:block text-center text-sm ${getCellClass(record.dailyHours?.[day], hasUnapprovedOT, dayRec?.shiftExtensionStatus, dayRec?.extraTimeStatus)}`}>
                           {record.dailyHours?.[day] > 0 ? formatHours(record.dailyHours[day]) : '-'}
                         </div>
                       );
@@ -514,6 +526,8 @@ const TimeRecords = () => {
                                             ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
                                             : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
 
+                                          const showActions = isPending || (!isApproved && !isDenied);
+
                                           return (
                                             <div key={ot.id || idx} className="flex items-center gap-3 text-sm bg-white rounded-lg px-3 py-2 border border-gray-100">
                                               <span className="text-gray-500 min-w-[90px]">{dateLabel}</span>
@@ -523,6 +537,28 @@ const TimeRecords = () => {
                                                 {badgeLabel}
                                               </span>
                                               <span className="text-[10px] text-gray-400 uppercase">{ot.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}</span>
+                                              {showActions && ot.timeRecordId && (
+                                                <div className="flex items-center gap-1.5 ml-auto">
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); handleApproveOvertime(ot.timeRecordId); }}
+                                                    disabled={actionLoading}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                                    title="Approve overtime"
+                                                  >
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    Approve
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); handleOpenDenyModal(ot.timeRecordId); }}
+                                                    disabled={actionLoading}
+                                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                                                    title="Deny overtime"
+                                                  >
+                                                    <XCircle className="w-3 h-3" />
+                                                    Deny
+                                                  </button>
+                                                </div>
+                                              )}
                                             </div>
                                           );
                                         })}
@@ -608,15 +644,38 @@ const TimeRecords = () => {
                                     const timeRange = ot.type === 'OFF_SHIFT'
                                       ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
                                       : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
+                                    const showMobileActions = !isApproved && !isDenied;
                                     return (
-                                      <div key={ot.id || otIdx} className="flex items-center justify-between bg-orange-50 rounded px-2 py-1.5 border border-orange-100">
-                                        <div className="flex items-center gap-2">
-                                          <span className="text-xs text-orange-700 font-semibold">+{formatDuration(ot.requestedMinutes)}</span>
-                                          {timeRange && <span className="text-xs text-gray-600">{timeRange}</span>}
+                                      <div key={ot.id || otIdx} className="bg-orange-50 rounded px-2 py-1.5 border border-orange-100 space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs text-orange-700 font-semibold">+{formatDuration(ot.requestedMinutes)}</span>
+                                            {timeRange && <span className="text-xs text-gray-600">{timeRange}</span>}
+                                          </div>
+                                          <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${badgeBg}`}>
+                                            {badgeLabel}
+                                          </span>
                                         </div>
-                                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${badgeBg}`}>
-                                          {badgeLabel}
-                                        </span>
+                                        {showMobileActions && rec.timeRecordId && (
+                                          <div className="flex items-center gap-2">
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); handleApproveOvertime(rec.timeRecordId); }}
+                                              disabled={actionLoading}
+                                              className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                            >
+                                              <CheckCircle className="w-3 h-3" />
+                                              Approve
+                                            </button>
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); handleOpenDenyModal(rec.timeRecordId); }}
+                                              disabled={actionLoading}
+                                              className="flex-1 inline-flex items-center justify-center gap-1 px-2 py-1 text-xs font-medium rounded bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                                            >
+                                              <XCircle className="w-3 h-3" />
+                                              Deny
+                                            </button>
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })}
@@ -693,6 +752,44 @@ const TimeRecords = () => {
           <span>OT Status</span>
         </div>
       </div>
+
+      {/* Deny Overtime Modal */}
+      {showDenyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowDenyModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Deny Overtime</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Please provide a reason for denying this overtime. The employee will be notified.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Denial Reason <span className="text-red-500">*</span></label>
+              <textarea
+                value={denyReason}
+                onChange={(e) => setDenyReason(e.target.value)}
+                placeholder="Explain why this overtime is being denied..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                rows={3}
+                required
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowDenyModal(false); setDenyRecordId(null); }}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDenyOvertime}
+                disabled={!denyReason.trim() || actionLoading}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {actionLoading ? 'Denying...' : 'Deny Overtime'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Revision Request Modal */}
       {showRevisionModal && (

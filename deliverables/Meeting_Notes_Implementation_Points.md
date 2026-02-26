@@ -159,51 +159,51 @@
 
 ---
 
-## 21. MASTER FLOW — Shift Extension & Extra Time
+## 21. MASTER FLOW — Shift Extension & Extra Time `[x]`
 
 **Date:** February 24, 2026
 
 > This note supersedes and expands upon notes #4, #5, #6, and #7 with comprehensive overtime logic.
 
-### 21.1 Core Definitions
+### 21.1 Core Definitions `[x]`
 
-#### Scheduled Time
-- Work performed **inside the assigned schedule** (e.g., 9:00 AM–5:00 PM)
-- Automatically approved, billable, and payable — no client action required
+#### Scheduled Time `[x]`
+- [x] Work performed **inside the assigned schedule** (e.g., 9:00 AM–5:00 PM)
+- [x] Automatically approved, billable, and payable — no client action required
 
-#### Shift Extension
-- A type of overtime **tied to an active scheduled shift**
-- Employee continues working past the scheduled end of the shift
-- **Shift Extension is NOT an approval status** — it is only a type of time
-- Shift Extension can occur: with approval, without approval, with a pending request, or without any request
-- Examples: 9:00 AM–5:00 PM extended until 6:00 PM; employee stays late without asking; employee requests extension during shift
-- Always remains tied to the original shift
+#### Shift Extension `[x]`
+- [x] A type of overtime **tied to an active scheduled shift**
+- [x] Employee continues working past the scheduled end of the shift
+- [x] **Shift Extension is NOT an approval status** — it is only a type of time
+- [x] Shift Extension can occur: with approval, without approval, with a pending request, or without any request
+- [x] Examples: 9:00 AM–5:00 PM extended until 6:00 PM; employee stays late without asking; employee requests extension during shift
+- [x] Always remains tied to the original shift
 
-#### Extra Time
-- Work **not tied to an active scheduled shift**
-- Employee works outside assigned shift hours at another time
-- Examples: Early clock-in before shift starts (8:45 AM), separate evening work block (9:00 PM–12:00 AM), work on unscheduled day
-- Separate category from Shift Extension
+#### Extra Time `[x]`
+- [x] Work **not tied to an active scheduled shift**
+- [x] Employee works outside assigned shift hours at another time
+- [x] Examples: Early clock-in before shift starts (8:45 AM), separate evening work block (9:00 PM–12:00 AM), work on unscheduled day
+- [x] Separate category from Shift Extension
 
 ---
 
-### 21.2 Employee Clock-In Logic
+### 21.2 Employee Clock-In Logic `[x]`
 
 | Scenario | Result |
 |----------|--------|
 | **Clock-in during schedule** | Scheduled Time (normal behavior) |
 | **Early clock-in (before shift start)** | Extra Time — system warns: "You are clocking in before your scheduled shift. This will be recorded as Extra Time and may require client approval before payment." |
 
-- Early clock-in is **Extra Time** (not Shift Extension) because the shift has not started yet
+- [x] Early clock-in is **Extra Time** (not Shift Extension) because the shift has not started yet
 
 ---
 
-### 21.3 Shift Extension Flow
+### 21.3 Shift Extension Flow `[x]`
 
 #### Request During Active Shift
-- Employee may request: **Shift Extension** (stay longer today) or **Extra Time later** (separate off-shift work)
-- Employee selects: time needed + optional reason
-- Client receives: SMS, Email, Portal notification
+- [x] Employee may request: **Shift Extension** (stay longer today) or **Extra Time later** (separate off-shift work)
+- [x] Employee selects: time needed + optional reason
+- [x] Client receives: SMS, Email, Portal notification
 
 #### Approval States (Important Clarity)
 Shift Extension itself **never changes name** — only the approval status changes:
@@ -216,105 +216,107 @@ Shift Extension itself **never changes name** — only the approval status chang
 
 ---
 
-### 21.4 End of Shift Flow
+### 21.4 End of Shift Flow `[x]`
 
 #### 30 Minutes Before End
-- Popup: "Your shift ends at 5:00 PM. Do you need more time today?"
-- Buttons: **Request Shift Extension** | **No, I'm good**
-- Only Shift Extension is offered here (employee is inside an active shift)
+- [x] Popup: "Your shift ends at 5:00 PM. Do you need more time today?"
+- [x] Buttons: **Request Shift Extension** | **No, I'm good**
+- [x] Only Shift Extension is offered here (employee is inside an active shift)
+> Verified: `shiftEnd.job.ts` line 92 checks `minutesUntilEnd <= 30`. Frontend `Dashboard.jsx` shows shift-ending modal.
 
 #### Scheduled End Time Arrives (e.g., 5:00 PM)
-- System automatically begins clock-out process — this is a **controlled pause**, NOT a normal clock-out
-- Timer pauses. Employee sees: "The system is automatically clocking you out now."
-- Options: **Continue Working** | **Stay Clocked Out**
+- [x] System automatically begins clock-out process — this is a **controlled pause**, NOT a normal clock-out
+- [x] Timer pauses. Employee sees: "The system is automatically clocking you out now."
+- [x] Options: **Continue Working** | **Stay Clocked Out**
+> Verified: `shiftEnd.job.ts` sets `shiftEndPausedAt`, frontend shows 2-min countdown modal.
 
 | Employee Action | Result |
 |----------------|--------|
-| **Continues working** | Reason is **mandatory**. Time resumes from exactly 5:00 PM. Same timesheet continues. Color changes to Shift Extension (unapproved). Status: **Shift Extension — Unapproved Worked Time** |
-| **Does nothing (2 min timeout)** | System completes clock-out. Clock-out time = exactly 5:00 PM |
-| **Has pending request (not yet approved)** | Status: **Shift Extension — Pending Request**. If employee continues working, status becomes **Shift Extension — Unapproved Worked Time** (pending ≠ approved) |
+| **Continues working** | [x] Reason is **mandatory**. Time resumes from exactly 5:00 PM. Same timesheet continues. Color changes to Shift Extension (unapproved). Status: **Shift Extension — Unapproved Worked Time** |
+| **Does nothing (2 min timeout)** | [x] System completes clock-out. Clock-out time = exactly 5:00 PM |
+| **Has pending request (not yet approved)** | [x] Status: **Shift Extension — Pending Request**. If employee continues working, status becomes **Shift Extension — Unapproved Worked Time** (pending ≠ approved) |
 
 ---
 
-### 21.5 Extra Time Flow
+### 21.5 Extra Time Flow `[x]`
 
-- Occurs only when work is **outside any active shift** (early start, evening work, off-day work)
-- Employee may request approval in advance
-- If worked without approval: status = **Extra Time — Unapproved Worked Time**
+- [x] Occurs only when work is **outside any active shift** (early start, evening work, off-day work)
+- [x] Employee may request approval in advance
+- [x] If worked without approval: status = **Extra Time — Unapproved Worked Time**
 
 ---
 
-### 21.6 Client Experience (Clear Separation)
+### 21.6 Client Experience (Clear Separation) `[x]`
 
 Client portal contains **TWO completely separate areas**:
 
-#### 6.1 Approvals Page — Requests (Future / Live)
-- Purpose: Approval decisions **before** work is finalized
-- Client sees: Shift Extension requests, Extra Time requests
-- Status examples: Pending Shift Extension Request, Pending Extra Time Request
-- Actions: **Approve** | **Deny**
-- If approved → employee works without risk warnings
+#### 6.1 Approvals Page — Requests (Future / Live) `[x]`
+- [x] Purpose: Approval decisions **before** work is finalized
+- [x] Client sees: Shift Extension requests, Extra Time requests
+- [x] Status examples: Pending Shift Extension Request, Pending Extra Time Request
+- [x] Actions: **Approve** | **Deny**
+- [x] If approved → employee works without risk warnings
 
-#### 6.2 Timesheet Page — Work Already Done (MOST IMPORTANT)
-- Purpose: Approve or deny **time already worked**
-- This page receives **highest system pressure**
+#### 6.2 Timesheet Page — Work Already Done (MOST IMPORTANT) `[x]`
+- [x] Purpose: Approve or deny **time already worked**
+- [x] This page receives **highest system pressure**
 
 | Timesheet Section | Client Action |
 |-------------------|---------------|
-| **Scheduled Time** | Auto approved. No action required. |
-| **Shift Extension (Worked)** — e.g., 5:00 PM–5:22 PM | Approve or Deny (reason required if denied) |
-| **Extra Time (Worked)** — e.g., Early Start 8:45 AM–9:00 AM | Approve or Deny |
+| **Scheduled Time** | [x] Auto approved. No action required. |
+| **Shift Extension (Worked)** — e.g., 5:00 PM–5:22 PM | [x] Approve or Deny (reason required if denied) |
+| **Extra Time (Worked)** — e.g., Early Start 8:45 AM–9:00 AM | [x] Approve or Deny |
 
 ---
 
-### 21.7 Client Pressure System (Critical)
+### 21.7 Client Pressure System (Critical) `[x]`
 
-- System heavily nags **ONLY for worked time not approved yet**:
+- [x] System heavily nags **ONLY for worked time not approved yet**:
   - Shift Extension — Unapproved Worked Time
   - Extra Time — Unapproved Worked Time
-- Notifications occur: before weekly billing closes, before payroll dates
-- Message intent: "Employee already worked this time. Approval is needed so they can be paid."
-- **Prioritized over future requests**
+- [x] Notifications occur: before weekly billing closes, before payroll dates
+- [x] Message intent: "Employee already worked this time. Approval is needed so they can be paid."
+- [x] **Prioritized over future requests**
 
 ---
 
-### 21.8 Invoice Logic
+### 21.8 Invoice Logic `[x]`
 
 | Invoice Includes | Invoice Excludes |
 |-----------------|------------------|
-| Scheduled Time | Unapproved worked time |
-| Approved Shift Extensions | Pending requests not yet worked |
-| Approved Extra Time | |
+| [x] Scheduled Time | [x] Unapproved worked time |
+| [x] Approved Shift Extensions | [x] Pending requests not yet worked |
+| [x] Approved Extra Time | |
 
-- Before invoice generation: system checks for unapproved worked Shift Extensions and Extra Time, sends approval reminders
-
----
-
-### 21.9 Payroll Logic
-
-- Employee paid **only for**: Scheduled Time, Approved Shift Extensions, Approved Extra Time
-- Unapproved worked time remains **unpaid until approved**
+- [x] Before invoice generation: system checks for unapproved worked Shift Extensions and Extra Time, sends approval reminders
 
 ---
 
-### 21.10 Timesheet Visual Structure (Color System)
+### 21.9 Payroll Logic `[x]`
+
+- [x] Employee paid **only for**: Scheduled Time, Approved Shift Extensions, Approved Extra Time
+- [x] Unapproved worked time remains **unpaid until approved**
+
+---
+
+### 21.10 Timesheet Visual Structure (Color System) `[x]`
 
 | Color | Meaning |
 |-------|---------|
-| **Blue** | Scheduled Time |
-| **Green** | Approved OT (Shift Extension or Extra Time) |
-| **Orange** | Worked but Unapproved |
-| **Red** | Denied |
+| [x] **Blue** | Scheduled Time |
+| [x] **Green** | Approved OT (Shift Extension or Extra Time) |
+| [x] **Orange** | Worked but Unapproved |
+| [x] **Red** | Denied |
 
 ---
 
-### 21.11 Final System Model
+### 21.11 Final System Model `[x]`
 
 | Employee Action | System Classification |
 |----------------|----------------------|
-| Staying late after shift | Shift Extension |
-| Working at a different time | Extra Time |
-| Early clock-in | Extra Time |
+| [] Staying late after shift | Shift Extension |
+| [] Working at a different time | Extra Time |
+| [] Early clock-in | Extra Time |
 
 ---
 

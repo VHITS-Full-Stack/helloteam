@@ -78,6 +78,47 @@ const generateInvoiceForClient = async (
     return false;
   }
 
+  // Before generating: check for unapproved worked Shift Extensions and Extra Time,
+  // send approval reminders to the client so they can act before the invoice finalizes.
+  try {
+    const unapprovedOTRecords = await prisma.timeRecord.findMany({
+      where: {
+        clientId: client.id,
+        date: { gte: periodStart, lte: periodEnd },
+        overtimeMinutes: { gt: 0 },
+        status: 'PENDING',
+      },
+      select: { overtimeMinutes: true, employeeId: true },
+    });
+
+    if (unapprovedOTRecords.length > 0) {
+      const totalUnapprovedMin = unapprovedOTRecords.reduce((s, r) => s + r.overtimeMinutes, 0);
+      const hrs = Math.floor(totalUnapprovedMin / 60);
+      const mins = totalUnapprovedMin % 60;
+      const unapprovedLabel = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
+
+      console.log(`[Invoice] Warning: ${client.companyName} has ${unapprovedOTRecords.length} unapproved OT records (${unapprovedLabel}) in this period`);
+
+      await createNotification(
+        client.user.id,
+        'PAYROLL_REMINDER',
+        'Unapproved Overtime — Invoice Being Generated',
+        `Invoice ${invoiceNumber} is being generated but you have ${unapprovedOTRecords.length} unapproved overtime entr${unapprovedOTRecords.length === 1 ? 'y' : 'ies'} (${unapprovedLabel}) that will NOT be included. Please approve or deny these hours.`,
+        { invoiceNumber, unapprovedCount: unapprovedOTRecords.length, unapprovedHours: unapprovedLabel },
+        '/client/time-records'
+      );
+
+      if (io) {
+        io.emit(`notification:${client.user.id}`, {
+          type: 'PAYROLL_REMINDER',
+          message: `Invoice being generated — ${unapprovedOTRecords.length} unapproved OT entries won't be included.`,
+        });
+      }
+    }
+  } catch (reminderErr) {
+    console.error(`[Invoice] Pre-generation reminder failed for ${client.companyName}:`, reminderErr);
+  }
+
   // Get approved time records for the period
   const timeRecords = await prisma.timeRecord.findMany({
     where: {
@@ -127,32 +168,9 @@ const generateInvoiceForClient = async (
 
   if (allRecords.length === 0) return false;
 
-  // Fetch approved OvertimeRequests for accurate OT minutes (rejected OT should not be billed)
-  // Include dates from all records (current period + late OT from previous periods)
-  const employeeIds = [...new Set(allRecords.map(r => r.employeeId))];
-  const allDates = allRecords.map(r => r.date);
-  const minDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : periodStart;
-  const approvedOTRequests = employeeIds.length > 0
-    ? await prisma.overtimeRequest.findMany({
-        where: {
-          clientId: client.id,
-          employeeId: { in: employeeIds },
-          date: { gte: minDate, lte: periodEnd },
-          status: 'APPROVED',
-        },
-        select: { employeeId: true, date: true, requestedMinutes: true },
-      })
-    : [];
-
-  // Build lookup: employeeId_dateStr -> approved OT minutes
-  const approvedOTMap = new Map<string, number>();
-  for (const ot of approvedOTRequests) {
-    const dateStr = ot.date.toISOString().split('T')[0];
-    const key = `${ot.employeeId}_${dateStr}`;
-    approvedOTMap.set(key, (approvedOTMap.get(key) || 0) + (ot.requestedMinutes || 0));
-  }
-
-  // Aggregate by employee, using approved OT minutes instead of TimeRecord.overtimeMinutes
+  // Aggregate by employee, using TimeRecord's own shiftExtension/extraTime fields
+  // to determine approved OT minutes (instead of relying on overtimeRequest records,
+  // which may not exist for OT worked without a prior request).
   const employeeAgg = new Map<string, EmployeeTimeAggregation>();
   for (const record of allRecords) {
     const key = record.employeeId;
@@ -165,12 +183,21 @@ const generateInvoiceForClient = async (
       });
     }
     const agg = employeeAgg.get(key)!;
-    const dateStr = record.date.toISOString().split('T')[0];
-    const otKey = `${record.employeeId}_${dateStr}`;
-    const approvedOTMinutes = approvedOTMap.get(otKey) || 0;
-    const rejectedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
-    // Deduct rejected OT from total and use only approved OT
-    agg.totalMinutes += Math.max(0, (record.totalMinutes || 0) - rejectedOTMinutes);
+
+    // Calculate approved OT directly from the TimeRecord's own fields
+    let approvedOTMinutes = 0;
+    if ((record as any).shiftExtensionStatus === 'APPROVED') {
+      approvedOTMinutes += (record as any).shiftExtensionMinutes || 0;
+    }
+    if ((record as any).extraTimeStatus === 'APPROVED') {
+      approvedOTMinutes += (record as any).extraTimeMinutes || 0;
+    }
+
+    const totalOT = record.overtimeMinutes || 0;
+    const deniedOTMinutes = Math.max(0, totalOT - approvedOTMinutes);
+
+    // Regular hours + approved OT only (denied/unapproved OT deducted)
+    agg.totalMinutes += Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
     agg.overtimeMinutes += approvedOTMinutes;
   }
 
@@ -367,12 +394,20 @@ export const generateInvoicesForPeriod = async (
     const periodStart = new Date(Date.UTC(year, month - 1, 1));
     const periodEnd = new Date(Date.UTC(year, month, 0)); // Last day of month
 
-    // Only monthly clients (MONTHLY or null/unset — backward compatible)
+    // When a specific client is requested, skip agreement-type filtering (admin override).
+    // Otherwise only monthly clients (MONTHLY or null/unset — backward compatible).
+    // PostgreSQL: NULL NOT IN (...) evaluates to NULL (false), so we must use OR to include null.
     const clientWhere: any = {
       user: { status: 'ACTIVE' },
-      agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
     };
-    if (clientId) clientWhere.id = clientId;
+    if (clientId) {
+      clientWhere.id = clientId;
+    } else {
+      clientWhere.OR = [
+        { agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] } },
+        { agreementType: null },
+      ];
+    }
 
     const clients = await prisma.client.findMany({
       where: clientWhere,
@@ -442,12 +477,15 @@ export const generateWeeklyInvoicesForWeek = async (
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
 
-    // Only weekly and bi-weekly clients
+    // When a specific client is requested, skip agreement-type filtering (admin override).
     const clientWhere: any = {
       user: { status: 'ACTIVE' },
-      agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
     };
-    if (clientId) clientWhere.id = clientId;
+    if (clientId) {
+      clientWhere.id = clientId;
+    } else {
+      clientWhere.agreementType = { in: ['WEEKLY', 'BI_WEEKLY'] };
+    }
 
     const clients = await prisma.client.findMany({
       where: clientWhere,
@@ -584,41 +622,27 @@ const previewInvoiceForClient = async (
   const allRecords = [...timeRecords, ...lateApprovedOT];
   if (allRecords.length === 0) return null;
 
-  // Fetch approved OvertimeRequests for accurate OT minutes (rejected OT excluded)
-  const allEmpIds = [...new Set(allRecords.map(r => r.employeeId))];
-  const allDates = allRecords.map(r => r.date);
-  const minRecordDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : periodStart;
-  const approvedOTRequests = allEmpIds.length > 0
-    ? await prisma.overtimeRequest.findMany({
-        where: {
-          clientId: client.id,
-          employeeId: { in: allEmpIds },
-          date: { gte: minRecordDate, lte: periodEnd },
-          status: 'APPROVED',
-        },
-        select: { employeeId: true, date: true, requestedMinutes: true },
-      })
-    : [];
-
-  const approvedOTMap = new Map<string, number>();
-  for (const ot of approvedOTRequests) {
-    const dateStr = ot.date.toISOString().split('T')[0];
-    const key = `${ot.employeeId}_${dateStr}`;
-    approvedOTMap.set(key, (approvedOTMap.get(key) || 0) + (ot.requestedMinutes || 0));
-  }
-
-  // Aggregate using approved OT only
+  // Aggregate using TimeRecord's own shiftExtension/extraTime fields
+  // to determine approved OT (instead of relying on overtimeRequest records).
   const employeeIds = new Set<string>();
   let totalMinutes = 0;
   let otMinutes = 0;
 
   for (const record of allRecords) {
     employeeIds.add(record.employeeId);
-    const dateStr = record.date.toISOString().split('T')[0];
-    const otKey = `${record.employeeId}_${dateStr}`;
-    const approvedOT = approvedOTMap.get(otKey) || 0;
-    const rejectedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
-    totalMinutes += Math.max(0, (record.totalMinutes || 0) - rejectedOT);
+
+    // Calculate approved OT directly from the TimeRecord's own fields
+    let approvedOT = 0;
+    if ((record as any).shiftExtensionStatus === 'APPROVED') {
+      approvedOT += (record as any).shiftExtensionMinutes || 0;
+    }
+    if ((record as any).extraTimeStatus === 'APPROVED') {
+      approvedOT += (record as any).extraTimeMinutes || 0;
+    }
+
+    const totalOT = record.overtimeMinutes || 0;
+    const deniedOT = Math.max(0, totalOT - approvedOT);
+    totalMinutes += Math.max(0, (record.totalMinutes || 0) - deniedOT);
     otMinutes += approvedOT;
   }
 
@@ -641,12 +665,17 @@ const previewInvoiceForClient = async (
   // Per-employee aggregation for accurate rate calculation
   const empAgg = new Map<string, { totalMin: number; otMin: number }>();
   for (const record of allRecords) {
-    const dateStr = record.date.toISOString().split('T')[0];
-    const otKey = `${record.employeeId}_${dateStr}`;
-    const approvedOT = approvedOTMap.get(otKey) || 0;
-    const rejectedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
+    let approvedOT = 0;
+    if ((record as any).shiftExtensionStatus === 'APPROVED') {
+      approvedOT += (record as any).shiftExtensionMinutes || 0;
+    }
+    if ((record as any).extraTimeStatus === 'APPROVED') {
+      approvedOT += (record as any).extraTimeMinutes || 0;
+    }
+    const totalOT = record.overtimeMinutes || 0;
+    const deniedOT = Math.max(0, totalOT - approvedOT);
     const agg = empAgg.get(record.employeeId) || { totalMin: 0, otMin: 0 };
-    agg.totalMin += Math.max(0, (record.totalMinutes || 0) - rejectedOT);
+    agg.totalMin += Math.max(0, (record.totalMinutes || 0) - deniedOT);
     agg.otMin += approvedOT;
     empAgg.set(record.employeeId, agg);
   }
@@ -681,11 +710,19 @@ export const previewInvoicesForPeriod = async (
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 0));
 
+  // When a specific client is requested, skip agreement-type filtering (admin override).
+  // PostgreSQL: NULL NOT IN (...) evaluates to NULL (false), so we must use OR to include null.
   const clientWhere: any = {
     user: { status: 'ACTIVE' },
-    agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] },
   };
-  if (clientId) clientWhere.id = clientId;
+  if (clientId) {
+    clientWhere.id = clientId;
+  } else {
+    clientWhere.OR = [
+      { agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] } },
+      { agreementType: null },
+    ];
+  }
 
   const clients = await prisma.client.findMany({
     where: clientWhere,
@@ -723,11 +760,15 @@ export const previewWeeklyInvoicesForWeek = async (
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
+  // When a specific client is requested, skip agreement-type filtering (admin override).
   const clientWhere: any = {
     user: { status: 'ACTIVE' },
-    agreementType: { in: ['WEEKLY', 'BI_WEEKLY'] },
   };
-  if (clientId) clientWhere.id = clientId;
+  if (clientId) {
+    clientWhere.id = clientId;
+  } else {
+    clientWhere.agreementType = { in: ['WEEKLY', 'BI_WEEKLY'] };
+  }
 
   const clients = await prisma.client.findMany({
     where: clientWhere,

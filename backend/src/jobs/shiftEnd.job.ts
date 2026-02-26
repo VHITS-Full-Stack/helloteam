@@ -157,18 +157,19 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           continue;
         }
 
-        // Check if the employee has an active/pending OT request for today
-        const otRequest = await prisma.overtimeRequest.findFirst({
+        // Check if the employee has an APPROVED OT request for today
+        // Only APPROVED requests skip the controlled pause (pending ≠ approved per spec)
+        const approvedOTRequest = await prisma.overtimeRequest.findFirst({
           where: {
             employeeId: employee.id,
             clientId: assignment.clientId,
             date: recordDate,
-            status: { in: ['PENDING', 'APPROVED'] },
+            status: 'APPROVED',
           },
         });
 
-        if (otRequest) {
-          // Employee has an OT request — skip auto-clock-out
+        if (approvedOTRequest) {
+          // Employee has approved OT — skip auto-clock-out, let them work
           continue;
         }
 
