@@ -48,6 +48,7 @@ import workSessionService from "../../services/workSession.service";
 import overtimeService from "../../services/overtime.service";
 import notificationService from "../../services/notification.service";
 import taskService from "../../services/task.service";
+import chatService from "../../services/chat.service";
 import {
   playClockInSound,
   playClockOutSound,
@@ -130,12 +131,35 @@ const EmployeeDashboard = () => {
   const [doneTaskCount, setDoneTaskCount] = useState(0);
   const [tasksLoading, setTasksLoading] = useState(false);
 
+  // Unread messages count
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
   // Clock-in warning states
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
   const [showLateClockInWarning, setShowLateClockInWarning] = useState(false);
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
   const [clockInWarningMessage, setClockInWarningMessage] = useState("");
+
+  // Coming soon toast
+  const [showComingSoon, setShowComingSoon] = useState(false);
+  const comingSoonTimeoutRef = useRef(null);
+
+  const [toastMessage, setToastMessage] = useState(null);
+
+  const triggerComingSoon = () => {
+    setToastMessage({ title: "Coming Soon", description: "This feature is under development." });
+    setShowComingSoon(true);
+    if (comingSoonTimeoutRef.current) clearTimeout(comingSoonTimeoutRef.current);
+    comingSoonTimeoutRef.current = setTimeout(() => setShowComingSoon(false), 3000);
+  };
+
+  const triggerNoConversations = () => {
+    setToastMessage({ title: "No Messages", description: "No conversations yet." });
+    setShowComingSoon(true);
+    if (comingSoonTimeoutRef.current) clearTimeout(comingSoonTimeoutRef.current);
+    comingSoonTimeoutRef.current = setTimeout(() => setShowComingSoon(false), 3000);
+  };
 
   // Activity notes state
   const [activityNotes, setActivityNotes] = useState("");
@@ -217,6 +241,18 @@ const EmployeeDashboard = () => {
     } finally {
       setTasksLoading(false);
       fetchingTasksRef.current = false;
+    }
+  }, []);
+
+  // Fetch unread message count
+  const fetchUnreadCount = useCallback(async () => {
+    try {
+      const res = await chatService.getUnreadCount();
+      if (res.success) {
+        setUnreadMessageCount(res.data?.count || 0);
+      }
+    } catch (err) {
+      console.error("Failed to fetch unread count:", err);
     }
   }, []);
 
@@ -321,7 +357,8 @@ const EmployeeDashboard = () => {
     fetchWorkSessionData();
     fetchOvertimeRequests();
     fetchTasks();
-  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks]);
+    fetchUnreadCount();
+  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks, fetchUnreadCount]);
 
   // Detect if session is in extension mode (resumed after shift end)
   useEffect(() => {
@@ -825,30 +862,6 @@ const EmployeeDashboard = () => {
     },
   ];
 
-  // Today's meetings
-  const todayMeetings = [
-    {
-      time: "10:00 AM",
-      title: "Daily Standup",
-      type: "team",
-      duration: "15 min",
-      participants: 8,
-    },
-    {
-      time: "2:00 PM",
-      title: "Project Review",
-      type: "client",
-      duration: "45 min",
-      participants: 5,
-    },
-    {
-      time: "4:30 PM",
-      title: "1:1 with Manager",
-      type: "personal",
-      duration: "30 min",
-      participants: 2,
-    },
-  ];
 
   // Toggle task status (TODO/IN_PROGRESS ↔ DONE)
   const handleTaskToggle = async (task) => {
@@ -872,23 +885,13 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // Company announcements
-  const announcements = [
-    { id: 1, title: "Team Outing Next Friday!", type: "event", isNew: true },
-    { id: 2, title: "New Health Benefits Available", type: "hr", isNew: true },
-    { id: 3, title: "Q4 Goals Published", type: "company", isNew: false },
-  ];
 
   // Weekly stats from API or defaults
-  const weeklyStats = {
-    hoursWorked: Math.round((weeklySummary?.totalWorkMinutes || 0) / 60),
-    hoursTarget: Math.round(
-      (weeklySummary?.scheduledWeeklyMinutes || 2400) / 60,
-    ),
-    tasksCompleted: 24,
-    meetingsAttended: 12,
-    productivity: 94,
-  };
+  const hoursWorked = Math.round((weeklySummary?.totalWorkMinutes || 0) / 60);
+  const hoursTarget = Math.round(
+    (weeklySummary?.scheduledWeeklyMinutes || 2400) / 60,
+  );
+  const productivity = hoursTarget > 0 ? Math.min(Math.round((hoursWorked / hoursTarget) * 100), 100) : 0;
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -916,16 +919,6 @@ const EmployeeDashboard = () => {
     }
   };
 
-  const getMeetingTypeColor = (type) => {
-    switch (type) {
-      case "team":
-        return "bg-primary-100 text-primary-700";
-      case "client":
-        return "bg-secondary-100 text-secondary-700";
-      default:
-        return "bg-accent-100 text-accent-700";
-    }
-  };
 
   // Determine work status
   const isWorking = sessionData?.isWorking || false;
@@ -943,6 +936,26 @@ const EmployeeDashboard = () => {
             className="ml-auto text-red-500 hover:text-red-700"
           >
             &times;
+          </button>
+        </div>
+      )}
+
+      {/* Toast Notification */}
+      {showComingSoon && toastMessage && (
+        <div className="fixed top-6 right-6 z-50 animate-fade-in bg-white border border-gray-200 rounded-xl shadow-lg px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+            {toastMessage.title === "No Messages" ? (
+              <MessageSquare className="w-5 h-5 text-primary" />
+            ) : (
+              <Sparkles className="w-5 h-5 text-primary" />
+            )}
+          </div>
+          <div>
+            <p className="font-semibold text-gray-900 text-sm">{toastMessage.title}</p>
+            <p className="text-xs text-gray-500">{toastMessage.description}</p>
+          </div>
+          <button onClick={() => setShowComingSoon(false)} className="ml-2 text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -1135,13 +1148,14 @@ const EmployeeDashboard = () => {
             link: "#",
             action: "overtime",
           },
-          { icon: Video, label: "Join Meeting", color: "accent", link: "#" },
+          { icon: Video, label: "Join Meeting", color: "accent", link: "#", action: "comingSoon" },
           {
             icon: MessageSquare,
             label: "Messages",
             color: "info",
-            badge: 3,
-            link: "#",
+            badge: unreadMessageCount > 0 ? unreadMessageCount : null,
+            link: "/employee/chat",
+            action: "messages",
           },
         ].map((action) => (
           <Card
@@ -1150,6 +1164,14 @@ const EmployeeDashboard = () => {
             onClick={() => {
               if (action.action === "overtime") {
                 setShowOvertimeModal(true);
+              } else if (action.action === "comingSoon") {
+                triggerComingSoon();
+              } else if (action.action === "messages") {
+                if (unreadMessageCount > 0) {
+                  navigate(action.link);
+                } else {
+                  triggerNoConversations();
+                }
               } else if (action.link !== "#") {
                 navigate(action.link);
               }
@@ -1187,14 +1209,14 @@ const EmployeeDashboard = () => {
                   <Clock className="w-6 h-6 text-primary" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {weeklyStats.hoursWorked}h
+                  {hoursWorked}h
                 </p>
                 <p className="text-xs text-gray-500">Hours This Week</p>
                 <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary rounded-full"
                     style={{
-                      width: `${Math.min((weeklyStats.hoursWorked / weeklyStats.hoursTarget) * 100, 100)}%`,
+                      width: `${hoursTarget > 0 ? Math.min((hoursWorked / hoursTarget) * 100, 100) : 0}%`,
                     }}
                   />
                 </div>
@@ -1205,22 +1227,20 @@ const EmployeeDashboard = () => {
                   <CheckCircle className="w-6 h-6 text-green-600" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {weeklyStats.tasksCompleted}
+                  {doneTaskCount}
                 </p>
                 <p className="text-xs text-gray-500">Tasks Done</p>
-                <Badge variant="success" size="xs" className="mt-2">
-                  +5 today
-                </Badge>
+                <p className="text-xs text-gray-400 mt-2">of {totalTaskCount} total</p>
               </Card>
 
               <Card className="text-center">
                 <div className="w-12 h-12 mx-auto rounded-full bg-secondary-100 flex items-center justify-center mb-3">
-                  <Video className="w-6 h-6 text-secondary-600" />
+                  <Target className="w-6 h-6 text-secondary-600" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {weeklyStats.meetingsAttended}
+                  {totalTaskCount - doneTaskCount}
                 </p>
-                <p className="text-xs text-gray-500">Meetings</p>
+                <p className="text-xs text-gray-500">Tasks Pending</p>
                 <p className="text-xs text-gray-400 mt-2">This week</p>
               </Card>
 
@@ -1229,11 +1249,11 @@ const EmployeeDashboard = () => {
                   <Zap className="w-6 h-6 text-accent-600" />
                 </div>
                 <p className="text-2xl font-bold text-gray-900">
-                  {weeklyStats.productivity}%
+                  {productivity}%
                 </p>
                 <p className="text-xs text-gray-500">Productivity</p>
-                <Badge variant="accent" size="xs" className="mt-2">
-                  Excellent!
+                <Badge variant={productivity >= 80 ? "success" : productivity >= 50 ? "warning" : "danger"} size="xs" className="mt-2">
+                  {productivity >= 80 ? "On Track" : productivity >= 50 ? "Moderate" : "Needs Attention"}
                 </Badge>
               </Card>
             </div>
@@ -1456,12 +1476,11 @@ const EmployeeDashboard = () => {
                   <Video className="w-5 h-5 text-secondary" />
                   Today's Meetings
                 </CardTitle>
-                <Badge variant="secondary">
-                  {todayMeetings.length} scheduled
-                </Badge>
+                <Badge variant="secondary">Coming Soon</Badge>
               </div>
             </CardHeader>
             <CardContent>
+              {/* TODO: Replace empty state with todayMeetings.map when data is available
               <div className="space-y-4">
                 {todayMeetings.map((meeting, index) => (
                   <div
@@ -1482,9 +1501,7 @@ const EmployeeDashboard = () => {
                         <p className="font-semibold text-gray-900">
                           {meeting.title}
                         </p>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${getMeetingTypeColor(meeting.type)}`}
-                        >
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">
                           {meeting.type}
                         </span>
                       </div>
@@ -1510,6 +1527,11 @@ const EmployeeDashboard = () => {
                   </div>
                 ))}
               </div>
+              */}
+              <div className="text-center py-8">
+                <Video className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No meetings scheduled</p>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -1525,6 +1547,7 @@ const EmployeeDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* TODO: Replace empty state with announcements.map when data is available
               <div className="space-y-3">
                 {announcements.map((item) => (
                   <div
@@ -1546,7 +1569,7 @@ const EmployeeDashboard = () => {
                         ) : item.type === "hr" ? (
                           <Heart className="w-4 h-4 text-green-600" />
                         ) : (
-                          <Lightbulb className="w-4 h-4 text-blue-600" />
+                          <Bell className="w-4 h-4 text-blue-600" />
                         )}
                       </div>
                       <div className="flex-1">
@@ -1567,6 +1590,11 @@ const EmployeeDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+              */}
+              <div className="text-center py-8">
+                <Bell className="w-10 h-10 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">No announcements yet</p>
               </div>
             </CardContent>
           </Card>
@@ -1589,13 +1617,12 @@ const EmployeeDashboard = () => {
                     variant="success"
                     size="sm"
                     icon={Coffee}
-                    onClick={handleStartBreak}
-                    loading={actionLoading}
+                    onClick={triggerComingSoon}
                   >
                     Start 5-min Break
                   </Button>
                 ) : (
-                  <Button variant="success" size="sm" icon={Heart}>
+                  <Button variant="success" size="sm" icon={Heart} onClick={triggerComingSoon}>
                     Wellness Tips
                   </Button>
                 )}

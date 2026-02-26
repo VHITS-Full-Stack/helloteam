@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import clientService from '../services/client.service';
 import groupService from '../services/group.service';
 import employeeService from '../services/employee.service';
+import { validateClientForm } from '../utils/clientValidation';
 
 /**
  * Custom hook for client add/edit form logic
@@ -17,32 +18,21 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(isEdit);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     email: '',
     companyName: '',
-    contacts: [{ name: '', position: '', phone: '', email: '' }],
+    contacts: [{ name: '', position: '', phone: '', countryCode: '+1', email: '' }],
+    countryCode: '+1',
     phone: '',
     address: '',
-    timezone: 'UTC',
+    timezone: 'America/New_York',
     status: 'ACTIVE',
     groupId: '',
-    employeeIds: [],
+    employeeAssignments: [],
     agreementType: 'WEEKLY',
-    allowPaidLeave: false,
-    paidLeaveType: 'fixed',
-    annualPaidLeaveDays: 0,
-    allowUnpaidLeave: true,
-    requireTwoWeeksNotice: true,
-    requireTwoWeeksNoticePaidLeave: true,
-    requireTwoWeeksNoticeUnpaidLeave: true,
-    allowPaidHolidays: false,
-    paidHolidayType: 'federal',
-    numberOfPaidHolidays: 0,
-    allowUnpaidHolidays: false,
-    unpaidHolidayType: 'federal',
-    numberOfUnpaidHolidays: 0,
     allowOvertime: true,
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
@@ -56,7 +46,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
   const addContact = useCallback(() => {
     setFormData((prev) => ({
       ...prev,
-      contacts: [...prev.contacts, { name: '', position: '', phone: '', email: '' }],
+      contacts: [...prev.contacts, { name: '', position: '', phone: '', countryCode: '+1', email: '' }],
     }));
   }, []);
 
@@ -107,27 +97,22 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
                   name: c.name || '',
                   position: c.position || '',
                   phone: c.phone || '',
+                  countryCode: c.countryCode || '+1',
                   email: c.email || '',
                 }))
-              : [{ name: client.contactPerson || '', position: '', phone: '', email: '' }];
+              : [{ name: client.contactPerson || '', position: '', phone: '', countryCode: '+1', email: '' }];
 
             setFormData({
               email: client.user?.email || '',
               companyName: client.companyName,
               contacts: clientContacts,
+              countryCode: client.countryCode || '+1',
               phone: client.phone || '',
               address: client.address || '',
               timezone: client.timezone || 'UTC',
               status: client.user?.status || 'ACTIVE',
               groupId: '',
-              employeeIds: [],
-              allowPaidLeave: client.clientPolicies?.allowPaidLeave || false,
-              paidLeaveType: client.clientPolicies?.paidLeaveType || 'fixed',
-              annualPaidLeaveDays: client.clientPolicies?.annualPaidLeaveDays || 0,
-              allowUnpaidLeave: client.clientPolicies?.allowUnpaidLeave ?? true,
-              requireTwoWeeksNotice: client.clientPolicies?.requireTwoWeeksNotice ?? true,
-              requireTwoWeeksNoticePaidLeave: client.clientPolicies?.requireTwoWeeksNoticePaidLeave ?? true,
-              requireTwoWeeksNoticeUnpaidLeave: client.clientPolicies?.requireTwoWeeksNoticeUnpaidLeave ?? true,
+              employeeAssignments: [],
               allowOvertime: client.clientPolicies?.allowOvertime ?? true,
               overtimeRequiresApproval: client.clientPolicies?.overtimeRequiresApproval ?? true,
               autoApproveTimesheets: client.clientPolicies?.autoApproveTimesheets ?? false,
@@ -153,21 +138,19 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
+    setFieldErrors({});
 
-    // Validate at least one contact with a name
+    // Run validation
+    const errors = validateClientForm(formData, isEdit);
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      const firstError = errors.companyName || errors.email || errors.contacts || errors.phone || errors.employees || Object.values(errors)[0];
+      setError(typeof firstError === 'string' ? firstError : 'Please fix the errors below');
+      setSubmitting(false);
+      return;
+    }
+
     const validContacts = formData.contacts.filter((c) => c.name.trim());
-    if (validContacts.length === 0) {
-      setError('At least one contact person is required');
-      setSubmitting(false);
-      return;
-    }
-
-    // Validate at least one employee is assigned (create only)
-    if (!isEdit && formData.employeeIds.length === 0) {
-      setError('At least one employee must be assigned to the client');
-      setSubmitting(false);
-      return;
-    }
 
     try {
       let response;
@@ -175,15 +158,50 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
         response = await clientService.updateClient(id, {
           ...formData,
           contacts: validContacts,
-          annualPaidLeaveDays: parseInt(formData.annualPaidLeaveDays),
           autoApproveMinutes: parseInt(formData.autoApproveMinutes) || 1440,
           defaultHourlyRate: parseFloat(formData.defaultHourlyRate) || 0,
           defaultOvertimeRate: parseFloat(formData.defaultOvertimeRate) || 0,
         });
       } else {
+        // Map frontend leave type to Prisma enum
+        const toEntitlementType = (type) => {
+          const map = { fixed: 'FIXED', 'fixed-half-yearly': 'FIXED_HALF_YEARLY', accrued: 'ACCRUED', milestone: 'MILESTONE' };
+          return map[type] || 'NONE';
+        };
+
+        const employeeIds = formData.employeeAssignments.map((a) => a.employeeId);
+        const employeePtoOverrides = formData.employeeAssignments.map((a) => ({
+          employeeId: a.employeeId,
+          ptoAllowPaidLeave: a.allowPaidLeave,
+          ptoAllowUnpaidLeave: a.allowUnpaidLeave,
+          ptoAllowPaidHolidays: a.allowPaidHolidays,
+          ptoAllowUnpaidHolidays: a.allowUnpaidHolidays,
+          ptoEntitlementType: a.allowPaidLeave ? toEntitlementType(a.paidLeaveType) : null,
+          ptoAnnualDays: a.allowPaidLeave ? parseInt(a.annualPaidLeaveDays) || 0 : null,
+          requireTwoWeeksNoticePaidLeave: a.requireTwoWeeksNoticePaidLeave,
+          requireTwoWeeksNoticeUnpaidLeave: a.requireTwoWeeksNoticeUnpaidLeave,
+          paidHolidayType: a.allowPaidHolidays ? a.paidHolidayType : null,
+          numberOfPaidHolidays: a.allowPaidHolidays ? parseInt(a.numberOfPaidHolidays) || 0 : null,
+          customHolidays: a.allowPaidHolidays && a.paidHolidayType === 'custom' ? a.customHolidays : [],
+        }));
+        // Derive client-level policy defaults from employee settings
+        const anyPaidLeave = formData.employeeAssignments.some((a) => a.allowPaidLeave);
+        const anyUnpaidLeave = formData.employeeAssignments.some((a) => a.allowUnpaidLeave);
+        const anyPaidHolidays = formData.employeeAssignments.some((a) => a.allowPaidHolidays);
+        const anyUnpaidHolidays = formData.employeeAssignments.some((a) => a.allowUnpaidHolidays);
+        // Use first paid-leave employee's type as the client-level default
+        const firstPaidLeaveEmp = formData.employeeAssignments.find((a) => a.allowPaidLeave);
         response = await clientService.createClient({
           ...formData,
+          employeeIds,
+          employeePtoOverrides,
           contacts: validContacts,
+          allowPaidLeave: anyPaidLeave,
+          paidLeaveEntitlementType: firstPaidLeaveEmp ? toEntitlementType(firstPaidLeaveEmp.paidLeaveType) : 'NONE',
+          annualPaidLeaveDays: firstPaidLeaveEmp ? parseInt(firstPaidLeaveEmp.annualPaidLeaveDays) || 0 : 0,
+          allowUnpaidLeave: anyUnpaidLeave,
+          allowPaidHolidays: anyPaidHolidays,
+          allowUnpaidHolidays: anyUnpaidHolidays,
         });
       }
 
@@ -208,6 +226,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     loading,
     error,
     setError,
+    fieldErrors,
     submitting,
     handleSubmit,
     addContact,

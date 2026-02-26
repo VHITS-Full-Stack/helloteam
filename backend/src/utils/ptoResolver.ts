@@ -8,6 +8,8 @@ export interface EffectivePtoConfig {
   maxCarryoverDays: number;
   carryoverExpiryMonths: number | null;
   allowUnpaidLeave: boolean;
+  allowPaidHolidays: boolean;
+  allowUnpaidHolidays: boolean;
   source: 'employee_override' | 'client_policy' | 'none';
 }
 
@@ -19,6 +21,8 @@ interface ClientPolicyInput {
   maxCarryoverDays: number;
   carryoverExpiryMonths: number | null;
   allowUnpaidLeave: boolean;
+  allowPaidHolidays: boolean;
+  allowUnpaidHolidays: boolean;
 }
 
 interface ClientEmployeeInput {
@@ -29,6 +33,8 @@ interface ClientEmployeeInput {
   ptoMaxCarryoverDays: number | null;
   ptoCarryoverExpiryMonths: number | null;
   ptoAllowUnpaidLeave: boolean | null;
+  ptoAllowPaidHolidays: boolean | null;
+  ptoAllowUnpaidHolidays: boolean | null;
 }
 
 export function resolveEffectivePtoConfig(
@@ -45,6 +51,8 @@ export function resolveEffectivePtoConfig(
       maxCarryoverDays: 0,
       carryoverExpiryMonths: null,
       allowUnpaidLeave: true,
+      allowPaidHolidays: false,
+      allowUnpaidHolidays: false,
       source: 'none',
     };
   }
@@ -56,7 +64,9 @@ export function resolveEffectivePtoConfig(
     clientEmployee.ptoAccrualRatePerMonth !== null ||
     clientEmployee.ptoMaxCarryoverDays !== null ||
     clientEmployee.ptoCarryoverExpiryMonths !== null ||
-    clientEmployee.ptoAllowUnpaidLeave !== null
+    clientEmployee.ptoAllowUnpaidLeave !== null ||
+    clientEmployee.ptoAllowPaidHolidays !== null ||
+    clientEmployee.ptoAllowUnpaidHolidays !== null
   );
 
   return {
@@ -69,6 +79,8 @@ export function resolveEffectivePtoConfig(
     maxCarryoverDays: clientEmployee?.ptoMaxCarryoverDays ?? clientPolicy.maxCarryoverDays,
     carryoverExpiryMonths: clientEmployee?.ptoCarryoverExpiryMonths ?? clientPolicy.carryoverExpiryMonths ?? null,
     allowUnpaidLeave: clientEmployee?.ptoAllowUnpaidLeave ?? clientPolicy.allowUnpaidLeave,
+    allowPaidHolidays: clientEmployee?.ptoAllowPaidHolidays ?? clientPolicy.allowPaidHolidays,
+    allowUnpaidHolidays: clientEmployee?.ptoAllowUnpaidHolidays ?? clientPolicy.allowUnpaidHolidays,
     source: hasOverride ? 'employee_override' : 'client_policy',
   };
 }

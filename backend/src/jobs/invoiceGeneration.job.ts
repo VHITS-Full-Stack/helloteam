@@ -127,7 +127,32 @@ const generateInvoiceForClient = async (
 
   if (allRecords.length === 0) return false;
 
-  // Aggregate by employee
+  // Fetch approved OvertimeRequests for accurate OT minutes (rejected OT should not be billed)
+  // Include dates from all records (current period + late OT from previous periods)
+  const employeeIds = [...new Set(allRecords.map(r => r.employeeId))];
+  const allDates = allRecords.map(r => r.date);
+  const minDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : periodStart;
+  const approvedOTRequests = employeeIds.length > 0
+    ? await prisma.overtimeRequest.findMany({
+        where: {
+          clientId: client.id,
+          employeeId: { in: employeeIds },
+          date: { gte: minDate, lte: periodEnd },
+          status: 'APPROVED',
+        },
+        select: { employeeId: true, date: true, requestedMinutes: true },
+      })
+    : [];
+
+  // Build lookup: employeeId_dateStr -> approved OT minutes
+  const approvedOTMap = new Map<string, number>();
+  for (const ot of approvedOTRequests) {
+    const dateStr = ot.date.toISOString().split('T')[0];
+    const key = `${ot.employeeId}_${dateStr}`;
+    approvedOTMap.set(key, (approvedOTMap.get(key) || 0) + (ot.requestedMinutes || 0));
+  }
+
+  // Aggregate by employee, using approved OT minutes instead of TimeRecord.overtimeMinutes
   const employeeAgg = new Map<string, EmployeeTimeAggregation>();
   for (const record of allRecords) {
     const key = record.employeeId;
@@ -140,8 +165,13 @@ const generateInvoiceForClient = async (
       });
     }
     const agg = employeeAgg.get(key)!;
-    agg.totalMinutes += record.totalMinutes || 0;
-    agg.overtimeMinutes += record.overtimeMinutes || 0;
+    const dateStr = record.date.toISOString().split('T')[0];
+    const otKey = `${record.employeeId}_${dateStr}`;
+    const approvedOTMinutes = approvedOTMap.get(otKey) || 0;
+    const rejectedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
+    // Deduct rejected OT from total and use only approved OT
+    agg.totalMinutes += Math.max(0, (record.totalMinutes || 0) - rejectedOTMinutes);
+    agg.overtimeMinutes += approvedOTMinutes;
   }
 
   // Determine rates
@@ -554,15 +584,42 @@ const previewInvoiceForClient = async (
   const allRecords = [...timeRecords, ...lateApprovedOT];
   if (allRecords.length === 0) return null;
 
-  // Aggregate
+  // Fetch approved OvertimeRequests for accurate OT minutes (rejected OT excluded)
+  const allEmpIds = [...new Set(allRecords.map(r => r.employeeId))];
+  const allDates = allRecords.map(r => r.date);
+  const minRecordDate = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => d.getTime()))) : periodStart;
+  const approvedOTRequests = allEmpIds.length > 0
+    ? await prisma.overtimeRequest.findMany({
+        where: {
+          clientId: client.id,
+          employeeId: { in: allEmpIds },
+          date: { gte: minRecordDate, lte: periodEnd },
+          status: 'APPROVED',
+        },
+        select: { employeeId: true, date: true, requestedMinutes: true },
+      })
+    : [];
+
+  const approvedOTMap = new Map<string, number>();
+  for (const ot of approvedOTRequests) {
+    const dateStr = ot.date.toISOString().split('T')[0];
+    const key = `${ot.employeeId}_${dateStr}`;
+    approvedOTMap.set(key, (approvedOTMap.get(key) || 0) + (ot.requestedMinutes || 0));
+  }
+
+  // Aggregate using approved OT only
   const employeeIds = new Set<string>();
   let totalMinutes = 0;
   let otMinutes = 0;
 
   for (const record of allRecords) {
     employeeIds.add(record.employeeId);
-    totalMinutes += record.totalMinutes || 0;
-    otMinutes += record.overtimeMinutes || 0;
+    const dateStr = record.date.toISOString().split('T')[0];
+    const otKey = `${record.employeeId}_${dateStr}`;
+    const approvedOT = approvedOTMap.get(otKey) || 0;
+    const rejectedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
+    totalMinutes += Math.max(0, (record.totalMinutes || 0) - rejectedOT);
+    otMinutes += approvedOT;
   }
 
   // Calculate estimated total using per-employee rates
@@ -584,9 +641,13 @@ const previewInvoiceForClient = async (
   // Per-employee aggregation for accurate rate calculation
   const empAgg = new Map<string, { totalMin: number; otMin: number }>();
   for (const record of allRecords) {
+    const dateStr = record.date.toISOString().split('T')[0];
+    const otKey = `${record.employeeId}_${dateStr}`;
+    const approvedOT = approvedOTMap.get(otKey) || 0;
+    const rejectedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
     const agg = empAgg.get(record.employeeId) || { totalMin: 0, otMin: 0 };
-    agg.totalMin += record.totalMinutes || 0;
-    agg.otMin += record.overtimeMinutes || 0;
+    agg.totalMin += Math.max(0, (record.totalMinutes || 0) - rejectedOT);
+    agg.otMin += approvedOT;
     empAgg.set(record.employeeId, agg);
   }
 

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { Building2, User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Clock, Loader2, Trash2 } from 'lucide-react';
-import { Card, Button, Badge } from '../../components/common';
+import { Card, Button, Badge, PhoneInput } from '../../components/common';
 import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
@@ -25,6 +25,7 @@ const Profile = () => {
     return {
       companyName: client?.companyName || '',
       contactPerson: client?.contactPerson || '',
+      countryCode: client?.countryCode || '+1',
       phone: client?.phone || '',
       address: client?.address || '',
       timezone: client?.timezone || 'America/New_York',
@@ -393,21 +394,13 @@ const Profile = () => {
                   />
                 </div>
               </div>
-              <div>
-                <label className="label">Phone Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                  <input
-                    type="tel"
-                    name="phone"
-                    className="input"
-                    style={{ paddingLeft: '2.5rem' }}
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-              </div>
+              <PhoneInput
+                phone={formData.phone}
+                countryCode={formData.countryCode}
+                onPhoneChange={(val) => setFormData(prev => ({ ...prev, phone: val }))}
+                onCountryCodeChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
+                label="Phone Number"
+              />
               <div>
                 <label className="label">Business Address</label>
                 <div className="relative">

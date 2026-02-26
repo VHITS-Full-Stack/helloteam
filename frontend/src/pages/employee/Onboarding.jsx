@@ -16,14 +16,15 @@ import {
   X,
   Check,
 } from "lucide-react";
+import { PhoneInput } from "../../components/common";
 import employeeOnboardingService from "../../services/employeeOnboarding.service";
 import documentTypeService from "../../services/documentType.service";
 import ImpersonationBanner from "../../components/layout/ImpersonationBanner";
 
 const STEPS = [
   { label: "Personal Info", icon: User },
+  { label: "Identity Documents", icon: Shield },
   { label: "Emergency Contacts", icon: Users },
-  { label: "Government ID", icon: Shield },
 ];
 
 const RELATIONSHIPS = ["Parent", "Spouse", "Sibling", "Friend", "Other"];
@@ -45,6 +46,7 @@ const FALLBACK_PROOF_TYPES = [
 
 const emptyContact = () => ({
   name: "",
+  countryCode: "+1",
   phone: "",
   relationship: "",
   customRelationship: "",
@@ -64,6 +66,7 @@ const Onboarding = () => {
 
   // Step 1: Personal Info
   const [personalInfo, setPersonalInfo] = useState({
+    countryCode: "+1",
     phone: "",
     address: "",
     personalEmail: "",
@@ -134,9 +137,10 @@ const Onboarding = () => {
 
         // Pre-populate from existing data
         setPersonalInfo({
+          countryCode: d.countryCode || "+1",
           phone: d.phone || "",
           address: d.address || "",
-          personalEmail: d.personalEmail || "",
+          personalEmail: d.personalEmail || d.email || "",
         });
 
         if (d.emergencyContacts && d.emergencyContacts.length > 0) {
@@ -145,6 +149,7 @@ const Onboarding = () => {
               c.relationship && !RELATIONSHIPS.includes(c.relationship);
             return {
               name: c.name,
+              countryCode: c.countryCode || "+1",
               phone: c.phone,
               relationship: isCustom ? "Other" : c.relationship,
               customRelationship: isCustom ? c.relationship : "",
@@ -167,14 +172,6 @@ const Onboarding = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Phone formatting
-  const formatPhone = (value) => {
-    const digits = value.replace(/\D/g, "");
-    if (digits.length <= 3) return digits;
-    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
   };
 
   // Step 1: Validate & Save
@@ -240,7 +237,16 @@ const Onboarding = () => {
       const response =
         await employeeOnboardingService.saveEmergencyContacts(payload);
       if (response.success) {
-        setCurrentStep(2);
+        // Emergency contacts is now the final step — complete onboarding
+        const completeRes = await employeeOnboardingService.complete();
+        if (completeRes.success) {
+          setCompleted(true);
+          setTimeout(() => {
+            window.location.href = "/employee/dashboard";
+          }, 2000);
+        } else {
+          setError(completeRes.error || "Failed to complete onboarding");
+        }
       } else {
         setError(response.error || "Failed to save emergency contacts");
       }
@@ -400,16 +406,8 @@ const Onboarding = () => {
         }
       }
 
-      // Complete onboarding
-      const completeRes = await employeeOnboardingService.complete();
-      if (completeRes.success) {
-        setCompleted(true);
-        setTimeout(() => {
-          window.location.href = "/employee/dashboard";
-        }, 2000);
-      } else {
-        setError(completeRes.error || "Failed to complete onboarding");
-      }
+      // Move to Emergency Contacts step
+      setCurrentStep(2);
     } catch (err) {
       setError(err.message || "Failed to complete onboarding");
     } finally {
@@ -464,7 +462,7 @@ const Onboarding = () => {
     <div className="min-h-screen bg-gray-50">
       <ImpersonationBanner />
       <div className="py-4 px-4">
-        <div className="max-w-2xl mx-auto">
+        <div className={`${currentStep === 2 ? 'max-w-4xl' : 'max-w-2xl'} mx-auto`}>
           {/* Header */}
           <div className="text-center mb-4">
             <h1 className="text-2xl font-bold text-gray-900">
@@ -544,27 +542,14 @@ const Onboarding = () => {
                 </p>
 
                 <div className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Phone Number <span className="text-red-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        type="tel"
-                        autoComplete="tel"
-                        value={personalInfo.phone}
-                        onChange={(e) =>
-                          setPersonalInfo({
-                            ...personalInfo,
-                            phone: formatPhone(e.target.value),
-                          })
-                        }
-                        placeholder="(555) 123-4567"
-                        className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-                      />
-                    </div>
-                  </div>
+                  <PhoneInput
+                    phone={personalInfo.phone}
+                    countryCode={personalInfo.countryCode}
+                    onPhoneChange={(val) => setPersonalInfo({ ...personalInfo, phone: val })}
+                    onCountryCodeChange={(code) => setPersonalInfo({ ...personalInfo, countryCode: code })}
+                    label="Phone Number"
+                    required
+                  />
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -630,8 +615,8 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* Step 2: Emergency Contacts */}
-            {currentStep === 1 && (
+            {/* Emergency Contacts (Step 3) */}
+            {currentStep === 2 && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-1">
                   Emergency Contacts
@@ -652,9 +637,9 @@ const Onboarding = () => {
                           <span className="text-red-500">*</span>
                         </h3>
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                             Full Name <span className="text-red-500">*</span>
                           </label>
                           <input
@@ -664,29 +649,20 @@ const Onboarding = () => {
                               updateContact(i, "name", e.target.value)
                             }
                             placeholder="Full name"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                           />
                         </div>
+                        <PhoneInput
+                          phone={contact.phone}
+                          countryCode={contact.countryCode || "+1"}
+                          onPhoneChange={(val) => updateContact(i, "phone", val)}
+                          onCountryCodeChange={(code) => updateContact(i, "countryCode", code)}
+                          label="Phone"
+                          required
+                          showValidation={false}
+                        />
                         <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
-                            Phone <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="tel"
-                            value={contact.phone}
-                            onChange={(e) =>
-                              updateContact(
-                                i,
-                                "phone",
-                                formatPhone(e.target.value),
-                              )
-                            }
-                            placeholder="(555) 123-4567"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-gray-500 mb-1">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
                             Relationship <span className="text-red-500">*</span>
                           </label>
                           <select
@@ -696,7 +672,7 @@ const Onboarding = () => {
                               if (e.target.value !== "Other")
                                 updateContact(i, "customRelationship", "");
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                           >
                             <option value="">Select...</option>
                             {RELATIONSHIPS.map((r) => (
@@ -717,7 +693,7 @@ const Onboarding = () => {
                                 )
                               }
                               placeholder="Please specify relationship"
-                              className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                              className="w-full mt-2 px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
                             />
                           )}
                         </div>
@@ -730,7 +706,7 @@ const Onboarding = () => {
                   <button
                     onClick={() => {
                       setError("");
-                      setCurrentStep(0);
+                      setCurrentStep(1);
                     }}
                     className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
                   >
@@ -740,14 +716,14 @@ const Onboarding = () => {
                   <button
                     onClick={handleSaveContacts}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     {saving ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        Next
-                        <ArrowRight className="w-4 h-4" />
+                        <CheckCircle className="w-4 h-4" />
+                        Complete Onboarding
                       </>
                     )}
                   </button>
@@ -755,8 +731,8 @@ const Onboarding = () => {
               </div>
             )}
 
-            {/* Step 3: Document Uploads */}
-            {currentStep === 2 && (
+            {/* Identity Documents (Step 2) */}
+            {currentStep === 1 && (
               <div>
                 <h2 className="text-xl font-semibold text-gray-900 mb-1">
                   Identity Documents
@@ -1007,7 +983,7 @@ const Onboarding = () => {
                   <button
                     onClick={() => {
                       setError("");
-                      setCurrentStep(1);
+                      setCurrentStep(0);
                     }}
                     className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
                   >
@@ -1017,14 +993,14 @@ const Onboarding = () => {
                   <button
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                   >
                     {saving ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <CheckCircle className="w-4 h-4" />
-                        Complete Onboarding
+                        Next
+                        <ArrowRight className="w-4 h-4" />
                       </>
                     )}
                   </button>

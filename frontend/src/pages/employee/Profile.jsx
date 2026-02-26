@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Trash2 } from 'lucide-react';
-import { Card, Button, Badge, Avatar } from '../../components/common';
+import { Card, Button, Badge, Avatar, PhoneInput } from '../../components/common';
 import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
@@ -25,6 +25,7 @@ const Profile = () => {
     return {
       firstName: emp?.firstName || '',
       lastName: emp?.lastName || '',
+      countryCode: emp?.countryCode || '+1',
       phone: emp?.phone || '',
       address: emp?.address || '',
       emergencyContact: emp?.emergencyContact || '',
@@ -460,21 +461,13 @@ const Profile = () => {
                 </div>
                 <p className="text-xs text-gray-500 mt-1">Contact admin to change email</p>
               </div>
-              <div>
-                <label className="label">Phone Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                  <input
-                    type="tel"
-                    name="phone"
-                    className="input"
-                    style={{ paddingLeft: '2.5rem' }}
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="Enter phone number"
-                  />
-                </div>
-              </div>
+              <PhoneInput
+                phone={formData.phone}
+                countryCode={formData.countryCode}
+                onPhoneChange={(val) => setFormData(prev => ({ ...prev, phone: val }))}
+                onCountryCodeChange={(code) => setFormData(prev => ({ ...prev, countryCode: code }))}
+                label="Phone Number"
+              />
               <div>
                 <label className="label">Address</label>
                 <div className="relative">

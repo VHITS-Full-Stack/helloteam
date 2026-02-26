@@ -24,6 +24,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     email: '',
     firstName: '',
     lastName: '',
+    countryCode: '+1',
     phone: '',
     address: '',
     hireDate: '',
@@ -86,6 +87,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
               email: emp.user?.email || '',
               firstName: emp.firstName,
               lastName: emp.lastName,
+              countryCode: emp.countryCode || '+1',
               phone: emp.phone || '',
               address: emp.address || '',
               hireDate: emp.hireDate ? emp.hireDate.split('T')[0] : '',
@@ -111,6 +113,17 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
+
+    if (!formData.payableRate) {
+      setError('Payable rate is required');
+      setSubmitting(false);
+      return;
+    }
+    if (!formData.billingRate) {
+      setError('Billing rate is required');
+      setSubmitting(false);
+      return;
+    }
 
     try {
       let response;

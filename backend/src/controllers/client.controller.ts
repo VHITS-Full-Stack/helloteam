@@ -300,11 +300,13 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       companyName,
       contactPerson,
       contacts,
+      countryCode,
       phone,
       address,
       timezone,
       groupId,
       employeeIds,
+      employeePtoOverrides,
       agreementType,
       // Policy fields
       allowPaidLeave,
@@ -317,6 +319,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       allowPaidHolidays,
       paidHolidayType,
       numberOfPaidHolidays,
+      customHolidays,
       allowUnpaidHolidays,
       unpaidHolidayType,
       numberOfUnpaidHolidays,
@@ -365,7 +368,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
     const password = 'Welcome@123';
     const hashedPassword = await hashPassword(password);
 
-    // Create user, client, and policies in transaction
+    // Create user, client, and policies in transaction (30s timeout)
     const result = await prisma.$transaction(async (tx) => {
       // Find the CLIENT dynamic role
       const clientRole = await tx.role.findUnique({ where: { name: 'CLIENT' } });
@@ -390,6 +393,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           userId: user.id,
           companyName,
           contactPerson: primaryContactName,
+          countryCode: countryCode || '+1',
           phone,
           address,
           timezone: timezone || 'UTC',
@@ -398,18 +402,17 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         },
       });
 
-      // Create contact person records
-      for (let i = 0; i < contactsList.length; i++) {
-        const c = contactsList[i];
-        await tx.clientContact.create({
-          data: {
+      // Create contacts (batch)
+      if (contactsList.length > 0) {
+        await tx.clientContact.createMany({
+          data: contactsList.map((c: any, i: number) => ({
             clientId: client.id,
             name: c.name?.trim(),
             position: c.position?.trim() || null,
             phone: c.phone?.trim() || null,
             email: c.email?.trim() || null,
             isPrimary: i === 0,
-          },
+          })),
         });
       }
 
@@ -426,7 +429,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         data: {
           clientId: client.id,
           allowPaidLeave: allowPaidLeave ?? false,
-          paidLeaveEntitlementType,
+          paidLeaveEntitlementType: paidLeaveEntitlementType || 'NONE',
           annualPaidLeaveDays: parseInt(annualPaidLeaveDays, 10) || 0,
           allowUnpaidLeave: allowUnpaidLeave ?? true,
           requireTwoWeeksNotice: requireTwoWeeksNotice ?? true,
@@ -444,6 +447,20 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
         },
       });
+
+      // Create custom holidays (batch)
+      if (paidHolidayType === 'custom' && Array.isArray(customHolidays) && customHolidays.length > 0) {
+        const validHolidays = customHolidays.filter((h: any) => h.date && h.name);
+        if (validHolidays.length > 0) {
+          await tx.clientHoliday.createMany({
+            data: validHolidays.map((h: any) => ({
+              clientId: client.id,
+              date: new Date(h.date),
+              name: h.name.trim(),
+            })),
+          });
+        }
+      }
 
       // Find or create the "Default" group
       let defaultGroup = await tx.group.findFirst({
@@ -475,24 +492,82 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           select: { employeeId: true },
         });
 
-        for (const ge of groupEmployees) {
-          await deactivateOtherClientAssignments(ge.employeeId, client.id, tx);
-          await tx.clientEmployee.upsert({
-            where: { clientId_employeeId: { clientId: client.id, employeeId: ge.employeeId } },
-            create: { clientId: client.id, employeeId: ge.employeeId, isActive: true },
-            update: { isActive: true },
+        const groupEmpIds = groupEmployees.map((ge: any) => ge.employeeId);
+        if (groupEmpIds.length > 0) {
+          // Deactivate other client assignments in bulk
+          await tx.clientEmployee.updateMany({
+            where: {
+              employeeId: { in: groupEmpIds },
+              clientId: { not: client.id },
+              isActive: true,
+            },
+            data: { isActive: false },
           });
+
+          for (const empId of groupEmpIds) {
+            await tx.clientEmployee.upsert({
+              where: { clientId_employeeId: { clientId: client.id, employeeId: empId } },
+              create: { clientId: client.id, employeeId: empId, isActive: true },
+              update: { isActive: true },
+            });
+          }
         }
       }
 
-      // Assign selected employees to this client
+      // Deactivate other client assignments for all selected employees in bulk
+      if (employeeIds.length > 0) {
+        await tx.clientEmployee.updateMany({
+          where: {
+            employeeId: { in: employeeIds },
+            clientId: { not: client.id },
+            isActive: true,
+          },
+          data: { isActive: false },
+        });
+      }
+
+      // Assign selected employees to this client with per-employee PTO overrides
       for (const empId of employeeIds) {
-        await deactivateOtherClientAssignments(empId, client.id, tx);
+        const override = Array.isArray(employeePtoOverrides)
+          ? employeePtoOverrides.find((o: any) => o.employeeId === empId)
+          : undefined;
+
+        const ptoData = {
+            ptoAllowPaidLeave: override?.ptoAllowPaidLeave ?? null,
+            ptoAllowUnpaidLeave: override?.ptoAllowUnpaidLeave ?? null,
+            ptoAllowPaidHolidays: override?.ptoAllowPaidHolidays ?? null,
+            ptoAllowUnpaidHolidays: override?.ptoAllowUnpaidHolidays ?? null,
+            ptoEntitlementType: override?.ptoEntitlementType ?? null,
+            ptoAnnualDays: override?.ptoAnnualDays != null ? parseInt(override.ptoAnnualDays, 10) : null,
+          };
+
         await tx.clientEmployee.upsert({
           where: { clientId_employeeId: { clientId: client.id, employeeId: empId } },
-          create: { clientId: client.id, employeeId: empId, isActive: true },
-          update: { isActive: true },
+          create: {
+            clientId: client.id,
+            employeeId: empId,
+            isActive: true,
+            ...ptoData,
+          },
+          update: {
+            isActive: true,
+            ...ptoData,
+          },
         });
+
+        // Create per-employee custom holidays if provided
+        if (override?.ptoAllowPaidHolidays && override?.paidHolidayType === 'custom' && Array.isArray(override?.customHolidays)) {
+          const validHolidays = override.customHolidays.filter((h: any) => h.date && h.name);
+          if (validHolidays.length > 0) {
+            await tx.clientHoliday.createMany({
+              data: validHolidays.map((h: any) => ({
+                clientId: client.id,
+                date: new Date(h.date),
+                name: h.name.trim(),
+              })),
+            });
+          }
+        }
       }
 
       // Fetch complete client data
@@ -513,7 +588,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       });
 
       return completeClient;
-    });
+    }, { timeout: 30000 });
 
     // Send onboarding email (non-blocking)
     sendClientOnboardingEmail(
@@ -547,6 +622,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       companyName,
       contactPerson,
       contacts,
+      countryCode,
       phone,
       address,
       timezone,
@@ -624,6 +700,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
         data: {
           ...(companyName && { companyName }),
           ...(updatedContactPerson && { contactPerson: updatedContactPerson }),
+          ...(countryCode !== undefined && { countryCode }),
           ...(phone !== undefined && { phone }),
           ...(address !== undefined && { address }),
           ...(timezone && { timezone }),

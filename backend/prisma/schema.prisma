@@ -177,6 +177,7 @@ model Employee {
   firstName        String
   lastName         String
   profilePhoto     String?
+  countryCode      String?          @default("+1")
   phone            String?
   address          String?
   emergencyContact String?
@@ -230,6 +231,7 @@ model Client {
   userId           String           @unique
   companyName      String
   contactPerson    String
+  countryCode      String?          @default("+1")
   phone            String?
   address          String?
   timezone         String           @default("UTC")
@@ -245,6 +247,7 @@ model Client {
   employees      ClientEmployee[]
   groups         ClientGroup[]
   clientPolicies ClientPolicy?
+  holidays       ClientHoliday[]
   timeRecords    TimeRecord[]
   leaveRequests  LeaveRequest[]
   agreement      ClientAgreement?
@@ -346,6 +349,8 @@ model ClientEmployee {
   ptoMaxCarryoverDays      Int?
   ptoCarryoverExpiryMonths Int?
   ptoAllowUnpaidLeave      Boolean?
+  ptoAllowPaidHolidays     Boolean?
+  ptoAllowUnpaidHolidays   Boolean?
 
   client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -415,17 +420,29 @@ model ClientPolicy {
   @@map("client_policies")
 }
 
+model ClientHoliday {
+  id       String   @id @default(uuid())
+  clientId String
+  date     DateTime @db.Date
+  name     String
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@map("client_holidays")
+}
+
 // ============================================
 // ADMIN
 // ============================================
 
 model Admin {
-  id         String   @id @default(uuid())
-  userId     String   @unique
-  firstName  String
-  lastName   String
-  phone      String?
-  department String?
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  countryCode String?  @default("+1")
+  phone       String?
+  department  String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

@@ -27,20 +27,20 @@ function formatCompactDate(date: Date): string {
 // Coordinates calibrated against template grid overlay (Feb 2026)
 const PDF_FIELDS = {
   // Page 0 (Cover) — over yellow placeholder text
-  coverClientName: { page: 0, x: 72, y: 617, size: 14 },
-  coverEmployeeNames: { page: 0, x: 72, y: 595, size: 11 },
-  coverDate: { page: 0, x: 459, y: 732, size: 12 },
-  // Page 1 (Parties) — on underline blanks
-  partiesDate: { page: 1, x: 372, y: 677, size: 11 },
-  businessName: { page: 1, x: 312, y: 502, size: 11 },
-  businessAddress: { page: 1, x: 120, y: 478, size: 11 },
-  businessEIN: { page: 1, x: 168, y: 455, size: 11 },
-  signerName: { page: 1, x: 263, y: 432, size: 11 },
-  signerAddress: { page: 1, x: 120, y: 410, size: 11 },
-  // Page 6 (Signatures) — fields near top of page
-  sigRecipientName: { page: 6, x: 110, y: 598, size: 11 },
-  sigSignerName: { page: 6, x: 355, y: 598, size: 11 },
-  sigDate: { page: 6, x: 345, y: 575, size: 11 },
+  coverClientName: { page: 0, x: 72, y: 609, size: 14 },
+  coverEmployeeNames: { page: 0, x: 72, y: 590, size: 11 },
+  coverDate: { page: 0, x: 438, y: 734, size: 12 },
+  // Page 1 (Parties) — text on white-outed yellow highlights (x aligned to rect start + 2, y = rect.y + 4)
+  partiesDate: { page: 1, x: 380, y: 664, size: 11 },
+  businessName: { page: 1, x: 258, y: 497, size: 11 },
+  businessAddress: { page: 1, x: 120, y: 472, size: 11 },
+  businessEIN: { page: 1, x: 146, y: 447, size: 11 },
+  signerName: { page: 1, x: 210, y: 422, size: 11 },
+  signerAddress: { page: 1, x: 120, y: 397, size: 11 },
+  // Page 6 (Signatures) — Names row at pdf y≈592, Sig/Date row at pdf y≈567
+  sigRecipientName: { page: 6, x: 115, y: 592, size: 10 },
+  sigSignerName: { page: 6, x: 366, y: 592, size: 10 },
+  sigDate: { page: 6, x: 360, y: 567, size: 10 },
   // Page 8 (Exhibit B - Payment)
   ccCardholderName: { page: 8, x: 175, y: 618, size: 10 },
   ccBillingAddress: { page: 8, x: 165, y: 593, size: 10 },
@@ -90,6 +90,7 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
         onboardingStatus: client.onboardingStatus,
         agreementType: client.agreementType,
         companyName: client.companyName,
+        address: client.address,
         contactPerson: client.contactPerson,
         agreement: client.agreement
           ? {
@@ -219,6 +220,8 @@ async function fillPdfWithData(
 ): Promise<PDFDocument> {
   const pdfDoc = await PDFDocument.load(pdfBytes);
   const font = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const boldFont = font;
+  const regularFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const pages = pdfDoc.getPages();
   const today = formatAgreementDate(new Date());
 
@@ -238,9 +241,9 @@ async function fillPdfWithData(
   // Page 0 - Cover: white-out yellow placeholders then draw values
   if (pages.length > 0) {
     // Cover "Insert Client Name" placeholder (yellow highlight)
-    pages[0].drawRectangle({ x: 66, y: 604, width: 210, height: 30, color: rgb(1, 1, 1) });
+    pages[0].drawRectangle({ x: 70, y: 605, width: 108, height: 18, color: rgb(1, 1, 1) });
     // Cover "Insert Date" placeholder (yellow highlight)
-    pages[0].drawRectangle({ x: 438, y: 724, width: 135, height: 22, color: rgb(1, 1, 1) });
+    pages[0].drawRectangle({ x: 436, y: 730, width: 65, height: 18, color: rgb(1, 1, 1) });
   }
   drawText('coverClientName', data.companyName || data.businessName);
   // Employee names on cover page
@@ -250,7 +253,25 @@ async function fillPdfWithData(
   }
   drawText('coverDate', today);
 
-  // Page 1 - Parties
+  // Page 1 - Parties: white-out yellow highlighted placeholder areas
+  // Coordinates extracted from PDF content stream (CTM: 0.75 scale, y-flipped from top)
+  if (pages.length > 1) {
+    const p1 = pages[1];
+    // Date after "entered into as of"
+    p1.drawRectangle({ x: 378, y: 660, width: 102, height: 18, color: rgb(1, 1, 1) });
+    // "Recipient (Business Entity): Name:"
+    p1.drawRectangle({ x: 256, y: 493, width: 136, height: 18, color: rgb(1, 1, 1) });
+    // "Address:"
+    p1.drawRectangle({ x: 118, y: 468, width: 224, height: 18, color: rgb(1, 1, 1) });
+    // "Business EIN:"
+    p1.drawRectangle({ x: 144, y: 443, width: 120, height: 18, color: rgb(1, 1, 1) });
+    // "Signer (Individual) Name:"
+    p1.drawRectangle({ x: 208, y: 418, width: 192, height: 18, color: rgb(1, 1, 1) });
+    // "Signer Address:"
+    p1.drawRectangle({ x: 118, y: 393, width: 224, height: 18, color: rgb(1, 1, 1) });
+    // "Social Security Number:"
+    p1.drawRectangle({ x: 195, y: 368, width: 142, height: 18, color: rgb(1, 1, 1) });
+  }
   drawText('partiesDate', today);
   drawText('businessName', data.businessName);
   // Combine street + city/state/zip for PDF display
@@ -266,13 +287,27 @@ async function fillPdfWithData(
   drawText('sigDate', today);
 
   // Page 7 - Exhibit A (Personnel & Rates)
-  if (data.employees && data.employees.length > 0 && EXHIBIT_A.page < pages.length) {
+  if (EXHIBIT_A.page < pages.length) {
     const exhibitPage = pages[EXHIBIT_A.page];
     const cols = EXHIBIT_A.columns;
-    const rows = Math.min(data.employees.length, EXHIBIT_A.maxRows);
+    const employeeCount = data.employees ? Math.min(data.employees.length, EXHIBIT_A.maxRows) : 0;
 
-    for (let i = 0; i < rows; i++) {
-      const emp = data.employees[i];
+    // White-out unused empty rows (underlines, "$" signs, etc.)
+    // Table rows: 653, 628, 600, 572, 544, 516 (pdf y). "Additional Personnel" text at ~487.
+    if (employeeCount < EXHIBIT_A.maxRows) {
+      const firstEmptyY = EXHIBIT_A.startY - employeeCount * EXHIBIT_A.rowSpacing;
+      // Cover from first empty row top down to just above "Additional Personnel" text (pdf y≈487)
+      exhibitPage.drawRectangle({
+        x: 66,
+        y: 500,
+        width: 484,
+        height: firstEmptyY - 500 + 15,
+        color: rgb(1, 1, 1),
+      });
+    }
+
+    for (let i = 0; i < employeeCount; i++) {
+      const emp = data.employees![i];
       const y = EXHIBIT_A.startY - i * EXHIBIT_A.rowSpacing;
       const sz = EXHIBIT_A.size;
 
@@ -296,35 +331,65 @@ async function fillPdfWithData(
 
   // Page 8 - Exhibit B (Payment)
   const pm = data.paymentMethod;
+  const paymentPage = PDF_FIELDS.ccCardholderName.page < pages.length ? pages[PDF_FIELDS.ccCardholderName.page] : null;
+
+  // White-out unused payment section
+  if (paymentPage && pm === 'credit_card') {
+    // Hide ACH section (Section 2): from "SECTION 2" header down to just above Section 3 header (pdf y=291)
+    paymentPage.drawRectangle({ x: 66, y: 296, width: 484, height: 184, color: rgb(1, 1, 1) });
+  } else if (paymentPage && pm === 'ach') {
+    // Hide Credit Card section (Section 1): from "SECTION 1" header down to "Cardholder Signature"
+    paymentPage.drawRectangle({ x: 66, y: 490, width: 484, height: 220, color: rgb(1, 1, 1) });
+  }
+
   if (pm === 'credit_card' || pm === 'both') {
+    const ccPage = pages[PDF_FIELDS.ccCardholderName.page];
+    const sz = 10;
+    const shift = 26; // Extra space needed for 2 additional city/state/zip rows
+
     drawText('ccCardholderName', data.ccCardholderName);
     drawText('ccBillingAddress', data.ccBillingAddress);
-    drawText('ccCityStateZip', data.ccCity && data.ccState && data.ccZip
-      ? `${data.ccCity}, ${data.ccState} ${data.ccZip}`
-      : data.ccCityStateZip);
-    drawText('ccCardNumber', data.ccCardNumber);
-    drawText('ccExpiration', data.ccExpiration);
-    drawText('ccCVV', data.ccCVV);
 
-    // Card type checkmark (X inside ☐)
-    if (data.ccCardType) {
-      const cardTypePositions: Record<string, number> = {
-        'Visa': 142,
-        'MasterCard': 234,
-        'American Express': 367,
-        'Discover': 510,
-      };
-      const xPos = cardTypePositions[data.ccCardType];
-      if (xPos && PDF_FIELDS.ccCardholderName.page < pages.length) {
-        pages[PDF_FIELDS.ccCardholderName.page].drawText('X', {
-          x: xPos,
-          y: 549,
-          size: 10,
-          font,
-          color: rgb(0, 0, 0),
-        });
+    // White-out from "City, State, ZIP:" line down through "Cardholder Signature" to redraw shifted
+    ccPage.drawRectangle({ x: 66, y: 440, width: 484, height: 135, color: rgb(1, 1, 1) });
+
+    const lx = 72;          // Left align with other labels
+    const valX = 155;       // Value start (after label)
+    const lineEnd = 540;    // Right end of underline
+    const lineColor = rgb(0, 0, 0);
+
+    // Helper: draw bold label + regular underlined value on one row
+    const drawField = (label: string, value: string | undefined, y: number, valOffset = valX) => {
+      ccPage.drawText(label, { x: lx, y, size: sz, font: boldFont, color: lineColor });
+      if (value) {
+        ccPage.drawText(value, { x: valOffset, y, size: sz, font: regularFont, color: lineColor });
       }
+      // Underline under value area
+      ccPage.drawLine({ start: { x: valOffset, y: y - 3 }, end: { x: lineEnd, y: y - 3 }, thickness: 0.5, color: lineColor });
+    };
+
+    // City, State, ZIP on 3 separate rows
+    const cityY = PDF_FIELDS.ccCityStateZip.y; // 570
+    drawField('City:', data.ccCity, cityY);
+    drawField('State:', data.ccState, cityY - 16);
+    drawField('ZIP:', data.ccZip, cityY - 32);
+
+    // Redraw remaining fields shifted down
+    drawField('Card Type:', data.ccCardType, cityY - 52);
+    drawField('Card Number:', data.ccCardNumber, cityY - 68, 170);
+
+    // Expiration and CVV on same row
+    const expY = cityY - 84;
+    ccPage.drawText('Expiration:', { x: lx, y: expY, size: sz, font: boldFont, color: lineColor });
+    if (data.ccExpiration) {
+      ccPage.drawText(data.ccExpiration, { x: 145, y: expY, size: sz, font: regularFont, color: lineColor });
     }
+    ccPage.drawLine({ start: { x: 145, y: expY - 3 }, end: { x: 250, y: expY - 3 }, thickness: 0.5, color: lineColor });
+    ccPage.drawText('CVV:', { x: 270, y: expY, size: sz, font: boldFont, color: lineColor });
+    if (data.ccCVV) {
+      ccPage.drawText(data.ccCVV, { x: 300, y: expY, size: sz, font: regularFont, color: lineColor });
+    }
+    ccPage.drawLine({ start: { x: 300, y: expY - 3 }, end: { x: 400, y: expY - 3 }, thickness: 0.5, color: lineColor });
   }
 
   if (pm === 'ach' || pm === 'both') {

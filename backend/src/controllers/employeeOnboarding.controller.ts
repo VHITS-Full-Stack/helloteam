@@ -16,7 +16,7 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
 
     const employee = await prisma.employee.findUnique({
       where: { userId: req.user.userId },
-      include: { emergencyContacts: true },
+      include: { emergencyContacts: true, user: { select: { email: true } } },
     });
 
     if (!employee) {
@@ -28,6 +28,7 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
       success: true,
       data: {
         onboardingStatus: employee.onboardingStatus,
+        email: employee.user?.email,
         personalEmail: employee.personalEmail,
         phone: employee.phone,
         address: employee.address,
@@ -62,7 +63,7 @@ export const savePersonalInfo = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    const { phone, address, personalEmail } = req.body;
+    const { countryCode, phone, address, personalEmail } = req.body;
 
     if (!phone || !address || !personalEmail) {
       res.status(400).json({ success: false, error: 'Phone, address, and personal email are required' });
@@ -87,7 +88,7 @@ export const savePersonalInfo = async (req: AuthenticatedRequest, res: Response)
 
     await prisma.employee.update({
       where: { id: employee.id },
-      data: { phone, address, personalEmail },
+      data: { countryCode: countryCode || '+1', phone, address, personalEmail },
     });
 
     res.json({ success: true, message: 'Personal info saved' });

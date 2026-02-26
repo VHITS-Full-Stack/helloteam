@@ -529,6 +529,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
       // Employee fields
       firstName,
       lastName,
+      countryCode,
       phone,
       address,
       emergencyContact,
@@ -547,6 +548,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
       // Profile fields
       if (firstName) updateData.firstName = firstName;
       if (lastName) updateData.lastName = lastName;
+      if (countryCode !== undefined) updateData.countryCode = countryCode;
       if (phone !== undefined) updateData.phone = phone;
       if (address !== undefined) updateData.address = address;
       if (emergencyContact !== undefined) updateData.emergencyContact = emergencyContact;
@@ -570,6 +572,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
         data: {
           ...(companyName && { companyName }),
           ...(contactPerson && { contactPerson }),
+          ...(countryCode !== undefined && { countryCode }),
           ...(phone !== undefined && { phone }),
           ...(address !== undefined && { address }),
           ...(timezone && { timezone }),
@@ -581,6 +584,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response): P
         data: {
           ...(firstName && { firstName }),
           ...(lastName && { lastName }),
+          ...(countryCode !== undefined && { countryCode }),
           ...(phone !== undefined && { phone }),
         },
       });

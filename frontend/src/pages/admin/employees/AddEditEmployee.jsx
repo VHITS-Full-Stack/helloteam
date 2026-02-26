@@ -9,6 +9,7 @@ import {
   Card,
   Button,
   Input,
+  PhoneInput,
 } from '../../../components/common';
 import { useEmployeeForm } from '../../../hooks/useEmployeeForm';
 
@@ -123,11 +124,11 @@ const AddEmployee = () => {
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact Information</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input
-                label="Phone"
-                placeholder="Enter phone number"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              <PhoneInput
+                phone={formData.phone}
+                countryCode={formData.countryCode}
+                onPhoneChange={(val) => setFormData({ ...formData, phone: val })}
+                onCountryCodeChange={(code) => setFormData({ ...formData, countryCode: code })}
               />
               <Input
                 label="Address"
@@ -204,6 +205,7 @@ const AddEmployee = () => {
                 placeholder="e.g. 25.00"
                 value={formData.payableRate}
                 onChange={(e) => setFormData({ ...formData, payableRate: e.target.value })}
+                required
               />
               <Input
                 label="Billing Rate ($/hr)"
@@ -213,6 +215,7 @@ const AddEmployee = () => {
                 placeholder="e.g. 45.00"
                 value={formData.billingRate}
                 onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
+                required
               />
             </div>
           </div>

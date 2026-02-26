@@ -84,8 +84,8 @@ const Onboarding = () => {
           const a = response.data.agreement;
           setFormData((prev) => ({
             ...prev,
-            businessName: a.businessName || '',
-            businessAddress: a.businessAddress || '',
+            businessName: a.businessName || response.data.companyName || '',
+            businessAddress: a.businessAddress || response.data.address || '',
             businessCity: a.businessCity || '',
             businessState: a.businessState || '',
             businessZip: a.businessZip || '',
@@ -109,6 +109,13 @@ const Onboarding = () => {
             achRoutingNumber: a.achRoutingNumber || '',
             achAccountNumber: a.achAccountNumber || '',
             achAccountType: a.achAccountType || '',
+          }));
+        } else {
+          // No agreement yet — pre-fill from client profile data
+          setFormData((prev) => ({
+            ...prev,
+            businessName: response.data.companyName || '',
+            businessAddress: response.data.address || '',
           }));
         }
       }
