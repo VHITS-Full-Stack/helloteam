@@ -245,11 +245,11 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       },
       select: {
         id: true,
+        employeeId: true,
         requestedMinutes: true,
         type: true,
         date: true,
         createdAt: true,
-        employee: { select: { firstName: true, lastName: true } },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -262,6 +262,17 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       return;
     }
 
+    // Fetch employee names for all unique employeeIds
+    const employeeIds = [...new Set(unapprovedOT.map(r => r.employeeId))];
+    const employeeRecords = await prisma.employee.findMany({
+      where: { id: { in: employeeIds } },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    const empNameMap: Record<string, string> = {};
+    for (const emp of employeeRecords) {
+      empNameMap[emp.id] = `${emp.firstName} ${emp.lastName}`;
+    }
+
     const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.requestedMinutes, 0);
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
@@ -270,7 +281,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
     // Unique employees with their total unapproved OT
     const empMap: Record<string, { name: string; minutes: number; count: number }> = {};
     for (const r of unapprovedOT) {
-      const name = `${r.employee.firstName} ${r.employee.lastName}`;
+      const name = empNameMap[r.employeeId] || 'Unknown';
       if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
       empMap[name].minutes += r.requestedMinutes;
       empMap[name].count += 1;
