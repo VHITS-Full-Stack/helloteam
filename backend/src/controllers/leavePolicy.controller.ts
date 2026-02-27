@@ -217,6 +217,20 @@ export const updateClientPolicy = async (req: AuthenticatedRequest, res: Respons
       });
     }
 
+    // When holiday config changes at client level, reset all employee holiday
+    // overrides to null so they inherit the updated client policy.
+    // Per-employee overrides can be re-set from PTO config if needed.
+    if (allowPaidHolidays !== undefined || allowUnpaidHolidays !== undefined) {
+      const holidayReset: any = {};
+      if (allowPaidHolidays !== undefined) holidayReset.ptoAllowPaidHolidays = null;
+      if (allowUnpaidHolidays !== undefined) holidayReset.ptoAllowUnpaidHolidays = null;
+
+      await prisma.clientEmployee.updateMany({
+        where: { clientId, isActive: true },
+        data: holidayReset,
+      });
+    }
+
     // Create audit log
     await prisma.auditLog.create({
       data: {

@@ -11,6 +11,7 @@ import {
   Calendar,
   Search,
   RefreshCw,
+  Sun,
 } from 'lucide-react';
 import {
   Card,
@@ -52,6 +53,13 @@ const ClientEmployees = () => {
     getUnassignedEmployees,
     closeRateModal,
     closePtoModal,
+    showHolidayConfigModal,
+    holidayConfigForm,
+    savingHolidayConfig,
+    setHolidayConfigForm,
+    handleOpenHolidayConfig,
+    handleSaveHolidayConfig,
+    closeHolidayConfigModal,
     refresh,
   } = useClientData({ mode: 'detail', id });
 
@@ -117,6 +125,13 @@ const ClientEmployees = () => {
         <div className="flex gap-2">
           <Button variant="outline" icon={RefreshCw} onClick={refresh}>
             Refresh
+          </Button>
+          <Button
+            variant="outline"
+            icon={Sun}
+            onClick={handleOpenHolidayConfig}
+          >
+            Holiday Config
           </Button>
           <Button
             variant="primary"
@@ -467,6 +482,11 @@ const ClientEmployees = () => {
                   {' | '}
                   Unpaid: {ptoFormData.clientDefaults.allowUnpaidLeave ? 'Allowed' : 'Disabled'}
                 </p>
+                <p className="text-sm text-blue-600">
+                  Paid Holidays: {ptoFormData.clientDefaults.allowPaidHolidays ? 'Allowed' : 'Disabled'}
+                  {' | '}
+                  Unpaid Holidays: {ptoFormData.clientDefaults.allowUnpaidHolidays ? 'Allowed' : 'Disabled'}
+                </p>
               </div>
             )}
 
@@ -578,6 +598,39 @@ const ClientEmployees = () => {
                   <option value="false">No</option>
                 </select>
               </div>
+
+              {/* Holiday Settings Divider */}
+              <div className="pt-2 border-t border-gray-200">
+                <p className="text-sm font-medium text-gray-900">Holiday Settings</p>
+              </div>
+
+              {/* Allow Paid Holidays */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Holidays</label>
+                <select
+                  value={ptoFormData.ptoAllowPaidHolidays}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidHolidays: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">Use client default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+
+              {/* Allow Unpaid Holidays */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Holidays</label>
+                <select
+                  value={ptoFormData.ptoAllowUnpaidHolidays}
+                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidHolidays: e.target.value })}
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="">Use client default</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
             </div>
 
             {/* Clear All Overrides */}
@@ -605,6 +658,65 @@ const ClientEmployees = () => {
             </div>
           </form>
         )}
+      </Modal>
+
+      {/* Bulk Holiday Config Modal */}
+      <Modal
+        isOpen={showHolidayConfigModal}
+        onClose={closeHolidayConfigModal}
+        title="Holiday Config — All Employees"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-700">
+              This applies to all employees of <strong>{client?.companyName}</strong>. Use per-employee PTO config (Calendar icon) to override for individual employees.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={holidayConfigForm.allowPaidHolidays}
+                onChange={(e) => setHolidayConfigForm({ ...holidayConfigForm, allowPaidHolidays: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">Allow Paid Holidays</span>
+                <p className="text-xs text-gray-500">Employees will be paid for designated holidays</p>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={holidayConfigForm.allowUnpaidHolidays}
+                onChange={(e) => setHolidayConfigForm({ ...holidayConfigForm, allowUnpaidHolidays: e.target.checked })}
+                className="rounded border-gray-300"
+              />
+              <div>
+                <span className="text-sm font-medium text-gray-900">Allow Unpaid Holidays</span>
+                <p className="text-xs text-gray-500">Employees can take unpaid days off on holidays</p>
+              </div>
+            </label>
+          </div>
+
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={closeHolidayConfigModal} disabled={savingHolidayConfig}>
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleSaveHolidayConfig} loading={savingHolidayConfig}>
+              Save for All Employees
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

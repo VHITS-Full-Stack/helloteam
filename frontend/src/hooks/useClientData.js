@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import clientService from '../services/client.service';
 import employeeService from '../services/employee.service';
 import groupService from '../services/group.service';
+import leavePolicyService from '../services/leavePolicy.service';
 
 /**
  * Custom hook for client data fetching and state management
@@ -213,8 +214,18 @@ function useClientDetail(id) {
     ptoMaxCarryoverDays: '',
     ptoCarryoverExpiryMonths: '',
     ptoAllowUnpaidLeave: '',
+    ptoAllowPaidHolidays: '',
+    ptoAllowUnpaidHolidays: '',
     clientDefaults: null,
   });
+
+  // Bulk holiday config state
+  const [showHolidayConfigModal, setShowHolidayConfigModal] = useState(false);
+  const [holidayConfigForm, setHolidayConfigForm] = useState({
+    allowPaidHolidays: false,
+    allowUnpaidHolidays: false,
+  });
+  const [savingHolidayConfig, setSavingHolidayConfig] = useState(false);
 
   const fetchClient = async () => {
     try {
@@ -426,6 +437,8 @@ function useClientDetail(id) {
           ptoMaxCarryoverDays: override.ptoMaxCarryoverDays !== null ? String(override.ptoMaxCarryoverDays) : '',
           ptoCarryoverExpiryMonths: override.ptoCarryoverExpiryMonths !== null ? String(override.ptoCarryoverExpiryMonths) : '',
           ptoAllowUnpaidLeave: override.ptoAllowUnpaidLeave !== null ? String(override.ptoAllowUnpaidLeave) : '',
+          ptoAllowPaidHolidays: override.ptoAllowPaidHolidays !== null ? String(override.ptoAllowPaidHolidays) : '',
+          ptoAllowUnpaidHolidays: override.ptoAllowUnpaidHolidays !== null ? String(override.ptoAllowUnpaidHolidays) : '',
           clientDefaults,
         });
       }
@@ -438,6 +451,8 @@ function useClientDetail(id) {
         ptoMaxCarryoverDays: '',
         ptoCarryoverExpiryMonths: '',
         ptoAllowUnpaidLeave: '',
+        ptoAllowPaidHolidays: '',
+        ptoAllowUnpaidHolidays: '',
         clientDefaults: null,
       });
     }
@@ -458,6 +473,8 @@ function useClientDetail(id) {
         ptoMaxCarryoverDays: ptoFormData.ptoMaxCarryoverDays,
         ptoCarryoverExpiryMonths: ptoFormData.ptoCarryoverExpiryMonths,
         ptoAllowUnpaidLeave: ptoFormData.ptoAllowUnpaidLeave,
+        ptoAllowPaidHolidays: ptoFormData.ptoAllowPaidHolidays,
+        ptoAllowUnpaidHolidays: ptoFormData.ptoAllowUnpaidHolidays,
       });
 
       if (response.success) {
@@ -466,7 +483,8 @@ function useClientDetail(id) {
         setPtoFormData({
           ptoAllowPaidLeave: '', ptoEntitlementType: '', ptoAnnualDays: '',
           ptoAccrualRatePerMonth: '', ptoMaxCarryoverDays: '', ptoCarryoverExpiryMonths: '',
-          ptoAllowUnpaidLeave: '', clientDefaults: null,
+          ptoAllowUnpaidLeave: '', ptoAllowPaidHolidays: '', ptoAllowUnpaidHolidays: '',
+          clientDefaults: null,
         });
         setError('');
       } else {
@@ -489,12 +507,50 @@ function useClientDetail(id) {
       ptoMaxCarryoverDays: '',
       ptoCarryoverExpiryMonths: '',
       ptoAllowUnpaidLeave: '',
+      ptoAllowPaidHolidays: '',
+      ptoAllowUnpaidHolidays: '',
     }));
   };
 
   const closePtoModal = () => {
     setShowPtoModal(false);
     setSelectedPtoEmployee(null);
+    setError('');
+  };
+
+  // Bulk holiday config handlers
+  const handleOpenHolidayConfig = () => {
+    const policy = client?.clientPolicies;
+    setHolidayConfigForm({
+      allowPaidHolidays: policy?.allowPaidHolidays ?? false,
+      allowUnpaidHolidays: policy?.allowUnpaidHolidays ?? false,
+    });
+    setShowHolidayConfigModal(true);
+  };
+
+  const handleSaveHolidayConfig = async () => {
+    setSavingHolidayConfig(true);
+    setError('');
+    try {
+      const response = await leavePolicyService.updateClientPolicy(id, {
+        allowPaidHolidays: holidayConfigForm.allowPaidHolidays,
+        allowUnpaidHolidays: holidayConfigForm.allowUnpaidHolidays,
+      });
+      if (response.success) {
+        setShowHolidayConfigModal(false);
+        fetchClient();
+      } else {
+        setError(response.error || 'Failed to update holiday config');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to update holiday config');
+    } finally {
+      setSavingHolidayConfig(false);
+    }
+  };
+
+  const closeHolidayConfigModal = () => {
+    setShowHolidayConfigModal(false);
     setError('');
   };
 
@@ -560,6 +616,13 @@ function useClientDetail(id) {
     closeAssignModal,
     closeRateModal,
     closePtoModal,
+    showHolidayConfigModal,
+    holidayConfigForm,
+    savingHolidayConfig,
+    setHolidayConfigForm,
+    handleOpenHolidayConfig,
+    handleSaveHolidayConfig,
+    closeHolidayConfigModal,
     refresh,
   };
 }

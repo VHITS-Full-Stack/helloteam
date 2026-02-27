@@ -37,6 +37,11 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
     autoApproveMinutes: 1440,
+    allowPaidHolidays: false,
+    paidHolidayType: 'federal',
+    numberOfPaidHolidays: 0,
+    customHolidays: [],
+    allowUnpaidHolidays: false,
     defaultHourlyRate: 0,
     defaultOvertimeRate: 0,
     currency: 'USD',
@@ -117,6 +122,14 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
               overtimeRequiresApproval: client.clientPolicies?.overtimeRequiresApproval ?? true,
               autoApproveTimesheets: client.clientPolicies?.autoApproveTimesheets ?? false,
               autoApproveMinutes: client.clientPolicies?.autoApproveMinutes ?? 1440,
+              allowPaidHolidays: client.clientPolicies?.allowPaidHolidays ?? false,
+              paidHolidayType: client.clientPolicies?.paidHolidayType || 'federal',
+              numberOfPaidHolidays: client.clientPolicies?.numberOfPaidHolidays || 0,
+              customHolidays: (client.holidays || []).map((h) => ({
+                date: h.date ? h.date.split('T')[0] : '',
+                name: h.name || '',
+              })),
+              allowUnpaidHolidays: client.clientPolicies?.allowUnpaidHolidays ?? false,
               defaultHourlyRate: client.clientPolicies?.defaultHourlyRate || 0,
               defaultOvertimeRate: client.clientPolicies?.defaultOvertimeRate || 0,
               currency: client.clientPolicies?.currency || 'USD',
@@ -170,25 +183,21 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
         };
 
         const employeeIds = formData.employeeAssignments.map((a) => a.employeeId);
+        // Holiday fields (ptoAllowPaidHolidays, ptoAllowUnpaidHolidays) are NOT sent
+        // as per-employee overrides — they inherit from client policy via ptoResolver.
+        // Per-employee holiday overrides can be set from PTO config.
         const employeePtoOverrides = formData.employeeAssignments.map((a) => ({
           employeeId: a.employeeId,
           ptoAllowPaidLeave: a.allowPaidLeave,
           ptoAllowUnpaidLeave: a.allowUnpaidLeave,
-          ptoAllowPaidHolidays: a.allowPaidHolidays,
-          ptoAllowUnpaidHolidays: a.allowUnpaidHolidays,
           ptoEntitlementType: a.allowPaidLeave ? toEntitlementType(a.paidLeaveType) : null,
           ptoAnnualDays: a.allowPaidLeave ? parseInt(a.annualPaidLeaveDays) || 0 : null,
           requireTwoWeeksNoticePaidLeave: a.requireTwoWeeksNoticePaidLeave,
           requireTwoWeeksNoticeUnpaidLeave: a.requireTwoWeeksNoticeUnpaidLeave,
-          paidHolidayType: a.allowPaidHolidays ? a.paidHolidayType : null,
-          numberOfPaidHolidays: a.allowPaidHolidays ? parseInt(a.numberOfPaidHolidays) || 0 : null,
-          customHolidays: a.allowPaidHolidays && a.paidHolidayType === 'custom' ? a.customHolidays : [],
         }));
         // Derive client-level policy defaults from employee settings
         const anyPaidLeave = formData.employeeAssignments.some((a) => a.allowPaidLeave);
         const anyUnpaidLeave = formData.employeeAssignments.some((a) => a.allowUnpaidLeave);
-        const anyPaidHolidays = formData.employeeAssignments.some((a) => a.allowPaidHolidays);
-        const anyUnpaidHolidays = formData.employeeAssignments.some((a) => a.allowUnpaidHolidays);
         // Use first paid-leave employee's type as the client-level default
         const firstPaidLeaveEmp = formData.employeeAssignments.find((a) => a.allowPaidLeave);
         response = await clientService.createClient({
@@ -200,8 +209,11 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
           paidLeaveEntitlementType: firstPaidLeaveEmp ? toEntitlementType(firstPaidLeaveEmp.paidLeaveType) : 'NONE',
           annualPaidLeaveDays: firstPaidLeaveEmp ? parseInt(firstPaidLeaveEmp.annualPaidLeaveDays) || 0 : 0,
           allowUnpaidLeave: anyUnpaidLeave,
-          allowPaidHolidays: anyPaidHolidays,
-          allowUnpaidHolidays: anyUnpaidHolidays,
+          allowPaidHolidays: formData.allowPaidHolidays,
+          paidHolidayType: formData.allowPaidHolidays ? formData.paidHolidayType : 'federal',
+          numberOfPaidHolidays: formData.allowPaidHolidays ? parseInt(formData.numberOfPaidHolidays) || 0 : 0,
+          customHolidays: formData.allowPaidHolidays && formData.paidHolidayType === 'custom' ? formData.customHolidays : [],
+          allowUnpaidHolidays: formData.allowUnpaidHolidays,
         });
       }
 

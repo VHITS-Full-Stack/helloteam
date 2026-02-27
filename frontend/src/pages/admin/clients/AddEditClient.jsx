@@ -8,6 +8,7 @@ import {
   Trash2,
   Search,
   Settings,
+  Sun,
 } from "lucide-react";
 import { Card, Button, Input, PhoneInput, Modal } from "../../../components/common";
 import { useClientForm } from "../../../hooks/useClientForm";
@@ -51,6 +52,31 @@ const AddClient = () => {
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [ptoModalEmployee, setPtoModalEmployee] = useState(null);
 
+  // Get current holiday config from form to apply to employees
+  const getHolidayDefaults = (fd) => ({
+    allowPaidHolidays: fd.allowPaidHolidays,
+    paidHolidayType: fd.paidHolidayType,
+    numberOfPaidHolidays: fd.numberOfPaidHolidays,
+    customHolidays: fd.customHolidays.map((h) => ({ ...h })),
+    allowUnpaidHolidays: fd.allowUnpaidHolidays,
+  });
+
+  // Sync holiday config changes to all employee assignments
+  const syncHolidayToEmployees = (updates) => {
+    setFormData((prev) => {
+      const merged = { ...prev, ...updates };
+      const holidayFields = getHolidayDefaults(merged);
+      return {
+        ...merged,
+        employeeAssignments: prev.employeeAssignments.map((a) => ({
+          ...a,
+          ...holidayFields,
+          customHolidays: holidayFields.customHolidays.map((h) => ({ ...h })),
+        })),
+      };
+    });
+  };
+
   const toggleEmployee = (emp) => {
     setFormData((prev) => {
       const exists = prev.employeeAssignments.some(
@@ -62,7 +88,7 @@ const AddClient = () => {
           ? prev.employeeAssignments.filter((a) => a.employeeId !== emp.id)
           : [
               ...prev.employeeAssignments,
-              { employeeId: emp.id, ...DEFAULT_PTO },
+              { employeeId: emp.id, ...DEFAULT_PTO, ...getHolidayDefaults(prev) },
             ],
       };
     });
@@ -609,6 +635,133 @@ const AddClient = () => {
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Holiday Configuration */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Sun className="w-4 h-4 text-amber-500" />
+              Holiday Configuration
+            </h3>
+            <p className="text-xs text-gray-400 mb-3">
+              Applies to all assigned employees. Use per-employee PTO Config to override individually.
+            </p>
+            <div className="space-y-3">
+              {/* Paid Holidays */}
+              <div className={`p-3.5 rounded-xl border ${formData.allowPaidHolidays ? 'bg-blue-50/50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-sm font-medium text-gray-900">Paid Holidays</span>
+                  <input
+                    type="checkbox"
+                    checked={formData.allowPaidHolidays}
+                    onChange={(e) => syncHolidayToEmployees({ allowPaidHolidays: e.target.checked })}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                </label>
+                {formData.allowPaidHolidays && (
+                  <div className="mt-3 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Holiday Type</label>
+                        <select
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                          value={formData.paidHolidayType}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const extras = val === 'custom' && formData.customHolidays.length === 0
+                              ? { customHolidays: [{ date: '', name: '' }], numberOfPaidHolidays: 1 }
+                              : val === 'custom'
+                                ? { numberOfPaidHolidays: formData.customHolidays.length }
+                                : {};
+                            syncHolidayToEmployees({ paidHolidayType: val, ...extras });
+                          }}
+                        >
+                          <option value="federal">Federal Holidays</option>
+                          <option value="state">State Holidays</option>
+                          <option value="company">Company Specific</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </div>
+                      {formData.paidHolidayType !== 'custom' && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-600 mb-1">Holidays Per Year</label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={formData.numberOfPaidHolidays}
+                            onChange={(e) => syncHolidayToEmployees({ numberOfPaidHolidays: parseInt(e.target.value, 10) || 0 })}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {formData.paidHolidayType === 'custom' && (
+                      <div className="space-y-2">
+                        {formData.customHolidays.map((holiday, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              min={new Date().toISOString().split('T')[0]}
+                              value={holiday.date}
+                              onChange={(e) => {
+                                const updated = formData.customHolidays.map((h, i) => i === index ? { ...h, date: e.target.value } : h);
+                                syncHolidayToEmployees({ customHolidays: updated });
+                              }}
+                              className="w-36 px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Holiday name"
+                              value={holiday.name}
+                              onChange={(e) => {
+                                const updated = formData.customHolidays.map((h, i) => i === index ? { ...h, name: e.target.value } : h);
+                                syncHolidayToEmployees({ customHolidays: updated });
+                              }}
+                              className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                            />
+                            {formData.customHolidays.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updated = formData.customHolidays.filter((_, i) => i !== index);
+                                  syncHolidayToEmployees({ customHolidays: updated, numberOfPaidHolidays: updated.length });
+                                }}
+                                className="text-gray-300 hover:text-red-500 transition-colors p-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...formData.customHolidays, { date: '', name: '' }];
+                            syncHolidayToEmployees({ customHolidays: updated, numberOfPaidHolidays: updated.length });
+                          }}
+                          className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Add Holiday
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Unpaid Holidays */}
+              <div className={`p-3.5 rounded-xl border ${formData.allowUnpaidHolidays ? 'bg-purple-50/50 border-purple-100' : 'bg-gray-50 border-gray-100'}`}>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-sm font-medium text-gray-900">Unpaid Holidays</span>
+                  <input
+                    type="checkbox"
+                    checked={formData.allowUnpaidHolidays}
+                    onChange={(e) => syncHolidayToEmployees({ allowUnpaidHolidays: e.target.checked })}
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
+                </label>
+              </div>
             </div>
           </div>
 

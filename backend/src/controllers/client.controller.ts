@@ -195,6 +195,7 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
           },
         },
         clientPolicies: true,
+        holidays: { orderBy: { date: 'asc' } },
         agreement: true,
       },
     });
@@ -532,11 +533,14 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           ? employeePtoOverrides.find((o: any) => o.employeeId === empId)
           : undefined;
 
+        // Holiday fields (ptoAllowPaidHolidays, ptoAllowUnpaidHolidays) are always
+        // null here so employees inherit from client policy. Per-employee holiday
+        // overrides can be set later from PTO config.
         const ptoData = {
             ptoAllowPaidLeave: override?.ptoAllowPaidLeave ?? null,
             ptoAllowUnpaidLeave: override?.ptoAllowUnpaidLeave ?? null,
-            ptoAllowPaidHolidays: override?.ptoAllowPaidHolidays ?? null,
-            ptoAllowUnpaidHolidays: override?.ptoAllowUnpaidHolidays ?? null,
+            ptoAllowPaidHolidays: null,
+            ptoAllowUnpaidHolidays: null,
             ptoEntitlementType: override?.ptoEntitlementType ?? null,
             ptoAnnualDays: override?.ptoAnnualDays != null ? parseInt(override.ptoAnnualDays, 10) : null,
           };
@@ -555,19 +559,8 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           },
         });
 
-        // Create per-employee custom holidays if provided
-        if (override?.ptoAllowPaidHolidays && override?.paidHolidayType === 'custom' && Array.isArray(override?.customHolidays)) {
-          const validHolidays = override.customHolidays.filter((h: any) => h.date && h.name);
-          if (validHolidays.length > 0) {
-            await tx.clientHoliday.createMany({
-              data: validHolidays.map((h: any) => ({
-                clientId: client.id,
-                date: new Date(h.date),
-                name: h.name.trim(),
-              })),
-            });
-          }
-        }
+        // Custom holidays are managed at client level (not per-employee).
+        // Per-employee holiday overrides (enable/disable) can be set from PTO config.
       }
 
       // Fetch complete client data
@@ -640,6 +633,11 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       overtimeRequiresApproval,
       autoApproveTimesheets,
       autoApproveMinutes,
+      allowPaidHolidays,
+      paidHolidayType,
+      numberOfPaidHolidays,
+      customHolidays,
+      allowUnpaidHolidays,
       // Rate fields
       defaultHourlyRate,
       defaultOvertimeRate,
@@ -744,6 +742,10 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(overtimeRequiresApproval !== undefined && { overtimeRequiresApproval }),
             ...(autoApproveTimesheets !== undefined && { autoApproveTimesheets }),
             ...(autoApproveMinutes !== undefined && { autoApproveMinutes: parseInt(autoApproveMinutes, 10) || 1440 }),
+            ...(allowPaidHolidays !== undefined && { allowPaidHolidays }),
+            ...(paidHolidayType !== undefined && { paidHolidayType }),
+            ...(numberOfPaidHolidays !== undefined && { numberOfPaidHolidays: parseInt(numberOfPaidHolidays, 10) || 0 }),
+            ...(allowUnpaidHolidays !== undefined && { allowUnpaidHolidays }),
             ...(defaultHourlyRate !== undefined && { defaultHourlyRate: parseFloat(defaultHourlyRate) || 0 }),
             ...(defaultOvertimeRate !== undefined && { defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0 }),
             ...(currency !== undefined && { currency }),
@@ -764,10 +766,46 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             overtimeRequiresApproval: overtimeRequiresApproval ?? true,
             autoApproveTimesheets: autoApproveTimesheets ?? false,
             autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
+            allowPaidHolidays: allowPaidHolidays ?? false,
+            paidHolidayType: paidHolidayType || 'federal',
+            numberOfPaidHolidays: parseInt(numberOfPaidHolidays, 10) || 0,
+            allowUnpaidHolidays: allowUnpaidHolidays ?? false,
             defaultHourlyRate: parseFloat(defaultHourlyRate) || 0,
             defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0,
             currency: currency ?? 'USD',
           },
+        });
+      }
+
+      // Update custom holidays if paid holiday type is custom
+      if (paidHolidayType === 'custom' && Array.isArray(customHolidays)) {
+        await tx.clientHoliday.deleteMany({ where: { clientId: id } });
+        const validHolidays = customHolidays.filter((h: any) => h.date && h.name);
+        if (validHolidays.length > 0) {
+          await tx.clientHoliday.createMany({
+            data: validHolidays.map((h: any) => ({
+              clientId: id,
+              date: new Date(h.date),
+              name: h.name.trim(),
+            })),
+          });
+        }
+      } else if (paidHolidayType !== undefined && paidHolidayType !== 'custom') {
+        // Clear custom holidays when switching away from custom type
+        await tx.clientHoliday.deleteMany({ where: { clientId: id } });
+      }
+
+      // When holiday config changes at client level, reset all employee holiday
+      // overrides to null so they inherit the updated client policy.
+      // Per-employee overrides can be re-set from PTO config if needed.
+      if (allowPaidHolidays !== undefined || allowUnpaidHolidays !== undefined) {
+        const holidayReset: Record<string, null> = {};
+        if (allowPaidHolidays !== undefined) holidayReset.ptoAllowPaidHolidays = null;
+        if (allowUnpaidHolidays !== undefined) holidayReset.ptoAllowUnpaidHolidays = null;
+
+        await tx.clientEmployee.updateMany({
+          where: { clientId: id, isActive: true },
+          data: holidayReset,
         });
       }
 
@@ -1340,6 +1378,8 @@ export const getEmployeePtoConfig = async (req: AuthenticatedRequest, res: Respo
           ptoMaxCarryoverDays: assignment.ptoMaxCarryoverDays,
           ptoCarryoverExpiryMonths: assignment.ptoCarryoverExpiryMonths,
           ptoAllowUnpaidLeave: assignment.ptoAllowUnpaidLeave,
+          ptoAllowPaidHolidays: assignment.ptoAllowPaidHolidays,
+          ptoAllowUnpaidHolidays: assignment.ptoAllowUnpaidHolidays,
         },
         clientDefaults: {
           allowPaidLeave: policy?.allowPaidLeave ?? false,
@@ -1349,6 +1389,8 @@ export const getEmployeePtoConfig = async (req: AuthenticatedRequest, res: Respo
           maxCarryoverDays: policy?.maxCarryoverDays ?? 0,
           carryoverExpiryMonths: policy?.carryoverExpiryMonths ?? null,
           allowUnpaidLeave: policy?.allowUnpaidLeave ?? true,
+          allowPaidHolidays: policy?.allowPaidHolidays ?? false,
+          allowUnpaidHolidays: policy?.allowUnpaidHolidays ?? false,
         },
         effective: effectivePto,
       },
@@ -1372,6 +1414,8 @@ export const updateEmployeePtoConfig = async (req: AuthenticatedRequest, res: Re
       ptoMaxCarryoverDays,
       ptoCarryoverExpiryMonths,
       ptoAllowUnpaidLeave,
+      ptoAllowPaidHolidays,
+      ptoAllowUnpaidHolidays,
     } = req.body;
 
     const assignment = await prisma.clientEmployee.findFirst({
@@ -1399,6 +1443,10 @@ export const updateEmployeePtoConfig = async (req: AuthenticatedRequest, res: Re
           ? parseInt(String(ptoCarryoverExpiryMonths), 10) : null,
         ptoAllowUnpaidLeave: ptoAllowUnpaidLeave !== undefined && ptoAllowUnpaidLeave !== '' && ptoAllowUnpaidLeave !== null
           ? (ptoAllowUnpaidLeave === true || ptoAllowUnpaidLeave === 'true') : null,
+        ptoAllowPaidHolidays: ptoAllowPaidHolidays !== undefined && ptoAllowPaidHolidays !== '' && ptoAllowPaidHolidays !== null
+          ? (ptoAllowPaidHolidays === true || ptoAllowPaidHolidays === 'true') : null,
+        ptoAllowUnpaidHolidays: ptoAllowUnpaidHolidays !== undefined && ptoAllowUnpaidHolidays !== '' && ptoAllowUnpaidHolidays !== null
+          ? (ptoAllowUnpaidHolidays === true || ptoAllowUnpaidHolidays === 'true') : null,
       },
     });
 
