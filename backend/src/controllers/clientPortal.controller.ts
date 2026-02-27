@@ -239,11 +239,23 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
 
     // Query TimeRecord (worked time) — NOT OvertimeRequest (which may include future requests).
     // Spec: "System heavily nags ONLY for worked time not approved yet."
+    // Only show records where overtime is still pending (not already approved/denied).
     const unapprovedOT = await prisma.timeRecord.findMany({
       where: {
         clientId: client.id,
         overtimeMinutes: { gt: 0 },
-        status: 'PENDING',
+        OR: [
+          // Shift extension overtime that is still pending/unapproved
+          {
+            shiftExtensionMinutes: { gt: 0 },
+            shiftExtensionStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] },
+          },
+          // Extra time (early clock-in) overtime that is still pending/unapproved
+          {
+            extraTimeMinutes: { gt: 0 },
+            extraTimeStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] },
+          },
+        ],
       },
       select: {
         id: true,
@@ -252,7 +264,9 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
         date: true,
         createdAt: true,
         shiftExtensionStatus: true,
+        shiftExtensionMinutes: true,
         extraTimeStatus: true,
+        extraTimeMinutes: true,
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -276,7 +290,19 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
       empNameMap[emp.id] = `${emp.firstName} ${emp.lastName}`;
     }
 
-    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + r.overtimeMinutes, 0);
+    // Only count the unapproved portion of overtime for each record
+    const getUnapprovedMinutes = (r: any) => {
+      let mins = 0;
+      if (r.shiftExtensionMinutes > 0 && ['PENDING', 'UNAPPROVED', 'NONE'].includes(r.shiftExtensionStatus)) {
+        mins += r.shiftExtensionMinutes;
+      }
+      if (r.extraTimeMinutes > 0 && ['PENDING', 'UNAPPROVED', 'NONE'].includes(r.extraTimeStatus)) {
+        mins += r.extraTimeMinutes;
+      }
+      return mins;
+    };
+
+    const totalMinutes = unapprovedOT.reduce((sum, r) => sum + getUnapprovedMinutes(r), 0);
     const hrs = Math.floor(totalMinutes / 60);
     const mins = totalMinutes % 60;
     const totalHours = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
@@ -286,7 +312,7 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
     for (const r of unapprovedOT) {
       const name = empNameMap[r.employeeId] || 'Unknown';
       if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
-      empMap[name].minutes += r.overtimeMinutes;
+      empMap[name].minutes += getUnapprovedMinutes(r);
       empMap[name].count += 1;
     }
     const employees = Object.values(empMap).map(e => ({
@@ -985,8 +1011,8 @@ export const requestRevisionTimeRecord = async (req: AuthenticatedRequest, res: 
       return;
     }
 
-    if (timeRecord.status !== 'PENDING') {
-      res.status(400).json({ success: false, error: 'Only pending records can have revisions requested' });
+    if (timeRecord.status === 'REVISION_REQUESTED') {
+      res.status(400).json({ success: false, error: 'Revision has already been requested for this record' });
       return;
     }
 
@@ -1280,6 +1306,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 
     const sessions = await prisma.workSession.findMany({
       where: sessionWhere,
+      orderBy: { startTime: 'asc' },
       include: {
         employee: {
           select: { id: true, firstName: true, lastName: true, profilePhoto: true },
@@ -1296,10 +1323,21 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       sessionsByEmpDate.get(key)!.push(session);
     }
 
-    // Track unique employees from sessions
+    // Track unique employees — include all assigned employees (not just those with sessions)
+    const employeeWhere: any = { id: { in: employeeIds } };
+    if (search) {
+      employeeWhere.OR = [
+        { firstName: { contains: search, mode: 'insensitive' as const } },
+        { lastName: { contains: search, mode: 'insensitive' as const } },
+      ];
+    }
+    const allEmployees = await prisma.employee.findMany({
+      where: employeeWhere,
+      select: { id: true, firstName: true, lastName: true, profilePhoto: true },
+    });
     const employeeMap = new Map<string, { id: string; firstName: string; lastName: string; profilePhoto: string | null }>();
-    for (const session of sessions) {
-      if (!employeeMap.has(session.employeeId)) employeeMap.set(session.employeeId, session.employee);
+    for (const emp of allEmployees) {
+      employeeMap.set(emp.id, emp);
     }
 
     // Fetch actual TimeRecords for the date range to get approval statuses
@@ -1359,6 +1397,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     });
 
     // Build OvertimeRequest lookup: employeeId_dateStr -> overtimeRequest[]
+    // OvertimeRequest.date is also stored as UTC midnight
     const otRequestMap = new Map<string, typeof overtimeRequests>();
     for (const ot of overtimeRequests) {
       const dateStr = toLocalDateStr(ot.date);
@@ -1367,7 +1406,96 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       otRequestMap.get(key)!.push(ot);
     }
 
-    // Generate weekly data per employee (only from actual work sessions)
+    // Fetch schedules for all employees in the date range
+    const schedules = await prisma.schedule.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        isActive: true,
+        effectiveFrom: { lte: endOfDay },
+        OR: [
+          { effectiveTo: null },
+          { effectiveTo: { gte: start } },
+        ],
+      },
+      select: {
+        employeeId: true,
+        dayOfWeek: true,
+        startTime: true,
+        endTime: true,
+        effectiveFrom: true,
+        effectiveTo: true,
+      },
+    });
+
+    // Build schedule lookup: employeeId_dayOfWeek -> schedule (latest effective)
+    const scheduleMap = new Map<string, { startTime: string; endTime: string }>();
+    for (const sched of schedules) {
+      const key = `${sched.employeeId}_${sched.dayOfWeek}`;
+      const existing = scheduleMap.get(key);
+      // Keep the latest effectiveFrom if multiple
+      if (!existing) {
+        scheduleMap.set(key, { startTime: sched.startTime, endTime: sched.endTime });
+      }
+    }
+
+    // Fetch approved leave requests for employees in date range
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        clientId,
+        status: { in: ['APPROVED', 'APPROVED_BY_CLIENT'] },
+        startDate: { lte: endUTC },
+        endDate: { gte: startUTC },
+      },
+      select: {
+        employeeId: true,
+        startDate: true,
+        endDate: true,
+        leaveType: true,
+      },
+    });
+
+    // Build leave lookup: employeeId -> leave ranges
+    const leaveByEmployee = new Map<string, Array<{ startDate: Date; endDate: Date; leaveType: string }>>();
+    for (const lr of leaveRequests) {
+      if (!leaveByEmployee.has(lr.employeeId)) leaveByEmployee.set(lr.employeeId, []);
+      leaveByEmployee.get(lr.employeeId)!.push({
+        startDate: lr.startDate,
+        endDate: lr.endDate,
+        leaveType: lr.leaveType,
+      });
+    }
+
+    const getLeaveForDate = (empId: string, date: Date): { leaveType: string } | null => {
+      const leaves = leaveByEmployee.get(empId);
+      if (!leaves) return null;
+      const dateStr = toLocalDateStr(date);
+      for (const leave of leaves) {
+        const leaveStart = toLocalDateStr(leave.startDate);
+        const leaveEnd = toLocalDateStr(leave.endDate);
+        if (dateStr >= leaveStart && dateStr <= leaveEnd) {
+          return { leaveType: leave.leaveType };
+        }
+      }
+      return null;
+    };
+
+    // Fetch client holidays in date range
+    const clientHolidays = await prisma.clientHoliday.findMany({
+      where: {
+        clientId,
+        date: { gte: startUTC, lte: endUTC },
+      },
+      select: { date: true, name: true },
+    });
+
+    // Build holiday lookup: dateStr -> holiday name
+    const holidayMap = new Map<string, string>();
+    for (const h of clientHolidays) {
+      holidayMap.set(toLocalDateStr(h.date), h.name);
+    }
+
+    // Generate weekly data per employee
     const allDates = getDatesInRange(start, end);
     const dayNames = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
     const employeeRecordsMap = new Map<string, any>();
@@ -1398,7 +1526,51 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         const sessionKey = `${empId}_${dateStr}`;
         const daySessions = sessionsByEmpDate.get(sessionKey);
 
-        if (!daySessions || daySessions.length === 0) continue;
+        // Get scheduled times for this day
+        const schedKey = `${empId}_${dayOfWeek}`;
+        const daySchedule = scheduleMap.get(schedKey);
+
+        // If no work sessions, check for leave/holiday on scheduled days
+        if (!daySessions || daySessions.length === 0) {
+          if (daySchedule) {
+            const leave = getLeaveForDate(empId, date);
+            const holidayName = holidayMap.get(dateStr);
+
+            let dayStatus = 'NOT_STARTED';
+            let dayHolidayName: string | undefined;
+            if (leave) {
+              dayStatus = leave.leaveType === 'PAID' ? 'PAID_LEAVE' : 'UNPAID_LEAVE';
+            } else if (holidayName) {
+              dayStatus = 'HOLIDAY';
+              dayHolidayName = holidayName;
+            }
+
+            empData.records.push({
+              id: `${empId}_${dateStr}_${dayStatus.toLowerCase()}`,
+              timeRecordId: null,
+              date,
+              clockIn: null,
+              clockOut: null,
+              scheduledStart: daySchedule.startTime || null,
+              scheduledEnd: daySchedule.endTime || null,
+              totalMinutes: 0,
+              breakMinutes: 0,
+              overtimeMinutes: 0,
+              shiftExtensionStatus: 'NONE',
+              shiftExtensionMinutes: 0,
+              shiftExtensionReason: null,
+              extraTimeStatus: 'NONE',
+              extraTimeMinutes: 0,
+              extraTimeReason: null,
+              status: dayStatus,
+              ...(dayHolidayName ? { holidayName: dayHolidayName } : {}),
+              overtimeStatus: null,
+              revisionReason: null,
+              overtimeEntries: [],
+            });
+          }
+          continue;
+        }
 
         let sessionMinutes = 0;
         let sessionBreakMinutes = 0;
@@ -1457,6 +1629,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           id: timeRecord ? timeRecord.id : daySessions[0].id,
           timeRecordId: timeRecord ? timeRecord.id : null,
           date,
+          clockIn: daySessions[0]?.startTime || null,
+          clockOut: daySessions[daySessions.length - 1]?.endTime || null,
+          scheduledStart: daySchedule?.startTime || null,
+          scheduledEnd: daySchedule?.endTime || null,
           totalMinutes: effectiveDayMinutes,
           breakMinutes: timeRecord ? (timeRecord.breakMinutes || 0) : sessionBreakMinutes,
           overtimeMinutes: dayOvertime,
@@ -1502,10 +1678,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           ? 'active'
           : (() => {
               const statuses = (emp.records || []).map((r: any) => r.status);
-              if (statuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
-              if (statuses.some((s: string) => s === 'REJECTED')) return 'rejected';
-              if (statuses.some((s: string) => s === 'PENDING')) return 'pending';
-              if (statuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
+              const nonLeaveStatuses = statuses.filter((s: string) => s !== 'PAID_LEAVE' && s !== 'UNPAID_LEAVE' && s !== 'HOLIDAY' && s !== 'NOT_STARTED');
+              if (nonLeaveStatuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
+              if (nonLeaveStatuses.some((s: string) => s === 'REJECTED')) return 'rejected';
+              if (nonLeaveStatuses.some((s: string) => s === 'PENDING')) return 'pending';
+              if (nonLeaveStatuses.length > 0 && nonLeaveStatuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
               return 'pending';
             })(),
       }))
@@ -1898,11 +2075,11 @@ export const bulkRequestRevision = async (req: AuthenticatedRequest, res: Respon
     }
 
     const records = await prisma.timeRecord.findMany({
-      where: { id: { in: recordIds }, clientId: client.id, status: 'PENDING' },
+      where: { id: { in: recordIds }, clientId: client.id, status: { not: 'REVISION_REQUESTED' } },
     });
 
     if (records.length !== recordIds.length) {
-      res.status(400).json({ success: false, error: 'Some records not found or not pending' });
+      res.status(400).json({ success: false, error: 'Some records not found or already have revision requested' });
       return;
     }
 

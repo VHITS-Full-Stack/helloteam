@@ -13,6 +13,7 @@ import {
   RotateCcw,
   FileText,
   Loader2,
+  Timer,
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
@@ -150,11 +151,7 @@ const TimeRecords = () => {
   const formatTime = (dateString) => {
     if (!dateString) return '--:--';
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
   };
 
   const formatDuration = (minutes) => {
@@ -384,22 +381,50 @@ const TimeRecords = () => {
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card padding="sm">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{summary.count}</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Calendar className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Sessions</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.count}</p>
+            </div>
+          </div>
         </Card>
         <Card padding="sm">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{formatDurationShort(summary.totalMinutes)}</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <Clock className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Hours</p>
+              <p className="text-2xl font-bold text-gray-900">{formatDurationShort(summary.totalMinutes)}</p>
+            </div>
+          </div>
         </Card>
         <Card padding="sm">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime</p>
-          <p className={`text-2xl font-bold mt-1 ${summary.overtimeMinutes > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
-            {formatDurationShort(summary.overtimeMinutes)}
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <Timer className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Overtime</p>
+              <p className={`text-2xl font-bold ${summary.overtimeMinutes > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+                {formatDurationShort(summary.overtimeMinutes)}
+              </p>
+            </div>
+          </div>
         </Card>
         <Card padding="sm">
-          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Breaks</p>
-          <p className="text-2xl font-bold text-yellow-600 mt-1">{formatDurationShort(summary.breakMinutes)}</p>
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-yellow-50 rounded-lg">
+              <Coffee className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Breaks</p>
+              <p className="text-2xl font-bold text-yellow-600">{formatDurationShort(summary.breakMinutes)}</p>
+            </div>
+          </div>
         </Card>
       </div>
 
@@ -525,23 +550,28 @@ const TimeRecords = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left py-3 px-5 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Date & Time
+                        <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Date
                         </th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Duration
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Clock In <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span>
                         </th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Clock Out <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span>
+                        </th>
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Total Hours
+                        </th>
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Break
                         </th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Overtime
                         </th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Status
                         </th>
-                        <th className="text-center py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">
-
+                        <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">
                         </th>
                       </tr>
                     </thead>
@@ -557,8 +587,8 @@ const TimeRecords = () => {
                                   : 'hover:bg-gray-50'
                               }`}
                             >
-                              {/* Date & Time (combined) */}
-                              <td className="py-3 px-5">
+                              {/* Date */}
+                              <td className="py-3 px-4">
                                 <div className="flex flex-col gap-0.5">
                                   <div className="flex items-center gap-2">
                                     <span className="font-semibold text-gray-900 text-sm">
@@ -566,50 +596,62 @@ const TimeRecords = () => {
                                     </span>
                                     {getArrivalBadge(session)}
                                   </div>
-                                  <span className="text-sm text-gray-500">
-                                    {isActiveSession(session) ? (
-                                      <span className="text-green-600 font-medium">
-                                        {formatTime(session.startTime)} - Now
-                                      </span>
-                                    ) : session.endTime ? (
-                                      `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
-                                    ) : (
-                                      <span className="italic">Manual</span>
-                                    )}
-                                  </span>
                                   {session.client && (
                                     <span className="text-xs text-gray-400">{session.client.companyName}</span>
                                   )}
                                 </div>
                               </td>
 
-                              {/* Duration */}
-                              <td className="py-3 px-4 text-center">
+                              {/* Clock In */}
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {formatTime(session.startTime)}
+                                </span>
+                              </td>
+
+                              {/* Clock Out */}
+                              <td className="py-3 px-3 text-center">
+                                {isActiveSession(session) ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">
+                                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                    Working
+                                  </span>
+                                ) : session.endTime ? (
+                                  <span className="text-sm font-medium text-gray-900">
+                                    {formatTime(session.endTime)}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-gray-400 italic">Manual</span>
+                                )}
+                              </td>
+
+                              {/* Total Hours */}
+                              <td className="py-3 px-3 text-center">
                                 {isActiveSession(session) ? (
                                   <span className="text-green-600 font-medium text-sm">In Progress</span>
                                 ) : (
-                                  <span className="font-semibold text-gray-900 text-sm">
+                                  <span className="font-bold text-gray-900 text-sm">
                                     {formatDuration(session.totalMinutes)}
                                   </span>
                                 )}
                               </td>
 
                               {/* Break */}
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-3 text-center">
                                 {(session.breakMinutes || session.totalBreakMinutes) > 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-sm text-yellow-600">
+                                  <span className="inline-flex items-center gap-1 text-sm text-yellow-600 font-medium">
                                     <Coffee className="w-3.5 h-3.5" />
                                     {formatDurationShort(session.breakMinutes || session.totalBreakMinutes)}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-300">-</span>
+                                  <span className="text-gray-300">&mdash;</span>
                                 )}
                               </td>
 
                               {/* Overtime */}
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-3 text-center">
                                 {isActiveSession(session) ? (
-                                  <span className="text-gray-300">-</span>
+                                  <span className="text-gray-300">&mdash;</span>
                                 ) : session.overtimeEntries && session.overtimeEntries.length > 0 ? (
                                   <div className="flex flex-col items-center gap-1">
                                     {session.overtimeEntries.map((ot, otIdx) => {
@@ -641,17 +683,17 @@ const TimeRecords = () => {
                                     +{formatDuration(session.overtimeMinutes)}
                                   </span>
                                 ) : (
-                                  <span className="text-gray-300">-</span>
+                                  <span className="text-gray-300">&mdash;</span>
                                 )}
                               </td>
 
                               {/* Status */}
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-3 text-center">
                                 {getStatusBadge(session)}
                               </td>
 
                               {/* Actions */}
-                              <td className="py-3 px-4 text-center">
+                              <td className="py-3 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => handleViewDetail(session)}
@@ -677,7 +719,7 @@ const TimeRecords = () => {
                             {/* Revision requested banner */}
                             {session.approvalStatus === 'REVISION_REQUESTED' && (
                               <tr className="bg-amber-50 border-b border-amber-100">
-                                <td colSpan={6} className="px-5 py-2">
+                                <td colSpan={8} className="px-4 py-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-sm text-amber-700">
                                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -708,7 +750,8 @@ const TimeRecords = () => {
                 </div>
 
                 {/* Mobile Card Layout */}
-                <div className="md:hidden divide-y divide-gray-100">
+                <div className="md:hidden">
+                  <div className="divide-y divide-gray-100">
                   {sessions.map((session) => {
                     const isOT = session.overtimeMinutes > 0;
                     return (
@@ -716,13 +759,18 @@ const TimeRecords = () => {
                         key={session.id}
                         className={`p-4 ${isOT ? 'bg-amber-50/40' : ''}`}
                       >
-                        {/* Top row: date + status */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900 text-sm">
-                              {formatDateHeader(session.startTime)}
-                            </span>
-                            {getArrivalBadge(session)}
+                        {/* Top row: date + status + actions */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold text-gray-900 text-sm">
+                                {formatDateHeader(session.startTime)}
+                              </span>
+                              {getArrivalBadge(session)}
+                            </div>
+                            {session.client && (
+                              <span className="text-xs text-gray-400">{session.client.companyName}</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             {getStatusBadge(session)}
@@ -735,59 +783,64 @@ const TimeRecords = () => {
                           </div>
                         </div>
 
-                        {/* Time range */}
-                        <p className="text-sm text-gray-500 mb-3">
-                          {isActiveSession(session) ? (
-                            <span className="text-green-600 font-medium">{formatTime(session.startTime)} - Now</span>
-                          ) : session.endTime ? (
-                            `${formatTime(session.startTime)} - ${formatTime(session.endTime)}`
-                          ) : (
-                            <span className="italic">Manual entry</span>
-                          )}
-                          {session.client && (
-                            <span className="text-gray-400"> · {session.client.companyName}</span>
-                          )}
-                        </p>
-
-                        {/* Stats row */}
-                        <div className="flex items-center gap-4 text-sm">
+                        {/* 2x2 grid: Clock In, Clock Out, Total Hours, Break */}
+                        <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-lg p-3">
                           <div>
-                            <span className="text-gray-400 text-xs">Duration</span>
-                            <p className="font-semibold text-gray-900">
-                              {isActiveSession(session) ? 'In Progress' : formatDuration(session.totalMinutes)}
-                            </p>
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Clock In</p>
+                            <span className="text-sm font-semibold text-gray-900">{formatTime(session.startTime)}</span>
                           </div>
-                          {(session.breakMinutes || session.totalBreakMinutes) > 0 && (
-                            <div>
-                              <span className="text-gray-400 text-xs">Break</span>
-                              <p className="font-medium text-yellow-600">
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Clock Out</p>
+                            {isActiveSession(session) ? (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700">
+                                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                                Working
+                              </span>
+                            ) : session.endTime ? (
+                              <span className="text-sm font-semibold text-gray-900">{formatTime(session.endTime)}</span>
+                            ) : (
+                              <span className="text-xs text-gray-400 italic">Manual</span>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Total Hours</p>
+                            <span className={`text-sm font-bold ${isActiveSession(session) ? 'text-green-600' : 'text-gray-900'}`}>
+                              {isActiveSession(session) ? 'In Progress' : formatDuration(session.totalMinutes)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">Break</p>
+                            {(session.breakMinutes || session.totalBreakMinutes) > 0 ? (
+                              <span className="inline-flex items-center gap-1 text-sm font-medium text-yellow-600">
+                                <Coffee className="w-3 h-3" />
                                 {formatDurationShort(session.breakMinutes || session.totalBreakMinutes)}
-                              </p>
-                            </div>
-                          )}
-                          {session.overtimeEntries && session.overtimeEntries.length > 0 && (
-                            <div>
-                              <span className="text-gray-400 text-xs">Overtime</span>
-                              <div className="flex flex-col gap-0.5 mt-0.5">
-                                {session.overtimeEntries.map((ot, otIdx) => {
-                                  const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
-                                  const isDenied = ot.status === 'REJECTED';
-                                  const badgeBg = isApproved
-                                    ? 'bg-green-100 text-green-800'
-                                    : isDenied
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-amber-100 text-amber-800';
-                                  const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
-                                  return (
-                                    <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
-                                      +{formatDurationShort(ot.requestedMinutes)} · {badgeLabel}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          )}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-gray-300">&mdash;</span>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Overtime entries */}
+                        {session.overtimeEntries && session.overtimeEntries.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {session.overtimeEntries.map((ot, otIdx) => {
+                              const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                              const isDenied = ot.status === 'REJECTED';
+                              const badgeBg = isApproved
+                                ? 'bg-green-100 text-green-800'
+                                : isDenied
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-amber-100 text-amber-800';
+                              const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
+                              return (
+                                <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
+                                  OT +{formatDurationShort(ot.requestedMinutes)} · {badgeLabel}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         {/* Revision banner */}
                         {session.approvalStatus === 'REVISION_REQUESTED' && (
@@ -812,6 +865,7 @@ const TimeRecords = () => {
                       </div>
                     );
                   })}
+                  </div>
                 </div>
               </>
             )}

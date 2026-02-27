@@ -1007,12 +1007,13 @@ const EmployeeDashboard = () => {
               <div className="flex flex-col items-center gap-4">
                 <div className="text-center">
                   <p className="text-primary-100 text-sm font-medium">
-                    Current Time
+                    New York Time (EST)
                   </p>
                   <p className="text-4xl font-bold mt-1 font-heading">
                     {currentTime.toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
+                      timeZone: "America/New_York",
                     })}
                   </p>
                   <p className="text-primary-200 text-xs mt-1">
@@ -1020,8 +1021,18 @@ const EmployeeDashboard = () => {
                       weekday: "long",
                       month: "short",
                       day: "numeric",
+                      timeZone: "America/New_York",
                     })}
                   </p>
+                  <div className="mt-2 pt-2 border-t border-white/15">
+                    <p className="text-primary-200 text-xs">Your Time</p>
+                    <p className="text-lg font-semibold mt-0.5">
+                      {currentTime.toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </p>
+                  </div>
                 </div>
 
                 {isWorking && (

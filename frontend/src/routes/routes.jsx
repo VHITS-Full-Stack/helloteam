@@ -33,6 +33,7 @@ const Workforce = lazy(() => import('../pages/client/Workforce'));
 const Approvals = lazy(() => import('../pages/client/Approvals'));
 const ClientAnalytics = lazy(() => import('../pages/client/Analytics'));
 const ClientTimeRecords = lazy(() => import('../pages/client/TimeRecords'));
+const ClientTimesheetDetail = lazy(() => import('../pages/client/TimesheetDetail'));
 const Billing = lazy(() => import('../pages/client/Billing'));
 const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
@@ -190,6 +191,7 @@ const AppRoutes = () => {
           <Route path="approvals" element={<Approvals />} />
           <Route path="analytics" element={<ClientAnalytics />} />
           <Route path="time-records" element={<ClientTimeRecords />} />
+          <Route path="time-records/:employeeId" element={<ClientTimesheetDetail />} />
           <Route path="billing" element={<Billing />} />
           <Route path="settings" element={<ClientSettings />} />
           <Route path="profile" element={<ClientProfile />} />
