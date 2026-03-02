@@ -117,17 +117,21 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
     console.log(`[Clock-in] Schedule found:`, schedule ? `startTime=${schedule.startTime}, endTime=${schedule.endTime}, dayOfWeek=${schedule.dayOfWeek}` : 'NONE');
 
-    // Block clock-in if no schedule is assigned for today
+    // Warn on unscheduled day — allow as Extra Time after confirmation
     if (!schedule) {
-      res.status(400).json({
-        success: false,
-        message: 'You do not have a schedule assigned for today. Please contact your administrator.',
-      });
-      return;
+      if (!req.body?.confirmUnscheduledDay) {
+        res.status(200).json({
+          success: false,
+          requiresConfirmation: true,
+          confirmationType: 'UNSCHEDULED_DAY',
+          message: 'You do not have a schedule assigned for today. Clocking in will be recorded as Extra Time and requires client approval.',
+        });
+        return;
+      }
     }
 
     // Check early clock-in (before schedule start), late arrival, and post-shift clock-in (after schedule end)
-    if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+    if (schedule && schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
       const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
       const startTotalMinutes = startHour * 60 + startMinute;
 
@@ -458,8 +462,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         scheduledEnd = buildScheduleTimestamp(clockOutTz, schedule.endTime, now);
       }
 
-      // Detect Extra Time: session started AFTER scheduled end (not a shift extension)
-      const isExtraTime = scheduledEnd && activeSession.startTime > scheduledEnd;
+      // Detect Extra Time: session started AFTER scheduled end, or no schedule exists for the day
+      const isExtraTime = !schedule || (scheduledEnd && activeSession.startTime > scheduledEnd);
 
       // Overtime = early pre-schedule minutes + any hours beyond scheduled duration
       const scheduledDurationMinutes = scheduledEnd && scheduledStart

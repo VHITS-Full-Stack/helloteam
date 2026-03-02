@@ -129,6 +129,8 @@ function useEmployeeDetail(id) {
   const [schedules, setSchedules] = useState([]);
   const [timeStats, setTimeStats] = useState(null);
   const [recentRecords, setRecentRecords] = useState([]);
+  const [employeePtoConfig, setEmployeePtoConfig] = useState(null); // includes holidays
+  const [activeClientHolidays, setActiveClientHolidays] = useState([]);
 
   // Modal states
   const [showTerminateModal, setShowTerminateModal] = useState(false);
@@ -151,6 +153,29 @@ function useEmployeeDetail(id) {
       const empResponse = await api.get(`/employees/${id}`);
       if (empResponse.success) {
         setEmployee(empResponse.data);
+
+        // if the employee is actively assigned to a client, pull their PTO config
+        const activeAssignment = empResponse.data.clientAssignments?.find(a => a.isActive);
+        if (activeAssignment && activeAssignment.client) {
+          try {
+            const ptoResp = await clientService.getEmployeePtoConfig(activeAssignment.client.id, id);
+            if (ptoResp.success) {
+              setEmployeePtoConfig(ptoResp.data);
+            }
+          } catch (ptErr) {
+            console.error('Failed to fetch PTO config:', ptErr);
+          }
+
+          // also grab holidays defined for the client
+          try {
+            const clientResp = await clientService.getClient(activeAssignment.client.id);
+            if (clientResp.success) {
+              setActiveClientHolidays(clientResp.data.holidays || []);
+            }
+          } catch (cErr) {
+            console.error('Failed to fetch client holidays:', cErr);
+          }
+        }
       }
 
       // Fetch employee schedule (non-fatal)
@@ -415,6 +440,8 @@ function useEmployeeDetail(id) {
 
   return {
     employee,
+    employeePtoConfig,
+    activeClientHolidays,
     schedules,
     timeStats,
     recentRecords,

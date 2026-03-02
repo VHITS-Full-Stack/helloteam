@@ -672,10 +672,9 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         totalBreakMins += breakMins;
       }
 
-      const clockIn = new Date(firstSession.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-      const clockOut = lastSession.endTime
-        ? new Date(lastSession.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-        : null;
+      // Use raw datetimes so frontend can convert to EST as needed
+      const clockIn = firstSession.startTime; // Date object -> serialized as ISO
+      const clockOut = lastSession.endTime || null;
       const hours = Math.round(totalWorkMinutes / 60 * 100) / 100;
       const breakHours = Math.round(totalBreakMins / 60 * 100) / 100;
       const recordStatus = hasActive ? 'active' : 'pending';
@@ -696,10 +695,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         const workMins = Math.max(0, sessionMins - breakMins);
         return {
           id: session.id,
-          clockIn: new Date(session.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          clockOut: session.endTime
-            ? new Date(session.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
-            : null,
+          clockIn: session.startTime,
+          clockOut: session.endTime || null,
           hours: Math.round(workMins / 60 * 100) / 100,
           breakMinutes: breakMins,
           status: session.status,

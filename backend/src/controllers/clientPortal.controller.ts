@@ -1575,11 +1575,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         let sessionMinutes = 0;
         let sessionBreakMinutes = 0;
         let hasActive = false;
+        const now = new Date();
         for (const session of daySessions) {
           if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
           const breakMins = session.totalBreakMinutes || 0;
-          const totalMins = session.endTime
-            ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - breakMins
+          const endRef = session.endTime || (session.status === 'ACTIVE' || session.status === 'ON_BREAK' ? now : null);
+          const totalMins = endRef
+            ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
             : 0;
           sessionMinutes += totalMins;
           sessionBreakMinutes += breakMins;

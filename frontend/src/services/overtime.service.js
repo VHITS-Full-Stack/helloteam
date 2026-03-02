@@ -40,8 +40,18 @@ const overtimeService = {
       payload.requestedStartTime = data.requestedStartTime;
       payload.requestedEndTime = data.requestedEndTime;
     } else {
-      // Shift extension: convert requestedHours to requestedMinutes
-      payload.requestedMinutes = Math.round((data.requestedHours || 0) * 60);
+      // Shift extension: prefer start/end times if provided (calculate minutes), otherwise use requestedHours
+      if (data.requestedStartTime && data.requestedEndTime) {
+        const [startH, startM] = (data.requestedStartTime || '').split(':').map(Number);
+        const [endH, endM] = (data.requestedEndTime || '').split(':').map(Number);
+        let diff = (endH * 60 + endM) - (startH * 60 + startM);
+        if (diff <= 0) diff += 24 * 60; // handle overnight
+        payload.requestedMinutes = Math.round(diff);
+        // set estimatedEndTime to help backend notifications
+        payload.estimatedEndTime = data.requestedEndTime;
+      } else {
+        payload.requestedMinutes = Math.round((data.requestedHours || 0) * 60);
+      }
     }
 
     if (data.employeeId) payload.employeeId = data.employeeId;

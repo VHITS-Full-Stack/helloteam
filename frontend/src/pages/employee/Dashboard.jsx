@@ -46,6 +46,7 @@ import {
 } from "../../components/common";
 import workSessionService from "../../services/workSession.service";
 import overtimeService from "../../services/overtime.service";
+import scheduleService from "../../services/schedule.service";
 import notificationService from "../../services/notification.service";
 import taskService from "../../services/task.service";
 import chatService from "../../services/chat.service";
@@ -139,6 +140,7 @@ const EmployeeDashboard = () => {
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
   const [showLateClockInWarning, setShowLateClockInWarning] = useState(false);
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
+  const [showUnscheduledDayWarning, setShowUnscheduledDayWarning] = useState(false);
   const [clockInWarningMessage, setClockInWarningMessage] = useState("");
 
   // Coming soon toast
@@ -428,6 +430,8 @@ const EmployeeDashboard = () => {
           setShowLateArrivalWarning(true);
         } else if (response.confirmationType === "LATE_CLOCK_IN") {
           setShowLateClockInWarning(true);
+        } else if (response.confirmationType === "UNSCHEDULED_DAY") {
+          setShowUnscheduledDayWarning(true);
         } else {
           setShowPostShiftWarning(true);
         }
@@ -487,6 +491,21 @@ const EmployeeDashboard = () => {
       // Post-shift session — suppress shift end popup and mark old notifications as read
       dismissShiftEndPopup();
       markShiftEndNotificationsRead();
+      await fetchWorkSessionData();
+    } catch (err) {
+      setError(err.message || "Failed to clock in");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle confirmed unscheduled day clock-in (extra time)
+  const handleUnscheduledDayClockIn = async () => {
+    try {
+      setActionLoading(true);
+      setShowUnscheduledDayWarning(false);
+      await workSessionService.clockIn({ confirmUnscheduledDay: true });
+      playClockInSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -558,16 +577,21 @@ const EmployeeDashboard = () => {
     setOvertimeError("");
     setOvertimeSuccess("");
 
+    const todayStr = new Date().toISOString().split("T")[0];
     if (!overtimeForm.date || !overtimeForm.reason) {
       setOvertimeError("Please fill in all required fields");
       return;
     }
-
+    // Enforce same-day requests: date must be today
+    if (overtimeForm.date !== todayStr) {
+      setOvertimeError("Overtime requests must be for today only");
+      return;
+    }
     if (
       overtimeForm.type === "SHIFT_EXTENSION" &&
-      !overtimeForm.requestedHours
+      (!overtimeForm.requestedStartTime || !overtimeForm.requestedEndTime)
     ) {
-      setOvertimeError("Please enter the number of hours");
+      setOvertimeError("Please enter start and end times for the extension");
       return;
     }
 
@@ -579,6 +603,45 @@ const EmployeeDashboard = () => {
       return;
     }
 
+    // Validate OFF_SHIFT times are outside schedule
+    if (overtimeForm.type === "OFF_SHIFT" && overtimeForm.requestedStartTime && overtimeForm.requestedEndTime) {
+      try {
+        const selectedDate = new Date(overtimeForm.date + "T00:00:00");
+        const dayOfWeek = selectedDate.getDay(); // 0-6
+        // Calculate week start (Sunday) for the selected date
+        const weekStart = new Date(selectedDate);
+        weekStart.setDate(selectedDate.getDate() - dayOfWeek);
+        const weekStartStr = weekStart.toISOString().split("T")[0];
+
+        const schedRes = await scheduleService.getMySchedule(weekStartStr);
+        if (schedRes.success && schedRes.schedule) {
+          const daySchedule = schedRes.schedule.find((s) => s.dayOfWeek === dayOfWeek);
+          if (daySchedule && daySchedule.isScheduled && daySchedule.startTime && daySchedule.endTime) {
+            const [schedStartH, schedStartM] = daySchedule.startTime.split(":").map(Number);
+            const [schedEndH, schedEndM] = daySchedule.endTime.split(":").map(Number);
+            const schedStartMin = schedStartH * 60 + schedStartM;
+            const schedEndMin = schedEndH * 60 + schedEndM;
+
+            const [reqStartH, reqStartM] = overtimeForm.requestedStartTime.split(":").map(Number);
+            const [reqEndH, reqEndM] = overtimeForm.requestedEndTime.split(":").map(Number);
+            const reqStartMin = reqStartH * 60 + reqStartM;
+            const reqEndMin = reqEndH * 60 + reqEndM;
+
+            // Check overlap: reqStart < schedEnd AND reqEnd > schedStart
+            if (reqStartMin < schedEndMin && reqEndMin > schedStartMin) {
+              setOvertimeError(
+                `The requested time overlaps with your scheduled shift (${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)}). Off-shift overtime must be outside your schedule.`
+              );
+              return;
+            }
+          }
+        }
+      } catch (schedErr) {
+        // If schedule fetch fails, let the backend handle validation
+        console.warn("Could not validate schedule overlap:", schedErr);
+      }
+    }
+
     try {
       setOvertimeLoading(true);
       const requestData = {
@@ -587,11 +650,13 @@ const EmployeeDashboard = () => {
         reason: overtimeForm.reason,
       };
 
-      if (overtimeForm.type === "SHIFT_EXTENSION") {
-        requestData.requestedHours = parseFloat(overtimeForm.requestedHours);
-      } else {
+      // Use start/end times for both SHIFT_EXTENSION and OFF_SHIFT
+      if (overtimeForm.requestedStartTime && overtimeForm.requestedEndTime) {
         requestData.requestedStartTime = overtimeForm.requestedStartTime;
         requestData.requestedEndTime = overtimeForm.requestedEndTime;
+      } else if (overtimeForm.requestedHours) {
+        // fallback for older input (if present)
+        requestData.requestedHours = parseFloat(overtimeForm.requestedHours);
       }
 
       await overtimeService.createOvertimeRequest(requestData);
@@ -1852,34 +1917,50 @@ const EmployeeDashboard = () => {
                     setOvertimeForm({ ...overtimeForm, date: e.target.value })
                   }
                   min={new Date().toISOString().split("T")[0]}
+                  max={new Date().toISOString().split("T")[0]}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
                   required
                 />
               </div>
 
               {overtimeForm.type === "SHIFT_EXTENSION" ? (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Extension Hours
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
-                    max="8"
-                    placeholder="e.g., 2"
-                    value={overtimeForm.requestedHours}
-                    onChange={(e) =>
-                      setOvertimeForm({
-                        ...overtimeForm,
-                        requestedHours: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                    required
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    How many hours past your shift end
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={overtimeForm.requestedStartTime}
+                      onChange={(e) =>
+                        setOvertimeForm({
+                          ...overtimeForm,
+                          requestedStartTime: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={overtimeForm.requestedEndTime}
+                      onChange={(e) =>
+                        setOvertimeForm({
+                          ...overtimeForm,
+                          requestedEndTime: e.target.value,
+                        })
+                      }
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                      required
+                    />
+                  </div>
+                  <p className="col-span-2 text-xs text-gray-500">
+                    Specific time range for the extension (same fields as Off-Shift)
                   </p>
                 </div>
               ) : (
@@ -2216,22 +2297,23 @@ const EmployeeDashboard = () => {
                 </div>
               </div>
               {/* Countdown badge */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full">
+              {/* <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full">
                 <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                 <span className="text-sm font-bold text-red-700 font-mono">
                   {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
                 </span>
-              </div>
+              </div> */}
             </div>
 
             <div className="p-6 space-y-4">
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-amber-800 text-sm font-medium">
                   Your scheduled shift has ended. You will be automatically
-                  clocked out if you don't respond within{" "}
-                  <span className="font-bold">
+                  clocked out 
+                    {/*  if you don't respond within{" "}
+               <span className="font-bold">
                     {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
-                  </span>.
+                  </span>. */}
                 </p>
               </div>
 
@@ -2448,6 +2530,65 @@ const EmployeeDashboard = () => {
                   className="flex-1"
                 >
                   Clock In Early
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unscheduled Day Warning Modal */}
+      {showUnscheduledDayWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-orange-100">
+                  <AlertCircle className="w-6 h-6 text-orange-600" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    No Schedule Today
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    This will be recorded as Extra Time
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowUnscheduledDayWarning(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl mb-6">
+                <p className="text-sm text-orange-800 font-medium mb-2">
+                  You don't have a schedule assigned for today.
+                </p>
+                <p className="text-sm text-orange-700">
+                  All hours worked will be logged as Extra Time and require client approval before they are compensated.
+                </p>
+              </div>
+              <p className="text-sm text-gray-600 mb-6">
+                Do you still want to clock in?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowUnscheduledDayWarning(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="warning"
+                  onClick={handleUnscheduledDayClockIn}
+                  loading={actionLoading}
+                  className="flex-1"
+                >
+                  Clock In as Extra Time
                 </Button>
               </div>
             </div>

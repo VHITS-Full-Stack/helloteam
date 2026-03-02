@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Clock, Users, Download, Filter, Search, Loader2, CheckCircle, XCircle, AlertCircle, Timer, Eye, ChevronDown, ChevronRight, RotateCcw } from 'lucide-react';
+import { Clock, Users, Download, Filter, Search, Loader2, CheckCircle, XCircle, AlertCircle, Timer, Eye, ChevronDown, ChevronRight, ChevronLeft, RotateCcw, Calendar } from 'lucide-react';
 import {
   Card,
   Button,
@@ -38,13 +38,43 @@ const TimeRecords = () => {
   const [revisionReason, setRevisionReason] = useState('');
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
 
+  // Week navigation
+  const [weekStart, setWeekStart] = useState(() => {
+    const now = new Date();
+    const d = new Date(now);
+    d.setDate(now.getDate() - now.getDay()); // Sunday
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  const weekLabel = `${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+  const handlePrevWeek = () => {
+    setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() - 7); return d; });
+  };
+  const handleNextWeek = () => {
+    setWeekStart(prev => { const d = new Date(prev); d.setDate(d.getDate() + 7); return d; });
+  };
+  const handleCurrentWeek = () => {
+    const now = new Date();
+    const d = new Date(now);
+    d.setDate(now.getDate() - now.getDay());
+    d.setHours(0, 0, 0, 0);
+    setWeekStart(d);
+  };
+
   // Compute stats from records
   const totalEmployees = timeRecords.length;
   const activeCount = timeRecords.filter(r => r.status === 'active').length;
   const pendingCount = timeRecords.filter(r => r.status === 'pending').length;
   const approvedCount = timeRecords.filter(r => r.status === 'approved').length;
-  const withOTCount = timeRecords.filter(r => r.overtimeHours > 0).length;
   const needsAttentionCount = timeRecords.filter(r => r.status === 'rejected' || r.status === 'revision_requested').length;
+
+  // Compute hour-based totals
+  const totalRegularHours = timeRecords.reduce((sum, r) => sum + (r.totalHours || 0) - (r.overtimeHours || 0), 0);
+  const totalApprovedOT = timeRecords.reduce((sum, r) => sum + (r.approvedOvertimeHours || 0), 0);
+  const totalUnapprovedOT = timeRecords.reduce((sum, r) => sum + (r.unapprovedOvertimeHours || 0), 0);
 
   const fetchingRef = useRef(false);
   const searchQueryRef = useRef(searchQuery);
@@ -57,7 +87,13 @@ const TimeRecords = () => {
     setLoading(true);
     setError(null);
     try {
+      const startDate = weekStart.toISOString().split('T')[0];
+      const endD = new Date(weekStart);
+      endD.setDate(endD.getDate() + 6);
+      const endDate = endD.toISOString().split('T')[0];
       const response = await clientPortalService.getTimeRecords({
+        startDate,
+        endDate,
         status: statusFilter !== 'all' ? statusFilter.toUpperCase() : undefined,
         search: searchQueryRef.current || undefined,
       });
@@ -74,7 +110,7 @@ const TimeRecords = () => {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [statusFilter]);
+  }, [statusFilter, weekStart]);
 
   useEffect(() => {
     fetchTimeRecords();
@@ -237,11 +273,13 @@ const TimeRecords = () => {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-100/50">
                 <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-6">Date</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Clock In <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span></th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Clock Out</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Regular</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Overtime</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Type</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Clock‑In Time<span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span></th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">	Clock‑Out Time <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span></th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Break Duration</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Regular Hours</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Shift Extension Hours</th>
+                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Off‑Shift / Extra Time</th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Approval Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -250,18 +288,18 @@ const TimeRecords = () => {
                 const isLeaveOrHoliday = status === 'paid_leave' || status === 'unpaid_leave' || status === 'holiday';
                 const otM = rec.overtimeMinutes || 0;
                 const totalM = rec.totalMinutes || 0;
-                const regularM = totalM - otM;
-                const hasOT = otM > 0;
+                const regularM = Math.max(0, totalM - otM);
+                const shiftExtM = (rec.overtimeEntries || []).filter(ot => ot.type === 'SHIFT_EXTENSION').reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                const extraTimeM = (rec.overtimeEntries || []).filter(ot => ot.type === 'OFF_SHIFT').reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
                 const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
                 return (
-                  <tr key={idx} className={hasOT ? 'bg-yellow-50/60' : ''}>
+                  <tr key={idx} className={(shiftExtM > 0 || extraTimeM > 0) ? 'bg-yellow-50/60' : ''}>
                     <td className="py-2.5 px-6 text-sm">
                       <span className="font-medium text-gray-900">{dateLabel}</span>
-                      {hasOT && <p className="text-xs text-orange-500 mt-0.5">OT Request</p>}
                     </td>
                     {isLeaveOrHoliday ? (
-                      <td colSpan={5} className="py-2.5 px-4 text-sm text-center">
+                      <td colSpan={7} className="py-2.5 px-4 text-sm text-center">
                         {getStatusBadge(status)}
                       </td>
                     ) : (
@@ -273,19 +311,19 @@ const TimeRecords = () => {
                           {rec.clockOut ? formatClockTime(rec.clockOut) : <span className="text-gray-400">&mdash;</span>}
                         </td>
                         <td className="py-2.5 px-4 text-sm">
+                          <span className={(rec.breakMinutes || 0) > 0 ? 'font-medium text-yellow-600' : 'text-gray-400'}>{(rec.breakMinutes || 0) > 0 ? formatHours(rec.breakMinutes / 60) : '—'}</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-sm">
                           <span className={regularM > 0 ? 'font-medium text-gray-900' : 'text-gray-400'}>{formatHours(regularM / 60)}</span>
                         </td>
                         <td className="py-2.5 px-4 text-sm">
-                          <span className={hasOT ? 'font-medium text-orange-600' : 'text-gray-400'}>{hasOT ? formatHours(otM / 60) : '—'}</span>
+                          <span className={shiftExtM > 0 ? 'font-medium text-purple-600' : 'text-gray-400'}>{shiftExtM > 0 ? formatHours(shiftExtM / 60) : '—'}</span>
                         </td>
                         <td className="py-2.5 px-4 text-sm">
-                          {hasOT ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Employee Request</span>
-                          ) : status === 'not_started' ? (
-                            <span className="text-gray-400">—</span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">Regular</span>
-                          )}
+                          <span className={extraTimeM > 0 ? 'font-medium text-orange-600' : 'text-gray-400'}>{extraTimeM > 0 ? formatHours(extraTimeM / 60) : '—'}</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-right">
+                          {getStatusBadge(status)}
                         </td>
                       </>
                     )}
@@ -303,34 +341,31 @@ const TimeRecords = () => {
             const isLeaveOrHoliday = status === 'paid_leave' || status === 'unpaid_leave' || status === 'holiday';
             const otM = rec.overtimeMinutes || 0;
             const totalM = rec.totalMinutes || 0;
-            const regularM = totalM - otM;
-            const hasOT = otM > 0;
+            const regularM = Math.max(0, totalM - otM);
+            const shiftExtM = (rec.overtimeEntries || []).filter(ot => ot.type === 'SHIFT_EXTENSION').reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+            const extraTimeM = (rec.overtimeEntries || []).filter(ot => ot.type === 'OFF_SHIFT').reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+            const hasOT = shiftExtM > 0 || extraTimeM > 0;
             const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
             return (
               <div key={idx} className={`px-3 py-2 rounded-lg border ${hasOT ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-100'}`}>
                 <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-sm font-medium text-gray-900">{dateLabel}</span>
-                    {hasOT && <p className="text-xs text-orange-500">OT Request</p>}
-                  </div>
-                  {isLeaveOrHoliday ? getStatusBadge(status) : hasOT ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">Employee Request</span>
-                  ) : status === 'not_started' ? (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Not Started</span>
-                  ) : (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">Regular</span>
-                  )}
+                  <span className="text-sm font-medium text-gray-900">{dateLabel}</span>
+                  {getStatusBadge(status)}
                 </div>
                 {!isLeaveOrHoliday && (
-                  <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                    <span>In: {rec.clockIn ? formatClockTime(rec.clockIn) : '—'}</span>
-                    <span>Out: {rec.clockOut ? formatClockTime(rec.clockOut) : '—'}</span>
-                    <span className="ml-auto text-sm">
-                      <span className={regularM > 0 ? 'font-medium text-gray-900' : 'text-gray-400'}>{formatHours(regularM / 60)}</span>
-                      {hasOT && <span className="ml-2 font-medium text-orange-600">+{formatHours(otM / 60)} OT</span>}
-                    </span>
-                  </div>
+                  <>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                      <span>In: {rec.clockIn ? formatClockTime(rec.clockIn) : '—'}</span>
+                      <span>Out: {rec.clockOut ? formatClockTime(rec.clockOut) : '—'}</span>
+                      {(rec.breakMinutes || 0) > 0 && <span className="text-yellow-600">Break: {formatHours(rec.breakMinutes / 60)}</span>}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-xs">
+                      <span className={regularM > 0 ? 'text-gray-700' : 'text-gray-400'}>Reg: {formatHours(regularM / 60)}</span>
+                      {shiftExtM > 0 && <span className="text-purple-600">Ext: {formatHours(shiftExtM / 60)}</span>}
+                      {extraTimeM > 0 && <span className="text-orange-600">Extra: {formatHours(extraTimeM / 60)}</span>}
+                    </div>
+                  </>
                 )}
               </div>
             );
@@ -414,15 +449,52 @@ const TimeRecords = () => {
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Hour Totals */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <Clock className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total Regular Hours</p>
+              <p className="text-2xl font-bold text-gray-900">{formatHours(totalRegularHours)}</p>
+            </div>
+          </div>
+        </Card>
+        <Card padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-green-50 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Approved Overtime</p>
+              <p className="text-2xl font-bold text-green-600">{totalApprovedOT > 0 ? formatHours(totalApprovedOT) : '0h'}</p>
+            </div>
+          </div>
+        </Card>
+        <Card padding="sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-orange-50 rounded-lg">
+              <AlertCircle className="w-5 h-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Unapproved Overtime</p>
+              <p className="text-2xl font-bold text-orange-600">{totalUnapprovedOT > 0 ? formatHours(totalUnapprovedOT) : '0h'}</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Employee Status Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card padding="sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-50 rounded-lg">
               <Users className="w-5 h-5 text-blue-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Total <span className="normal-case">(Employees)</span></p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Employees</p>
               <p className="text-2xl font-bold text-gray-900">{totalEmployees}</p>
             </div>
           </div>
@@ -430,10 +502,10 @@ const TimeRecords = () => {
         <Card padding="sm">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-50 rounded-lg">
-              <Clock className="w-5 h-5 text-green-600" />
+              <Timer className="w-5 h-5 text-green-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active <span className="normal-case">(Clocked In)</span></p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active</p>
               <p className="text-2xl font-bold text-green-600">{activeCount}</p>
             </div>
           </div>
@@ -462,32 +534,33 @@ const TimeRecords = () => {
         </Card>
         <Card padding="sm">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-lg">
-              <Timer className="w-5 h-5 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">With OT</p>
-              <p className="text-2xl font-bold text-orange-600">{withOTCount}</p>
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
             <div className="p-2 bg-red-50 rounded-lg">
               <XCircle className="w-5 h-5 text-red-600" />
             </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Needs Attention <span className="normal-case">(Rejected)</span></p>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Needs Attention</p>
               <p className="text-2xl font-bold text-red-600">{needsAttentionCount}</p>
             </div>
           </div>
         </Card>
       </div>
 
-      {/* Search and Status Filter */}
+      {/* Week Navigation + Filters */}
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div />
+          <div className="flex items-center gap-3">
+            <button onClick={handlePrevWeek} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <ChevronLeft className="w-5 h-5 text-gray-500" />
+            </button>
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg min-w-[220px] justify-center">
+              <Calendar className="w-4 h-4 text-gray-500" />
+              <span className="font-medium text-gray-900 text-sm">{weekLabel}</span>
+            </div>
+            <button onClick={handleNextWeek} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+              <ChevronRight className="w-5 h-5 text-gray-500" />
+            </button>
+            <Button variant="ghost" size="sm" onClick={handleCurrentWeek}>Today</Button>
+          </div>
           <div className="flex items-center gap-3">
             <select
               value={statusFilter}

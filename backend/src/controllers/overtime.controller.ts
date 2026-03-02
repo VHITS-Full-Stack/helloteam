@@ -213,6 +213,53 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
       });
     }
 
+    // For OFF_SHIFT requests, validate that the requested time is outside the employee's schedule
+    if (overtimeType === 'OFF_SHIFT' && requestedStartTime && requestedEndTime) {
+      const requestDate = new Date(date);
+      const dayOfWeek = requestDate.getUTCDay(); // 0-6
+
+      const schedule = await prisma.schedule.findFirst({
+        where: {
+          employeeId: finalEmployeeId,
+          dayOfWeek,
+          isActive: true,
+          effectiveFrom: { lte: requestDate },
+          OR: [
+            { effectiveTo: null },
+            { effectiveTo: { gte: requestDate } },
+          ],
+        },
+        select: { startTime: true, endTime: true },
+      });
+
+      if (schedule && schedule.startTime && schedule.endTime) {
+        const [schedStartH, schedStartM] = schedule.startTime.split(':').map(Number);
+        const [schedEndH, schedEndM] = schedule.endTime.split(':').map(Number);
+        const schedStartMin = schedStartH * 60 + schedStartM;
+        const schedEndMin = schedEndH * 60 + schedEndM;
+
+        const [reqStartH, reqStartM] = requestedStartTime.split(':').map(Number);
+        const [reqEndH, reqEndM] = requestedEndTime.split(':').map(Number);
+        const reqStartMin = reqStartH * 60 + reqStartM;
+        const reqEndMin = reqEndH * 60 + reqEndM;
+
+        // Check if the requested range overlaps with the schedule
+        // Overlap exists when: reqStart < schedEnd AND reqEnd > schedStart
+        if (reqStartMin < schedEndMin && reqEndMin > schedStartMin) {
+          const formatTime12 = (t: string) => {
+            const [h, m] = t.split(':').map(Number);
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const hr = h % 12 || 12;
+            return `${hr}:${String(m).padStart(2, '0')} ${ampm}`;
+          };
+          return res.status(400).json({
+            success: false,
+            error: `The requested time overlaps with your scheduled shift (${formatTime12(schedule.startTime)} – ${formatTime12(schedule.endTime)}). Off-shift overtime must be outside your schedule.`,
+          });
+        }
+      }
+    }
+
     // Create the overtime request
     const request = await prisma.overtimeRequest.create({
       data: {

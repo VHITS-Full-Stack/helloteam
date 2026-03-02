@@ -19,6 +19,7 @@ import {
   Users,
   Heart,
   Eye,
+  Sun,
 } from 'lucide-react';
 import {
   Card,
@@ -62,6 +63,8 @@ const EmployeeDetail = () => {
 
   const {
     employee,
+    employeePtoConfig,
+    activeClientHolidays,
     schedules,
     timeStats,
     recentRecords,
@@ -403,6 +406,47 @@ const EmployeeDetail = () => {
               </div>
             )}
           </Card>
+
+          {/* Holiday Policy Card */}
+          {employeePtoConfig && employeePtoConfig.effective && (
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                <Sun className="w-4 h-4 text-primary" />
+                Holiday Policy
+              </h3>
+              <InfoRow
+                label="Paid Holidays"
+                value={employeePtoConfig.effective.allowPaidHolidays ? 'Yes' : 'No'}
+                icon={Calendar}
+              />
+              <InfoRow
+                label="Unpaid Holidays"
+                value={employeePtoConfig.effective.allowUnpaidHolidays ? 'Yes' : 'No'}
+                icon={Calendar}
+              />
+              {employeePtoConfig.effective.source && (
+                <InfoRow
+                  label="Source"
+                  value={employeePtoConfig.effective.source === 'employee_override' ? 'Employee override' : 'Client policy'}
+                  icon={Edit}
+                />
+              )}
+
+              {activeClientHolidays && activeClientHolidays.length > 0 && (
+                <>
+                  <h4 className="text-xs font-medium text-gray-500 mt-3 mb-1">Upcoming Holidays</h4>
+                  <ul className="text-sm space-y-1">
+                    {activeClientHolidays.map((h) => (
+                      <li key={h.id} className="flex justify-between">
+                        <span>{formatDate(h.date)}</span>
+                        <span className="text-gray-700 truncate ml-2">{h.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </Card>
+          )}
 
           {/* Time Analytics Card */}
           <Card padding="md">

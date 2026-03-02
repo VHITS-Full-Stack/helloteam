@@ -198,12 +198,45 @@ const TimeRecords = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  // Format clock time to 12h display (handles both 24h and 12h input)
-  const fmtTime = (timeStr) => timeStr ? formatTime12(timeStr) : '-';
+  // Format clock time to 12h display in EST when possible.
+  // If `timeStr` is an ISO datetime string, convert to America/New_York.
+  // If `timeStr` is HH:MM, convert to 12h with formatTime12.
+  const fmtTime = (timeStr) => {
+    if (!timeStr) return '-';
+    // ISO datetime (contains 'T' or 'Z' or full date)
+    if (timeStr.includes('T') || timeStr.includes('Z') || /\d{4}-\d{2}-\d{2}/.test(timeStr)) {
+      try {
+        const d = new Date(timeStr);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
+        }
+      } catch (e) {
+        // fallthrough
+      }
+    }
+    // 24h HH:MM or 12h strings
+    if (/^\d{1,2}:\d{2}$/.test(timeStr) || /AM|PM/i.test(timeStr)) {
+      return formatTime12(timeStr);
+    }
+    return timeStr;
+  };
 
   // Convert 12h time string "HH:MM AM/PM" to 24h "HH:MM" for input
   const to24h = (timeStr) => {
     if (!timeStr) return '';
+    // If it's an ISO datetime, convert using Date
+    if (timeStr.includes('T') || timeStr.includes('Z') || /\d{4}-\d{2}-\d{2}/.test(timeStr)) {
+      const d = new Date(timeStr);
+      if (!isNaN(d.getTime())) {
+        // produce 24h HH:MM in America/New_York
+        return d.toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZone: 'America/New_York',
+        });
+      }
+    }
     // Already 24h format
     if (/^\d{2}:\d{2}$/.test(timeStr)) return timeStr;
     // Parse "HH:MM AM/PM" or "H:MM AM/PM"
@@ -532,12 +565,13 @@ const TimeRecords = () => {
                                   {/* Table Header */}
                                   <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                     <div className="col-span-2 pl-16">Date</div>
-                                    <div className="col-span-2">Time</div>
-                                    <div className="col-span-2">Duration</div>
-                                    <div className="col-span-2">Overtime</div>
-                                    <div className="col-span-1">Break</div>
-                                    <div className="col-span-2">Status</div>
-                                    <div className="col-span-1"></div>
+                                    <div className="col-span-2">Clock‑In Time <span className="text-[9px] font-medium text-gray-400 normal-case">(EST)</span></div>
+                                    <div className="col-span-2">Clock‑Out Time <span className="text-[9px] font-medium text-gray-400 normal-case">(EST)</span></div>
+                                    <div className="col-span-1">Break Duration</div>
+                                    <div className="col-span-1">Regular Hours</div>
+                                    <div className="col-span-1">Shift Extension Hours</div>
+                                    <div className="col-span-1">Off‑Shift / Extra Time</div>
+                                    <div className="col-span-2">Approval Status</div>
                                   </div>
 
                                   {empRecord.dailyRecords.map((day) => (
@@ -559,10 +593,13 @@ const TimeRecords = () => {
                                           )}
                                         </div>
 
-                                        {/* Time */}
+                                        {/* Clock In */}
                                         <div className="col-span-2 text-xs text-gray-600">
                                           {fmtTime(day.clockIn)}
-                                          <span className="text-gray-300 mx-1">→</span>
+                                        </div>
+
+                                        {/* Clock Out */}
+                                        <div className="col-span-2 text-xs text-gray-600">
                                           {day.clockOut ? fmtTime(day.clockOut) : (
                                             day.status === 'active' ? (
                                               <span className="text-green-600 inline-flex items-center gap-1">
@@ -570,50 +607,6 @@ const TimeRecords = () => {
                                                 Now
                                               </span>
                                             ) : '-'
-                                          )}
-                                        </div>
-
-                                        {/* Duration */}
-                                        <div className="col-span-2">
-                                          <span className="font-semibold text-gray-900 text-xs">
-                                            {day.hours != null ? formatHours(day.hours) : '-'}
-                                          </span>
-                                        </div>
-
-                                        {/* Overtime */}
-                                        <div className="col-span-2">
-                                          {day.overtimeEntries && day.overtimeEntries.length > 0 ? (
-                                            <div className="flex flex-col gap-1">
-                                              {day.overtimeEntries.map((ot, otIdx) => {
-                                                const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
-                                                const isDenied = ot.status === 'REJECTED';
-                                                const badgeBg = isApproved
-                                                  ? 'bg-green-100 text-green-800'
-                                                  : isDenied
-                                                  ? 'bg-red-100 text-red-800'
-                                                  : 'bg-amber-100 text-amber-800';
-                                                const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
-                                                const timeRange = ot.type === 'OFF_SHIFT'
-                                                  ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
-                                                  : ot.estimatedEndTime ? `until ${formatTime12(ot.estimatedEndTime)}` : '';
-                                                return (
-                                                  <div key={ot.id || otIdx} className="flex flex-col gap-0.5">
-                                                    <span className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded w-fit ${badgeBg}`}>
-                                                      +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
-                                                    </span>
-                                                    {timeRange && (
-                                                      <span className="text-[9px] text-gray-400">{timeRange}</span>
-                                                    )}
-                                                  </div>
-                                                );
-                                              })}
-                                            </div>
-                                          ) : day.overtimeHours > 0 ? (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 w-fit">
-                                              +{formatHours(day.overtimeHours)}
-                                            </span>
-                                          ) : (
-                                            <span className="text-gray-300 text-xs">-</span>
                                           )}
                                         </div>
 
@@ -629,28 +622,63 @@ const TimeRecords = () => {
                                           )}
                                         </div>
 
-                                        {/* Status */}
-                                        <div className="col-span-2">
-                                          {getStatusBadge(day.status)}
-                                          {day.notes && (
-                                            <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[130px]" title={day.notes}>
-                                              {day.notes}
-                                            </p>
+                                        {/* Regular Hours */}
+                                        <div className="col-span-1">
+                                          <span className="font-semibold text-gray-900 text-xs">
+                                            {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
+                                          </span>
+                                        </div>
+
+                                        {/* Shift Extension */}
+                                        <div className="col-span-1">
+                                          {day.overtimeEntries && day.overtimeEntries.some(o => o.type === 'SHIFT_EXTENSION') ? (
+                                            <div>
+                                              {day.overtimeEntries.filter(o => o.type === 'SHIFT_EXTENSION').map((ot, i) => (
+                                                <div key={i} className="text-[10px] text-purple-600">{formatDuration(ot.requestedMinutes)}</div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
                                           )}
                                         </div>
 
-                                        {/* Actions */}
-                                        <div className="col-span-1 text-right">
-                                          <button
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              handleAdjust(day, empRecord);
-                                            }}
-                                            className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
-                                            title="Adjust"
-                                          >
-                                            <Edit className="w-3.5 h-3.5" />
-                                          </button>
+                                        {/* Off-Shift / Extra Time */}
+                                        <div className="col-span-1">
+                                          {day.overtimeEntries && day.overtimeEntries.some(o => o.type === 'OFF_SHIFT') ? (
+                                            <div>
+                                              {day.overtimeEntries.filter(o => o.type === 'OFF_SHIFT').map((ot, i) => (
+                                                <div key={i} className="text-[10px] text-orange-600">{formatDuration(ot.requestedMinutes)}</div>
+                                              ))}
+                                            </div>
+                                          ) : day.overtimeHours > 0 ? (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 w-fit">+{formatHours(day.overtimeHours)}</span>
+                                          ) : (
+                                            <span className="text-gray-300 text-xs">-</span>
+                                          )}
+                                        </div>
+
+                                        {/* Status + Actions (combined) */}
+                                        <div className="col-span-2 flex items-center justify-between">
+                                          <div>
+                                            {getStatusBadge(day.status)}
+                                            {day.notes && (
+                                              <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[130px]" title={day.notes}>
+                                                {day.notes}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="text-right">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleAdjust(day, empRecord);
+                                              }}
+                                              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                                              title="Adjust"
+                                            >
+                                              <Edit className="w-3.5 h-3.5" />
+                                            </button>
+                                          </div>
                                         </div>
                                       </div>
 
