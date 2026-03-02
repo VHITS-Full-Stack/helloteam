@@ -383,11 +383,23 @@ const EmployeeDashboard = () => {
     return () => clearInterval(quoteTimer);
   }, []);
 
-  const formatDurationWithSeconds = (startTime) => {
+  const formatDurationWithSeconds = (startTime, breaks) => {
     if (!startTime) return "00:00:00";
     const start = new Date(startTime);
     const now = new Date();
-    const totalSeconds = Math.floor((now.getTime() - start.getTime()) / 1000);
+    let breakSeconds = 0;
+    if (breaks && breaks.length > 0) {
+      for (const brk of breaks) {
+        const brkStart = new Date(brk.startTime);
+        if (brk.endTime) {
+          breakSeconds += Math.floor((new Date(brk.endTime).getTime() - brkStart.getTime()) / 1000);
+        } else {
+          // Ongoing break — count time so far
+          breakSeconds += Math.floor((now.getTime() - brkStart.getTime()) / 1000);
+        }
+      }
+    }
+    const totalSeconds = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000) - breakSeconds);
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
@@ -1041,9 +1053,9 @@ const EmployeeDashboard = () => {
                       {isOnBreak ? "On Break" : isInExtension ? "Shift Extension" : "Active Session"}
                     </p>
                     <p className="text-2xl font-bold text-white font-mono">
-                      {formatDurationWithSeconds(
-                        sessionData?.session?.startTime,
-                      )}
+                      {isOnBreak && sessionData?.session?.currentBreak
+                        ? formatDurationWithSeconds(sessionData.session.currentBreak.startTime)
+                        : formatDurationWithSeconds(sessionData?.session?.startTime, sessionData?.session?.breaks)}
                     </p>
                   </div>
                 )}

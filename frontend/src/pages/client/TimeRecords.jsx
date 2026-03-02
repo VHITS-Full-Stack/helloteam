@@ -252,7 +252,7 @@ const TimeRecords = () => {
                 const totalM = rec.totalMinutes || 0;
                 const regularM = totalM - otM;
                 const hasOT = otM > 0;
-                const dateLabel = `${dayNames[rec.dayOfWeek]} ${rec.dateObj.getUTCMonth() + 1}/${String(rec.dateObj.getUTCDate()).padStart(2, '0')}`;
+                const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
                 return (
                   <tr key={idx} className={hasOT ? 'bg-yellow-50/60' : ''}>
@@ -305,7 +305,7 @@ const TimeRecords = () => {
             const totalM = rec.totalMinutes || 0;
             const regularM = totalM - otM;
             const hasOT = otM > 0;
-            const dateLabel = `${dayNames[rec.dayOfWeek]} ${rec.dateObj.getUTCMonth() + 1}/${String(rec.dateObj.getUTCDate()).padStart(2, '0')}`;
+            const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
             return (
               <div key={idx} className={`px-3 py-2 rounded-lg border ${hasOT ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-100'}`}>

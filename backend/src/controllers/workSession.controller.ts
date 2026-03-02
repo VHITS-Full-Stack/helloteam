@@ -246,7 +246,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
       if (timeDiffMinutes < 0) {
         arrivalStatus = 'Early';
-      } else if (timeDiffMinutes <= 5) {
+      } else if (timeDiffMinutes < 1) {
         arrivalStatus = 'On Time';
       } else {
         arrivalStatus = 'Late';

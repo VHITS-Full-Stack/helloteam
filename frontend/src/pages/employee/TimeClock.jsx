@@ -116,11 +116,23 @@ const TimeClock = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
-  const formatDurationWithSeconds = (startTime) => {
+  const formatDurationWithSeconds = (startTime, breaks) => {
     if (!startTime) return '00:00:00';
     const start = new Date(startTime);
     const now = new Date();
-    const totalSeconds = Math.floor((now.getTime() - start.getTime()) / 1000);
+    let breakSeconds = 0;
+    if (breaks && breaks.length > 0) {
+      for (const brk of breaks) {
+        const brkStart = new Date(brk.startTime);
+        if (brk.endTime) {
+          breakSeconds += Math.floor((new Date(brk.endTime).getTime() - brkStart.getTime()) / 1000);
+        } else {
+          // Ongoing break — count time so far
+          breakSeconds += Math.floor((now.getTime() - brkStart.getTime()) / 1000);
+        }
+      }
+    }
+    const totalSeconds = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000) - breakSeconds);
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
@@ -371,13 +383,10 @@ const TimeClock = () => {
                   <div className="text-center bg-white/10 rounded-xl p-4 w-full">
                     <p className="text-primary-100 text-xs mb-1">Session Duration</p>
                     <p className="text-3xl font-bold font-mono">
-                      {formatDurationWithSeconds(sessionData.session?.startTime)}
+                      {sessionData.session?.status === 'ON_BREAK' && sessionData.session?.currentBreak
+                        ? formatDurationWithSeconds(sessionData.session.currentBreak.startTime)
+                        : formatDurationWithSeconds(sessionData.session?.startTime, sessionData.session?.breaks)}
                     </p>
-                    {sessionData.session?.currentBreak && (
-                      <p className="text-yellow-300 text-sm mt-1">
-                        Break: {formatDurationWithSeconds(sessionData.session.currentBreak.startTime)}
-                      </p>
-                    )}
                   </div>
 
                   {/* Break Button */}

@@ -374,7 +374,7 @@ const TimesheetDetail = () => {
                             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
                           const regularM = totalM - otM;
                           const displayTotal = regularM + approvedOtM;
-                          const dateLabel = `${dayNames[dayOfWeek]} ${month + 1}/${String(day).padStart(2, '0')}`;
+                          const dateLabel = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                           const schedStart = formatScheduleTime(rec?.scheduledStart);
                           const schedEnd = formatScheduleTime(rec?.scheduledEnd);
 
@@ -476,7 +476,7 @@ const TimesheetDetail = () => {
                         .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
                       const regularM = totalM - otM;
                       const displayTotal = regularM + approvedOtM;
-                      const dateLabel = `${dayNames[dayOfWeek]} ${month + 1}/${String(day).padStart(2, '0')}`;
+                      const dateLabel = date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                       const schedStart = formatScheduleTime(rec?.scheduledStart);
                       const schedEnd = formatScheduleTime(rec?.scheduledEnd);
 
