@@ -51,6 +51,10 @@ const TimesheetDetail = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
+  const [showOTApproveModal, setShowOTApproveModal] = useState(false);
+  const [showOTRejectModal, setShowOTRejectModal] = useState(false);
+  const [selectedOTRecord, setSelectedOTRecord] = useState(null);
+  const [otRejectReason, setOtRejectReason] = useState("");
 
   // Fetch data from API
   const fetchData = useCallback(async () => {
@@ -143,6 +147,67 @@ const TimesheetDetail = () => {
       }
     } catch (err) {
       setError(err.message || "Failed to request revision");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveOvertime = (dayRecord) => {
+    if (!dayRecord?.timeRecordId) return;
+    setSelectedOTRecord(dayRecord);
+    setShowOTApproveModal(true);
+  };
+
+  const handleRejectOvertime = (dayRecord) => {
+    if (!dayRecord?.timeRecordId) return;
+    setSelectedOTRecord(dayRecord);
+    setOtRejectReason("");
+    setShowOTRejectModal(true);
+  };
+
+  const confirmApproveOvertime = async () => {
+    if (!selectedOTRecord?.timeRecordId) return;
+    try {
+      setActionLoading(true);
+      const response = await clientPortalService.approveTimeRecord(
+        selectedOTRecord.timeRecordId,
+      );
+      if (response.success) {
+        setShowOTApproveModal(false);
+        setSelectedOTRecord(null);
+        await fetchData();
+      } else {
+        setError(response.error || "Failed to approve overtime");
+      }
+    } catch (err) {
+      setError(
+        err?.error || err?.message || "Failed to approve overtime",
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const confirmRejectOvertime = async () => {
+    if (!selectedOTRecord?.timeRecordId || !otRejectReason.trim()) return;
+    try {
+      setActionLoading(true);
+      const response = await clientPortalService.rejectTimeRecord(
+        selectedOTRecord.timeRecordId,
+        otRejectReason.trim(),
+      );
+      if (response.success) {
+        setShowOTRejectModal(false);
+        setSelectedOTRecord(null);
+        setOtRejectReason("");
+        await fetchData();
+      } else {
+        setError(response.error || "Failed to deny overtime");
+      }
+    } catch (err) {
+      setError(
+        err?.error || err?.message || "Failed to deny overtime",
+      );
     } finally {
       setActionLoading(false);
     }
@@ -549,8 +614,6 @@ const TimesheetDetail = () => {
                             return getStatusBadge(recStatus);
                           };
 
-                          const otAllApproved = hasOT && approvedOtM === otM;
-
                           rows.push(
                             <tr key={day} className={rowBg}>
                               <td className="py-3 px-5 text-sm">
@@ -684,7 +747,27 @@ const TimesheetDetail = () => {
                                     </span>
                                   </td>
                                   <td className="py-3 px-5 text-right">
-                                    {getRowStatus()}
+                                    <div className="flex items-center justify-end gap-2">
+                                      {getRowStatus()}
+                                      {hasOT && recStatus === "pending" && rec?.timeRecordId && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleApproveOvertime(rec)}
+                                            className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                                          >
+                                            Approve OT
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRejectOvertime(rec)}
+                                            className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                          >
+                                            Deny OT
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
                                   </td>
                                 </>
                               )}
@@ -790,7 +873,6 @@ const TimesheetDetail = () => {
                       const schedEnd = formatScheduleTime(rec?.scheduledEnd);
 
                       const hasOT = otM > 0;
-                      const otAllApproved = hasOT && approvedOtM === otM;
                       const cardBg = isLeaveOrHoliday
                         ? "bg-gray-50"
                         : hasOT
@@ -816,11 +898,31 @@ const TimesheetDetail = () => {
                           key={day}
                           className={`px-3 py-2.5 rounded-lg border ${cardBg}`}
                         >
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-between gap-2">
                             <span className="text-sm font-medium text-gray-900">
                               {dateLabel}
                             </span>
-                            {getMobileStatus()}
+                            <div className="flex items-center gap-2">
+                              {getMobileStatus()}
+                              {hasOT && recStatus === "pending" && rec?.timeRecordId && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApproveOvertime(rec)}
+                                    className="px-2 py-1 rounded-md text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRejectOvertime(rec)}
+                                    className="px-2 py-1 rounded-md text-[11px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                  >
+                                    Deny
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
                           {schedStart && schedEnd && (
                             <p className="text-xs text-gray-400 mt-1">
@@ -1040,6 +1142,101 @@ const TimesheetDetail = () => {
               >
                 {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Submit Revision Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overtime Approval Modal */}
+      {showOTApproveModal && selectedOTRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowOTApproveModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Approve Overtime
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Are you sure you want to approve overtime for{" "}
+              <span className="font-semibold">
+                {new Date(selectedOTRecord.date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              ?
+            </p>
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowOTApproveModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApproveOvertime}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {actionLoading ? "Approving..." : "Approve Overtime"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overtime Deny Modal */}
+      {showOTRejectModal && selectedOTRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowOTRejectModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Deny Overtime
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Please provide a reason for denying overtime on{" "}
+              <span className="font-semibold">
+                {new Date(selectedOTRecord.date).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+              . The employee will be notified.
+            </p>
+            <textarea
+              value={otRejectReason}
+              onChange={(e) => setOtRejectReason(e.target.value)}
+              placeholder="Enter reason for denial..."
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowOTRejectModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={actionLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectOvertime}
+                disabled={actionLoading || !otRejectReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {actionLoading ? "Submitting..." : "Deny Overtime"}
               </button>
             </div>
           </div>

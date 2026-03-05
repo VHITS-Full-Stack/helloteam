@@ -20,6 +20,10 @@ import {
   Heart,
   Eye,
   Sun,
+  FileText,
+  CheckCircle,
+  XCircle,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Card,
@@ -50,6 +54,13 @@ const EmployeeDetail = () => {
   const navigate = useNavigate();
   const { impersonate, user: currentUser } = useAuth();
   const [impersonating, setImpersonating] = useState(false);
+  const [showDocumentsModal, setShowDocumentsModal] = useState(false);
+  const [rejectingDoc, setRejectingDoc] = useState(null); // which doc key is being rejected
+  const [rejectReason, setRejectReason] = useState('');
+  const [reviewingDoc, setReviewingDoc] = useState(null); // which doc key is currently loading
+  const [rejectAllReason, setRejectAllReason] = useState('');
+  const [showRejectAll, setShowRejectAll] = useState(false);
+  const [bulkAction, setBulkAction] = useState(null); // 'approving' | 'rejecting'
 
   const handleImpersonate = async () => {
     if (!employee?.user?.id) return;
@@ -100,6 +111,11 @@ const EmployeeDetail = () => {
     // Shared
     submitting,
     modalError,
+    approveKyc,
+    rejectKyc,
+    reviewDocument,
+    finalizeKycReview,
+    refresh,
   } = useEmployeeData({ mode: 'detail', id });
 
   const getStatusBadge = () => {
@@ -151,6 +167,7 @@ const EmployeeDetail = () => {
   const groupAssignment = employee.groupAssignments?.[0];
   const isTerminated = !!employee.terminationDate;
   const isPendingOnboarding = employee.onboardingStatus === 'PENDING_AGREEMENT';
+  const kycStatus = employee.kycStatus || 'PENDING';
 
   // Billing rate resolution
   const billingRateDisplay = employee.billingRate
@@ -246,6 +263,40 @@ const EmployeeDetail = () => {
           <p className="text-sm text-yellow-700">Employee onboarding is pending — agreement not yet completed.</p>
         </div>
       )}
+      {/* KYC Status */}
+      <Card padding="sm">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</p>
+            <p className="text-sm text-gray-700 mt-1">
+              {kycStatus === 'APPROVED' && 'All identity documents have been approved. Employee can access the portal.'}
+              {kycStatus === 'PENDING' && 'KYC review is pending. Employee cannot access the portal until KYC is approved.'}
+              {kycStatus === 'REJECTED' && 'KYC was rejected. Employee has been emailed to re-upload documents.'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant={
+                kycStatus === 'APPROVED'
+                  ? 'success'
+                  : kycStatus === 'REJECTED'
+                    ? 'error'
+                    : 'warning'
+              }
+            >
+              {kycStatus}
+            </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={FileText}
+              onClick={() => setShowDocumentsModal(true)}
+            >
+              Review Documents
+            </Button>
+          </div>
+        </div>
+      </Card>
       {isTerminated && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
           <UserX className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -677,6 +728,240 @@ const EmployeeDetail = () => {
               Assign
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* ── Review Documents Modal ── */}
+      <Modal
+        isOpen={showDocumentsModal}
+        onClose={() => { setShowDocumentsModal(false); setRejectingDoc(null); setRejectReason(''); setReviewingDoc(null); setShowRejectAll(false); setRejectAllReason(''); setBulkAction(null); }}
+        title="Review KYC Documents"
+        size="xl"
+      >
+        <div className="space-y-5">
+          {/* Overall KYC Status banner */}
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${
+            kycStatus === 'APPROVED' ? 'bg-green-50 text-green-700' :
+            kycStatus === 'REJECTED' ? 'bg-red-50 text-red-700' :
+            'bg-yellow-50 text-yellow-700'
+          }`}>
+            {kycStatus === 'APPROVED' && <CheckCircle className="w-4 h-4" />}
+            {kycStatus === 'REJECTED' && <XCircle className="w-4 h-4" />}
+            {kycStatus === 'PENDING' && <AlertCircle className="w-4 h-4" />}
+            <span className="font-medium">Overall KYC Status: {kycStatus}</span>
+          </div>
+
+          {/* Document Cards with per-document review */}
+          {[
+            { key: 'governmentId', label: 'Government ID #1', type: employee.governmentIdType, url: employee.governmentIdUrl, status: employee.governmentIdStatus || 'PENDING', rejectNote: employee.governmentIdRejectNote },
+            { key: 'governmentId2', label: 'Government ID #2', type: employee.governmentId2Type, url: employee.governmentId2Url, status: employee.governmentId2Status || 'PENDING', rejectNote: employee.governmentId2RejectNote },
+            { key: 'proofOfAddress', label: 'Proof of Address', type: employee.proofOfAddressType, url: employee.proofOfAddressUrl, status: employee.proofOfAddressStatus || 'PENDING', rejectNote: employee.proofOfAddressRejectNote },
+          ].map((doc) => (
+            <div key={doc.key} className={`border rounded-xl overflow-hidden ${
+              doc.status === 'APPROVED' ? 'border-green-200' :
+              doc.status === 'REJECTED' ? 'border-red-200' :
+              'border-gray-200'
+            }`}>
+              {/* Doc header */}
+              <div className={`flex items-center justify-between px-4 py-2.5 border-b ${
+                doc.status === 'APPROVED' ? 'bg-green-50 border-green-200' :
+                doc.status === 'REJECTED' ? 'bg-red-50 border-red-200' :
+                'bg-gray-50 border-gray-200'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm font-semibold text-gray-800">{doc.label}</span>
+                  {doc.type && (
+                    <Badge variant="default" size="sm">{doc.type}</Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge
+                    variant={
+                      doc.status === 'APPROVED' ? 'success' :
+                      doc.status === 'REJECTED' ? 'error' :
+                      'warning'
+                    }
+                    size="sm"
+                  >
+                    {doc.status}
+                  </Badge>
+                  {doc.url && (
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800"
+                    >
+                      Open <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+
+              {/* Doc body — preview */}
+              <div className="p-4">
+                {doc.url ? (
+                  (() => {
+                    const urlPath = doc.url.split('?')[0].toLowerCase();
+                    const isPdf = urlPath.endsWith('.pdf');
+                    return isPdf ? (
+                      <div className="flex flex-col items-center gap-2 py-4">
+                        <FileText className="w-10 h-10 text-red-500" />
+                        <span className="text-sm text-gray-600">PDF Document</span>
+                        <a
+                          href={doc.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary-600 hover:text-primary-800 underline"
+                        >
+                          View PDF
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="flex justify-center bg-gray-50 rounded-lg p-2">
+                        <img
+                          src={doc.url}
+                          alt={doc.label}
+                          className="max-w-full max-h-72 rounded-lg object-contain cursor-pointer"
+                          onClick={() => window.open(doc.url, '_blank')}
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            e.target.parentElement.innerHTML = '<div class="flex flex-col items-center gap-1 py-6 text-gray-400"><span class="text-sm">Failed to load image</span><a href="' + doc.url + '" target="_blank" rel="noopener noreferrer" class="text-sm text-primary-600 underline">Open file directly</a></div>';
+                          }}
+                        />
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="flex flex-col items-center gap-1 py-6 text-gray-400">
+                    <FileText className="w-8 h-8" />
+                    <span className="text-sm">Not uploaded</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Rejection note (if previously rejected) */}
+              {doc.status === 'REJECTED' && doc.rejectNote && rejectingDoc !== doc.key && (
+                <div className="px-4 pb-3">
+                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">
+                    <span className="font-medium">Rejection reason:</span> {doc.rejectNote}
+                  </p>
+                </div>
+              )}
+
+              {/* Per-document actions */}
+              {doc.url && kycStatus !== 'APPROVED' && (
+                <div className="px-4 pb-3">
+                  {rejectingDoc === doc.key ? (
+                    <div className="space-y-2 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-sm text-red-700 font-medium">Reason for rejecting {doc.label}:</p>
+                      <textarea
+                        rows={2}
+                        className="w-full px-3 py-2 border border-red-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none"
+                        placeholder="e.g. Document is expired, image is blurry..."
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                      />
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setRejectingDoc(null); setRejectReason(''); }}
+                          disabled={reviewingDoc === doc.key}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="bg-red-600 hover:bg-red-700"
+                          onClick={async () => {
+                            setReviewingDoc(doc.key);
+                            const result = await reviewDocument(doc.key, 'reject', rejectReason);
+                            setReviewingDoc(null);
+                            if (result?.success) {
+                              setRejectingDoc(null);
+                              setRejectReason('');
+                            }
+                          }}
+                          loading={reviewingDoc === doc.key}
+                          disabled={!rejectReason.trim()}
+                        >
+                          Confirm Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={XCircle}
+                        className="text-red-600 border-red-300 hover:bg-red-50"
+                        onClick={() => { setRejectingDoc(doc.key); setRejectReason(''); }}
+                        disabled={!!reviewingDoc}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        icon={CheckCircle}
+                        className="text-green-600 border-green-300 hover:bg-green-50"
+                        onClick={async () => {
+                          setReviewingDoc(doc.key);
+                          await reviewDocument(doc.key, 'approve');
+                          setReviewingDoc(null);
+                        }}
+                        loading={reviewingDoc === doc.key}
+                        disabled={!!reviewingDoc && reviewingDoc !== doc.key}
+                      >
+                        Approve
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* ── Submit Review ── */}
+          {kycStatus !== 'APPROVED' && (() => {
+            const docs = [
+              { status: employee.governmentIdStatus || 'PENDING' },
+              { status: employee.governmentId2Status || 'PENDING' },
+              { status: employee.proofOfAddressStatus || 'PENDING' },
+            ];
+            const hasPending = docs.some(d => d.status === 'PENDING');
+            const allReviewed = !hasPending;
+            return (
+              <div className="border-t pt-4 mt-2">
+                {hasPending && (
+                  <p className="text-xs text-amber-600 mb-3 text-center">
+                    Please review all documents before submitting.
+                  </p>
+                )}
+                <div className="flex items-center justify-end">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={async () => {
+                      setBulkAction('finalizing');
+                      await finalizeKycReview();
+                      setBulkAction(null);
+                      setShowDocumentsModal(false);
+                    }}
+                    loading={bulkAction === 'finalizing'}
+                    disabled={!allReviewed || !!reviewingDoc || !!bulkAction}
+                  >
+                    Submit Review
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </Modal>
     </div>

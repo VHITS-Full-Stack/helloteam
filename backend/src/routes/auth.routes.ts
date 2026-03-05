@@ -10,6 +10,7 @@ import {
   changePassword,
   validateSession,
   impersonateUser,
+  verifyUrlToken,
 } from '../controllers/auth.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 
@@ -20,6 +21,7 @@ router.post('/login', login);
 router.post('/register', register);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+router.post('/verify-token', verifyUrlToken);
 
 // Protected routes
 router.get('/profile', authenticate, getProfile);

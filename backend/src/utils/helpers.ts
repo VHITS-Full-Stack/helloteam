@@ -31,6 +31,14 @@ export const verifyToken = (token: string): JwtPayload => {
   return jwt.verify(token, config.jwt.secret) as JwtPayload;
 };
 
+export const generateMagicLinkToken = (userId: string, purpose: string): string => {
+  return jwt.sign({ userId, purpose }, config.jwt.secret);
+};
+
+export const verifyMagicLinkToken = (token: string): { userId: string; purpose: string } => {
+  return jwt.verify(token, config.jwt.secret, { ignoreExpiration: true }) as { userId: string; purpose: string };
+};
+
 export const formatDate = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };

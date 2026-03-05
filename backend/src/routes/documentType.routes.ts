@@ -9,15 +9,12 @@ import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// All routes require authentication
-router.use(authenticate);
-
-// GET is accessible to all authenticated users (employees need it for onboarding)
+// GET is public (needed for token-based onboarding flow)
 router.get('/', getDocumentTypes);
 
-// CUD operations require admin roles
-router.post('/', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), createDocumentType);
-router.put('/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), updateDocumentType);
-router.delete('/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deleteDocumentType);
+// CUD operations require authentication + admin roles
+router.post('/', authenticate, authorizeRoles(['SUPER_ADMIN', 'ADMIN']), createDocumentType);
+router.put('/:id', authenticate, authorizeRoles(['SUPER_ADMIN', 'ADMIN']), updateDocumentType);
+router.delete('/:id', authenticate, authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deleteDocumentType);
 
 export default router;

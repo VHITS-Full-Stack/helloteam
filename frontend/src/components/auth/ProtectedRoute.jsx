@@ -54,13 +54,16 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/client/onboarding" replace />;
   }
 
-  // Gate EMPLOYEE users with pending onboarding (redirect to onboarding)
+  // Gate EMPLOYEE users with pending onboarding or KYC (redirect to onboarding/KYC flow)
   // Skip when admin is impersonating
   if (
     !isImpersonating &&
     user?.role === 'EMPLOYEE' &&
-    user?.employee?.onboardingStatus === 'PENDING_AGREEMENT' &&
-    location.pathname !== '/employee/onboarding'
+    location.pathname !== '/employee/onboarding' &&
+    (
+      user?.employee?.onboardingStatus === 'PENDING_AGREEMENT' ||
+      (user?.employee?.kycStatus && user.employee.kycStatus !== 'APPROVED')
+    )
   ) {
     return <Navigate to="/employee/onboarding" replace />;
   }

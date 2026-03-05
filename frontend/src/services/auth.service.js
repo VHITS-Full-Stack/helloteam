@@ -67,6 +67,22 @@ export const authService = {
     return api.post(`/auth/impersonate/${userId}`);
   },
 
+  // Verify a URL token (for no-auth access like KYC re-upload)
+  async verifyToken(token) {
+    try {
+      const response = await api.post('/auth/verify-token', { token });
+      if (response.success && response.data?.token) {
+        api.setToken(response.data.token);
+      }
+      return response;
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message || 'Token verification failed',
+      };
+    }
+  },
+
   // Check if user is logged in
   isAuthenticated() {
     return !!api.getToken();

@@ -449,9 +449,12 @@ Please change your password after your first login.
 export const sendEmployeeOnboardingEmail = async (
   email: string,
   name: string,
-  password: string
+  password: string,
+  onboardingUrl?: string
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
+  const actionUrl = onboardingUrl || loginUrl;
+  const actionLabel = onboardingUrl ? 'Start Onboarding' : 'Log In & Complete Onboarding';
 
   const content = `
     <h2 style="${styles.h2}">Welcome to the team, ${name}!</h2>
@@ -467,13 +470,13 @@ export const sendEmployeeOnboardingEmail = async (
     ${infoBoxHtml(`
       <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
       <ol style="color: ${colors.successText}; margin: 8px 0 0 0; padding-left: 20px;">
-        <li>Log in with the credentials above</li>
+        <li>Click the button below to start onboarding</li>
         <li>Enter your personal information (phone, address, email)</li>
         <li>Add 3 emergency contacts</li>
         <li>Upload a government-issued ID</li>
       </ol>
     `, colors.successBg, colors.success)}
-    ${buttonHtml(loginUrl, 'Log In & Complete Onboarding')}
+    ${buttonHtml(actionUrl, actionLabel)}
   `;
 
   const html = emailLayout('Welcome to Hello Team - Complete Your Onboarding', content);
@@ -488,7 +491,7 @@ Email: ${email}
 Password: ${password}
 
 Before you can access your portal, please complete onboarding:
-1. Log in at: ${loginUrl}
+1. Click the link below to start: ${actionUrl}
 2. Enter your personal information (phone, address, email)
 3. Add 3 emergency contacts
 4. Upload a government-issued ID

@@ -1,18 +1,16 @@
 import { Request, Response } from 'express';
 import prisma from '../config/database';
-import { hashPassword } from '../utils/helpers';
+import { hashPassword, generateMagicLinkToken } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
-import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
-import { sendEmployeeOnboardingEmail } from '../services/email.service';
+import { refreshPresignedUrl } from '../services/s3.service';
+import { sendEmployeeOnboardingEmail, sendNotificationEmail } from '../services/email.service';
+import { config } from '../config';
 import { logRateChange } from '../utils/rateChangeLogger';
 
-// Helper function to refresh presigned URL for profile photos
-const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
-  if (!photoUrl) return null;
-  const key = getKeyFromUrl(photoUrl);
-  if (!key) return photoUrl;
-  const freshUrl = await getPresignedUrl(key);
-  return freshUrl || photoUrl;
+// Helper function to refresh presigned URL (handles both S3 and local URLs)
+const refreshUrl = async (url: string | null | undefined): Promise<string | null> => {
+  if (!url) return null;
+  return await refreshPresignedUrl(url) || url;
 };
 
 /**
@@ -159,7 +157,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
 
         return {
           ...employee,
-          profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+          profilePhoto: await refreshUrl(employee.profilePhoto),
           billingRate: employee.billingRate ? Number(employee.billingRate) : null,
           payableRate: employee.payableRate ? Number(employee.payableRate) : null,
           clientGroupBillingRate,
@@ -257,10 +255,20 @@ export const getEmployee = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Refresh presigned URL for profile photo and convert Decimal fields
+    // Refresh presigned URLs for profile photo, documents and convert Decimal fields
+    const [profilePhoto, governmentIdUrl, governmentId2Url, proofOfAddressUrl] = await Promise.all([
+      refreshUrl(employee.profilePhoto),
+      refreshUrl(employee.governmentIdUrl),
+      refreshUrl(employee.governmentId2Url),
+      refreshUrl(employee.proofOfAddressUrl),
+    ]);
+
     const employeeWithFreshUrl = {
       ...employee,
-      profilePhoto: await refreshProfilePhotoUrl(employee.profilePhoto),
+      profilePhoto,
+      governmentIdUrl,
+      governmentId2Url,
+      proofOfAddressUrl,
       billingRate: employee.billingRate ? Number(employee.billingRate) : null,
       payableRate: employee.payableRate ? Number(employee.payableRate) : null,
       groupAssignments: employee.groupAssignments.map((ga) => ({
@@ -339,7 +347,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           password: hashedPassword,
           role: 'EMPLOYEE',
           roleId: employeeRole?.id,
-          status: 'ACTIVE',
+          status: 'INACTIVE',
         },
       });
 
@@ -382,9 +390,11 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       return employee;
     });
 
-    // Send onboarding email with credentials
+    // Send onboarding email with credentials and direct onboarding link
     try {
-      await sendEmployeeOnboardingEmail(email, firstName, password);
+      const onboardingToken = generateMagicLinkToken(result.user.id, 'onboarding');
+      const onboardingUrl = `${config.frontendUrl}/employee/onboarding?token=${onboardingToken}`;
+      await sendEmployeeOnboardingEmail(email, firstName, password, onboardingUrl);
     } catch (emailError) {
       console.error('Failed to send onboarding email:', emailError);
       // Don't fail the creation if email fails
@@ -847,5 +857,304 @@ export const reactivateEmployee = async (req: AuthenticatedRequest, res: Respons
       success: false,
       error: 'Failed to reactivate employee',
     });
+  }
+};
+
+// Helper: compute overall kycStatus from per-document statuses
+const computeOverallKycStatus = (employee: {
+  governmentIdStatus: string;
+  governmentId2Status: string;
+  proofOfAddressStatus: string;
+}): 'APPROVED' | 'REJECTED' | 'PENDING' => {
+  const statuses = [employee.governmentIdStatus, employee.governmentId2Status, employee.proofOfAddressStatus];
+  if (statuses.every(s => s === 'APPROVED')) return 'APPROVED';
+  if (statuses.some(s => s === 'REJECTED')) return 'REJECTED';
+  return 'PENDING';
+};
+
+// Review a single KYC document (approve or reject)
+export const reviewEmployeeDocument = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { document, action, reason, sendEmail = true } = req.body as {
+      document: 'governmentId' | 'governmentId2' | 'proofOfAddress';
+      action: 'approve' | 'reject';
+      reason?: string;
+      sendEmail?: boolean;
+    };
+
+    const validDocs = ['governmentId', 'governmentId2', 'proofOfAddress'];
+    if (!validDocs.includes(document) || !['approve', 'reject'].includes(action)) {
+      res.status(400).json({ success: false, error: 'Invalid document or action' });
+      return;
+    }
+
+    if (action === 'reject' && !reason?.trim()) {
+      res.status(400).json({ success: false, error: 'Rejection reason is required' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    // Build per-document update
+    const statusField = `${document}Status` as string;
+    const rejectNoteField = `${document}RejectNote` as string;
+
+    const docUpdate: any = {
+      [statusField]: action === 'approve' ? 'APPROVED' : 'REJECTED',
+      [rejectNoteField]: action === 'reject' ? reason : null,
+      kycReviewedAt: new Date(),
+      kycReviewerId: req.user?.userId ?? null,
+    };
+
+    // Apply the per-document update first
+    await prisma.employee.update({ where: { id }, data: docUpdate });
+
+    // Re-fetch to compute overall status with the fresh per-document values
+    const refreshed = await prisma.employee.findUnique({ where: { id } });
+    if (!refreshed) {
+      res.status(500).json({ success: false, error: 'Failed to refresh employee' });
+      return;
+    }
+
+    // Compute overall status but do NOT auto-set to APPROVED — that requires explicit "Submit Review" (finalizeKycReview)
+    const overallStatus = computeOverallKycStatus(refreshed);
+    // Only update kycStatus to PENDING or REJECTED automatically; APPROVED must go through finalize
+    const effectiveStatus = overallStatus === 'APPROVED' ? 'PENDING' : overallStatus;
+
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: {
+        kycStatus: effectiveStatus,
+        kycRejectionNote: effectiveStatus === 'REJECTED'
+          ? [
+              refreshed.governmentIdStatus === 'REJECTED' ? `Gov ID #1: ${refreshed.governmentIdRejectNote}` : null,
+              refreshed.governmentId2Status === 'REJECTED' ? `Gov ID #2: ${refreshed.governmentId2RejectNote}` : null,
+              refreshed.proofOfAddressStatus === 'REJECTED' ? `Proof of Address: ${refreshed.proofOfAddressRejectNote}` : null,
+            ].filter(Boolean).join('; ')
+          : null,
+      },
+    });
+
+    // Do NOT send approval/rejection emails here — emails are sent only via finalizeKycReview
+
+    res.json({
+      success: true,
+      message: `Document ${action === 'approve' ? 'approved' : 'rejected'} successfully`,
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Review employee document error:', error);
+    res.status(500).json({ success: false, error: 'Failed to review document' });
+  }
+};
+
+// Finalize KYC review - sends appropriate email based on overall status
+export const finalizeKycReview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    // Compute the real overall status from per-document statuses
+    const overallStatus = computeOverallKycStatus(employee);
+    console.log(`[KYC Finalize] Computed overallStatus=${overallStatus}, current kycStatus=${employee.kycStatus}`);
+    console.log(`[KYC Finalize] Per-doc: govId=${employee.governmentIdStatus}, govId2=${employee.governmentId2Status}, proof=${employee.proofOfAddressStatus}`);
+
+    // Update the kycStatus in DB now that admin is explicitly finalizing
+    await prisma.employee.update({
+      where: { id },
+      data: {
+        kycStatus: overallStatus,
+        kycRejectionNote: overallStatus === 'REJECTED'
+          ? [
+              employee.governmentIdStatus === 'REJECTED' ? `Gov ID #1: ${employee.governmentIdRejectNote}` : null,
+              employee.governmentId2Status === 'REJECTED' ? `Gov ID #2: ${employee.governmentId2RejectNote}` : null,
+              employee.proofOfAddressStatus === 'REJECTED' ? `Proof of Address: ${employee.proofOfAddressRejectNote}` : null,
+            ].filter(Boolean).join('; ')
+          : null,
+      },
+    });
+
+    // Activate or deactivate user based on KYC status
+    if (overallStatus === 'APPROVED') {
+      await prisma.user.update({
+        where: { id: employee.userId },
+        data: { status: 'ACTIVE' },
+      });
+      console.log(`[KYC Finalize] User ${employee.userId} status set to ACTIVE`);
+    }
+
+    const email = employee.personalEmail || employee.user?.email;
+
+    if (!email) {
+      console.warn('[KYC Finalize] No email found for employee', id);
+      res.json({ success: true, message: 'Review finalized (no email to send)' });
+      return;
+    }
+
+    console.log(`[KYC Finalize] employeeId=${id}, overallStatus=${overallStatus}, email=${email}`);
+    console.log(`[KYC Finalize] Per-doc statuses: govId=${employee.governmentIdStatus}, govId2=${employee.governmentId2Status}, proof=${employee.proofOfAddressStatus}`);
+
+    if (overallStatus === 'APPROVED') {
+      const loginUrl = `${config.frontendUrl}/login`;
+      console.log(`[KYC Finalize] Sending approval email to ${email}, loginUrl=${loginUrl}`);
+      const result = await sendNotificationEmail(
+        email,
+        'KYC Approved - You Can Now Access the Portal',
+        `Congratulations, ${employee.firstName}! All your identity documents have been verified and approved. You can now log in and access the Hello Team employee portal.`,
+        loginUrl,
+        'Log In to Your Portal',
+      ).catch((err) => { console.error('[KYC Finalize] Failed to send approval email:', err); return { success: false, error: err?.message || 'Unknown error' }; });
+      console.log('[KYC Finalize] Approval email result:', JSON.stringify(result));
+    } else if (overallStatus === 'REJECTED') {
+      // Build list of rejected documents
+      const rejectedDocs: string[] = [];
+      if (employee.governmentIdStatus === 'REJECTED') {
+        rejectedDocs.push(`Government ID #1: ${employee.governmentIdRejectNote || 'No reason provided'}`);
+      }
+      if (employee.governmentId2Status === 'REJECTED') {
+        rejectedDocs.push(`Government ID #2: ${employee.governmentId2RejectNote || 'No reason provided'}`);
+      }
+      if (employee.proofOfAddressStatus === 'REJECTED') {
+        rejectedDocs.push(`Proof of Address: ${employee.proofOfAddressRejectNote || 'No reason provided'}`);
+      }
+
+      const token = generateMagicLinkToken(employee.userId, 'kyc-reupload');
+      const reuploadUrl = `${config.frontendUrl}/employee/onboarding?token=${token}`;
+      console.log('[KYC Finalize] Rejection reupload URL:', reuploadUrl);
+      const result = await sendNotificationEmail(
+        email,
+        'KYC Documents Rejected',
+        `Some of your identity documents were not approved. Please re-upload the rejected documents.\n\nRejected documents:\n${rejectedDocs.join('\n')}`,
+        reuploadUrl,
+        'Re-upload Documents',
+      ).catch((err) => { console.error('[KYC Finalize] Failed to send rejection email:', err); return null; });
+      console.log('[KYC Finalize] Rejection email result:', result);
+    } else {
+      // PENDING - some documents still need review
+      console.log('[KYC Finalize] Status is PENDING, not sending email');
+      res.json({ success: true, message: 'Review is still in progress. Please review all documents before submitting.' });
+      return;
+    }
+
+    res.json({ success: true, message: `KYC review finalized. ${overallStatus === 'APPROVED' ? 'Approval' : 'Rejection'} email sent.` });
+  } catch (error) {
+    console.error('Finalize KYC review error:', error);
+    res.status(500).json({ success: false, error: 'Failed to finalize KYC review' });
+  }
+};
+
+// Approve all employee KYC documents (admin) - kept for backwards compat
+export const approveEmployeeKyc = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: {
+        kycStatus: 'APPROVED',
+        kycReviewedAt: new Date(),
+        kycReviewerId: req.user?.userId ?? null,
+        kycRejectionNote: null,
+        governmentIdStatus: 'APPROVED',
+        governmentIdRejectNote: null,
+        governmentId2Status: 'APPROVED',
+        governmentId2RejectNote: null,
+        proofOfAddressStatus: 'APPROVED',
+        proofOfAddressRejectNote: null,
+      },
+    });
+
+    const email = employee.personalEmail || employee.user?.email;
+    if (email) {
+      const loginUrl = `${config.frontendUrl}/login`;
+      await sendNotificationEmail(
+        email,
+        'KYC Approved - You Can Now Access the Portal',
+        `Congratulations, ${employee.firstName}! Your identity documents have been verified and approved. You can now log in and access the Hello Team employee portal.`,
+        loginUrl,
+        'Log In to Your Portal',
+      ).catch((err) => console.error('Failed to send KYC approved email:', err));
+    }
+
+    res.json({ success: true, message: 'KYC approved successfully', data: updated });
+  } catch (error) {
+    console.error('Approve employee KYC error:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve KYC' });
+  }
+};
+
+// Reject all employee KYC documents (admin) - kept for backwards compat
+export const rejectEmployeeKyc = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { reason } = req.body as { reason?: string };
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const updated = await prisma.employee.update({
+      where: { id },
+      data: {
+        kycStatus: 'REJECTED',
+        kycReviewedAt: new Date(),
+        kycReviewerId: req.user?.userId ?? null,
+        kycRejectionNote: reason || null,
+        governmentIdStatus: 'REJECTED',
+        governmentIdRejectNote: reason || null,
+        governmentId2Status: 'REJECTED',
+        governmentId2RejectNote: reason || null,
+        proofOfAddressStatus: 'REJECTED',
+        proofOfAddressRejectNote: reason || null,
+      },
+    });
+
+    const email = employee.personalEmail || employee.user?.email;
+    if (email) {
+      const token = generateMagicLinkToken(employee.userId, 'kyc-reupload');
+      const reuploadUrl = `${config.frontendUrl}/employee/onboarding?token=${token}`;
+      const baseMessage = 'One or more of your identity documents were not approved. Please re-upload your documents.';
+      const fullMessage = reason ? `${baseMessage}\n\nReviewer note: ${reason}` : baseMessage;
+      await sendNotificationEmail(email, 'KYC Verification Required', fullMessage, reuploadUrl, 'Re-upload Documents');
+    }
+
+    res.json({ success: true, message: 'KYC rejected and employee notified', data: updated });
+  } catch (error) {
+    console.error('Reject employee KYC error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reject KYC' });
   }
 };

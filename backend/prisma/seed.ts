@@ -105,11 +105,14 @@ async function main() {
   await seedRolesAndPermissions();
   console.log('');
 
-  const hashedPassword = await bcrypt.hash('demo123456', 10);
+  // Use fewer rounds for seed data — this is demo/dev only
+  const hashedPassword = await bcrypt.hash('demo123456', 4);
 
-  const superAdminRole = await prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } });
-  const clientRole = await prisma.role.findUnique({ where: { name: 'CLIENT' } });
-  const employeeRole = await prisma.role.findUnique({ where: { name: 'EMPLOYEE' } });
+  const [superAdminRole, clientRole, employeeRole] = await Promise.all([
+    prisma.role.findUnique({ where: { name: 'SUPER_ADMIN' } }),
+    prisma.role.findUnique({ where: { name: 'CLIENT' } }),
+    prisma.role.findUnique({ where: { name: 'EMPLOYEE' } }),
+  ]);
 
   // ── Admin ──
   const admin = await prisma.user.upsert({
@@ -262,8 +265,10 @@ async function main() {
   const e3 = emp3.employee!;
 
   // ── Client Contacts (skip if already exist for this client) ──
-  const existingC1Contacts = await prisma.clientContact.count({ where: { clientId: c1.id } });
-  const existingC2Contacts = await prisma.clientContact.count({ where: { clientId: c2.id } });
+  const [existingC1Contacts, existingC2Contacts] = await Promise.all([
+    prisma.clientContact.count({ where: { clientId: c1.id } }),
+    prisma.clientContact.count({ where: { clientId: c2.id } }),
+  ]);
   if (existingC1Contacts === 0) {
     await prisma.clientContact.createMany({
       data: [
@@ -282,16 +287,18 @@ async function main() {
   console.log('Created client contacts');
 
   // ── Client Agreements (upsert to avoid unique constraint on clientId) ──
-  await prisma.clientAgreement.upsert({
-    where: { clientId: c1.id },
-    update: {},
-    create: { clientId: c1.id, agreementType: 'WEEKLY', signedAt: new Date('2026-01-15'), signedByName: 'Jane Smith' },
-  });
-  await prisma.clientAgreement.upsert({
-    where: { clientId: c2.id },
-    update: {},
-    create: { clientId: c2.id, agreementType: 'MONTHLY', signedAt: new Date('2026-01-20'), signedByName: 'Nikita K' },
-  });
+  await Promise.all([
+    prisma.clientAgreement.upsert({
+      where: { clientId: c1.id },
+      update: {},
+      create: { clientId: c1.id, agreementType: 'WEEKLY', signedAt: new Date('2026-01-15'), signedByName: 'Jane Smith' },
+    }),
+    prisma.clientAgreement.upsert({
+      where: { clientId: c2.id },
+      update: {},
+      create: { clientId: c2.id, agreementType: 'MONTHLY', signedAt: new Date('2026-01-20'), signedByName: 'Nikita K' },
+    }),
+  ]);
   console.log('Created client agreements');
 
   // ── Default Group ──
@@ -301,16 +308,18 @@ async function main() {
     create: { id: 'default-group', name: 'Default', description: 'Auto-generated group', isActive: true },
   });
 
-  await prisma.clientGroup.upsert({
-    where: { clientId_groupId: { clientId: c1.id, groupId: defaultGroup.id } },
-    update: {},
-    create: { clientId: c1.id, groupId: defaultGroup.id },
-  });
-  await prisma.clientGroup.upsert({
-    where: { clientId_groupId: { clientId: c2.id, groupId: defaultGroup.id } },
-    update: {},
-    create: { clientId: c2.id, groupId: defaultGroup.id },
-  });
+  await Promise.all([
+    prisma.clientGroup.upsert({
+      where: { clientId_groupId: { clientId: c1.id, groupId: defaultGroup.id } },
+      update: {},
+      create: { clientId: c1.id, groupId: defaultGroup.id },
+    }),
+    prisma.clientGroup.upsert({
+      where: { clientId_groupId: { clientId: c2.id, groupId: defaultGroup.id } },
+      update: {},
+      create: { clientId: c2.id, groupId: defaultGroup.id },
+    }),
+  ]);
   console.log('Created groups');
 
   // ── Assign Employees to Clients ──
@@ -320,383 +329,88 @@ async function main() {
     { clientId: c1.id, employeeId: e3.id },
     { clientId: c2.id, employeeId: e2.id },
   ];
-  for (const a of assignments) {
-    await prisma.clientEmployee.upsert({
+  await Promise.all(assignments.map(a =>
+    prisma.clientEmployee.upsert({
       where: { clientId_employeeId: { clientId: a.clientId, employeeId: a.employeeId } },
       update: {},
       create: { ...a, isActive: true },
-    });
-  }
+    })
+  ));
   console.log('Assigned employees to clients');
 
   // ── Client Policies (auto-approve ON for ABC, OFF for Virtual Height) ──
-  await prisma.clientPolicy.upsert({
-    where: { clientId: c1.id },
-    update: {
-      autoApproveTimesheets: true,
-      autoApproveMinutes: 1440,
-    },
-    create: {
-      clientId: c1.id,
-      defaultHourlyRate: 35.00,
-      defaultOvertimeRate: 52.50,
-      allowPaidLeave: true,
-      paidLeaveEntitlementType: 'FIXED',
-      annualPaidLeaveDays: 15,
-      allowUnpaidLeave: true,
-      requireTwoWeeksNotice: true,
-      requireTwoWeeksNoticePaidLeave: true,
-      requireTwoWeeksNoticeUnpaidLeave: true,
-      allowOvertime: true,
-      overtimeRequiresApproval: true,
-      autoApproveTimesheets: true,
-      autoApproveMinutes: 1440, // 24 hours
-    },
-  });
-
-  await prisma.clientPolicy.upsert({
-    where: { clientId: c2.id },
-    update: {
-      autoApproveTimesheets: false,
-      autoApproveMinutes: 1440,
-    },
-    create: {
-      clientId: c2.id,
-      defaultHourlyRate: 40.00,
-      defaultOvertimeRate: 60.00,
-      allowPaidLeave: true,
-      paidLeaveEntitlementType: 'FIXED',
-      annualPaidLeaveDays: 10,
-      allowUnpaidLeave: true,
-      requireTwoWeeksNotice: true,
-      requireTwoWeeksNoticePaidLeave: true,
-      requireTwoWeeksNoticeUnpaidLeave: true,
-      allowOvertime: true,
-      overtimeRequiresApproval: true,
-      autoApproveTimesheets: false,
-      autoApproveMinutes: 1440,
-    },
-  });
+  await Promise.all([
+    prisma.clientPolicy.upsert({
+      where: { clientId: c1.id },
+      update: {
+        autoApproveTimesheets: true,
+        autoApproveMinutes: 1440,
+      },
+      create: {
+        clientId: c1.id,
+        defaultHourlyRate: 35.00,
+        defaultOvertimeRate: 52.50,
+        allowPaidLeave: true,
+        paidLeaveEntitlementType: 'FIXED',
+        annualPaidLeaveDays: 15,
+        allowUnpaidLeave: true,
+        requireTwoWeeksNotice: true,
+        requireTwoWeeksNoticePaidLeave: true,
+        requireTwoWeeksNoticeUnpaidLeave: true,
+        allowOvertime: true,
+        overtimeRequiresApproval: true,
+        autoApproveTimesheets: true,
+        autoApproveMinutes: 1440, // 24 hours
+      },
+    }),
+    prisma.clientPolicy.upsert({
+      where: { clientId: c2.id },
+      update: {
+        autoApproveTimesheets: false,
+        autoApproveMinutes: 1440,
+      },
+      create: {
+        clientId: c2.id,
+        defaultHourlyRate: 40.00,
+        defaultOvertimeRate: 60.00,
+        allowPaidLeave: true,
+        paidLeaveEntitlementType: 'FIXED',
+        annualPaidLeaveDays: 10,
+        allowUnpaidLeave: true,
+        requireTwoWeeksNotice: true,
+        requireTwoWeeksNoticePaidLeave: true,
+        requireTwoWeeksNoticeUnpaidLeave: true,
+        allowOvertime: true,
+        overtimeRequiresApproval: true,
+        autoApproveTimesheets: false,
+        autoApproveMinutes: 1440,
+      },
+    }),
+  ]);
   console.log('Created client policies (ABC: auto-approve ON, VH: OFF)');
 
   // ── Schedules (Mon-Fri 9am-5pm) — skip if employee already has schedules ──
   const scheduleStart = new Date('2026-01-01');
-  for (const empId of [e1.id, e2.id, e3.id]) {
-    const existingSchedules = await prisma.schedule.count({ where: { employeeId: empId } });
-    if (existingSchedules === 0) {
-      for (let day = 1; day <= 5; day++) {
-        await prisma.schedule.create({
-          data: {
-            employeeId: empId,
-            dayOfWeek: day,
-            startTime: '09:00',
-            endTime: '17:00',
-            isActive: true,
-            effectiveFrom: scheduleStart,
-          },
-        });
-      }
-    }
+  const empIds = [e1.id, e2.id, e3.id];
+  const scheduleCounts = await Promise.all(
+    empIds.map(id => prisma.schedule.count({ where: { employeeId: id } }))
+  );
+  const scheduleData = empIds.flatMap((empId, i) =>
+    scheduleCounts[i] === 0
+      ? [1, 2, 3, 4, 5].map(day => ({
+          employeeId: empId,
+          dayOfWeek: day,
+          startTime: '09:00',
+          endTime: '17:00',
+          isActive: true,
+          effectiveFrom: scheduleStart,
+        }))
+      : []
+  );
+  if (scheduleData.length > 0) {
+    await prisma.schedule.createMany({ data: scheduleData });
   }
   console.log('Created schedules for all employees (Mon-Fri 9am-5pm)');
-
-  // ── Time Records for auto-approval testing (skip if already seeded) ──
-  const existingTimeRecords = await prisma.timeRecord.count();
-  if (existingTimeRecords > 0) {
-    console.log(`Skipping time record/scenario seeding — ${existingTimeRecords} records already exist`);
-  } else {
-  // All dates are past, >24h since scheduled end, so auto-approval should trigger
-  // ABC Corporation (c1) — auto-approve ON
-  const timeRecords = [
-    // John Doe — Feb 9 Mon, 8h, no OT → should auto-approve
-    {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 9)),
-      actualStart: new Date('2026-02-09T14:00:00Z'), actualEnd: new Date('2026-02-09T22:00:00Z'),
-      scheduledStart: new Date('2026-02-09T14:00:00Z'), scheduledEnd: new Date('2026-02-09T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // John Doe — Feb 10 Tue, 7.5h, no OT → should auto-approve
-    {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 10)),
-      actualStart: new Date('2026-02-10T14:00:00Z'), actualEnd: new Date('2026-02-10T21:30:00Z'),
-      scheduledStart: new Date('2026-02-10T14:00:00Z'), scheduledEnd: new Date('2026-02-10T22:00:00Z'),
-      totalMinutes: 450, breakMinutes: 30, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // John Doe — Feb 11 Wed, 9h, 60m OT → should NOT auto-approve (overtime)
-    {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 11)),
-      actualStart: new Date('2026-02-11T14:00:00Z'), actualEnd: new Date('2026-02-11T23:00:00Z'),
-      scheduledStart: new Date('2026-02-11T14:00:00Z'), scheduledEnd: new Date('2026-02-11T22:00:00Z'),
-      totalMinutes: 540, breakMinutes: 0, overtimeMinutes: 60, status: 'PENDING' as const,
-    },
-    // Sarah Johnson — Feb 9 Mon, 8h, no OT → should auto-approve
-    {
-      employeeId: e3.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 9)),
-      actualStart: new Date('2026-02-09T14:00:00Z'), actualEnd: new Date('2026-02-09T22:00:00Z'),
-      scheduledStart: new Date('2026-02-09T14:00:00Z'), scheduledEnd: new Date('2026-02-09T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // Sarah Johnson — Feb 10 Tue, 8h, no OT → should auto-approve
-    {
-      employeeId: e3.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 10)),
-      actualStart: new Date('2026-02-10T14:00:00Z'), actualEnd: new Date('2026-02-10T22:00:00Z'),
-      scheduledStart: new Date('2026-02-10T14:00:00Z'), scheduledEnd: new Date('2026-02-10T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // --- This week records ---
-    // John Doe — Feb 16 Mon, 8h, no OT → should auto-approve (scheduledEnd was yesterday)
-    {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 16)),
-      actualStart: new Date('2026-02-16T14:00:00Z'), actualEnd: new Date('2026-02-16T22:00:00Z'),
-      scheduledStart: new Date('2026-02-16T14:00:00Z'), scheduledEnd: new Date('2026-02-16T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // Sarah Johnson — Feb 16 Mon, 8.5h, 30m OT → should NOT auto-approve
-    {
-      employeeId: e3.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 16)),
-      actualStart: new Date('2026-02-16T14:00:00Z'), actualEnd: new Date('2026-02-16T22:30:00Z'),
-      scheduledStart: new Date('2026-02-16T14:00:00Z'), scheduledEnd: new Date('2026-02-16T22:00:00Z'),
-      totalMinutes: 510, breakMinutes: 0, overtimeMinutes: 30, status: 'PENDING' as const,
-    },
-    // --- Virtual Height (c2) — auto-approve OFF, so these stay PENDING regardless ---
-    // Jigar Patel — Feb 9 Mon, 8h
-    {
-      employeeId: e2.id, clientId: c2.id,
-      date: new Date(Date.UTC(2026, 1, 9)),
-      actualStart: new Date('2026-02-09T14:00:00Z'), actualEnd: new Date('2026-02-09T22:00:00Z'),
-      scheduledStart: new Date('2026-02-09T14:00:00Z'), scheduledEnd: new Date('2026-02-09T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-    // Jigar Patel — Feb 10 Tue, 8h
-    {
-      employeeId: e2.id, clientId: c2.id,
-      date: new Date(Date.UTC(2026, 1, 10)),
-      actualStart: new Date('2026-02-10T14:00:00Z'), actualEnd: new Date('2026-02-10T22:00:00Z'),
-      scheduledStart: new Date('2026-02-10T14:00:00Z'), scheduledEnd: new Date('2026-02-10T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0, status: 'PENDING' as const,
-    },
-  ];
-
-  for (const rec of timeRecords) {
-    // Create a corresponding WorkSession (COMPLETED) so the employee view shows them
-    const workSession = await prisma.workSession.create({
-      data: {
-        employeeId: rec.employeeId,
-        startTime: rec.actualStart!,
-        endTime: rec.actualEnd!,
-        status: 'COMPLETED',
-        totalBreakMinutes: rec.breakMinutes,
-        notes: null,
-      },
-    });
-
-    // Create a clock-in log for the work session
-    await prisma.sessionLog.create({
-      data: {
-        workSessionId: workSession.id,
-        action: 'CLOCK_IN',
-        message: `Clocked in (seeded)`,
-      },
-    });
-    await prisma.sessionLog.create({
-      data: {
-        workSessionId: workSession.id,
-        action: 'CLOCK_OUT',
-        message: `Clocked out (seeded)`,
-      },
-    });
-
-    await prisma.timeRecord.create({ data: rec });
-  }
-  console.log(`Created ${timeRecords.length} time records + work sessions for auto-approval testing`);
-
-  // ══════════════════════════════════════════════════════════════
-  // SCENARIO SEED DATA — Request Revisions, Overtime, Shift Warnings
-  // ══════════════════════════════════════════════════════════════
-
-  // ── Scenario 1: REVISION_REQUESTED records ──
-  // John Doe — Feb 17 Tue, regular 8h, client requested revision
-  const revisionSession1 = await prisma.workSession.create({
-    data: {
-      employeeId: e1.id,
-      startTime: new Date('2026-02-17T14:00:00Z'),
-      endTime: new Date('2026-02-17T22:00:00Z'),
-      status: 'COMPLETED',
-      totalBreakMinutes: 0,
-    },
-  });
-  await prisma.sessionLog.createMany({
-    data: [
-      { workSessionId: revisionSession1.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
-      { workSessionId: revisionSession1.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
-    ],
-  });
-  await prisma.timeRecord.create({
-    data: {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 17)),
-      actualStart: new Date('2026-02-17T14:00:00Z'), actualEnd: new Date('2026-02-17T22:00:00Z'),
-      scheduledStart: new Date('2026-02-17T14:00:00Z'), scheduledEnd: new Date('2026-02-17T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
-      status: 'REVISION_REQUESTED',
-      revisionReason: 'Hours do not match the task log. Please verify your clock-in time was correct.',
-      revisionRequestedBy: client1.id,
-      revisionRequestedAt: new Date('2026-02-18T10:00:00Z'),
-    },
-  });
-  console.log('Created REVISION_REQUESTED record: John Doe — Feb 17');
-
-  // Sarah Johnson — Feb 17 Tue, regular 8h, client requested revision
-  const revisionSession2 = await prisma.workSession.create({
-    data: {
-      employeeId: e3.id,
-      startTime: new Date('2026-02-17T14:00:00Z'),
-      endTime: new Date('2026-02-17T22:00:00Z'),
-      status: 'COMPLETED',
-      totalBreakMinutes: 30,
-    },
-  });
-  await prisma.sessionLog.createMany({
-    data: [
-      { workSessionId: revisionSession2.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
-      { workSessionId: revisionSession2.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
-    ],
-  });
-  await prisma.timeRecord.create({
-    data: {
-      employeeId: e3.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 17)),
-      actualStart: new Date('2026-02-17T14:00:00Z'), actualEnd: new Date('2026-02-17T22:00:00Z'),
-      scheduledStart: new Date('2026-02-17T14:00:00Z'), scheduledEnd: new Date('2026-02-17T22:00:00Z'),
-      totalMinutes: 450, breakMinutes: 30, overtimeMinutes: 0,
-      status: 'REVISION_REQUESTED',
-      revisionReason: 'Missing break time entry for lunch. Please update and resubmit.',
-      revisionRequestedBy: client1.id,
-      revisionRequestedAt: new Date('2026-02-18T11:30:00Z'),
-    },
-  });
-  console.log('Created REVISION_REQUESTED record: Sarah Johnson — Feb 17');
-
-  // ── Scenario 2: Today's records for live testing ──
-  // Use dynamic "today" so these always work when seed is run
-  const now = new Date();
-  const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-
-  // Sarah Johnson — Active session today (clocked in 30 min ago, simulates 30-min warning test)
-  // When the cron runs, if shift end is near, it will trigger the warning
-  const sarahActiveSession = await prisma.workSession.create({
-    data: {
-      employeeId: e3.id,
-      startTime: new Date(now.getTime() - 7 * 60 * 60 * 1000), // 7 hours ago
-      endTime: null,
-      status: 'ACTIVE',
-      totalBreakMinutes: 0,
-    },
-  });
-  await prisma.sessionLog.create({
-    data: {
-      workSessionId: sarahActiveSession.id,
-      action: 'CLOCK_IN',
-      message: 'Clocked in (seeded — active session for shift-end warning test)',
-    },
-  });
-  console.log('Created ACTIVE session: Sarah Johnson — today (7h ago, for shift-end warning test)');
-
-  // Jigar Patel — Completed session today (auto-clocked out, for post-shift clock-in test)
-  const jigarPostShiftSession = await prisma.workSession.create({
-    data: {
-      employeeId: e2.id,
-      startTime: new Date(now.getTime() - 9 * 60 * 60 * 1000), // 9 hours ago
-      endTime: new Date(now.getTime() - 1 * 60 * 60 * 1000),   // 1 hour ago
-      status: 'COMPLETED',
-      totalBreakMinutes: 0,
-    },
-  });
-  await prisma.sessionLog.createMany({
-    data: [
-      { workSessionId: jigarPostShiftSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
-      { workSessionId: jigarPostShiftSession.id, action: 'AUTO_CLOCK_OUT', message: 'Auto-clocked out at shift end (seeded — for post-shift test)' },
-    ],
-  });
-  await prisma.timeRecord.create({
-    data: {
-      employeeId: e2.id, clientId: c2.id,
-      date: todayUTC,
-      actualStart: new Date(now.getTime() - 9 * 60 * 60 * 1000),
-      actualEnd: new Date(now.getTime() - 1 * 60 * 60 * 1000),
-      scheduledStart: new Date(now.getTime() - 9 * 60 * 60 * 1000),
-      scheduledEnd: new Date(now.getTime() - 1 * 60 * 60 * 1000),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
-      status: 'PENDING',
-    },
-  });
-  console.log('Created COMPLETED + auto-clocked-out session: Jigar Patel — today (for post-shift clock-in test)');
-
-  // ── Scenario 4: Mix of statuses for admin approvals page ──
-  // John Doe — Feb 19, regular 8h, PENDING (for admin to test "Request Revisions" button)
-  const pendingRegSession = await prisma.workSession.create({
-    data: {
-      employeeId: e1.id,
-      startTime: new Date('2026-02-19T14:00:00Z'),
-      endTime: new Date('2026-02-19T22:00:00Z'),
-      status: 'COMPLETED',
-      totalBreakMinutes: 0,
-    },
-  });
-  await prisma.sessionLog.createMany({
-    data: [
-      { workSessionId: pendingRegSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
-      { workSessionId: pendingRegSession.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
-    ],
-  });
-  await prisma.timeRecord.create({
-    data: {
-      employeeId: e1.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 19)),
-      actualStart: new Date('2026-02-19T14:00:00Z'), actualEnd: new Date('2026-02-19T22:00:00Z'),
-      scheduledStart: new Date('2026-02-19T14:00:00Z'), scheduledEnd: new Date('2026-02-19T22:00:00Z'),
-      totalMinutes: 480, breakMinutes: 0, overtimeMinutes: 0,
-      status: 'PENDING',
-    },
-  });
-  console.log('Created PENDING regular record: John Doe — Feb 19 (for admin "Request Revisions" test)');
-
-  // Sarah Johnson — Feb 18, 9h with 1h OT, PENDING (for admin to test "Reject" on OT)
-  const pendingOtSession = await prisma.workSession.create({
-    data: {
-      employeeId: e3.id,
-      startTime: new Date('2026-02-18T14:00:00Z'),
-      endTime: new Date('2026-02-18T23:00:00Z'),
-      status: 'COMPLETED',
-      totalBreakMinutes: 0,
-    },
-  });
-  await prisma.sessionLog.createMany({
-    data: [
-      { workSessionId: pendingOtSession.id, action: 'CLOCK_IN', message: 'Clocked in (seeded)' },
-      { workSessionId: pendingOtSession.id, action: 'CLOCK_OUT', message: 'Clocked out (seeded)' },
-    ],
-  });
-  await prisma.timeRecord.create({
-    data: {
-      employeeId: e3.id, clientId: c1.id,
-      date: new Date(Date.UTC(2026, 1, 18)),
-      actualStart: new Date('2026-02-18T14:00:00Z'), actualEnd: new Date('2026-02-18T23:00:00Z'),
-      scheduledStart: new Date('2026-02-18T14:00:00Z'), scheduledEnd: new Date('2026-02-18T22:00:00Z'),
-      totalMinutes: 540, breakMinutes: 0, overtimeMinutes: 60,
-      status: 'PENDING',
-    },
-  });
-  console.log('Created PENDING OT record: Sarah Johnson — Feb 18 (1h OT, for admin "Reject" test)');
-
-  } // end if (existingTimeRecords === 0)
 
   // ── Summary ──
   console.log('\n========================================');
@@ -714,35 +428,6 @@ async function main() {
   console.log('Clients:');
   console.log('  client@demo.com      (ABC Corporation    — America/New_York   UTC-5)');
   console.log('  vhits@demo.com       (Virtual Height     — America/New_York   UTC-5)');
-  console.log('');
-  console.log('Time Records (past weeks, all PENDING):');
-  console.log('  ABC Corp:');
-  console.log('    John Doe  — Feb 9 (8h), Feb 10 (7.5h), Feb 11 (9h+1h OT), Feb 16 (8h)');
-  console.log('    Sarah J   — Feb 9 (8h), Feb 10 (8h), Feb 16 (8.5h+30m OT)');
-  console.log('  Virtual Height:');
-  console.log('    Jigar P   — Feb 9 (8h), Feb 10 (8h)');
-  console.log('');
-  console.log('═══ SCENARIO TEST DATA ═══');
-  console.log('');
-  console.log('1. REQUEST REVISIONS FLOW:');
-  console.log('   John Doe  — Feb 17: REVISION_REQUESTED ("Hours do not match task log")');
-  console.log('   Sarah J   — Feb 17: REVISION_REQUESTED ("Missing break time entry")');
-  console.log('');
-  console.log('2. OVERTIME REQUESTS:');
-  console.log('   John Doe  — Feb 18: APPROVED shift extension (+1h), time record APPROVED');
-  console.log('   Sarah J   — Feb 19: PENDING off-shift request (7-9pm)');
-  console.log('   Jigar P   — Feb 18: REJECTED shift extension ("Deployment can wait")');
-  console.log('');
-  console.log('3. ADMIN APPROVALS PAGE:');
-  console.log('   John Doe  — Feb 19: PENDING regular 8h');
-  console.log('   Sarah J   — Feb 18: PENDING 9h + 1h OT');
-  console.log('');
-  console.log('Expected auto-approval behavior:');
-  console.log('  ABC Corp (auto-approve ON, 24h):');
-  console.log('    Auto-approve: Feb 9, 10 (John), Feb 9, 10 (Sarah), Feb 16 (John)');
-  console.log('    Stay PENDING: Feb 11 John (60m OT), Feb 16 Sarah (30m OT)');
-  console.log('  Virtual Height (auto-approve OFF):');
-  console.log('    Stay PENDING: all records (Jigar)');
 }
 
 main()

@@ -54,7 +54,7 @@ const Sidebar = ({
     { to: '/client/tasks', icon: ClipboardList, label: 'Tasks' },
     { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals' },
-    { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
+    // { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing' },
     { to: '/client/profile', icon: User, label: 'Profile' },
@@ -87,12 +87,12 @@ const Sidebar = ({
       label: 'Tasks',
       permission: PERMISSIONS.TASKS.VIEW
     },
-    {
-      to: '/admin/analytics',
-      icon: BarChart3,
-      label: 'Analytics',
-      permission: PERMISSIONS.REPORTS.VIEW
-    },
+    // {
+    //   to: '/admin/analytics',
+    //   icon: BarChart3,
+    //   label: 'Analytics',
+    //   permission: PERMISSIONS.REPORTS.VIEW
+    // },
     {
       to: '/admin/time-records',
       icon: Clock,

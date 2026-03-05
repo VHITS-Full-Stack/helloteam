@@ -62,6 +62,12 @@ enum OnboardingStatus {
   COMPLETED
 }
 
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum PaidLeaveEntitlementType {
   NONE // No paid leave
   FIXED // Fixed yearly allocation
@@ -187,12 +193,22 @@ model Employee {
   billingRate      Decimal?         @db.Decimal(10, 2)
   onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
   personalEmail    String?
-  governmentIdType  String?
-  governmentIdUrl   String?
-  governmentId2Type String?
-  governmentId2Url  String?
-  proofOfAddressType String?
-  proofOfAddressUrl  String?
+  kycStatus        KycStatus        @default(PENDING)
+  kycReviewedAt    DateTime?
+  kycReviewerId    String?
+  kycRejectionNote String?
+  governmentIdType       String?
+  governmentIdUrl        String?
+  governmentIdStatus     KycStatus  @default(PENDING)
+  governmentIdRejectNote String?
+  governmentId2Type       String?
+  governmentId2Url        String?
+  governmentId2Status     KycStatus  @default(PENDING)
+  governmentId2RejectNote String?
+  proofOfAddressType       String?
+  proofOfAddressUrl        String?
+  proofOfAddressStatus     KycStatus  @default(PENDING)
+  proofOfAddressRejectNote String?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 

@@ -10,6 +10,7 @@ import {
   uploadGovernmentId2,
   uploadProofOfAddress,
   completeOnboarding,
+  resubmitKyc,
 } from '../controllers/employeeOnboarding.controller';
 
 const router = Router();
@@ -43,5 +44,6 @@ router.post('/government-id', handleUpload, uploadGovernmentId);
 router.post('/government-id-2', handleUpload, uploadGovernmentId2);
 router.post('/proof-of-address', handleUpload, uploadProofOfAddress);
 router.post('/complete', completeOnboarding);
+router.post('/resubmit-kyc', resubmitKyc);
 
 export default router;

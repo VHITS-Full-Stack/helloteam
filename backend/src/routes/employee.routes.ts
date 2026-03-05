@@ -10,6 +10,10 @@ import {
   getEmployeeStats,
   terminateEmployee,
   reactivateEmployee,
+  approveEmployeeKyc,
+  rejectEmployeeKyc,
+  reviewEmployeeDocument,
+  finalizeKycReview,
 } from '../controllers/employee.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -34,6 +38,12 @@ router.post('/:id/terminate', requirePermission(PERMISSIONS.EMPLOYEES.DELETE), t
 
 // Reactivate terminated employee - requires employees.edit permission
 router.post('/:id/reactivate', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), reactivateEmployee);
+
+// KYC review - requires employees.edit permission
+router.post('/:id/kyc/review', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), reviewEmployeeDocument);
+router.post('/:id/kyc/finalize', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), finalizeKycReview);
+router.post('/:id/kyc/approve', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), approveEmployeeKyc);
+router.post('/:id/kyc/reject', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), rejectEmployeeKyc);
 
 // Client assignment - requires employees.assign permission
 router.post('/:id/assign', requirePermission(PERMISSIONS.EMPLOYEES.ASSIGN), assignToClient);

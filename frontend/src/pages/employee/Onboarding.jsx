@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import {
   User,
   Phone,
@@ -19,6 +20,8 @@ import {
 import { PhoneInput } from "../../components/common";
 import employeeOnboardingService from "../../services/employeeOnboarding.service";
 import documentTypeService from "../../services/documentType.service";
+import authService from "../../services/auth.service";
+import api from "../../services/api";
 import ImpersonationBanner from "../../components/layout/ImpersonationBanner";
 
 const STEPS = [
@@ -53,11 +56,17 @@ const emptyContact = () => ({
 });
 
 const Onboarding = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [tokenVerified, setTokenVerified] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [completed, setCompleted] = useState(false);
+  const [kycStatus, setKycStatus] = useState(null);
+  const [kycRejectionNote, setKycRejectionNote] = useState(null);
+  const [docStatuses, setDocStatuses] = useState({});
 
   // Dynamic document types from API
   const [govIdTypes, setGovIdTypes] = useState(FALLBACK_GOV_ID_TYPES);
@@ -100,9 +109,51 @@ const Onboarding = () => {
   const [existingProofUrl, setExistingProofUrl] = useState(null);
   const proofFileInputRef = useRef(null);
 
+  // Handle token-based access (from rejection email link) or check existing auth
   useEffect(() => {
-    fetchStatus();
-    fetchDocumentTypes();
+    let cancelled = false;
+    const init = async () => {
+      const token = searchParams.get('token');
+
+      if (token) {
+        // Clear any existing session (e.g. admin logged in) before verifying the email token
+        api.removeToken();
+
+        // Verify the token from the email link
+        try {
+          const response = await api.post('/auth/verify-token', { token });
+          if (cancelled) return;
+          if (response.success && response.data?.token) {
+            api.setToken(response.data.token);
+            setTokenVerified(true);
+            // Remove the token from URL so refreshing doesn't re-verify
+            window.history.replaceState({}, '', window.location.pathname);
+            fetchStatus();
+            fetchDocumentTypes();
+          } else {
+            // Token expired or invalid — show error on page
+            setError(response.error || 'This link has expired. Please log in with your credentials.');
+            setLoading(false);
+          }
+        } catch (err) {
+          if (cancelled) return;
+          console.error('Token verification failed:', err);
+          setError(err.data?.error || err.message || 'Unable to verify link. Please log in with your credentials.');
+          setLoading(false);
+        }
+      } else if (authService.isAuthenticated()) {
+        // Already logged in — proceed normally
+        setTokenVerified(true);
+        fetchStatus();
+        fetchDocumentTypes();
+      } else {
+        // No token and not logged in — redirect to login
+        navigate('/login');
+        return;
+      }
+    };
+    init();
+    return () => { cancelled = true; };
   }, []);
 
   const fetchDocumentTypes = async () => {
@@ -129,10 +180,23 @@ const Onboarding = () => {
       const response = await employeeOnboardingService.getStatus();
       if (response.success) {
         const d = response.data;
-        if (d.onboardingStatus === "COMPLETED") {
+        setKycStatus(d.kycStatus || null);
+        setKycRejectionNote(d.kycRejectionNote || null);
+        setDocStatuses({
+          governmentId: { status: d.governmentIdStatus, rejectNote: d.governmentIdRejectNote },
+          governmentId2: { status: d.governmentId2Status, rejectNote: d.governmentId2RejectNote },
+          proofOfAddress: { status: d.proofOfAddressStatus, rejectNote: d.proofOfAddressRejectNote },
+        });
+
+        if (d.onboardingStatus === "COMPLETED" && d.kycStatus !== "REJECTED") {
           setCompleted(true);
           setLoading(false);
           return;
+        }
+
+        // If KYC was rejected, start on documents step so employee can re-upload
+        if (d.kycStatus === "REJECTED") {
+          setCurrentStep(1);
         }
 
         // Pre-populate from existing data
@@ -241,9 +305,7 @@ const Onboarding = () => {
         const completeRes = await employeeOnboardingService.complete();
         if (completeRes.success) {
           setCompleted(true);
-          setTimeout(() => {
-            window.location.href = "/employee/dashboard";
-          }, 2000);
+          setKycStatus("PENDING");
         } else {
           setError(completeRes.error || "Failed to complete onboarding");
         }
@@ -406,8 +468,20 @@ const Onboarding = () => {
         }
       }
 
-      // Move to Emergency Contacts step
-      setCurrentStep(2);
+      // If KYC was rejected, resubmit for review instead of going to next step
+      if (kycStatus === "REJECTED") {
+        const resubmitRes = await employeeOnboardingService.resubmitKyc();
+        if (resubmitRes.success) {
+          setKycStatus("PENDING");
+          setKycRejectionNote(null);
+          setCompleted(true);
+        } else {
+          setError(resubmitRes.error || "Failed to resubmit documents");
+        }
+      } else {
+        // Move to Emergency Contacts step
+        setCurrentStep(2);
+      }
     } catch (err) {
       setError(err.message || "Failed to complete onboarding");
     } finally {
@@ -424,7 +498,7 @@ const Onboarding = () => {
     });
   };
 
-  if (loading) {
+  if (loading || (!tokenVerified && !error)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -435,24 +509,52 @@ const Onboarding = () => {
     );
   }
 
+  // Token verification failed — show error with link to login
+  if (!tokenVerified) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Unable to Verify Link</h2>
+          <p className="text-gray-600 mb-4">{error || 'This link is invalid or has expired.'}</p>
+          <a
+            href="/login"
+            className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            Go to Login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   if (completed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-green-600" />
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Shield className="w-10 h-10 text-yellow-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Onboarding Complete!
           </h2>
-          <p className="text-gray-600 mb-6">
-            Your profile has been set up successfully. You're being redirected
-            to your dashboard.
+          <p className="text-gray-600 mb-4">
+            Thank you for completing your onboarding. Your identity documents
+            are now under review by our team.
           </p>
-          <div className="flex items-center justify-center gap-2 text-primary-600">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Redirecting...</span>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
+            <p className="text-sm text-yellow-800 font-medium mb-1">
+              What happens next?
+            </p>
+            <ul className="text-sm text-yellow-700 space-y-1 list-disc list-inside">
+              <li>Our team will review your submitted documents</li>
+              <li>You will receive an email once your KYC is approved</li>
+              <li>After approval, you can log in and access the portal</li>
+            </ul>
           </div>
+          <p className="text-xs text-gray-400 mt-4">
+            You can safely close this page. We'll notify you by email.
+          </p>
         </div>
       </div>
     );
@@ -520,6 +622,34 @@ const Onboarding = () => {
               );
             })}
           </div>
+
+          {/* KYC Rejection Banner */}
+          {kycStatus === "REJECTED" && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-red-700 text-sm font-medium">Some of your KYC documents were not approved</p>
+                  <p className="text-red-600 text-sm mt-1">
+                    Please re-upload the rejected documents below.
+                  </p>
+                </div>
+              </div>
+              {/* Per-document rejection details */}
+              {[
+                { key: 'governmentId', label: 'Government ID #1' },
+                { key: 'governmentId2', label: 'Government ID #2' },
+                { key: 'proofOfAddress', label: 'Proof of Address' },
+              ].filter(d => docStatuses[d.key]?.status === 'REJECTED').map(d => (
+                <div key={d.key} className="ml-8 bg-white border border-red-200 rounded-lg px-3 py-2">
+                  <p className="text-sm font-medium text-red-700">{d.label} — Rejected</p>
+                  {docStatuses[d.key]?.rejectNote && (
+                    <p className="text-sm text-red-600 mt-0.5">{docStatuses[d.key].rejectNote}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Error Banner */}
           {error && (
@@ -742,15 +872,31 @@ const Onboarding = () => {
                 </p>
 
                 {/* --- Government ID 1 --- */}
-                <div className="mb-6 p-4 border border-gray-200 rounded-xl">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3">
-                    Government ID #1
-                  </h3>
+                {(() => {
+                  const isDocApproved = kycStatus === 'REJECTED' && docStatuses.governmentId?.status === 'APPROVED';
+                  return (
+                <div className={`mb-6 p-4 border rounded-xl ${
+                  docStatuses.governmentId?.status === 'REJECTED' ? 'border-red-300 bg-red-50/30' :
+                  docStatuses.governmentId?.status === 'APPROVED' ? 'border-green-300 bg-green-50/30' :
+                  'border-gray-200'
+                } ${isDocApproved ? 'opacity-60 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-800">
+                      Government ID #1
+                    </h3>
+                    {docStatuses.governmentId?.status === 'REJECTED' && (
+                      <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Rejected — please re-upload</span>
+                    )}
+                    {docStatuses.governmentId?.status === 'APPROVED' && (
+                      <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Approved</span>
+                    )}
+                  </div>
                   <div className="mb-3">
                     <select
                       value={idType}
                       onChange={(e) => setIdType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                      disabled={isDocApproved}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
                     >
                       <option value="">Select ID type...</option>
                       {govIdTypes.map((t) => (
@@ -805,6 +951,7 @@ const Onboarding = () => {
                           </span>
                         </div>
                       )}
+                      {!isDocApproved && (
                       <button
                         onClick={() => {
                           setIdFile(null);
@@ -815,20 +962,39 @@ const Onboarding = () => {
                       >
                         <X className="w-3.5 h-3.5" /> Remove
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
+                  );
+                })()}
 
                 {/* --- Government ID 2 --- */}
-                <div className="mb-6 p-4 border border-gray-200 rounded-xl">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3">
-                    Government ID #2
-                  </h3>
+                {(() => {
+                  const isDocApproved = kycStatus === 'REJECTED' && docStatuses.governmentId2?.status === 'APPROVED';
+                  return (
+                <div className={`mb-6 p-4 border rounded-xl ${
+                  docStatuses.governmentId2?.status === 'REJECTED' ? 'border-red-300 bg-red-50/30' :
+                  docStatuses.governmentId2?.status === 'APPROVED' ? 'border-green-300 bg-green-50/30' :
+                  'border-gray-200'
+                } ${isDocApproved ? 'opacity-60 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-800">
+                      Government ID #2
+                    </h3>
+                    {docStatuses.governmentId2?.status === 'REJECTED' && (
+                      <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Rejected — please re-upload</span>
+                    )}
+                    {docStatuses.governmentId2?.status === 'APPROVED' && (
+                      <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Approved</span>
+                    )}
+                  </div>
                   <div className="mb-3">
                     <select
                       value={id2Type}
                       onChange={(e) => setId2Type(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                      disabled={isDocApproved}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
                     >
                       <option value="">Select ID type...</option>
                       {govIdTypes.map((t) => (
@@ -883,6 +1049,7 @@ const Onboarding = () => {
                           </span>
                         </div>
                       )}
+                      {!isDocApproved && (
                       <button
                         onClick={() => {
                           setId2File(null);
@@ -893,15 +1060,33 @@ const Onboarding = () => {
                       >
                         <X className="w-3.5 h-3.5" /> Remove
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
+                  );
+                })()}
 
                 {/* --- Proof of Address --- */}
-                <div className="mb-6 p-4 border border-gray-200 rounded-xl">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-1">
-                    Proof of Address
-                  </h3>
+                {(() => {
+                  const isDocApproved = kycStatus === 'REJECTED' && docStatuses.proofOfAddress?.status === 'APPROVED';
+                  return (
+                <div className={`mb-6 p-4 border rounded-xl ${
+                  docStatuses.proofOfAddress?.status === 'REJECTED' ? 'border-red-300 bg-red-50/30' :
+                  docStatuses.proofOfAddress?.status === 'APPROVED' ? 'border-green-300 bg-green-50/30' :
+                  'border-gray-200'
+                } ${isDocApproved ? 'opacity-60 pointer-events-none' : ''}`}>
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-sm font-semibold text-gray-800">
+                      Proof of Address
+                    </h3>
+                    {docStatuses.proofOfAddress?.status === 'REJECTED' && (
+                      <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Rejected — please re-upload</span>
+                    )}
+                    {docStatuses.proofOfAddress?.status === 'APPROVED' && (
+                      <span className="text-xs font-medium text-green-600 bg-green-100 px-2 py-0.5 rounded-full">Approved</span>
+                    )}
+                  </div>
                   <p className="text-xs text-gray-400 mb-3">
                     Utility bill, bank statement, phone bill, or any official
                     document with your address
@@ -910,7 +1095,8 @@ const Onboarding = () => {
                     <select
                       value={proofType}
                       onChange={(e) => setProofType(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                      disabled={isDocApproved}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
                     >
                       <option value="">Select document type...</option>
                       {proofOfAddressTypes.map((t) => (
@@ -965,6 +1151,7 @@ const Onboarding = () => {
                           </span>
                         </div>
                       )}
+                      {!isDocApproved && (
                       <button
                         onClick={() => {
                           setProofFile(null);
@@ -975,28 +1162,44 @@ const Onboarding = () => {
                       >
                         <X className="w-3.5 h-3.5" /> Remove
                       </button>
+                      )}
                     </div>
                   )}
                 </div>
+                  );
+                })()}
 
                 <div className="flex justify-between mt-8">
-                  <button
-                    onClick={() => {
-                      setError("");
-                      setCurrentStep(0);
-                    }}
-                    className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
-                  </button>
+                  {kycStatus !== "REJECTED" ? (
+                    <button
+                      onClick={() => {
+                        setError("");
+                        setCurrentStep(0);
+                      }}
+                      className="flex items-center gap-2 px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back
+                    </button>
+                  ) : (
+                    <div />
+                  )}
                   <button
                     onClick={handleSubmit}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                    className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed font-medium ${
+                      kycStatus === "REJECTED"
+                        ? "bg-green-600 hover:bg-green-700"
+                        : "bg-primary-600 hover:bg-primary-700"
+                    }`}
                   >
                     {saving ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : kycStatus === "REJECTED" ? (
+                      <>
+                        <CheckCircle className="w-4 h-4" />
+                        Resubmit for Review
+                      </>
                     ) : (
                       <>
                         Next

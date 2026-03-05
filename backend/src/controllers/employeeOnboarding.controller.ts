@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { uploadGovernmentIdFile } from '../services/s3.service';
+import { sendNotificationEmail } from '../services/email.service';
 
 /**
  * GET /employee-onboarding/status
@@ -28,16 +29,24 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
       success: true,
       data: {
         onboardingStatus: employee.onboardingStatus,
+        kycStatus: employee.kycStatus,
+        kycRejectionNote: employee.kycRejectionNote,
         email: employee.user?.email,
         personalEmail: employee.personalEmail,
         phone: employee.phone,
         address: employee.address,
         governmentIdType: employee.governmentIdType,
         governmentIdUrl: employee.governmentIdUrl,
+        governmentIdStatus: employee.governmentIdStatus,
+        governmentIdRejectNote: employee.governmentIdRejectNote,
         governmentId2Type: employee.governmentId2Type,
         governmentId2Url: employee.governmentId2Url,
+        governmentId2Status: employee.governmentId2Status,
+        governmentId2RejectNote: employee.governmentId2RejectNote,
         proofOfAddressType: employee.proofOfAddressType,
         proofOfAddressUrl: employee.proofOfAddressUrl,
+        proofOfAddressStatus: employee.proofOfAddressStatus,
+        proofOfAddressRejectNote: employee.proofOfAddressRejectNote,
         emergencyContacts: employee.emergencyContacts.map((c) => ({
           id: c.id,
           name: c.name,
@@ -365,7 +374,7 @@ export const completeOnboarding = async (req: AuthenticatedRequest, res: Respons
 
     const employee = await prisma.employee.findUnique({
       where: { userId: req.user.userId },
-      include: { emergencyContacts: true },
+      include: { emergencyContacts: true, user: { select: { email: true } } },
     });
 
     if (!employee) {
@@ -393,9 +402,86 @@ export const completeOnboarding = async (req: AuthenticatedRequest, res: Respons
       data: { onboardingStatus: 'COMPLETED' },
     });
 
+    // Send KYC pending review email to employee
+    const email = employee.personalEmail || employee.user?.email;
+    if (email) {
+      await sendNotificationEmail(
+        email,
+        'Onboarding Complete - KYC Review Pending',
+        `Thank you for completing your onboarding, ${employee.firstName}! Your identity documents are now under review by our team. You will receive an email once your KYC verification is approved and you can access the portal.`,
+      ).catch((err) => console.error('Failed to send KYC pending email:', err));
+    }
+
     res.json({ success: true, message: 'Onboarding completed successfully' });
   } catch (error) {
     console.error('Complete onboarding error:', error);
     res.status(500).json({ success: false, error: 'Failed to complete onboarding' });
+  }
+};
+
+/**
+ * POST /employee-onboarding/resubmit-kyc
+ * Reset KYC status to PENDING after employee re-uploads documents following a rejection.
+ */
+export const resubmitKyc = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId: req.user.userId },
+      include: { user: { select: { email: true } } },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    if (employee.kycStatus !== 'REJECTED') {
+      res.status(400).json({ success: false, error: 'KYC resubmission is only allowed after rejection' });
+      return;
+    }
+
+    // Only reset rejected documents to PENDING — keep approved ones unchanged
+    const updateData: Record<string, string | null> = {
+      kycStatus: 'PENDING',
+      kycRejectionNote: null,
+    };
+
+    if (employee.governmentIdStatus === 'REJECTED') {
+      updateData.governmentIdStatus = 'PENDING';
+      updateData.governmentIdRejectNote = null;
+    }
+    if (employee.governmentId2Status === 'REJECTED') {
+      updateData.governmentId2Status = 'PENDING';
+      updateData.governmentId2RejectNote = null;
+    }
+    if (employee.proofOfAddressStatus === 'REJECTED') {
+      updateData.proofOfAddressStatus = 'PENDING';
+      updateData.proofOfAddressRejectNote = null;
+    }
+
+    await prisma.employee.update({
+      where: { id: employee.id },
+      data: updateData,
+    });
+
+    // Send email notification
+    const email = employee.personalEmail || employee.user?.email;
+    if (email) {
+      await sendNotificationEmail(
+        email,
+        'KYC Documents Resubmitted',
+        `Thank you, ${employee.firstName}! Your updated documents have been resubmitted for review. You will receive an email once your KYC verification is approved.`,
+      ).catch((err) => console.error('Failed to send KYC resubmit email:', err));
+    }
+
+    res.json({ success: true, message: 'KYC resubmitted for review' });
+  } catch (error) {
+    console.error('Resubmit KYC error:', error);
+    res.status(500).json({ success: false, error: 'Failed to resubmit KYC' });
   }
 };

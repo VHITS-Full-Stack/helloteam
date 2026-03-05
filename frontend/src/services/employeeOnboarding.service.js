@@ -74,6 +74,10 @@ const employeeOnboardingService = {
   complete() {
     return api.post('/employee-onboarding/complete');
   },
+
+  resubmitKyc() {
+    return api.post('/employee-onboarding/resubmit-kyc');
+  },
 };
 
 export default employeeOnboardingService;

@@ -146,15 +146,8 @@ const AppRoutes = () => {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
-        {/* Employee Onboarding (standalone, no sidebar) */}
-        <Route
-          path="/employee/onboarding"
-          element={
-            <ProtectedRoute allowedRoles={['EMPLOYEE']}>
-              <EmployeeOnboarding />
-            </ProtectedRoute>
-          }
-        />
+        {/* Employee Onboarding (standalone, no sidebar) - no ProtectedRoute so token-based access works */}
+        <Route path="/employee/onboarding" element={<EmployeeOnboarding />} />
 
         {/* Employee Portal Routes */}
         <Route path="/employee" element={<EmployeeLayout />}>

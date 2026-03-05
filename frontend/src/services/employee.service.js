@@ -68,6 +68,46 @@ const employeeService = {
     }
   },
 
+  // Approve employee KYC
+  approveKyc: async (id) => {
+    try {
+      const response = await api.post(`/employees/${id}/kyc/approve`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to approve KYC' };
+    }
+  },
+
+  // Reject employee KYC
+  rejectKyc: async (id, reason) => {
+    try {
+      const response = await api.post(`/employees/${id}/kyc/reject`, { reason });
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to reject KYC' };
+    }
+  },
+
+  // Review a single KYC document (approve or reject)
+  reviewDocument: async (employeeId, document, action, reason, sendEmail = true) => {
+    try {
+      const response = await api.post(`/employees/${employeeId}/kyc/review`, { document, action, reason, sendEmail });
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to review document' };
+    }
+  },
+
+  // Finalize KYC review - sends email based on overall status
+  finalizeKycReview: async (id) => {
+    try {
+      const response = await api.post(`/employees/${id}/kyc/finalize`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to finalize KYC review' };
+    }
+  },
+
   // Delete employee
   deleteEmployee: async (id) => {
     try {

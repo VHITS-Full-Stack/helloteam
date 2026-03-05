@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import prisma from '../config/database';
-import { hashPassword, comparePassword, generateToken } from '../utils/helpers';
+import { hashPassword, comparePassword, generateToken, verifyMagicLinkToken } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { config } from '../config';
 import { sendPasswordResetEmail } from '../services/email.service';
@@ -40,7 +40,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (user.status !== 'ACTIVE') {
+    // Allow INACTIVE employees to log in for onboarding (they become ACTIVE after KYC approval)
+    const isEmployeePendingOnboarding = user.role === 'EMPLOYEE' && user.status === 'INACTIVE' &&
+      (user.employee?.onboardingStatus === 'PENDING_AGREEMENT' || (user.employee?.kycStatus && user.employee.kycStatus !== 'APPROVED'));
+
+    if (user.status !== 'ACTIVE' && !isEmployeePendingOnboarding) {
       res.status(401).json({
         success: false,
         error: 'Your account is not active. Please contact support.',
@@ -778,5 +782,73 @@ export const validateSession = async (req: AuthenticatedRequest, res: Response):
       success: false,
       error: 'An error occurred while validating session',
     });
+  }
+};
+
+/**
+ * POST /auth/verify-token
+ * Verify a URL token and return a session token (no login needed).
+ */
+export const verifyUrlToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      res.status(400).json({ success: false, error: 'Token is required' });
+      return;
+    }
+
+    let payload: { userId: string; purpose: string };
+    try {
+      payload = verifyMagicLinkToken(token);
+    } catch {
+      res.status(401).json({ success: false, error: 'This link has expired. Please log in manually.' });
+      return;
+    }
+
+    if (payload.purpose !== 'kyc-reupload' && payload.purpose !== 'onboarding') {
+      res.status(400).json({ success: false, error: 'Invalid link' });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      include: { employee: true, client: { include: { agreement: true } }, admin: true },
+    });
+
+    if (!user) {
+      res.status(404).json({ success: false, error: 'User not found' });
+      return;
+    }
+
+    // Allow INACTIVE employees for onboarding/kyc-reupload tokens (they become ACTIVE after KYC approval)
+    if (user.status !== 'ACTIVE' && !['onboarding', 'kyc-reupload'].includes(payload.purpose)) {
+      res.status(404).json({ success: false, error: 'User not found or inactive' });
+      return;
+    }
+
+    // Delete old sessions for this user to avoid unique constraint on token
+    await prisma.session.deleteMany({
+      where: { userId: user.id },
+    });
+
+    const sessionToken = generateToken({ userId: user.id, email: user.email, role: user.role });
+
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + config.session.timeoutMinutes);
+
+    await prisma.session.create({
+      data: { userId: user.id, token: sessionToken, expiresAt, isActive: true },
+    });
+
+    const { password: _, ...userWithoutPassword } = user;
+
+    res.json({
+      success: true,
+      data: { user: userWithoutPassword, token: sessionToken },
+    });
+  } catch (error) {
+    console.error('Verify token error:', error);
+    res.status(500).json({ success: false, error: 'Failed to verify token' });
   }
 };

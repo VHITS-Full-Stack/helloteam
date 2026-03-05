@@ -270,6 +270,67 @@ function useEmployeeDetail(id) {
     }
   };
 
+  // ── KYC Review ──
+  const approveKyc = async () => {
+    try {
+      setSubmitting(true);
+      const response = await employeeService.approveKyc(id);
+      if (response.success) {
+        await fetchEmployeeDetails();
+      }
+    } catch (err) {
+      console.error('Approve KYC error:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const rejectKyc = async (reason) => {
+    try {
+      setSubmitting(true);
+      const response = await employeeService.rejectKyc(id, reason);
+      if (response.success) {
+        await fetchEmployeeDetails();
+      }
+    } catch (err) {
+      console.error('Reject KYC error:', err);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const reviewDocument = async (document, action, reason, sendEmail = false) => {
+    try {
+      setSubmitting(true);
+      const response = await employeeService.reviewDocument(id, document, action, reason, sendEmail);
+      if (response.success) {
+        await fetchEmployeeDetails();
+      }
+      return response;
+    } catch (err) {
+      console.error('Review document error:', err);
+      return { success: false, error: err.error || 'Failed to review document' };
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const finalizeKycReview = async () => {
+    try {
+      setSubmitting(true);
+      const response = await employeeService.finalizeKycReview(id);
+      if (response.success) {
+        await fetchEmployeeDetails();
+      }
+      return response;
+    } catch (err) {
+      console.error('Finalize KYC review error:', err);
+      return { success: false, error: err.error || 'Failed to finalize review' };
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ── Reactivate ──
   const handleReactivate = async () => {
     setSubmitting(true);
@@ -478,6 +539,10 @@ function useEmployeeDetail(id) {
     // Shared modal state
     submitting,
     modalError,
+    approveKyc,
+    rejectKyc,
+    reviewDocument,
+    finalizeKycReview,
   };
 }
 

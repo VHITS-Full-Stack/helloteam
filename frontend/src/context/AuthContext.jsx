@@ -183,8 +183,9 @@ export const AuthProvider = ({ children }) => {
         // Navigate based on role
         const role = response.data.user.role;
         if (role === 'EMPLOYEE') {
-          // Check if employee needs to complete onboarding
-          if (response.data.user.employee?.onboardingStatus === 'PENDING_AGREEMENT') {
+          const emp = response.data.user.employee;
+          // Check if employee needs to complete onboarding or KYC
+          if (emp?.onboardingStatus === 'PENDING_AGREEMENT' || (emp?.kycStatus && emp.kycStatus !== 'APPROVED')) {
             navigate('/employee/onboarding');
           } else {
             navigate('/employee/dashboard');
