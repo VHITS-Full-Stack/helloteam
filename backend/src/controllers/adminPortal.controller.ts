@@ -579,14 +579,14 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         isActive: true,
       },
       include: {
-        client: { select: { id: true, companyName: true } },
+        client: { select: { id: true, companyName: true, timezone: true } },
       },
     }) : [];
 
-    const employeeClientMap = new Map<string, { clientId: string; companyName: string }>();
+    const employeeClientMap = new Map<string, { clientId: string; companyName: string; timezone: string | null }>();
     for (const a of allClientAssignments) {
       if (!employeeClientMap.has(a.employeeId)) {
-        employeeClientMap.set(a.employeeId, { clientId: a.clientId, companyName: a.client.companyName });
+        employeeClientMap.set(a.employeeId, { clientId: a.clientId, companyName: a.client.companyName, timezone: a.client.timezone });
       }
     }
 
@@ -643,6 +643,31 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const key = `${ot.employeeId}_${dateStr}`;
       if (!otRequestMap.has(key)) otRequestMap.set(key, []);
       otRequestMap.get(key)!.push(ot);
+    }
+
+    // Fetch TimeRecords for billing data
+    const timeRecords = sessionEmployeeIds.length > 0
+      ? await prisma.timeRecord.findMany({
+          where: {
+            employeeId: { in: sessionEmployeeIds },
+            date: { gte: rangeStart, lte: rangeEndWithTime },
+          },
+          select: {
+            employeeId: true,
+            date: true,
+            billingStart: true,
+            billingEnd: true,
+            billingMinutes: true,
+            isLate: true,
+            status: true,
+          },
+        })
+      : [];
+    const timeRecordMap = new Map<string, typeof timeRecords[0]>();
+    for (const tr of timeRecords) {
+      const dateStr = toLocalDateStr(tr.date);
+      const key = `${tr.employeeId}_${dateStr}`;
+      timeRecordMap.set(key, tr);
     }
 
     // Build daily records from work sessions + OvertimeRequests
@@ -704,6 +729,10 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         };
       });
 
+      // Get billing data from TimeRecord
+      const trKey = `${firstSession.employeeId}_${dateStr}`;
+      const dayTimeRecord = timeRecordMap.get(trKey);
+
       allRecords.push({
         id: firstSession.id,
         employee: `${emp.firstName} ${emp.lastName}`,
@@ -711,14 +740,19 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         profilePhoto: emp.profilePhoto,
         client: clientInfo?.companyName || 'Unassigned',
         clientId: clientInfo?.clientId || null,
+        clientTimezone: clientInfo?.timezone || null,
         date: dateStr,
         clockIn,
         clockOut,
+        billingStart: dayTimeRecord?.billingStart || null,
+        billingEnd: dayTimeRecord?.billingEnd || null,
+        billingMinutes: dayTimeRecord?.billingMinutes || 0,
+        isLate: dayTimeRecord?.isLate || false,
         hours,
         regularHours,
         overtimeHours,
         breaks: breakHours,
-        status: recordStatus,
+        status: dayTimeRecord?.status?.toLowerCase() || recordStatus,
         notes: daySessions.map(s => s.notes).filter(Boolean).join('; ') || null,
         arrivalStatus: firstSession.arrivalStatus || null,
         lateMinutes: firstSession.lateMinutes || null,
@@ -746,6 +780,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
           profilePhoto: record.profilePhoto,
           client: record.client,
           clientId: record.clientId,
+          clientTimezone: record.clientTimezone,
           totalHours: 0,
           regularHours: 0,
           overtimeHours: 0,
@@ -767,6 +802,10 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         date: record.date,
         clockIn: record.clockIn,
         clockOut: record.clockOut,
+        billingStart: record.billingStart,
+        billingEnd: record.billingEnd,
+        billingMinutes: record.billingMinutes,
+        isLate: record.isLate,
         hours: record.hours,
         regularHours: record.regularHours,
         overtimeHours: record.overtimeHours,

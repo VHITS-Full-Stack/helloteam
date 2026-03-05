@@ -142,6 +142,7 @@ const EmployeeDashboard = () => {
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
   const [showUnscheduledDayWarning, setShowUnscheduledDayWarning] = useState(false);
   const [clockInWarningMessage, setClockInWarningMessage] = useState("");
+  const [weekSchedule, setWeekSchedule] = useState([]);
 
   // Coming soon toast
   const [showComingSoon, setShowComingSoon] = useState(false);
@@ -355,12 +356,29 @@ const EmployeeDashboard = () => {
     }
   }, []);
 
+  // Fetch this week's schedule
+  const fetchWeekSchedule = useCallback(async () => {
+    try {
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+      const weekStartStr = startOfWeek.toISOString().split("T")[0];
+      const res = await scheduleService.getMySchedule(weekStartStr);
+      if (res.success && res.schedule) {
+        setWeekSchedule(res.schedule);
+      }
+    } catch (err) {
+      console.error("Failed to fetch week schedule:", err);
+    }
+  }, []);
+
   useEffect(() => {
     fetchWorkSessionData();
     fetchOvertimeRequests();
     fetchTasks();
     fetchUnreadCount();
-  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks, fetchUnreadCount]);
+    fetchWeekSchedule();
+  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks, fetchUnreadCount, fetchWeekSchedule]);
 
   // Detect if session is in extension mode (resumed after shift end)
   useEffect(() => {
@@ -1760,27 +1778,41 @@ const EmployeeDashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          {weekSchedule.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-gray-400">
+              <Calendar className="w-10 h-10 mb-2 text-gray-300" />
+              <p className="text-sm font-medium text-gray-500">You don't have a schedule assigned for this week</p>
+              <p className="text-xs text-gray-400 mt-1">Contact your admin to set up your schedule</p>
+            </div>
+          ) : (
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
             {(() => {
-              const today = new Date();
-              const startOfWeek = new Date(today);
-              startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Start from Monday
+              const now = new Date();
+              const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+              const startOfWeek = new Date(todayStart);
+              startOfWeek.setDate(todayStart.getDate() - todayStart.getDay() + 1); // Monday
 
-              return ["Mon", "Tue", "Wed", "Thu", "Fri"].map((day, index) => {
+              return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, index) => {
                 const dayDate = new Date(startOfWeek);
                 dayDate.setDate(startOfWeek.getDate() + index);
-                const isToday = today.toDateString() === dayDate.toDateString();
-                const isPast = dayDate < new Date(today.setHours(0, 0, 0, 0));
+                const isToday = todayStart.getTime() === new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate()).getTime();
+                const isPast = dayDate < todayStart;
+                // dayOfWeek: Monday=1 ... Sunday=0
+                const dayOfWeek = dayDate.getDay();
+                const daySchedule = weekSchedule.find((s) => s.dayOfWeek === dayOfWeek);
+                const isScheduled = daySchedule?.isScheduled;
 
                 return (
                   <div
                     key={day}
-                    className={`relative p-4 rounded-xl text-center transition-all ${
+                    className={`relative p-3 rounded-xl text-center transition-all ${
                       isToday
                         ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
-                        : isPast
+                        : isPast && isScheduled
                           ? "bg-green-50 border border-green-100"
-                          : "bg-gray-50 border border-gray-100"
+                          : !isScheduled
+                            ? "bg-gray-50 border border-gray-100 opacity-60"
+                            : "bg-gray-50 border border-gray-100"
                     }`}
                   >
                     {isToday && (
@@ -1805,20 +1837,23 @@ const EmployeeDashboard = () => {
                       {dayDate.getDate()}
                     </p>
                     <p
-                      className={`text-sm mt-2 ${
-                        isToday ? "text-primary-100" : "text-gray-600"
+                      className={`text-xs mt-2 ${
+                        isToday ? "text-primary-100" : isScheduled ? "text-gray-600" : "text-gray-400"
                       }`}
                     >
-                      9AM - 6PM
+                      {isScheduled
+                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
+                        : "Off"}
                     </p>
-                    {isPast && !isToday && (
-                      <CheckCircle className="w-5 h-5 text-green-500 mx-auto mt-2" />
+                    {isPast && !isToday && isScheduled && (
+                      <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
                     )}
                   </div>
                 );
               });
             })()}
           </div>
+          )}
         </CardContent>
       </Card>
 

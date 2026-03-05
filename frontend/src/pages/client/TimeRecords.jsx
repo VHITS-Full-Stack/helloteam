@@ -10,10 +10,10 @@ import {
 import clientPortalService from '../../services/clientPortal.service';
 import { formatHours } from '../../utils/formatTime';
 
-const formatClockTime = (dateStr) => {
+const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;
   const d = new Date(dateStr);
-  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: tz || Intl.DateTimeFormat().resolvedOptions().timeZone });
 };
 
 const formatScheduleTime = (timeStr) => {
@@ -37,6 +37,7 @@ const TimeRecords = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState('');
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
+  const [clientTimezone, setClientTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
 
   // Week navigation
   const [weekStart, setWeekStart] = useState(() => {
@@ -100,6 +101,7 @@ const TimeRecords = () => {
 
       if (response.success) {
         setTimeRecords(response.data.records || []);
+        if (response.data.clientTimezone) setClientTimezone(response.data.clientTimezone);
       } else {
         setError(response.error || 'Failed to load time records');
       }
@@ -273,13 +275,11 @@ const TimeRecords = () => {
             <thead>
               <tr className="border-b border-gray-200 bg-gray-100/50">
                 <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-6">Date</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Clock‑In Time<span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span></th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">	Clock‑Out Time <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">(EST)</span></th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Break Duration</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Regular Hours</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Shift Extension Hours</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Off‑Shift / Extra Time</th>
-                <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Approval Status</th>
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-3">Billing In/Out</th>
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-3">Break</th>
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-3">Regular</th>
+                <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-3">OT<span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">Ext / Off‑Shift</span></th>
+                <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2 px-4">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -299,29 +299,50 @@ const TimeRecords = () => {
                       <span className="font-medium text-gray-900">{dateLabel}</span>
                     </td>
                     {isLeaveOrHoliday ? (
-                      <td colSpan={7} className="py-2.5 px-4 text-sm text-center">
+                      <td colSpan={6} className="py-2.5 px-4 text-sm text-center">
                         {getStatusBadge(status)}
                       </td>
                     ) : (
                       <>
-                        <td className="py-2.5 px-4 text-sm text-gray-700">
-                          {rec.clockIn ? formatClockTime(rec.clockIn) : <span className="text-gray-400">&mdash;</span>}
+                        {/* Billing In/Out */}
+                        <td className="py-2.5 px-3 text-sm text-center">
+                          {rec.billingStart && rec.billingEnd ? (
+                            <div className="text-gray-900 font-medium">
+                              {formatClockTime(rec.billingStart, clientTimezone)}
+                              <span className="text-gray-300 mx-1">–</span>
+                              {formatClockTime(rec.billingEnd, clientTimezone)}
+                            </div>
+                          ) : rec.clockIn ? (
+                            <div className="text-gray-700">
+                              {formatClockTime(rec.clockIn, clientTimezone)}
+                              <span className="text-gray-300 mx-1">–</span>
+                              {rec.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : '—'}
+                            </div>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                          {rec.isLate && <span className="ml-1 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>}
                         </td>
-                        <td className="py-2.5 px-4 text-sm text-gray-700">
-                          {rec.clockOut ? formatClockTime(rec.clockOut) : <span className="text-gray-400">&mdash;</span>}
-                        </td>
-                        <td className="py-2.5 px-4 text-sm">
+                        {/* Break */}
+                        <td className="py-2.5 px-3 text-sm text-center">
                           <span className={(rec.breakMinutes || 0) > 0 ? 'font-medium text-yellow-600' : 'text-gray-400'}>{(rec.breakMinutes || 0) > 0 ? formatHours(rec.breakMinutes / 60) : '—'}</span>
                         </td>
-                        <td className="py-2.5 px-4 text-sm">
+                        {/* Regular */}
+                        <td className="py-2.5 px-3 text-sm text-center">
                           <span className={regularM > 0 ? 'font-medium text-gray-900' : 'text-gray-400'}>{formatHours(regularM / 60)}</span>
                         </td>
-                        <td className="py-2.5 px-4 text-sm">
-                          <span className={shiftExtM > 0 ? 'font-medium text-purple-600' : 'text-gray-400'}>{shiftExtM > 0 ? formatHours(shiftExtM / 60) : '—'}</span>
+                        {/* OT (Ext / Off-Shift) */}
+                        <td className="py-2.5 px-3 text-sm text-center">
+                          {(shiftExtM > 0 || extraTimeM > 0) ? (
+                            <div className="flex flex-col items-center gap-0.5">
+                              {shiftExtM > 0 && <span className="text-xs text-purple-600 font-medium">{formatHours(shiftExtM / 60)} ext</span>}
+                              {extraTimeM > 0 && <span className="text-xs text-orange-600 font-medium">{formatHours(extraTimeM / 60)} off</span>}
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">—</span>
+                          )}
                         </td>
-                        <td className="py-2.5 px-4 text-sm">
-                          <span className={extraTimeM > 0 ? 'font-medium text-orange-600' : 'text-gray-400'}>{extraTimeM > 0 ? formatHours(extraTimeM / 60) : '—'}</span>
-                        </td>
+                        {/* Status */}
                         <td className="py-2.5 px-4 text-right">
                           {getStatusBadge(status)}
                         </td>
@@ -356,11 +377,21 @@ const TimeRecords = () => {
                 {!isLeaveOrHoliday && (
                   <>
                     <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                      <span>In: {rec.clockIn ? formatClockTime(rec.clockIn) : '—'}</span>
-                      <span>Out: {rec.clockOut ? formatClockTime(rec.clockOut) : '—'}</span>
-                      {(rec.breakMinutes || 0) > 0 && <span className="text-yellow-600">Break: {formatHours(rec.breakMinutes / 60)}</span>}
+                      {rec.billingStart && rec.billingEnd ? (
+                        <>
+                          <span>In: {formatClockTime(rec.billingStart, clientTimezone)}</span>
+                          <span>Out: {formatClockTime(rec.billingEnd, clientTimezone)}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>In: {rec.clockIn ? formatClockTime(rec.clockIn, clientTimezone) : '—'}</span>
+                          <span>Out: {rec.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : '—'}</span>
+                        </>
+                      )}
+                      {rec.isLate && <span className="text-red-600 font-semibold">LATE</span>}
                     </div>
                     <div className="flex items-center gap-3 mt-1 text-xs">
+                      {(rec.breakMinutes || 0) > 0 && <span className="text-yellow-600">Break: {formatHours(rec.breakMinutes / 60)}</span>}
                       <span className={regularM > 0 ? 'text-gray-700' : 'text-gray-400'}>Reg: {formatHours(regularM / 60)}</span>
                       {shiftExtM > 0 && <span className="text-purple-600">Ext: {formatHours(shiftExtM / 60)}</span>}
                       {extraTimeM > 0 && <span className="text-orange-600">Extra: {formatHours(extraTimeM / 60)}</span>}

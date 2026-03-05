@@ -198,17 +198,18 @@ const TimeRecords = () => {
     return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   };
 
-  // Format clock time to 12h display in EST when possible.
-  // If `timeStr` is an ISO datetime string, convert to America/New_York.
+  // Format clock time to 12h display in client timezone when possible.
+  // If `timeStr` is an ISO datetime string, convert to the given timezone.
   // If `timeStr` is HH:MM, convert to 12h with formatTime12.
-  const fmtTime = (timeStr) => {
+  const fmtTime = (timeStr, tz) => {
     if (!timeStr) return '-';
+    const timezone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
     // ISO datetime (contains 'T' or 'Z' or full date)
     if (timeStr.includes('T') || timeStr.includes('Z') || /\d{4}-\d{2}-\d{2}/.test(timeStr)) {
       try {
         const d = new Date(timeStr);
         if (!isNaN(d.getTime())) {
-          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' });
+          return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: timezone });
         }
       } catch (e) {
         // fallthrough
@@ -222,18 +223,18 @@ const TimeRecords = () => {
   };
 
   // Convert 12h time string "HH:MM AM/PM" to 24h "HH:MM" for input
-  const to24h = (timeStr) => {
+  const to24h = (timeStr, tz) => {
     if (!timeStr) return '';
+    const timezone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
     // If it's an ISO datetime, convert using Date
     if (timeStr.includes('T') || timeStr.includes('Z') || /\d{4}-\d{2}-\d{2}/.test(timeStr)) {
       const d = new Date(timeStr);
       if (!isNaN(d.getTime())) {
-        // produce 24h HH:MM in America/New_York
         return d.toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
           minute: '2-digit',
-          timeZone: 'America/New_York',
+          timeZone: timezone,
         });
       }
     }
@@ -257,11 +258,12 @@ const TimeRecords = () => {
       client: employeeRecord.client,
     });
     // Initialize editable session data
+    const tz = employeeRecord.clientTimezone;
     const sessions = record.sessions && record.sessions.length > 0
       ? record.sessions.map((s) => ({
           id: s.id,
-          clockIn: to24h(s.clockIn),
-          clockOut: to24h(s.clockOut),
+          clockIn: to24h(s.clockIn, tz),
+          clockOut: to24h(s.clockOut, tz),
           hours: s.hours,
           breakMinutes: s.breakMinutes,
           status: s.status,
@@ -269,8 +271,8 @@ const TimeRecords = () => {
         }))
       : [{
           id: record.id,
-          clockIn: to24h(record.clockIn),
-          clockOut: to24h(record.clockOut),
+          clockIn: to24h(record.clockIn, tz),
+          clockOut: to24h(record.clockOut, tz),
           hours: record.hours,
           breakMinutes: 0,
           status: record.status,
@@ -310,7 +312,7 @@ const TimeRecords = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Employee', 'Client', 'Date', 'Clock In', 'Clock Out', 'Hours', 'OT Hours', 'Breaks', 'Status'];
+    const headers = ['Employee', 'Client', 'Date', 'Actual In', 'Actual Out', 'Billing In', 'Billing Out', 'Hours', 'OT Hours', 'Breaks', 'Status'];
     const rows = [];
     for (const emp of timeRecords) {
       for (const day of emp.dailyRecords) {
@@ -318,8 +320,10 @@ const TimeRecords = () => {
           `"${emp.employee}"`,
           `"${emp.client}"`,
           day.date,
-          fmtTime(day.clockIn) || 'N/A',
-          fmtTime(day.clockOut) || 'N/A',
+          fmtTime(day.clockIn, emp.clientTimezone) || 'N/A',
+          fmtTime(day.clockOut, emp.clientTimezone) || 'N/A',
+          fmtTime(day.billingStart, emp.clientTimezone) || 'N/A',
+          fmtTime(day.billingEnd, emp.clientTimezone) || 'N/A',
           day.hours || 0,
           day.overtimeHours || 0,
           day.breaks || 0,
@@ -374,7 +378,7 @@ const TimeRecords = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      {/* <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card padding="sm">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Employees</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{stats.totalRecords}</p>
@@ -397,7 +401,7 @@ const TimeRecords = () => {
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Active Now</p>
           <p className="text-2xl font-bold text-blue-600 mt-1">{stats.adjustments}</p>
         </Card>
-      </div>
+      </div> */}
 
       {/* Filters */}
       <Card>
@@ -565,13 +569,12 @@ const TimeRecords = () => {
                                   {/* Table Header */}
                                   <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
                                     <div className="col-span-2 pl-16">Date</div>
-                                    <div className="col-span-2">Clock‑In Time <span className="text-[9px] font-medium text-gray-400 normal-case">(EST)</span></div>
-                                    <div className="col-span-2">Clock‑Out Time <span className="text-[9px] font-medium text-gray-400 normal-case">(EST)</span></div>
-                                    <div className="col-span-1">Break Duration</div>
-                                    <div className="col-span-1">Regular Hours</div>
-                                    <div className="col-span-1">Shift Extension Hours</div>
-                                    <div className="col-span-1">Off‑Shift / Extra Time</div>
-                                    <div className="col-span-2">Approval Status</div>
+                                    <div className="col-span-2 text-center">Actual In/Out</div>
+                                    <div className="col-span-2 text-center">Billing In/Out</div>
+                                    <div className="col-span-1">Break</div>
+                                    <div className="col-span-1">Regular</div>
+                                    <div className="col-span-1">OT<span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">Ext / Off‑Shift</span></div>
+                                    <div className="col-span-3">Status</div>
                                   </div>
 
                                   {empRecord.dailyRecords.map((day) => (
@@ -581,33 +584,46 @@ const TimeRecords = () => {
                                         {/* Date */}
                                         <div className="col-span-2 pl-16">
                                           <span className="font-medium text-gray-900 text-xs">{formatDate(day.date)}</span>
-                                          {day.arrivalStatus === 'Late' && (
+                                          {(day.isLate || day.arrivalStatus === 'Late') && (
                                             <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
                                               Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
                                             </span>
                                           )}
-                                          {day.arrivalStatus === 'Early' && (
+                                          {!day.isLate && day.arrivalStatus === 'Early' && (
                                             <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700">
                                               Early
                                             </span>
                                           )}
                                         </div>
 
-                                        {/* Clock In */}
-                                        <div className="col-span-2 text-xs text-gray-600">
-                                          {fmtTime(day.clockIn)}
+                                        {/* Actual In/Out */}
+                                        <div className="col-span-2 text-xs text-center">
+                                          <span className="text-gray-700">{fmtTime(day.clockIn, empRecord.clientTimezone)}</span>
+                                          <span className="text-gray-300 mx-1">–</span>
+                                          {day.clockOut ? (
+                                            <span className="text-gray-700">{fmtTime(day.clockOut, empRecord.clientTimezone)}</span>
+                                          ) : day.status === 'active' ? (
+                                            <span className="text-green-600 inline-flex items-center gap-1">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                              Now
+                                            </span>
+                                          ) : <span className="text-gray-400">-</span>}
                                         </div>
 
-                                        {/* Clock Out */}
-                                        <div className="col-span-2 text-xs text-gray-600">
-                                          {day.clockOut ? fmtTime(day.clockOut) : (
-                                            day.status === 'active' ? (
-                                              <span className="text-green-600 inline-flex items-center gap-1">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                                Now
-                                              </span>
-                                            ) : '-'
+                                        {/* Billing In/Out */}
+                                        <div className="col-span-2 text-xs text-center">
+                                          {day.billingStart && day.billingEnd ? (
+                                            <span className="text-blue-700 font-medium">
+                                              {fmtTime(day.billingStart, empRecord.clientTimezone)}
+                                              <span className="text-blue-300 mx-1">–</span>
+                                              {fmtTime(day.billingEnd, empRecord.clientTimezone)}
+                                            </span>
+                                          ) : day.status === 'active' ? (
+                                            <span className="text-gray-400 italic">In progress</span>
+                                          ) : (
+                                            <span className="text-gray-300">—</span>
                                           )}
+                                          {day.isLate && <span className="ml-1 text-[9px] font-semibold text-red-600 bg-red-50 px-1 py-0.5 rounded">LATE</span>}
                                         </div>
 
                                         {/* Break */}
@@ -629,36 +645,29 @@ const TimeRecords = () => {
                                           </span>
                                         </div>
 
-                                        {/* Shift Extension */}
+                                        {/* OT (Ext / Off-Shift) */}
                                         <div className="col-span-1">
-                                          {day.overtimeEntries && day.overtimeEntries.some(o => o.type === 'SHIFT_EXTENSION') ? (
-                                            <div>
-                                              {day.overtimeEntries.filter(o => o.type === 'SHIFT_EXTENSION').map((ot, i) => (
-                                                <div key={i} className="text-[10px] text-purple-600">{formatDuration(ot.requestedMinutes)}</div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <span className="text-gray-300 text-xs">-</span>
-                                          )}
+                                          {(() => {
+                                            const shiftExtEntries = (day.overtimeEntries || []).filter(o => o.type === 'SHIFT_EXTENSION');
+                                            const offShiftEntries = (day.overtimeEntries || []).filter(o => o.type === 'OFF_SHIFT');
+                                            if (shiftExtEntries.length > 0 || offShiftEntries.length > 0) {
+                                              return (
+                                                <div className="flex flex-col gap-0.5">
+                                                  {shiftExtEntries.map((ot, i) => (
+                                                    <span key={i} className="text-[10px] text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
+                                                  ))}
+                                                  {offShiftEntries.map((ot, i) => (
+                                                    <span key={i} className="text-[10px] text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
+                                                  ))}
+                                                </div>
+                                              );
+                                            }
+                                            return <span className="text-gray-300 text-xs">—</span>;
+                                          })()}
                                         </div>
 
-                                        {/* Off-Shift / Extra Time */}
-                                        <div className="col-span-1">
-                                          {day.overtimeEntries && day.overtimeEntries.some(o => o.type === 'OFF_SHIFT') ? (
-                                            <div>
-                                              {day.overtimeEntries.filter(o => o.type === 'OFF_SHIFT').map((ot, i) => (
-                                                <div key={i} className="text-[10px] text-orange-600">{formatDuration(ot.requestedMinutes)}</div>
-                                              ))}
-                                            </div>
-                                          ) : day.overtimeHours > 0 ? (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded bg-amber-100 text-amber-800 w-fit">+{formatHours(day.overtimeHours)}</span>
-                                          ) : (
-                                            <span className="text-gray-300 text-xs">-</span>
-                                          )}
-                                        </div>
-
-                                        {/* Status + Actions (combined) */}
-                                        <div className="col-span-2 flex items-center justify-between">
+                                        {/* Status + Actions */}
+                                        <div className="col-span-3 flex items-center justify-between">
                                           <div>
                                             {getStatusBadge(day.status)}
                                             {day.notes && (
@@ -687,7 +696,7 @@ const TimeRecords = () => {
                                         <div className="flex items-center justify-between mb-2">
                                           <div className="flex items-center gap-2">
                                             <span className="font-medium text-gray-900 text-sm">{formatDate(day.date)}</span>
-                                            {day.arrivalStatus === 'Late' && (
+                                            {(day.isLate || day.arrivalStatus === 'Late') && (
                                               <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
                                                 Late
                                               </span>
@@ -706,13 +715,18 @@ const TimeRecords = () => {
                                             </button>
                                           </div>
                                         </div>
-                                        <p className="text-xs text-gray-500 mb-2">
-                                          {fmtTime(day.clockIn)} → {day.clockOut ? fmtTime(day.clockOut) : (day.status === 'active' ? 'Now' : '-')}
+                                        <p className="text-xs text-gray-500">
+                                          Actual: {fmtTime(day.clockIn, empRecord.clientTimezone)} → {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : (day.status === 'active' ? 'Now' : '-')}
                                         </p>
-                                        <div className="flex items-center gap-4 text-xs">
+                                        {day.billingStart && day.billingEnd && (
+                                          <p className="text-xs text-blue-600 mt-0.5">
+                                            Billing: {fmtTime(day.billingStart, empRecord.clientTimezone)} → {fmtTime(day.billingEnd, empRecord.clientTimezone)}
+                                          </p>
+                                        )}
+                                        <div className="flex items-center gap-4 text-xs mt-2">
                                           <div>
-                                            <span className="text-gray-400">Duration</span>
-                                            <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(day.hours) : '-'}</p>
+                                            <span className="text-gray-400">Regular</span>
+                                            <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}</p>
                                           </div>
                                           {day.breaks > 0 && (
                                             <div>

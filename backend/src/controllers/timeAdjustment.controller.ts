@@ -79,6 +79,7 @@ export const getTimeRecordsForAdjustment = async (req: AuthenticatedRequest, res
             select: {
               id: true,
               companyName: true,
+              timezone: true,
             },
           },
           adjustments: {
@@ -110,11 +111,16 @@ export const getTimeRecordsForAdjustment = async (req: AuthenticatedRequest, res
       client: {
         id: tr.client.id,
         name: tr.client.companyName,
+        timezone: tr.client.timezone,
       },
       scheduledStart: tr.scheduledStart,
       scheduledEnd: tr.scheduledEnd,
       actualStart: tr.actualStart,
       actualEnd: tr.actualEnd,
+      billingStart: tr.billingStart,
+      billingEnd: tr.billingEnd,
+      billingMinutes: tr.billingMinutes,
+      isLate: tr.isLate,
       totalMinutes: tr.totalMinutes,
       breakMinutes: tr.breakMinutes,
       overtimeMinutes: tr.overtimeMinutes,

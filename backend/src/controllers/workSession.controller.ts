@@ -6,6 +6,7 @@ import { sendOTWorkedEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
 import { createNotification } from './notification.controller';
 import { getTimeInTimezone, buildScheduleTimestamp } from '../utils/timezone';
+import { computeBillingTimes } from '../utils/helpers';
 
 // Helper function to get client IP address
 const getClientIp = (req: Request): string => {
@@ -584,9 +585,20 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             const newLateOT = Math.max(0, newRegular - scheduledDurationMinutes);
             const newOvertime = earlyOvertimeMinutes + newLateOT;
 
+            // Recompute billing times with updated actual times
+            const updatedActualStart = existing.actualStart || activeSession.startTime;
+            const updatedScheduledStart = scheduledStart || existing.scheduledStart;
+            const updatedScheduledEnd = scheduledEnd || existing.scheduledEnd;
+            const billingUpdate = computeBillingTimes(updatedActualStart, endTime, updatedScheduledStart, updatedScheduledEnd);
+            const billingMinsUpdate = Math.max(0, Math.floor((billingUpdate.billingEnd.getTime() - billingUpdate.billingStart.getTime()) / 60000) - newBreak);
+
             // If overtime was added and pre-approved, update status
             const updateData: any = {
               actualEnd: endTime,
+              billingStart: billingUpdate.billingStart,
+              billingEnd: billingUpdate.billingEnd,
+              billingMinutes: billingMinsUpdate,
+              isLate: billingUpdate.isLate,
               totalMinutes: newTotal,
               breakMinutes: newBreak,
               overtimeMinutes: isExtraTime ? (existing.overtimeMinutes + totalWorkMinutes) : newOvertime,
@@ -612,6 +624,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               data: updateData,
             });
           } else {
+            const billing = computeBillingTimes(activeSession.startTime, endTime, scheduledStart, scheduledEnd);
+            const billingMins = Math.max(0, Math.floor((billing.billingEnd.getTime() - billing.billingStart.getTime()) / 60000) - totalBreakMinutes);
             await prisma.timeRecord.create({
               data: {
                 employeeId: employee.id,
@@ -621,6 +635,10 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
                 scheduledEnd,
                 actualStart: activeSession.startTime,
                 actualEnd: endTime,
+                billingStart: billing.billingStart,
+                billingEnd: billing.billingEnd,
+                billingMinutes: billingMins,
+                isLate: billing.isLate,
                 totalMinutes: totalWorkMinutes,
                 breakMinutes: totalBreakMinutes,
                 overtimeMinutes,
@@ -1177,6 +1195,7 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
           select: {
             id: true,
             companyName: true,
+            timezone: true,
           },
         },
       },
@@ -1209,6 +1228,10 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             scheduledEnd: true,
             actualStart: true,
             actualEnd: true,
+            billingStart: true,
+            billingEnd: true,
+            billingMinutes: true,
+            isLate: true,
             revisionReason: true,
             revisionRequestedBy: true,
             revisionRequestedAt: true,
@@ -1324,6 +1347,10 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         overtimeMinutes: sessionOvertimeMinutes,
         scheduledStart: timeRecord?.scheduledStart || null,
         scheduledEnd: timeRecord?.scheduledEnd || null,
+        billingStart: timeRecord?.billingStart || null,
+        billingEnd: timeRecord?.billingEnd || null,
+        billingMinutes: timeRecord?.billingMinutes || 0,
+        isLate: timeRecord?.isLate || false,
         client: clientAssignment?.client || null,
         approvalStatus: timeRecord?.status || null,
         approvedAt: timeRecord?.approvedAt || null,
@@ -1741,8 +1768,11 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       const recordDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
       await Promise.all(
-        clientAssignments.map((assignment) =>
-          prisma.timeRecord.upsert({
+        clientAssignments.map((assignment) => {
+          // For manual entries, billing = actual (no schedule context)
+          const manualBilling = computeBillingTimes(sessionStartTime, sessionEndTime, null, null);
+          const manualBillingMins = Math.max(0, Math.floor((manualBilling.billingEnd.getTime() - manualBilling.billingStart.getTime()) / 60000));
+          return prisma.timeRecord.upsert({
             where: {
               employeeId_clientId_date: {
                 employeeId: employee.id,
@@ -1756,6 +1786,10 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
               date: recordDate,
               actualStart: sessionStartTime,
               actualEnd: sessionEndTime,
+              billingStart: manualBilling.billingStart,
+              billingEnd: manualBilling.billingEnd,
+              billingMinutes: manualBillingMins,
+              isLate: false,
               totalMinutes,
               breakMinutes: 0,
               status: 'PENDING',
@@ -1764,8 +1798,8 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
               actualEnd: sessionEndTime,
               totalMinutes: { increment: totalMinutes },
             },
-          })
-        )
+          });
+        })
       );
     } else {
       console.warn(`Employee ${employee.id} added manual entry but has no active client assignment. No time record created.`);

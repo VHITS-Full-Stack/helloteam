@@ -4,6 +4,7 @@ import { sendOTWorkedEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
 import type { Server } from 'socket.io';
 import { buildScheduleTimestamp, getDayOfWeekInTimezone, formatTime12 } from '../utils/timezone';
+import { computeBillingTimes } from '../utils/helpers';
 
 /**
  * Shift End Job — runs every minute.
@@ -276,19 +277,18 @@ async function autoClockOut(
     const today = new Date(Date.UTC(endTime.getFullYear(), endTime.getMonth(), endTime.getDate()));
 
     // Calculate scheduled start/end timestamps for the time record
+    // Must use buildScheduleTimestamp with client timezone (not setHours which uses server local time)
+    const clientAssignments = employee.clientAssignments || [];
+    const clientTz = clientAssignments[0]?.client?.timezone || 'UTC';
     let scheduledStart: Date | null = null;
     let scheduledEnd: Date | null = null;
 
     if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
-      const [startHour, startMinute] = schedule.startTime.split(':').map(Number);
-      scheduledStart = new Date(endTime);
-      scheduledStart.setHours(startHour, startMinute, 0, 0);
+      scheduledStart = buildScheduleTimestamp(clientTz, schedule.startTime, endTime);
     }
 
     if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
-      const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
-      scheduledEnd = new Date(endTime);
-      scheduledEnd.setHours(endHour, endMinute, 0, 0);
+      scheduledEnd = buildScheduleTimestamp(clientTz, schedule.endTime, endTime);
     }
 
     // Auto-clock-out happens at scheduled end time, so overtime is 0 by definition.
@@ -296,7 +296,6 @@ async function autoClockOut(
     const overtimeMinutes = 0;
 
     // Create/update time records for each client assignment
-    const clientAssignments = employee.clientAssignments || [];
     for (const assignment of clientAssignments) {
       const existing = await prisma.timeRecord.findUnique({
         where: {
@@ -311,10 +310,19 @@ async function autoClockOut(
       if (existing) {
         const newTotal = existing.totalMinutes + totalWorkMinutes;
         const newBreak = existing.breakMinutes + totalBreakMinutes;
+        const updActualStart = existing.actualStart || session.startTime;
+        const updSchedStart = scheduledStart || existing.scheduledStart;
+        const updSchedEnd = scheduledEnd || existing.scheduledEnd;
+        const billingUpd = computeBillingTimes(updActualStart, endTime, updSchedStart, updSchedEnd);
+        const billingMinsUpd = Math.max(0, Math.floor((billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime()) / 60000) - newBreak);
         await prisma.timeRecord.update({
           where: { id: existing.id },
           data: {
             actualEnd: endTime,
+            billingStart: billingUpd.billingStart,
+            billingEnd: billingUpd.billingEnd,
+            billingMinutes: billingMinsUpd,
+            isLate: billingUpd.isLate,
             totalMinutes: newTotal,
             breakMinutes: newBreak,
             overtimeMinutes: 0,
@@ -323,6 +331,8 @@ async function autoClockOut(
           },
         });
       } else {
+        const billingNew = computeBillingTimes(session.startTime, endTime, scheduledStart, scheduledEnd);
+        const billingMinsNew = Math.max(0, Math.floor((billingNew.billingEnd.getTime() - billingNew.billingStart.getTime()) / 60000) - totalBreakMinutes);
         await prisma.timeRecord.create({
           data: {
             employeeId: employee.id,
@@ -332,6 +342,10 @@ async function autoClockOut(
             scheduledEnd,
             actualStart: session.startTime,
             actualEnd: endTime,
+            billingStart: billingNew.billingStart,
+            billingEnd: billingNew.billingEnd,
+            billingMinutes: billingMinsNew,
+            isLate: billingNew.isLate,
             totalMinutes: totalWorkMinutes,
             breakMinutes: totalBreakMinutes,
             overtimeMinutes: 0,

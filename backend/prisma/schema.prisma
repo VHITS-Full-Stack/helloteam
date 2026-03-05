@@ -536,6 +536,10 @@ model TimeRecord {
   scheduledEnd    DateTime?
   actualStart     DateTime?
   actualEnd       DateTime?
+  billingStart    DateTime?
+  billingEnd      DateTime?
+  billingMinutes  Int            @default(0)
+  isLate          Boolean        @default(false)
   totalMinutes    Int            @default(0)
   breakMinutes    Int            @default(0)
   overtimeMinutes Int            @default(0)

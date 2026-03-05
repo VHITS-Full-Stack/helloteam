@@ -15,14 +15,14 @@ import { Card, Button, Badge, Avatar } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import { formatHours, formatDuration } from "../../utils/formatTime";
 
-const formatClockTime = (dateStr) => {
+const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   return d.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZone: "America/New_York",
+    timeZone: tz || Intl.DateTimeFormat().resolvedOptions().timeZone,
   });
 };
 
@@ -51,6 +51,7 @@ const TimesheetDetail = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
+  const [clientTimezone, setClientTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [showOTApproveModal, setShowOTApproveModal] = useState(false);
   const [showOTRejectModal, setShowOTRejectModal] = useState(false);
   const [selectedOTRecord, setSelectedOTRecord] = useState(null);
@@ -72,6 +73,7 @@ const TimesheetDetail = () => {
         endDate,
       });
       if (response.success) {
+        if (response.data.clientTimezone) setClientTimezone(response.data.clientTimezone);
         const empRecord = (response.data.records || []).find(
           (r) => r.id === employeeId,
         );
@@ -503,18 +505,8 @@ const TimesheetDetail = () => {
                         <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
                           Schedule
                         </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Clock‑In Time{" "}
-                          <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">
-                            (EST)
-                          </span>
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          {" "}
-                          Clock‑Out Time{" "}
-                          <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal">
-                            (EST)
-                          </span>
+                        <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
+                          Billing In/Out
                         </th>
                         <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
                           Break Duration
@@ -634,30 +626,30 @@ const TimesheetDetail = () => {
                               </td>
                               {isLeaveOrHoliday ? (
                                 <td
-                                  colSpan={7}
+                                  colSpan={6}
                                   className="py-3 px-5 text-sm text-center"
                                 >
                                   {getStatusBadge(recStatus, rec?.holidayName)}
                                 </td>
                               ) : (
                                 <>
-                                  <td className="py-3 px-5 text-sm text-gray-700">
-                                    {rec?.clockIn ? (
-                                      formatClockTime(rec.clockIn)
-                                    ) : (
-                                      <span className="text-gray-400">
-                                        &mdash;
+                                  <td className="py-3 px-5 text-sm text-center">
+                                    {rec?.billingStart && rec?.billingEnd ? (
+                                      <span className="text-gray-900 font-medium">
+                                        {formatClockTime(rec.billingStart, clientTimezone)}
+                                        <span className="text-gray-300 mx-1">–</span>
+                                        {formatClockTime(rec.billingEnd, clientTimezone)}
                                       </span>
-                                    )}
-                                  </td>
-                                  <td className="py-3 px-5 text-sm text-gray-700">
-                                    {rec?.clockOut ? (
-                                      formatClockTime(rec.clockOut)
-                                    ) : (
-                                      <span className="text-gray-400">
-                                        &mdash;
+                                    ) : rec?.clockIn ? (
+                                      <span className="text-gray-700">
+                                        {formatClockTime(rec.clockIn, clientTimezone)}
+                                        <span className="text-gray-300 mx-1">–</span>
+                                        {rec?.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : '—'}
                                       </span>
+                                    ) : (
+                                      <span className="text-gray-400">&mdash;</span>
                                     )}
+                                    {rec?.isLate && <span className="ml-1 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>}
                                   </td>
                                   <td className="py-3 px-5 text-sm">
                                     <span
@@ -932,18 +924,18 @@ const TimesheetDetail = () => {
                           {!isLeaveOrHoliday && (
                             <>
                               <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                <span>
-                                  In:{" "}
-                                  {rec?.clockIn
-                                    ? formatClockTime(rec.clockIn)
-                                    : "—"}
-                                </span>
-                                <span>
-                                  Out:{" "}
-                                  {rec?.clockOut
-                                    ? formatClockTime(rec.clockOut)
-                                    : "—"}
-                                </span>
+                                {rec?.billingStart && rec?.billingEnd ? (
+                                  <>
+                                    <span>In: {formatClockTime(rec.billingStart, clientTimezone)}</span>
+                                    <span>Out: {formatClockTime(rec.billingEnd, clientTimezone)}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span>In: {rec?.clockIn ? formatClockTime(rec.clockIn, clientTimezone) : "—"}</span>
+                                    <span>Out: {rec?.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : "—"}</span>
+                                  </>
+                                )}
+                                {rec?.isLate && <span className="text-red-600 font-semibold">LATE</span>}
                                 {(rec?.breakMinutes || 0) > 0 && (
                                   <span className="text-yellow-600">
                                     Break: {formatHours(rec.breakMinutes / 60)}

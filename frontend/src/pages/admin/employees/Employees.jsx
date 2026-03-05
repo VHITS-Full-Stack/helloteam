@@ -180,6 +180,7 @@ const Employees = () => {
                 <TableHeader>Client / Group</TableHeader>
                 <TableHeader>Rates (Pay / Bill)</TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader>KYC</TableHeader>
                 <TableHeader>Hired</TableHeader>
                 <TableHeader className="w-16"></TableHeader>
               </TableRow>
@@ -201,6 +202,13 @@ const Employees = () => {
                   <TableCell>{getClientAndGroup(employee)}</TableCell>
                   <TableCell>{getRates(employee)}</TableCell>
                   <TableCell>{getStatusBadge(employee)}</TableCell>
+                  <TableCell>
+                    {(() => {
+                      const kyc = employee.kycStatus || 'PENDING';
+                      const variant = kyc === 'APPROVED' ? 'success' : kyc === 'REJECTED' ? 'error' : 'warning';
+                      return <Badge variant={variant} size="sm">{kyc}</Badge>;
+                    })()}
+                  </TableCell>
                   <TableCell>
                     <span className="text-sm text-gray-500">
                       {employee.hireDate

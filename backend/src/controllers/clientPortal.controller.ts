@@ -2,6 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { computeBillingTimes } from '../utils/helpers';
 
 // Helper to get local date string from a Date (avoids timezone shift from toISOString)
 const toLocalDateStr = (d: Date) =>
@@ -1195,6 +1196,8 @@ const syncClientTimeRecords = async (clientId: string, employeeIds: string[], da
         ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
         : 0;
 
+      const syncBilling = computeBillingTimes(session.startTime, session.endTime!, null, null);
+      const syncBillingMins = Math.max(0, Math.floor((syncBilling.billingEnd.getTime() - syncBilling.billingStart.getTime()) / 60000) - (session.totalBreakMinutes || 0));
       await prisma.timeRecord.create({
         data: {
           employeeId: session.employeeId,
@@ -1202,6 +1205,10 @@ const syncClientTimeRecords = async (clientId: string, employeeIds: string[], da
           date: sessionDate,
           actualStart: session.startTime,
           actualEnd: session.endTime!,
+          billingStart: syncBilling.billingStart,
+          billingEnd: syncBilling.billingEnd,
+          billingMinutes: syncBillingMins,
+          isLate: syncBilling.isLate,
           totalMinutes,
           breakMinutes: session.totalBreakMinutes || 0,
           status: 'PENDING',
@@ -1239,7 +1246,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 
     const client = await prisma.client.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, timezone: true },
     });
 
     if (!client) {
@@ -1248,6 +1255,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     }
 
     const clientId = client.id;
+    const clientTimezone = client.timezone || 'UTC';
 
     // Default to current week if no dates provided
     let start: Date;
@@ -1356,6 +1364,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         totalMinutes: true,
         breakMinutes: true,
         overtimeMinutes: true,
+        billingStart: true,
+        billingEnd: true,
+        billingMinutes: true,
+        isLate: true,
         shiftExtensionStatus: true,
         shiftExtensionMinutes: true,
         shiftExtensionReason: true,
@@ -1635,6 +1647,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           clockOut: daySessions[daySessions.length - 1]?.endTime || null,
           scheduledStart: daySchedule?.startTime || null,
           scheduledEnd: daySchedule?.endTime || null,
+          billingStart: timeRecord?.billingStart || null,
+          billingEnd: timeRecord?.billingEnd || null,
+          billingMinutes: timeRecord?.billingMinutes || 0,
+          isLate: timeRecord?.isLate || false,
           totalMinutes: effectiveDayMinutes,
           breakMinutes: timeRecord ? (timeRecord.breakMinutes || 0) : sessionBreakMinutes,
           overtimeMinutes: dayOvertime,
@@ -1712,6 +1728,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       data: {
         records: employeeWeeklyData,
         summary,
+        clientTimezone,
         pagination: {
           page: 1,
           limit: 50,
