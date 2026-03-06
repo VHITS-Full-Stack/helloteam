@@ -260,6 +260,7 @@ const EmployeeDetail = () => {
               {kycStatus === 'APPROVED' && 'All identity documents have been approved. Employee can access the portal.'}
               {kycStatus === 'PENDING' && 'KYC review is pending. Employee cannot access the portal until KYC is approved.'}
               {kycStatus === 'REJECTED' && 'KYC was rejected. Employee has been emailed to re-upload documents.'}
+              {kycStatus === 'RESUBMITTED' && 'Employee has resubmitted their documents. Please review the updated documents.'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -269,7 +270,9 @@ const EmployeeDetail = () => {
                   ? 'success'
                   : kycStatus === 'REJECTED'
                     ? 'error'
-                    : 'warning'
+                    : kycStatus === 'RESUBMITTED'
+                      ? 'info'
+                      : 'warning'
               }
             >
               {kycStatus}

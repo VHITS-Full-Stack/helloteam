@@ -66,6 +66,7 @@ enum KycStatus {
   PENDING
   APPROVED
   REJECTED
+  RESUBMITTED
 }
 
 enum PaidLeaveEntitlementType {

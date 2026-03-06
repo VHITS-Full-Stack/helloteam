@@ -205,7 +205,7 @@ const Employees = () => {
                   <TableCell>
                     {(() => {
                       const kyc = employee.kycStatus || 'PENDING';
-                      const variant = kyc === 'APPROVED' ? 'success' : kyc === 'REJECTED' ? 'error' : 'warning';
+                      const variant = kyc === 'APPROVED' ? 'success' : kyc === 'REJECTED' ? 'error' : kyc === 'RESUBMITTED' ? 'info' : 'warning';
                       return <Badge variant={variant} size="sm">{kyc}</Badge>;
                     })()}
                   </TableCell>

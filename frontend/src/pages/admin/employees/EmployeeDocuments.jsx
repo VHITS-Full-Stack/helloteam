@@ -59,18 +59,25 @@ const EmployeeDocuments = () => {
   const kycStatus = employee.kycStatus || 'PENDING';
   const fullName = `${employee.firstName} ${employee.lastName}`;
 
+  // When overall kycStatus is RESUBMITTED, show per-document PENDING as RESUBMITTED
+  const getDocStatus = (rawStatus) => {
+    if (kycStatus === 'RESUBMITTED' && (rawStatus === 'PENDING' || !rawStatus)) return 'RESUBMITTED';
+    return rawStatus || 'PENDING';
+  };
+
   const documents = [
-    { key: 'governmentId', label: 'Government ID #1', type: employee.governmentIdType, url: employee.governmentIdUrl, status: employee.governmentIdStatus || 'PENDING', rejectNote: employee.governmentIdRejectNote },
-    { key: 'governmentId2', label: 'Government ID #2', type: employee.governmentId2Type, url: employee.governmentId2Url, status: employee.governmentId2Status || 'PENDING', rejectNote: employee.governmentId2RejectNote },
-    { key: 'proofOfAddress', label: 'Proof of Address', type: employee.proofOfAddressType, url: employee.proofOfAddressUrl, status: employee.proofOfAddressStatus || 'PENDING', rejectNote: employee.proofOfAddressRejectNote },
+    { key: 'governmentId', label: 'Government ID #1', type: employee.governmentIdType, url: employee.governmentIdUrl, status: getDocStatus(employee.governmentIdStatus), rejectNote: employee.governmentIdRejectNote },
+    { key: 'governmentId2', label: 'Government ID #2', type: employee.governmentId2Type, url: employee.governmentId2Url, status: getDocStatus(employee.governmentId2Status), rejectNote: employee.governmentId2RejectNote },
+    { key: 'proofOfAddress', label: 'Proof of Address', type: employee.proofOfAddressType, url: employee.proofOfAddressUrl, status: getDocStatus(employee.proofOfAddressStatus), rejectNote: employee.proofOfAddressRejectNote },
   ];
 
-  const hasPending = documents.some(d => d.status === 'PENDING');
+  const hasPending = documents.some(d => d.status === 'PENDING' || d.status === 'RESUBMITTED');
   const allReviewed = !hasPending;
 
   const getStatusColor = (status) => {
     if (status === 'APPROVED') return 'success';
     if (status === 'REJECTED') return 'error';
+    if (status === 'RESUBMITTED') return 'info';
     return 'warning';
   };
 
@@ -103,15 +110,18 @@ const EmployeeDocuments = () => {
       <div className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm ${
         kycStatus === 'APPROVED' ? 'bg-green-50 border border-green-200 text-green-700' :
         kycStatus === 'REJECTED' ? 'bg-red-50 border border-red-200 text-red-700' :
+        kycStatus === 'RESUBMITTED' ? 'bg-blue-50 border border-blue-200 text-blue-700' :
         'bg-amber-50 border border-amber-200 text-amber-700'
       }`}>
         {kycStatus === 'APPROVED' && <CheckCircle className="w-5 h-5 flex-shrink-0" />}
         {kycStatus === 'REJECTED' && <XCircle className="w-5 h-5 flex-shrink-0" />}
+        {kycStatus === 'RESUBMITTED' && <AlertCircle className="w-5 h-5 flex-shrink-0" />}
         {kycStatus === 'PENDING' && <AlertCircle className="w-5 h-5 flex-shrink-0" />}
         <p>
           {kycStatus === 'APPROVED' && 'All identity documents have been verified and approved.'}
           {kycStatus === 'PENDING' && 'Review each document below and approve or reject individually, then submit your review.'}
           {kycStatus === 'REJECTED' && 'KYC was rejected. Employee has been notified to re-upload documents.'}
+          {kycStatus === 'RESUBMITTED' && 'Employee has resubmitted their documents. Please review the updated documents below.'}
         </p>
       </div>
 

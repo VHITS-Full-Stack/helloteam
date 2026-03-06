@@ -518,12 +518,7 @@ const Onboarding = () => {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Unable to Verify Link</h2>
           <p className="text-gray-600 mb-4">{error || 'This link is invalid or has expired.'}</p>
-          <a
-            href="/login"
-            className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            Go to Login
-          </a>
+          <p className="text-sm text-gray-500">Please contact your administrator to get a new onboarding link.</p>
         </div>
       </div>
     );

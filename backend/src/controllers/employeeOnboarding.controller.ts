@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { uploadGovernmentIdFile } from '../services/s3.service';
 import { sendNotificationEmail } from '../services/email.service';
+import { createNotification } from './notification.controller';
 
 /**
  * GET /employee-onboarding/status
@@ -448,9 +449,9 @@ export const resubmitKyc = async (req: AuthenticatedRequest, res: Response): Pro
       return;
     }
 
-    // Only reset rejected documents to PENDING — keep approved ones unchanged
-    const updateData: Record<string, string | null> = {
-      kycStatus: 'PENDING',
+    // Set status to RESUBMITTED and reset rejected documents
+    const updateData: Record<string, any> = {
+      kycStatus: 'RESUBMITTED',
       kycRejectionNote: null,
     };
 
@@ -472,7 +473,7 @@ export const resubmitKyc = async (req: AuthenticatedRequest, res: Response): Pro
       data: updateData,
     });
 
-    // Send email notification
+    // Send email notification to employee
     const email = employee.personalEmail || employee.user?.email;
     if (email) {
       await sendNotificationEmail(
@@ -480,6 +481,27 @@ export const resubmitKyc = async (req: AuthenticatedRequest, res: Response): Pro
         'KYC Documents Resubmitted',
         `Thank you, ${employee.firstName}! Your updated documents have been resubmitted for review. You will receive an email once your KYC verification is approved.`,
       ).catch((err) => console.error('Failed to send KYC resubmit email:', err));
+    }
+
+    // Send in-app notification to all admins
+    try {
+      const admins = await prisma.user.findMany({
+        where: { role: { in: ['ADMIN', 'SUPER_ADMIN'] }, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      const reviewUrl = `/admin/employees/${employee.id}`;
+      for (const admin of admins) {
+        await createNotification(
+          admin.id,
+          'APPROVAL_REQUIRED',
+          'KYC Documents Resubmitted',
+          `${employee.firstName} ${employee.lastName} has resubmitted their KYC documents for review.`,
+          { employeeId: employee.id },
+          reviewUrl,
+        );
+      }
+    } catch (err) {
+      console.error('Failed to notify admins about KYC resubmission:', err);
     }
 
     res.json({ success: true, message: 'KYC resubmitted for review' });

@@ -488,26 +488,13 @@ Please change your password after your first login.
 export const sendEmployeeOnboardingEmail = async (
   email: string,
   name: string,
-  password: string,
-  onboardingUrl?: string,
+  onboardingUrl: string,
 ): Promise<EmailResult> => {
-  const loginUrl = `${config.frontendUrl}/login`;
-  const actionUrl = onboardingUrl || loginUrl;
-  const actionLabel = onboardingUrl
-    ? "Start Onboarding"
-    : "Log In & Complete Onboarding";
-
   const content = `
     <h2 style="${styles.h2}">Welcome to the team, ${name}!</h2>
     <p style="${styles.paragraph}">
-      Your employee account has been created. Before you can access your portal, you'll need to complete a quick onboarding process.
+      You've been invited to join Hello Team. Please complete a quick onboarding process by clicking the button below.
     </p>
-    ${infoBoxHtml(`
-      <p style="${styles.infoBoxText()}; margin: 0 0 8px 0; font-weight: 600;">Your Login Credentials:</p>
-      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Email:</strong> ${email}</p>
-      <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
-      <p style="${styles.infoBoxText()}; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
-    `)}
     ${infoBoxHtml(
       `
       <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
@@ -521,7 +508,10 @@ export const sendEmployeeOnboardingEmail = async (
       colors.successBg,
       colors.success,
     )}
-    ${buttonHtml(actionUrl, actionLabel)}
+    ${buttonHtml(onboardingUrl, "Start Onboarding")}
+    <p style="${styles.paragraph}; color: ${colors.muted}; font-size: 13px;">
+      Once your documents are verified, you'll receive your login credentials to access the portal.
+    </p>
   `;
 
   const html = emailLayout(
@@ -532,19 +522,13 @@ export const sendEmployeeOnboardingEmail = async (
   const text = `
 Welcome to the team, ${name}!
 
-Your employee account has been created.
-
-Your Login Credentials:
-Email: ${email}
-Password: ${password}
-
-Before you can access your portal, please complete onboarding:
-1. Click the link below to start: ${actionUrl}
+You've been invited to join Hello Team. Please complete onboarding:
+1. Click the link below to start: ${onboardingUrl}
 2. Enter your personal information (phone, address, email)
 3. Upload a government-issued ID
 4. Add 3 emergency contacts
 
-Please change your password after your first login.
+Once your documents are verified, you'll receive your login credentials to access the portal.
 
 © ${new Date().getFullYear()} Hello Team. All rights reserved.
   `.trim();

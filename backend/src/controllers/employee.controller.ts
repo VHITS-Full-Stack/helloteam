@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { hashPassword, generateMagicLinkToken } from '../utils/helpers';
 import { AuthenticatedRequest } from '../types';
 import { refreshPresignedUrl } from '../services/s3.service';
-import { sendEmployeeOnboardingEmail, sendNotificationEmail } from '../services/email.service';
+import { sendEmployeeOnboardingEmail, sendNotificationEmail, sendWelcomeEmail } from '../services/email.service';
 import { config } from '../config';
 import { logRateChange } from '../utils/rateChangeLogger';
 
@@ -394,7 +394,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
     try {
       const onboardingToken = generateMagicLinkToken(result.user.id, 'onboarding');
       const onboardingUrl = `${config.frontendUrl}/employee/onboarding?token=${onboardingToken}`;
-      await sendEmployeeOnboardingEmail(email, firstName, password, onboardingUrl);
+      await sendEmployeeOnboardingEmail(email, firstName, onboardingUrl);
     } catch (emailError) {
       console.error('Failed to send onboarding email:', emailError);
       // Don't fail the creation if email fails
@@ -1013,16 +1013,13 @@ export const finalizeKycReview = async (req: AuthenticatedRequest, res: Response
     console.log(`[KYC Finalize] Per-doc statuses: govId=${employee.governmentIdStatus}, govId2=${employee.governmentId2Status}, proof=${employee.proofOfAddressStatus}`);
 
     if (overallStatus === 'APPROVED') {
-      const loginUrl = `${config.frontendUrl}/login`;
-      console.log(`[KYC Finalize] Sending approval email to ${email}, loginUrl=${loginUrl}`);
-      const result = await sendNotificationEmail(
+      console.log(`[KYC Finalize] Sending welcome email with credentials to ${email}`);
+      const result = await sendWelcomeEmail(
         email,
-        'KYC Approved - You Can Now Access the Portal',
-        `Congratulations, ${employee.firstName}! All your identity documents have been verified and approved. You can now log in and access the Hello Team employee portal.`,
-        loginUrl,
-        'Log In to Your Portal',
-      ).catch((err) => { console.error('[KYC Finalize] Failed to send approval email:', err); return { success: false, error: err?.message || 'Unknown error' }; });
-      console.log('[KYC Finalize] Approval email result:', JSON.stringify(result));
+        employee.firstName,
+        'Welcome@123',
+      ).catch((err) => { console.error('[KYC Finalize] Failed to send welcome email:', err); return { success: false, error: err?.message || 'Unknown error' }; });
+      console.log('[KYC Finalize] Welcome email result:', JSON.stringify(result));
     } else if (overallStatus === 'REJECTED') {
       // Build list of rejected documents
       const rejectedDocs: string[] = [];
