@@ -71,6 +71,7 @@ const Profile = () => {
           setFormData({
             firstName: emp.firstName || '',
             lastName: emp.lastName || '',
+            countryCode: emp.countryCode || '+1',
             phone: emp.phone || '',
             address: emp.address || '',
             emergencyContact: emp.emergencyContact || '',

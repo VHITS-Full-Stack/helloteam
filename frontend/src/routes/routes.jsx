@@ -44,6 +44,7 @@ const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
 const Employees = lazy(() => import('../pages/admin/employees/Employees'));
 const AddEmployee = lazy(() => import('../pages/admin/employees/AddEditEmployee'));
 const EmployeeDetail = lazy(() => import('../pages/admin/employees/EmployeeDetail'));
+const EmployeeDocuments = lazy(() => import('../pages/admin/employees/EmployeeDocuments'));
 const Clients = lazy(() => import('../pages/admin/clients/Clients'));
 const AddClient = lazy(() => import('../pages/admin/clients/AddEditClient'));
 const ClientDetail = lazy(() => import('../pages/admin/clients/ClientDetail'));
@@ -198,6 +199,7 @@ const AppRoutes = () => {
           <Route path="employees/add" element={<AddEmployee />} />
           <Route path="employees/:id/edit" element={<AddEmployee />} />
           <Route path="employees/:id" element={<EmployeeDetail />} />
+          <Route path="employees/:id/documents" element={<EmployeeDocuments />} />
           <Route path="clients" element={<Clients />} />
           <Route path="clients/add" element={<AddClient />} />
           <Route path="clients/:id/edit" element={<AddClient />} />

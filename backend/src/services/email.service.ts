@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
-import { config } from '../config';
+import nodemailer from "nodemailer";
+import { config } from "../config";
 import {
   colors,
   styles,
@@ -7,7 +7,7 @@ import {
   buttonHtml,
   infoBoxHtml,
   detailBoxHtml,
-} from './email.styles';
+} from "./email.styles";
 
 interface EmailAttachment {
   filename: string;
@@ -53,7 +53,7 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
   if (!etherealReady) {
     const testAccount = await nodemailer.createTestAccount();
     transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
+      host: "smtp.ethereal.email",
       port: 587,
       secure: false,
       auth: {
@@ -62,12 +62,12 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
       },
     });
     etherealReady = true;
-    console.log('================================================');
-    console.log('📧 Using Ethereal Email (test/dev mode)');
+    console.log("================================================");
+    console.log("📧 Using Ethereal Email (test/dev mode)");
     console.log(`   User: ${testAccount.user}`);
     console.log(`   Pass: ${testAccount.pass}`);
-    console.log('   View emails at: https://ethereal.email/login');
-    console.log('================================================');
+    console.log("   View emails at: https://ethereal.email/login");
+    console.log("================================================");
   }
 
   return transporter!;
@@ -76,7 +76,9 @@ async function getTransporter(): Promise<nodemailer.Transporter> {
 /**
  * Send an email
  */
-export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => {
+export const sendEmail = async (
+  options: EmailOptions,
+): Promise<EmailResult> => {
   const { to, subject, html, text, attachments } = options;
 
   try {
@@ -87,7 +89,7 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => 
       subject,
       text,
       html,
-      attachments: attachments?.map(a => ({
+      attachments: attachments?.map((a) => ({
         filename: a.filename,
         content: a.content,
         contentType: a.contentType,
@@ -103,7 +105,7 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => 
 
     return { success: true, messageId: info.messageId };
   } catch (err: any) {
-    console.error('Email send error:', err);
+    console.error("Email send error:", err);
     return { success: false, error: err.message };
   }
 };
@@ -114,19 +116,19 @@ export const sendEmail = async (options: EmailOptions): Promise<EmailResult> => 
 export const sendPasswordResetEmail = async (
   email: string,
   resetToken: string,
-  userName?: string
+  userName?: string,
 ): Promise<EmailResult> => {
   const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
 
   const content = `
     <h2 style="${styles.h2}">Reset Your Password</h2>
     <p style="${styles.paragraph}">
-      Hi${userName ? ` ${userName}` : ''},
+      Hi${userName ? ` ${userName}` : ""},
     </p>
     <p style="${styles.paragraph}">
       We received a request to reset your password. Click the button below to create a new password:
     </p>
-    ${buttonHtml(resetUrl, 'Reset Password')}
+    ${buttonHtml(resetUrl, "Reset Password")}
     <p style="${styles.paragraph}">
       This link will expire in 1 hour for security reasons.
     </p>
@@ -140,10 +142,10 @@ export const sendPasswordResetEmail = async (
     </p>
   `;
 
-  const html = emailLayout('Reset Your Password', content);
+  const html = emailLayout("Reset Your Password", content);
 
   const text = `
-Hello${userName ? ` ${userName}` : ''},
+Hello${userName ? ` ${userName}` : ""},
 
 We received a request to reset your password.
 
@@ -159,7 +161,7 @@ If you didn't request a password reset, you can safely ignore this email. Your p
 
   return sendEmail({
     to: email,
-    subject: 'Reset Your Password - Hello Team',
+    subject: "Reset Your Password - Hello Team",
     html,
     text,
   });
@@ -171,7 +173,7 @@ If you didn't request a password reset, you can safely ignore this email. Your p
 export const sendWelcomeEmail = async (
   email: string,
   userName: string,
-  temporaryPassword?: string
+  temporaryPassword?: string,
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
 
@@ -183,20 +185,28 @@ export const sendWelcomeEmail = async (
     <p style="${styles.paragraph}">
       Your account has been created successfully. You can now access the Hello Team Workforce Hub.
     </p>
-    ${temporaryPassword ? `
-    ${infoBoxHtml(`
+    ${
+      temporaryPassword
+        ? `
+    ${infoBoxHtml(
+      `
       <p style="${styles.infoBoxText(colors.warningText)}; margin: 0; font-weight: 600;">Your temporary password:</p>
       <p style="${styles.infoBoxText(colors.warningText)}; margin: 8px 0 0 0; font-family: monospace; font-size: 16px;">${temporaryPassword}</p>
       <p style="${styles.infoBoxText(colors.warningText)}; margin: 8px 0 0 0; font-size: 12px;">Please change this password after your first login.</p>
-    `, colors.warningBg, colors.warning)}
-    ` : ''}
-    ${buttonHtml(loginUrl, 'Login to Your Account')}
+    `,
+      colors.warningBg,
+      colors.warning,
+    )}
+    `
+        : ""
+    }
+    ${buttonHtml(loginUrl, "Login to Your Account")}
     <p style="${styles.paragraph}">
       If you have any questions, please contact your administrator or our support team.
     </p>
   `;
 
-  const html = emailLayout('Welcome to Hello Team', content);
+  const html = emailLayout("Welcome to Hello Team", content);
 
   const text = `
 Welcome to Hello Team!
@@ -205,7 +215,7 @@ Hi ${userName},
 
 Your account has been created successfully. You can now access the Hello Team Workforce Hub.
 
-${temporaryPassword ? `Your temporary password: ${temporaryPassword}\nPlease change this password after your first login.\n` : ''}
+${temporaryPassword ? `Your temporary password: ${temporaryPassword}\nPlease change this password after your first login.\n` : ""}
 Login at: ${loginUrl}
 
 If you have any questions, please contact your administrator or our support team.
@@ -215,7 +225,7 @@ If you have any questions, please contact your administrator or our support team
 
   return sendEmail({
     to: email,
-    subject: 'Welcome to Hello Team',
+    subject: "Welcome to Hello Team",
     html,
     text,
   });
@@ -229,14 +239,14 @@ export const sendNotificationEmail = async (
   subject: string,
   message: string,
   actionUrl?: string,
-  actionText?: string
+  actionText?: string,
 ): Promise<EmailResult> => {
   const content = `
     <h2 style="${styles.h2}">${subject}</h2>
     <p style="${styles.paragraph}">
-      ${message}
+      ${message.replace(/\n/g, "<br>")}
     </p>
-    ${actionUrl && actionText ? buttonHtml(actionUrl, actionText) : ''}
+    ${actionUrl && actionText ? buttonHtml(actionUrl, actionText) : ""}
   `;
 
   const html = emailLayout(subject, content);
@@ -258,9 +268,9 @@ export const sendTimeApprovalEmail = async (
   approved: boolean,
   date: string,
   hours: number,
-  reason?: string
+  reason?: string,
 ): Promise<EmailResult> => {
-  const status = approved ? 'Approved' : 'Rejected';
+  const status = approved ? "Approved" : "Rejected";
   const statusColor = approved ? colors.success : colors.danger;
   const actionUrl = `${config.frontendUrl}/employee/time-records`;
 
@@ -276,9 +286,9 @@ export const sendTimeApprovalEmail = async (
       <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
       <p style="margin: 0 0 8px 0;"><strong>Hours:</strong> ${hours}</p>
       <p style="margin: 0;"><strong>Status:</strong> <span style="color: ${statusColor}; font-weight: 600;">${status}</span></p>
-      ${reason ? `<p style="margin: 8px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ''}
+      ${reason ? `<p style="margin: 8px 0 0 0;"><strong>Reason:</strong> ${reason}</p>` : ""}
     `)}
-    ${buttonHtml(actionUrl, 'View Time Records')}
+    ${buttonHtml(actionUrl, "View Time Records")}
   `;
 
   const html = emailLayout(`Time Entry ${status}`, content);
@@ -287,7 +297,7 @@ export const sendTimeApprovalEmail = async (
     to: email,
     subject: `Time Entry ${status} - Hello Team`,
     html,
-    text: `Hi ${employeeName}, Your time entry for ${date} (${hours} hours) has been ${status.toLowerCase()}.${reason ? ` Reason: ${reason}` : ''}`,
+    text: `Hi ${employeeName}, Your time entry for ${date} (${hours} hours) has been ${status.toLowerCase()}.${reason ? ` Reason: ${reason}` : ""}`,
   });
 };
 
@@ -300,7 +310,7 @@ export const sendOvertimeRequestEmail = async (
   employeeName: string,
   hours: number,
   date: string,
-  reason: string
+  reason: string,
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
@@ -312,16 +322,20 @@ export const sendOvertimeRequestEmail = async (
     <p style="${styles.paragraph}">
       ${employeeName} has submitted an overtime request that requires your approval.
     </p>
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
       <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
       <p style="margin: 0 0 8px 0;"><strong>Hours Requested:</strong> ${hours}</p>
       <p style="margin: 0;"><strong>Reason:</strong> ${reason}</p>
-    `, colors.warningBg, colors.warning)}
-    ${buttonHtml(actionUrl, 'Review Request')}
+    `,
+      colors.warningBg,
+      colors.warning,
+    )}
+    ${buttonHtml(actionUrl, "Review Request")}
   `;
 
-  const html = emailLayout('Overtime Request', content);
+  const html = emailLayout("Overtime Request", content);
 
   return sendEmail({
     to: email,
@@ -339,41 +353,57 @@ export const sendPayrollReminderEmail = async (
   clientName: string,
   daysRemaining: number,
   pendingCount: number,
-  cutoffDate: string
+  cutoffDate: string,
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals`;
-  const urgency = daysRemaining <= 1 ? 'urgent' : daysRemaining <= 3 ? 'warning' : 'info';
-  const urgencyColor = urgency === 'urgent' ? colors.danger : urgency === 'warning' ? colors.warning : colors.primary;
-  const urgencyBg = urgency === 'urgent' ? colors.dangerBg : urgency === 'warning' ? colors.warningBg : colors.primaryLight;
+  const urgency =
+    daysRemaining <= 1 ? "urgent" : daysRemaining <= 3 ? "warning" : "info";
+  const urgencyColor =
+    urgency === "urgent"
+      ? colors.danger
+      : urgency === "warning"
+        ? colors.warning
+        : colors.primary;
+  const urgencyBg =
+    urgency === "urgent"
+      ? colors.dangerBg
+      : urgency === "warning"
+        ? colors.warningBg
+        : colors.primaryLight;
 
   const content = `
-    <h2 style="${styles.h2}">Payroll Deadline ${urgency === 'urgent' ? 'Today!' : 'Approaching'}</h2>
+    <h2 style="${styles.h2}">Payroll Deadline ${urgency === "urgent" ? "Today!" : "Approaching"}</h2>
     <p style="${styles.paragraph}">
       Hi ${clientName},
     </p>
     <p style="${styles.paragraph}">
-      ${daysRemaining === 0
-        ? 'The payroll cutoff is <strong>today</strong>!'
-        : daysRemaining === 1
-          ? 'The payroll cutoff is <strong>tomorrow</strong>!'
-          : `The payroll cutoff is in <strong>${daysRemaining} days</strong>.`
+      ${
+        daysRemaining === 0
+          ? "The payroll cutoff is <strong>today</strong>!"
+          : daysRemaining === 1
+            ? "The payroll cutoff is <strong>tomorrow</strong>!"
+            : `The payroll cutoff is in <strong>${daysRemaining} days</strong>.`
       }
     </p>
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="margin: 0 0 8px 0;"><strong>Cutoff Date:</strong> ${cutoffDate}</p>
       <p style="margin: 0 0 8px 0;"><strong>Pending Approvals:</strong> ${pendingCount} time entries</p>
-      ${pendingCount > 0 ? `<p style="margin: 0; color: ${urgencyColor}; font-weight: 600;">Please review and approve pending time entries before the cutoff.</p>` : ''}
-    `, urgencyBg, urgencyColor)}
-    ${buttonHtml(actionUrl, 'Review Pending Approvals', urgencyColor)}
+      ${pendingCount > 0 ? `<p style="margin: 0; color: ${urgencyColor}; font-weight: 600;">Please review and approve pending time entries before the cutoff.</p>` : ""}
+    `,
+      urgencyBg,
+      urgencyColor,
+    )}
+    ${buttonHtml(actionUrl, "Review Pending Approvals", urgencyColor)}
   `;
 
-  const html = emailLayout('Payroll Deadline Reminder', content, urgencyColor);
+  const html = emailLayout("Payroll Deadline Reminder", content, urgencyColor);
 
   return sendEmail({
     to: email,
-    subject: `${urgency === 'urgent' ? 'URGENT: ' : ''}Payroll Deadline ${daysRemaining === 0 ? 'Today' : `in ${daysRemaining} days`} - Hello Team`,
+    subject: `${urgency === "urgent" ? "URGENT: " : ""}Payroll Deadline ${daysRemaining === 0 ? "Today" : `in ${daysRemaining} days`} - Hello Team`,
     html,
-    text: `Hi ${clientName}, The payroll cutoff is ${daysRemaining === 0 ? 'today' : `in ${daysRemaining} days`} (${cutoffDate}). You have ${pendingCount} pending time entries to review.`,
+    text: `Hi ${clientName}, The payroll cutoff is ${daysRemaining === 0 ? "today" : `in ${daysRemaining} days`} (${cutoffDate}). You have ${pendingCount} pending time entries to review.`,
   });
 };
 
@@ -385,10 +415,15 @@ export const sendClientOnboardingEmail = async (
   companyName: string,
   contactPerson: string,
   password: string,
-  agreementType: string
+  agreementType: string,
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
-  const agreementLabel = agreementType === 'WEEKLY' ? 'Weekly' : agreementType === 'BI_WEEKLY' ? 'Bi-Weekly' : 'Monthly';
+  const agreementLabel =
+    agreementType === "WEEKLY"
+      ? "Weekly"
+      : agreementType === "BI_WEEKLY"
+        ? "Bi-Weekly"
+        : "Monthly";
 
   const content = `
     <h2 style="${styles.h2}">Welcome to Hello Team, ${contactPerson}!</h2>
@@ -401,7 +436,8 @@ export const sendClientOnboardingEmail = async (
       <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
       <p style="${styles.infoBoxText()}; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
     `)}
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to get started:</p>
       <ol style="color: ${colors.successText}; margin: 8px 0 0 0; padding-left: 20px;">
         <li>Log in with the credentials above</li>
@@ -409,11 +445,14 @@ export const sendClientOnboardingEmail = async (
         <li>Type your full name and click "I Accept" to sign</li>
         <li>Your client portal will be unlocked immediately</li>
       </ol>
-    `, colors.successBg, colors.success)}
-    ${buttonHtml(loginUrl, 'Log In & Sign Agreement')}
+    `,
+      colors.successBg,
+      colors.success,
+    )}
+    ${buttonHtml(loginUrl, "Log In & Sign Agreement")}
   `;
 
-  const html = emailLayout('Welcome to Hello Team - Action Required', content);
+  const html = emailLayout("Welcome to Hello Team - Action Required", content);
 
   const text = `
 Welcome to Hello Team, ${contactPerson}!
@@ -437,7 +476,7 @@ Please change your password after your first login.
 
   return sendEmail({
     to: email,
-    subject: 'Welcome to Hello Team - Agreement Signing Required',
+    subject: "Welcome to Hello Team - Agreement Signing Required",
     html,
     text,
   });
@@ -450,11 +489,13 @@ export const sendEmployeeOnboardingEmail = async (
   email: string,
   name: string,
   password: string,
-  onboardingUrl?: string
+  onboardingUrl?: string,
 ): Promise<EmailResult> => {
   const loginUrl = `${config.frontendUrl}/login`;
   const actionUrl = onboardingUrl || loginUrl;
-  const actionLabel = onboardingUrl ? 'Start Onboarding' : 'Log In & Complete Onboarding';
+  const actionLabel = onboardingUrl
+    ? "Start Onboarding"
+    : "Log In & Complete Onboarding";
 
   const content = `
     <h2 style="${styles.h2}">Welcome to the team, ${name}!</h2>
@@ -467,19 +508,26 @@ export const sendEmployeeOnboardingEmail = async (
       <p style="${styles.infoBoxText()}; margin: 4px 0;"><strong>Password:</strong> ${password}</p>
       <p style="${styles.infoBoxText()}; margin: 8px 0 0 0; font-size: 12px;">Please change your password after your first login.</p>
     `)}
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="color: ${colors.successText}; margin: 0; font-weight: 600;">Steps to complete onboarding:</p>
       <ol style="color: ${colors.successText}; margin: 8px 0 0 0; padding-left: 20px;">
         <li>Click the button below to start onboarding</li>
         <li>Enter your personal information (phone, address, email)</li>
-        <li>Add 3 emergency contacts</li>
         <li>Upload a government-issued ID</li>
+        <li>Add 3 emergency contacts</li>
       </ol>
-    `, colors.successBg, colors.success)}
+    `,
+      colors.successBg,
+      colors.success,
+    )}
     ${buttonHtml(actionUrl, actionLabel)}
   `;
 
-  const html = emailLayout('Welcome to Hello Team - Complete Your Onboarding', content);
+  const html = emailLayout(
+    "Welcome to Hello Team - Complete Your Onboarding",
+    content,
+  );
 
   const text = `
 Welcome to the team, ${name}!
@@ -493,8 +541,8 @@ Password: ${password}
 Before you can access your portal, please complete onboarding:
 1. Click the link below to start: ${actionUrl}
 2. Enter your personal information (phone, address, email)
-3. Add 3 emergency contacts
-4. Upload a government-issued ID
+3. Upload a government-issued ID
+4. Add 3 emergency contacts
 
 Please change your password after your first login.
 
@@ -503,7 +551,7 @@ Please change your password after your first login.
 
   return sendEmail({
     to: email,
-    subject: 'Welcome to Hello Team - Complete Your Onboarding',
+    subject: "Welcome to Hello Team - Complete Your Onboarding",
     html,
     text,
   });
@@ -518,7 +566,7 @@ export const sendOTWorkedEmail = async (
   employeeName: string,
   date: string,
   overtimeHours: string,
-  totalHours: string
+  totalHours: string,
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
@@ -530,16 +578,20 @@ export const sendOTWorkedEmail = async (
     <p style="${styles.paragraph}">
       <strong>${employeeName}</strong> worked overtime today. Please approve or deny the overtime hours.
     </p>
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
       <p style="margin: 0 0 8px 0;"><strong>Date:</strong> ${date}</p>
       <p style="margin: 0 0 8px 0;"><strong>Total Hours:</strong> ${totalHours}</p>
       <p style="margin: 0; color: ${colors.warningText}; font-weight: 600;"><strong>Overtime:</strong> ${overtimeHours}</p>
-    `, colors.warningBg, colors.warning)}
-    ${buttonHtml(actionUrl, 'Approve / Deny', colors.warning)}
+    `,
+      colors.warningBg,
+      colors.warning,
+    )}
+    ${buttonHtml(actionUrl, "Approve / Deny", colors.warning)}
   `;
 
-  const html = emailLayout('Employee Worked Overtime', content, colors.warning);
+  const html = emailLayout("Employee Worked Overtime", content, colors.warning);
 
   return sendEmail({
     to: email,
@@ -557,31 +609,35 @@ export const sendOTBillingReminderEmail = async (
   clientName: string,
   daysUntilEnd: number,
   unapprovedCount: number,
-  unapprovedHours: string
+  unapprovedHours: string,
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/approvals?type=overtime`;
 
   const content = `
-    <h2 style="${styles.h2}">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? 's' : ''}</h2>
+    <h2 style="${styles.h2}">Billing Cycle Ending in ${daysUntilEnd} Day${daysUntilEnd !== 1 ? "s" : ""}</h2>
     <p style="${styles.paragraph}">
       Hi ${clientName},
     </p>
     <p style="${styles.paragraph}">
-      You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? 'y' : 'ies'} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
+      You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? "y" : "ies"} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
     </p>
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Unapproved OT Entries:</strong> ${unapprovedCount}</p>
       <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Total Unapproved Hours:</strong> ${unapprovedHours}</p>
-      <p style="margin: 0; color: ${colors.dangerText}; font-weight: 600;">Billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}.</p>
-    `, colors.dangerBg, colors.danger)}
-    ${buttonHtml(actionUrl, 'Review Unapproved Overtime', colors.danger)}
+      <p style="margin: 0; color: ${colors.dangerText}; font-weight: 600;">Billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? "s" : ""}.</p>
+    `,
+      colors.dangerBg,
+      colors.danger,
+    )}
+    ${buttonHtml(actionUrl, "Review Unapproved Overtime", colors.danger)}
   `;
 
-  const html = emailLayout('Unapproved Overtime Hours', content, colors.danger);
+  const html = emailLayout("Unapproved Overtime Hours", content, colors.danger);
 
   return sendEmail({
     to: email,
-    subject: `Action Required: Unapproved overtime hours — billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? 's' : ''}`,
+    subject: `Action Required: Unapproved overtime hours — billing cycle ends in ${daysUntilEnd} day${daysUntilEnd !== 1 ? "s" : ""}`,
     html,
     text: `Hi ${clientName}, You have ${unapprovedCount} unapproved overtime entries (${unapprovedHours}). Unapproved hours won't appear on this billing cycle's invoice. Billing cycle ends in ${daysUntilEnd} days. Review at: ${actionUrl}`,
   });
@@ -596,10 +652,12 @@ export const sendAggressiveOTReminderEmail = async (
   clientName: string,
   unapprovedCount: number,
   unapprovedHours: string,
-  employeeNames: string[]
+  employeeNames: string[],
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/time-records`;
-  const employeeList = employeeNames.slice(0, 5).join(', ') + (employeeNames.length > 5 ? ` and ${employeeNames.length - 5} more` : '');
+  const employeeList =
+    employeeNames.slice(0, 5).join(", ") +
+    (employeeNames.length > 5 ? ` and ${employeeNames.length - 5} more` : "");
 
   const content = `
     <h2 style="${styles.h2}; color: ${colors.danger};">URGENT: Unapproved Overtime Requires Your Action</h2>
@@ -609,22 +667,30 @@ export const sendAggressiveOTReminderEmail = async (
     <p style="${styles.paragraph}">
       Your employees have worked overtime that has <strong>not been approved or denied</strong>. We cannot pay your employees for these hours until you take action.
     </p>
-    ${infoBoxHtml(`
+    ${infoBoxHtml(
+      `
       <p style="margin: 0 0 8px 0; color: ${colors.dangerText}; font-weight: 700; font-size: 16px;">Pending Overtime Summary</p>
       <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Unapproved Entries:</strong> ${unapprovedCount}</p>
       <p style="margin: 0 0 8px 0; color: ${colors.dangerText};"><strong>Total Hours:</strong> ${unapprovedHours}</p>
       <p style="margin: 0; color: ${colors.dangerText};"><strong>Employees:</strong> ${employeeList}</p>
-    `, colors.dangerBg, colors.danger)}
+    `,
+      colors.dangerBg,
+      colors.danger,
+    )}
     <p style="${styles.paragraph}; font-weight: 600; color: ${colors.dangerText};">
       Employees will NOT get paid for these hours until you approve or deny them. Please take action now.
     </p>
-    ${buttonHtml(actionUrl, 'Review & Approve Now', colors.danger)}
+    ${buttonHtml(actionUrl, "Review & Approve Now", colors.danger)}
     <p style="${styles.paragraph}; color: ${colors.muted}; font-size: 13px;">
       You will continue to receive daily reminders until all overtime entries are resolved.
     </p>
   `;
 
-  const html = emailLayout('URGENT: Unapproved Overtime', content, colors.danger);
+  const html = emailLayout(
+    "URGENT: Unapproved Overtime",
+    content,
+    colors.danger,
+  );
 
   return sendEmail({
     to: email,
@@ -644,7 +710,7 @@ export const sendInvoiceEmail = async (
   periodLabel: string,
   totalFormatted: string,
   dueDate: string,
-  pdfBuffer: Buffer
+  pdfBuffer: Buffer,
 ): Promise<EmailResult> => {
   const actionUrl = `${config.frontendUrl}/client/billing`;
 
@@ -662,24 +728,26 @@ export const sendInvoiceEmail = async (
       <p style="margin: 0 0 8px 0;"><strong>Total Amount:</strong> ${totalFormatted}</p>
       <p style="margin: 0;"><strong>Due Date:</strong> ${dueDate}</p>
     `)}
-    ${buttonHtml(actionUrl, 'View Invoice')}
+    ${buttonHtml(actionUrl, "View Invoice")}
     <p style="${styles.paragraph}; color: ${colors.muted}; font-size: 13px;">
       The invoice PDF is also attached to this email for your records.
     </p>
   `;
 
-  const html = emailLayout('Invoice from Hello Team', content);
+  const html = emailLayout("Invoice from Hello Team", content);
 
   return sendEmail({
     to: email,
     subject: `Invoice ${invoiceNumber} from Hello Team`,
     html,
     text: `Hi ${clientName}, Invoice ${invoiceNumber} for ${periodLabel} is ready. Total: ${totalFormatted}. Due: ${dueDate}. View at: ${actionUrl}`,
-    attachments: [{
-      filename: `${invoiceNumber}.pdf`,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-    }],
+    attachments: [
+      {
+        filename: `${invoiceNumber}.pdf`,
+        content: pdfBuffer,
+        contentType: "application/pdf",
+      },
+    ],
   });
 };
 

@@ -33,6 +33,7 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
         kycRejectionNote: employee.kycRejectionNote,
         email: employee.user?.email,
         personalEmail: employee.personalEmail,
+        countryCode: employee.countryCode,
         phone: employee.phone,
         address: employee.address,
         governmentIdType: employee.governmentIdType,
@@ -50,6 +51,7 @@ export const getOnboardingStatus = async (req: AuthenticatedRequest, res: Respon
         emergencyContacts: employee.emergencyContacts.map((c) => ({
           id: c.id,
           name: c.name,
+          countryCode: c.countryCode,
           phone: c.phone,
           relationship: c.relationship,
         })),
@@ -149,11 +151,12 @@ export const saveEmergencyContacts = async (req: AuthenticatedRequest, res: Resp
     // Replace strategy: delete existing, create new
     await prisma.$transaction([
       prisma.emergencyContact.deleteMany({ where: { employeeId: employee.id } }),
-      ...contacts.map((c: { name: string; phone: string; relationship: string }) =>
+      ...contacts.map((c: { name: string; countryCode?: string; phone: string; relationship: string }) =>
         prisma.emergencyContact.create({
           data: {
             employeeId: employee.id,
             name: c.name,
+            countryCode: c.countryCode || '+1',
             phone: c.phone,
             relationship: c.relationship,
           },

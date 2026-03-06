@@ -130,12 +130,12 @@ const AddEmployee = () => {
                 onPhoneChange={(val) => setFormData({ ...formData, phone: val })}
                 onCountryCodeChange={(code) => setFormData({ ...formData, countryCode: code })}
               />
-              <Input
+              {/* <Input
                 label="Address"
                 placeholder="Enter address"
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              />
+              /> */}
             </div>
           </div>
 
@@ -189,6 +189,7 @@ const AddEmployee = () => {
                 type="date"
                 value={formData.hireDate}
                 onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
+                required
               />
             </div>
           </div>

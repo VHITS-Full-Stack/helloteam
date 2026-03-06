@@ -54,6 +54,7 @@ const Profile = () => {
           setFormData({
             firstName: admin.firstName || '',
             lastName: admin.lastName || '',
+            countryCode: admin.countryCode || '+1',
             phone: admin.phone || '',
           });
         }

@@ -289,6 +289,7 @@ const Onboarding = () => {
     // Map "Other" to the custom value before sending
     const payload = contacts.map((c) => ({
       name: c.name,
+      countryCode: c.countryCode || "+1",
       phone: c.phone,
       relationship:
         c.relationship === "Other"

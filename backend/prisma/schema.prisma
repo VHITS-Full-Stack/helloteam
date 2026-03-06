@@ -1165,6 +1165,7 @@ model EmergencyContact {
   id           String   @id @default(uuid())
   employeeId   String
   name         String
+  countryCode  String?  @default("+1")
   phone        String
   relationship String
   createdAt    DateTime @default(now())

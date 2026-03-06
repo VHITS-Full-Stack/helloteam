@@ -67,6 +67,7 @@ const Profile = () => {
           setFormData({
             companyName: client.companyName || '',
             contactPerson: client.contactPerson || '',
+            countryCode: client.countryCode || '+1',
             phone: client.phone || '',
             address: client.address || '',
             timezone: client.timezone || 'America/New_York',
