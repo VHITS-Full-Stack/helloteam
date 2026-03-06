@@ -227,7 +227,7 @@ const AddClient = () => {
                   onPhoneChange={(val) => setFormData({ ...formData, phone: val })}
                   onCountryCodeChange={(code) => setFormData({ ...formData, countryCode: code })}
                 />
-                <div>
+                {/* <div>
                   <Input
                     label="Address"
                     placeholder="Company address"
@@ -243,7 +243,7 @@ const AddClient = () => {
                       {fieldErrors.address}
                     </p>
                   )}
-                </div>
+                </div> */}
               </div>
             </div>
           </div>

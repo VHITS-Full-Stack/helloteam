@@ -93,8 +93,8 @@ const Onboarding = () => {
             signerName: a.signerName || '',
             signerAddress: a.signerAddress || '',
             paymentMethod: a.paymentMethod || '',
-            useCreditCard: a.paymentMethod === 'credit_card' || a.paymentMethod === 'both',
-            useACH: a.paymentMethod === 'ach' || a.paymentMethod === 'both',
+            useCreditCard: a.paymentMethod === 'credit_card',
+            useACH: a.paymentMethod === 'ach',
             ccCardholderName: a.ccCardholderName || '',
             ccBillingAddress: a.ccBillingAddress || '',
             ccCityStateZip: a.ccCityStateZip || '',
@@ -156,13 +156,7 @@ const Onboarding = () => {
     updateField('businessEIN', formatted);
   };
 
-  // Derive payment method from checkboxes
-  const getPaymentMethod = () => {
-    if (formData.useCreditCard && formData.useACH) return 'both';
-    if (formData.useCreditCard) return 'credit_card';
-    if (formData.useACH) return 'ach';
-    return '';
-  };
+  const getPaymentMethod = () => formData.paymentMethod || '';
 
   // Step 1 validation
   const validateStep1 = () => {
@@ -177,9 +171,9 @@ const Onboarding = () => {
   // Step 2 validation
   const validateStep2 = () => {
     const pm = getPaymentMethod();
-    if (!pm) return 'Please select at least one payment method';
+    if (!pm) return 'Please select a payment method';
 
-    if (pm === 'credit_card' || pm === 'both') {
+    if (pm === 'credit_card') {
       if (!formData.ccCardholderName.trim()) return 'Cardholder name is required';
       if (!formData.ccBillingAddress.trim()) return 'Billing address is required';
       if (!formData.ccCity.trim()) return 'City is required';
@@ -191,7 +185,7 @@ const Onboarding = () => {
       if (!formData.ccCVV.trim()) return 'CVV is required';
     }
 
-    if (pm === 'ach' || pm === 'both') {
+    if (pm === 'ach') {
       if (!formData.achAccountHolder.trim()) return 'Account holder name is required';
       if (!formData.achBankName.trim()) return 'Bank name is required';
       if (!formData.achRoutingNumber.trim()) return 'Routing number is required';
@@ -672,31 +666,33 @@ const Onboarding = () => {
               Select your preferred payment method(s). At least one is required.
             </p>
 
-            {/* Payment method checkboxes */}
-            <div className="flex gap-4 mb-6">
+            {/* Payment method radio buttons */}
+            <div className="flex gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="checkbox"
-                  checked={formData.useCreditCard}
-                  onChange={(e) => updateField('useCreditCard', e.target.checked)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  type="radio"
+                  name="paymentMethod"
+                  checked={formData.paymentMethod === 'credit_card'}
+                  onChange={() => { updateField('paymentMethod', 'credit_card'); updateField('useCreditCard', true); updateField('useACH', false); }}
+                  className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
                 />
                 <span className="text-sm font-medium text-gray-700">Credit Card</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
-                  type="checkbox"
-                  checked={formData.useACH}
-                  onChange={(e) => updateField('useACH', e.target.checked)}
-                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  type="radio"
+                  name="paymentMethod"
+                  checked={formData.paymentMethod === 'ach'}
+                  onChange={() => { updateField('paymentMethod', 'ach'); updateField('useCreditCard', false); updateField('useACH', true); }}
+                  className="w-4 h-4 text-primary border-gray-300 focus:ring-primary"
                 />
                 <span className="text-sm font-medium text-gray-700">ACH Bank Transfer</span>
               </label>
             </div>
 
             {/* Credit Card Section */}
-            {formData.useCreditCard && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            {formData.paymentMethod === 'credit_card' && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <CreditCard className="w-4 h-4" /> Credit Card Details
                 </h4>
@@ -832,8 +828,8 @@ const Onboarding = () => {
             )}
 
             {/* ACH Section */}
-            {formData.useACH && (
-              <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            {formData.paymentMethod === 'ach' && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                 <h4 className="text-md font-semibold text-gray-800 mb-4 flex items-center gap-2">
                   <Building className="w-4 h-4" /> ACH Bank Transfer Details
                 </h4>
