@@ -14,6 +14,7 @@ import {
   updateEmployeePtoConfig,
   getClientStats,
   downloadAgreementPdf,
+  getFederalHolidaysList,
 } from '../controllers/client.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -22,6 +23,9 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
+
+// Federal holidays list (no specific permission needed beyond auth)
+router.get('/federal-holidays', getFederalHolidaysList);
 
 // Statistics - requires clients.view permission
 router.get('/stats', requirePermission(PERMISSIONS.CLIENTS.VIEW), getClientStats);

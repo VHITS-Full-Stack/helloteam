@@ -1965,8 +1965,8 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    // Find the active session that is in controlled pause
-    const session = await prisma.workSession.findFirst({
+    // Find the active session — either in controlled pause, or with approved OT (no pause)
+    let session = await prisma.workSession.findFirst({
       where: {
         employeeId: employee.id,
         status: { in: ['ACTIVE', 'ON_BREAK'] },
@@ -1976,13 +1976,31 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
       orderBy: { startTime: 'desc' },
     });
 
+    // If no paused session, check for an active session with approved OT (shift end job skips pause for these)
+    let isApprovedOTSession = false;
+    if (!session) {
+      session = await prisma.workSession.findFirst({
+        where: {
+          employeeId: employee.id,
+          status: { in: ['ACTIVE', 'ON_BREAK'] },
+          shiftEndAction: null,
+          shiftEndNotifiedAt: { not: null }, // Was notified about shift end
+        },
+        orderBy: { startTime: 'desc' },
+      });
+      if (session) {
+        isApprovedOTSession = true;
+      }
+    }
+
     if (!session) {
       res.status(404).json({ success: false, error: 'No active shift-end pause found' });
       return;
     }
 
     if (action === 'CONTINUE_WORKING') {
-      if (!reason || !reason.trim()) {
+      // Reason is required for unapproved OT continuation, but not for approved OT
+      if (!isApprovedOTSession && (!reason || !reason.trim())) {
         res.status(400).json({ success: false, error: 'Reason is required when continuing to work' });
         return;
       }
@@ -1992,7 +2010,7 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
         data: {
           shiftEndResumedAt: new Date(),
           shiftEndAction: 'CONTINUE_WORKING',
-          notes: reason.trim(),
+          notes: reason?.trim() || (isApprovedOTSession ? 'Using approved overtime' : ''),
         },
       });
 

@@ -2144,30 +2144,51 @@ const EmployeeDashboard = () => {
                   <Button
                     type="button"
                     variant="ghost"
-                    onClick={() => {
-                      dismissShiftEndPopup();
-                      setShowShiftEndModal(false);
-                      setShiftEndForm({
-                        duration: "",
-                        customMinutes: "",
-                        reason: "",
-                      });
+                    loading={actionLoading}
+                    onClick={async () => {
+                      try {
+                        setActionLoading(true);
+                        await workSessionService.shiftEndResponse("STAY_CLOCKED_OUT", null);
+                        markShiftEndNotificationsRead();
+                        setShowShiftEndModal(false);
+                        setShiftEndForm({
+                          duration: "",
+                          customMinutes: "",
+                          reason: "",
+                        });
+                        await fetchWorkSessionData();
+                      } catch (err) {
+                        setError(err.error || err.message || "Failed to clock out");
+                      } finally {
+                        setActionLoading(false);
+                      }
                     }}
                     className="flex-1"
                   >
-                    No, I'm Good
+                    No, Clock Me Out
                   </Button>
                   <Button
                     type="button"
                     variant="primary"
-                    onClick={() => {
-                      markShiftEndNotificationsRead();
-                      setShowShiftEndModal(false);
-                      setShiftEndForm({
-                        duration: "",
-                        customMinutes: "",
-                        reason: "",
-                      });
+                    loading={actionLoading}
+                    onClick={async () => {
+                      try {
+                        setActionLoading(true);
+                        await workSessionService.shiftEndResponse("CONTINUE_WORKING", "Using approved overtime");
+                        markShiftEndNotificationsRead();
+                        setShowShiftEndModal(false);
+                        setShiftEndForm({
+                          duration: "",
+                          customMinutes: "",
+                          reason: "",
+                        });
+                        setIsInExtension(true);
+                        await fetchWorkSessionData();
+                      } catch (err) {
+                        setError(err.error || err.message || "Failed to continue session");
+                      } finally {
+                        setActionLoading(false);
+                      }
                     }}
                     className="flex-1"
                   >
