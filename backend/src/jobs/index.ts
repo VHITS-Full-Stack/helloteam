@@ -22,17 +22,17 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Auto-approval job scheduled (every 5 minutes)');
 
-  // Monthly invoice generation: runs on the 1st of every month at 00:05 UTC
-  cron.schedule('5 0 1 * *', async () => {
+  // Monthly invoice generation: runs on the 1st of every month at 12:05 AM EST (05:05 UTC)
+  cron.schedule('5 5 1 * *', async () => {
     await runMonthlyInvoiceGeneration(io);
   });
-  console.log('[Jobs] Monthly invoice generation scheduled (1st of month, 00:05 UTC)');
+  console.log('[Jobs] Monthly invoice generation scheduled (1st of month, 12:05 AM EST)');
 
-  // Weekly invoice generation: runs every Monday at 00:10 UTC
-  cron.schedule('10 0 * * 1', async () => {
+  // Weekly invoice generation: runs every Monday at 12:10 AM EST (05:10 UTC)
+  cron.schedule('10 5 * * 1', async () => {
     await runWeeklyInvoiceGeneration(io);
   });
-  console.log('[Jobs] Weekly invoice generation scheduled (Monday, 00:10 UTC)');
+  console.log('[Jobs] Weekly invoice generation scheduled (Monday, 12:10 AM EST)');
 
   // OT billing cycle reminder: runs daily at 09:00 UTC
   // Notifies clients 3 days before billing cycle ends about unapproved OT

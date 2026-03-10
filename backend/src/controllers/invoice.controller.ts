@@ -349,6 +349,8 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
   try {
     const clientId = req.query.clientId as string | undefined;
     const status = req.query.status as string | undefined;
+    const month = req.query.month as string | undefined; // "YYYY-MM" format
+    const year = req.query.year as string | undefined; // "YYYY" format
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
@@ -356,10 +358,28 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
     const where: any = {};
     if (clientId) where.clientId = clientId;
     if (status && status !== 'all') where.status = status.toUpperCase();
+    if (month && month !== 'all') {
+      const [y, m] = month.split('-').map(Number);
+      if (y && m) {
+        where.periodStart = {
+          gte: new Date(Date.UTC(y, m - 1, 1)),
+          lt: new Date(Date.UTC(y, m, 1)),
+        };
+      }
+    } else if (year && year !== 'all') {
+      const y = parseInt(year, 10);
+      if (y) {
+        where.periodStart = {
+          gte: new Date(Date.UTC(y, 0, 1)),
+          lt: new Date(Date.UTC(y + 1, 0, 1)),
+        };
+      }
+    }
 
     // Build a base where clause without status for aggregate stats
     const baseWhere: any = {};
     if (clientId) baseWhere.clientId = clientId;
+    if (where.periodStart) baseWhere.periodStart = where.periodStart;
 
     const [invoices, total, aggregateStats] = await Promise.all([
       prisma.invoice.findMany({

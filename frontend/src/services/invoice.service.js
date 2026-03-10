@@ -9,6 +9,8 @@ const invoiceService = {
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.clientId) queryParams.append('clientId', params.clientId);
       if (params.status) queryParams.append('status', params.status);
+      if (params.month) queryParams.append('month', params.month);
+      if (params.year) queryParams.append('year', params.year);
 
       const response = await api.get(`/invoices?${queryParams.toString()}`);
       return response;

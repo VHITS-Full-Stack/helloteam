@@ -34,6 +34,8 @@ const Invoices = () => {
   const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [selectedClient, setSelectedClient] = useState('all');
+  const [filterYear, setFilterYear] = useState('all');
+  const [filterMonth, setFilterMonth] = useState('all');
 
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -59,6 +61,7 @@ const Invoices = () => {
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   });
+  const [generateClientId, setGenerateClientId] = useState('all');
   const [generating, setGenerating] = useState(false);
   const [generateStep, setGenerateStep] = useState('params'); // 'params' | 'preview'
   const [previewData, setPreviewData] = useState(null);
@@ -86,6 +89,11 @@ const Invoices = () => {
       };
       if (selectedStatus !== 'all') params.status = selectedStatus;
       if (selectedClient !== 'all') params.clientId = selectedClient;
+      if (filterYear !== 'all' && filterMonth !== 'all') {
+        params.month = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
+      } else if (filterYear !== 'all') {
+        params.year = filterYear;
+      }
 
       const response = await invoiceService.getInvoices(params);
       if (response.success) {
@@ -107,7 +115,7 @@ const Invoices = () => {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [pagination.page, pagination.limit, selectedStatus, selectedClient]);
+  }, [pagination.page, pagination.limit, selectedStatus, selectedClient, filterYear, filterMonth]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -131,7 +139,7 @@ const Invoices = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
-  }, [selectedStatus, selectedClient]);
+  }, [selectedStatus, selectedClient, filterYear, filterMonth]);
 
   const handleViewInvoice = async (invoiceId) => {
     setLoadingDetail(true);
@@ -196,8 +204,8 @@ const Invoices = () => {
     } else {
       params.month = generateMonth;
     }
-    if (selectedClient !== 'all') {
-      params.clientId = selectedClient;
+    if (generateClientId !== 'all') {
+      params.clientId = generateClientId;
     }
     return params;
   };
@@ -232,6 +240,7 @@ const Invoices = () => {
         setGenerateStep('params');
         setPreviewData(null);
         setGenerateError('');
+        setGenerateClientId('all');
         setSuccess(response.message || 'Invoices generated successfully');
         setTimeout(() => setSuccess(''), 5000);
         fetchInvoices();
@@ -407,6 +416,37 @@ const Invoices = () => {
               <option key={c.id} value={c.id}>{c.companyName}</option>
             ))}
           </select>
+          <select
+            value={filterYear}
+            onChange={(e) => setFilterYear(e.target.value)}
+            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+          >
+            <option value="all">All Years</option>
+            <option value="2026">2026</option>
+          </select>
+          <select
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value)}
+            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+          >
+            <option value="all">All Months</option>
+            {[
+              { value: 1, label: 'January' },
+              { value: 2, label: 'February' },
+              { value: 3, label: 'March' },
+              { value: 4, label: 'April' },
+              { value: 5, label: 'May' },
+              { value: 6, label: 'June' },
+              { value: 7, label: 'July' },
+              { value: 8, label: 'August' },
+              { value: 9, label: 'September' },
+              { value: 10, label: 'October' },
+              { value: 11, label: 'November' },
+              { value: 12, label: 'December' },
+            ].map(m => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
         </div>
       </Card>
 
@@ -569,7 +609,7 @@ const Invoices = () => {
       {/* Generate Invoices Modal */}
       <Modal
         isOpen={showGenerateModal}
-        onClose={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); setGenerateError(''); }}
+        onClose={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); setGenerateError(''); setGenerateClientId('all'); }}
         title={generateStep === 'params' ? 'Generate Invoices' : 'Preview — Invoices to Generate'}
         size={generateStep === 'params' ? 'sm' : 'md'}
       >
@@ -615,6 +655,21 @@ const Invoices = () => {
                   Weekly
                 </button>
               </div>
+            </div>
+
+            {/* Client Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+              <select
+                value={generateClientId}
+                onChange={(e) => setGenerateClientId(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">All Clients</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>{c.companyName}</option>
+                ))}
+              </select>
             </div>
 
             {generateFrequency === 'monthly' ? (
@@ -671,7 +726,7 @@ const Invoices = () => {
             )}
 
             <p className="text-xs text-gray-400">
-              {selectedClient !== 'all'
+              {generateClientId !== 'all'
                 ? `Invoice will be generated for the selected client only. Existing invoices for the same period will be skipped.`
                 : generateFrequency === 'monthly'
                   ? 'Monthly invoices will be generated for Monthly agreement clients only. Existing invoices for the same period will be skipped.'
@@ -760,7 +815,7 @@ const Invoices = () => {
                 Back
               </Button>
               <div className="flex gap-2">
-                <Button variant="ghost" onClick={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); }}>
+                <Button variant="ghost" onClick={() => { setShowGenerateModal(false); setGenerateStep('params'); setPreviewData(null); setGenerateClientId('all'); }}>
                   Cancel
                 </Button>
                 <Button
