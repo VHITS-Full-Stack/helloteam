@@ -267,20 +267,6 @@ const buildInvoicePdf = async (
   // Build notes text
   const notesLines: string[] = [];
   notesLines.push(`The invoice covers the billing cycle from ${periodStartStr} to ${periodEndStr}.`);
-  for (const li of lineItems) {
-    const hours = parseFloat(String(li.hours)) || 0;
-    const rate = parseFloat(String(li.rate)) || 0;
-    const otHours = parseFloat(String(li.overtimeHours)) || 0;
-    const otRate = parseFloat(String(li.overtimeRate)) || 0;
-    const empName = li.employeeName || 'Unknown';
-
-    if (hours > 0) {
-      notesLines.push(`${empName}. ${hours.toFixed(0)} Hours at $${rate.toFixed(0)} per hour`);
-    }
-    if (otHours > 0) {
-      notesLines.push(`${empName}. ${otHours.toFixed(0)} OT Hours at $${otRate.toFixed(0)} per hour`);
-    }
-  }
 
   // Draw underlined "NOTES:"
   page.drawText('NOTES:', { x: margin, y, size: 10, font: fontBold, color: darkGray });

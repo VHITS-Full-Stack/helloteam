@@ -102,7 +102,7 @@ export const formatTimeInTz = (date: Date, tz: string): string => {
       minute: '2-digit',
       hour12: true,
     });
-    const timeStr = formatter.format(date).toLowerCase();
+    const timeStr = formatter.format(date).toLowerCase().replace(/\s+(am|pm)/, '$1');
     const abbr = getTimezoneAbbr(date, tz);
     return `${timeStr} (${abbr})`;
   } catch {

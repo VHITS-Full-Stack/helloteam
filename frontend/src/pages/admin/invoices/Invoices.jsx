@@ -38,12 +38,22 @@ const Invoices = () => {
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [generateFrequency, setGenerateFrequency] = useState('monthly');
-  const [generateYear, setGenerateYear] = useState(new Date().getFullYear());
-  const [generateMonth, setGenerateMonth] = useState(new Date().getMonth() + 1);
-  const [generateWeek, setGenerateWeek] = useState(() => {
-    // Calculate current ISO week number
+  const [generateYear, setGenerateYear] = useState(() => {
     const now = new Date();
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    // Default to previous month's year (handles January → December of previous year)
+    return now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+  });
+  const [generateMonth, setGenerateMonth] = useState(() => {
+    const now = new Date();
+    // Default to previous month (handles January → December)
+    return now.getMonth() === 0 ? 12 : now.getMonth();
+  });
+  const [generateWeek, setGenerateWeek] = useState(() => {
+    // Default to previous week's ISO week number
+    const now = new Date();
+    const prevWeek = new Date(now);
+    prevWeek.setDate(now.getDate() - 7);
+    const d = new Date(Date.UTC(prevWeek.getFullYear(), prevWeek.getMonth(), prevWeek.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));

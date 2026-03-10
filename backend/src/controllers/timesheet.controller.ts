@@ -59,23 +59,20 @@ const buildTimesheetPdf = async (
   const margin = 50;
   const contentWidth = pageWidth - margin * 2;
   const darkGray = rgb(0.15, 0.15, 0.15);
-  const lightGray = rgb(0.92, 0.92, 0.92);
-  const black = rgb(0, 0, 0);
+  const lineColor = rgb(0.7, 0.7, 0.7);
 
-  // Column positions for the timesheet table
+  // Column positions matching the sample PDF
   const col = {
     timeIn: margin,
-    timeOut: margin + 130,
-    duration: margin + 275,
-    customer: margin + 355,
-    dailyTotal: pageWidth - margin,
+    timeOut: margin + 120,
+    duration: margin + 250,
+    customer: margin + 340,
+    hours: pageWidth - margin - 40, // right-aligned daily hours column
   };
 
-  const headerRowHeight = 18;
-  const dataRowHeight = 16;
-  const footerReserve = 50; // space reserved at bottom for footer
+  const rowHeight = 20;
+  const footerReserve = 50;
 
-  // Track all pages for footer rendering
   const allPages: PDFPage[] = [];
 
   const addNewPage = (): PDFPage => {
@@ -84,21 +81,35 @@ const buildTimesheetPdf = async (
     return page;
   };
 
-  const drawColumnHeaders = (page: PDFPage, y: number): number => {
-    // Column header text
-    page.drawText('Time in', { x: col.timeIn, y, size: 9, font: fontBold, color: darkGray });
-    page.drawText('Time out', { x: col.timeOut, y, size: 9, font: fontBold, color: darkGray });
-    page.drawText('Duration', { x: col.duration, y, size: 9, font: fontBold, color: darkGray });
-    page.drawText('Customer', { x: col.customer, y, size: 9, font: fontBold, color: darkGray });
-    y -= 4;
-    // Separator line
+  // Draw a thin horizontal line across the content width
+  const hLine = (page: PDFPage, y: number) => {
     page.drawLine({
       start: { x: margin, y },
       end: { x: pageWidth - margin, y },
-      thickness: 0.75,
+      thickness: 0.5,
+      color: lineColor,
+    });
+  };
+
+  const drawColumnHeaders = (page: PDFPage, y: number): number => {
+    page.drawText('Time in', { x: col.timeIn, y, size: 9, font, color: darkGray });
+    page.drawText('Time out', { x: col.timeOut, y, size: 9, font, color: darkGray });
+    page.drawText('Duration', { x: col.duration, y, size: 9, font, color: darkGray });
+    page.drawText('Customer', { x: col.customer, y, size: 9, font, color: darkGray });
+    y -= 6;
+    // Bold separator below headers
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: pageWidth - margin, y },
+      thickness: 1,
       color: darkGray,
     });
     return y - 14;
+  };
+
+  // Check if we need a new page
+  const needsNewPage = (y: number, rows: number): boolean => {
+    return y - (rows * rowHeight) < margin + footerReserve;
   };
 
   // ===== DRAW EACH EMPLOYEE =====
@@ -108,59 +119,49 @@ const buildTimesheetPdf = async (
 
     // 1. Employee name (large, bold)
     page.drawText(emp.fullName, { x: margin, y, size: 16, font: fontBold, color: darkGray });
-    y -= 18;
+    y -= 16;
 
     // 2. Date range
     const periodStr = `${fmtDate(periodStart)} to ${fmtDate(periodEnd)}`;
-    page.drawText(periodStr, { x: margin, y, size: 10, font, color: darkGray });
-    y -= 28;
+    page.drawText(periodStr, { x: margin, y, size: 9, font, color: darkGray });
+    y -= 24;
 
-    // 3. Summary: Regular | Overtime | PTO | Total Hours (right-aligned)
+    // 3. Summary row: labels right-aligned
     const summaryLabels = emp.overtimeHours > 0
       ? ['Regular', 'Overtime', 'PTO', 'Total Hours']
       : ['Regular', 'PTO', 'Total Hours'];
     const summaryValues = emp.overtimeHours > 0
       ? [emp.regularHours.toFixed(2), emp.overtimeHours.toFixed(2), emp.ptoHours.toFixed(2), emp.totalHours.toFixed(2)]
       : [emp.regularHours.toFixed(2), emp.ptoHours.toFixed(2), emp.totalHours.toFixed(2)];
-    const summaryColors = emp.overtimeHours > 0
-      ? [darkGray, rgb(0.8, 0.4, 0), darkGray, darkGray]
-      : [darkGray, darkGray, darkGray];
 
-    // Calculate positions for right-aligned summary
-    const colWidths = emp.overtimeHours > 0
-      ? [65, 65, 50, 80]
-      : [70, 60, 80];
+    const colWidth = 75;
     const summaryRight = pageWidth - margin;
-    let sx = summaryRight;
 
-    // Draw labels row
+    // Draw labels
     for (let i = summaryLabels.length - 1; i >= 0; i--) {
-      const labelWidth = fontBold.widthOfTextAtSize(summaryLabels[i], 9);
-      const colCenter = sx - colWidths[i] / 2;
+      const x = summaryRight - (summaryLabels.length - i) * colWidth;
+      const labelW = fontBold.widthOfTextAtSize(summaryLabels[i], 9);
       page.drawText(summaryLabels[i], {
-        x: colCenter - labelWidth / 2,
+        x: x + colWidth - labelW,
         y,
         size: 9,
         font: fontBold,
-        color: summaryColors[i],
+        color: darkGray,
       });
-      sx -= colWidths[i];
     }
-    y -= 16;
+    y -= 20;
 
-    // Draw values row (bold, larger)
-    sx = summaryRight;
+    // Draw values (bold, large, right-aligned)
     for (let i = summaryValues.length - 1; i >= 0; i--) {
-      const valWidth = fontBold.widthOfTextAtSize(summaryValues[i], 14);
-      const colCenter = sx - colWidths[i] / 2;
+      const x = summaryRight - (summaryValues.length - i) * colWidth;
+      const valW = fontBold.widthOfTextAtSize(summaryValues[i], 16);
       page.drawText(summaryValues[i], {
-        x: colCenter - valWidth / 2,
+        x: x + colWidth - valW,
         y,
-        size: 14,
+        size: 16,
         font: fontBold,
-        color: summaryColors[i],
+        color: darkGray,
       });
-      sx -= colWidths[i];
     }
     y -= 30;
 
@@ -169,9 +170,9 @@ const buildTimesheetPdf = async (
 
     // 5. Daily entries
     for (const day of emp.days) {
-      // Check if we need a new page (need space for date header + at least 1 row + footer)
-      const neededSpace = headerRowHeight + dataRowHeight + footerReserve + 10;
-      if (y < margin + neededSpace) {
+      // Need space for: date header row + session rows + separator
+      const totalRowsNeeded = 1 + day.sessions.length + (day.dailyOT > 0 ? 1 : 0);
+      if (needsNewPage(y, totalRowsNeeded)) {
         page = addNewPage();
         y = pageHeight - margin;
         y = drawColumnHeaders(page, y);
@@ -188,20 +189,19 @@ const buildTimesheetPdf = async (
 
       // Daily total right-aligned
       const dailyTotalStr = day.dailyTotal.toFixed(2);
-      const dailyTotalWidth = fontBold.widthOfTextAtSize(dailyTotalStr, 10);
+      const totalW = fontBold.widthOfTextAtSize(dailyTotalStr, 10);
       page.drawText(dailyTotalStr, {
-        x: col.dailyTotal - dailyTotalWidth,
+        x: pageWidth - margin - totalW,
         y,
         size: 10,
         font: fontBold,
         color: darkGray,
       });
-      y -= headerRowHeight;
+      y -= rowHeight;
 
       // Session rows
       for (const session of day.sessions) {
-        // Check for page overflow
-        if (y < margin + footerReserve + 10) {
+        if (needsNewPage(y, 1)) {
           page = addNewPage();
           y = pageHeight - margin;
           y = drawColumnHeaders(page, y);
@@ -212,24 +212,24 @@ const buildTimesheetPdf = async (
         page.drawText(session.duration.toFixed(2), { x: col.duration, y, size: 9, font, color: darkGray });
         page.drawText(session.customer, { x: col.customer, y, size: 9, font, color: darkGray });
 
-        y -= dataRowHeight;
+        y -= rowHeight;
       }
 
-      // Show overtime row if this day has OT
+      // Overtime row if applicable
       if (day.dailyOT > 0) {
-        if (y < margin + footerReserve + 10) {
+        if (needsNewPage(y, 1)) {
           page = addNewPage();
           y = pageHeight - margin;
           y = drawColumnHeaders(page, y);
         }
-        const otColor = rgb(0.8, 0.4, 0); // orange for OT
+        const otColor = rgb(0.8, 0.4, 0);
         page.drawText('Overtime:', { x: col.timeIn + 10, y, size: 9, font: fontBold, color: otColor });
         page.drawText(day.dailyOT.toFixed(2), { x: col.duration, y, size: 9, font: fontBold, color: otColor });
-        y -= dataRowHeight;
+        y -= rowHeight;
       }
 
-      // Spacing between days
-      y -= 4;
+      // Thin separator line between days
+      hLine(page, y + 10);
     }
   }
 
