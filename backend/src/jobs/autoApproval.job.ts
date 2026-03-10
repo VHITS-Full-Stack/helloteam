@@ -16,6 +16,7 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
       select: {
         clientId: true,
         autoApproveMinutes: true,
+        overtimeRequiresApproval: true,
         client: {
           select: {
             id: true,
@@ -38,13 +39,14 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
       const clientTimezone = policy.client.timezone || 'UTC';
 
       // Find PENDING time records where employee has clocked in
-      // Exclude overtime records — they are never auto-approved (follow OT approval flow)
+      // When OT requires approval, exclude overtime records (they follow OT approval flow)
+      // When OT does NOT require approval, include all records (all hours are regular)
       const pendingRecords = await prisma.timeRecord.findMany({
         where: {
           clientId: policy.clientId,
           status: 'PENDING',
           actualStart: { not: null },
-          overtimeMinutes: 0,
+          ...(policy.overtimeRequiresApproval !== false ? { overtimeMinutes: 0 } : {}),
         },
         include: {
           employee: {

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { authenticate } from '../middleware/auth.middleware';
 import {
@@ -9,8 +9,6 @@ import {
   getPermissionsByCategory,
   ALL_PERMISSIONS,
 } from '../config/permissions';
-
-const prisma = new PrismaClient();
 const router = Router();
 
 // Apply authentication to all routes

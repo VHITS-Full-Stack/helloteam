@@ -1,11 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { createNotification, notifyOvertimeRequest } from './notification.controller';
 import { sendOvertimeRequestEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
-
-const prisma = new PrismaClient();
 
 // Get overtime requests for client or employee
 export const getOvertimeRequests = async (req: AuthenticatedRequest, res: Response) => {

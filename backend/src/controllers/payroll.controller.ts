@@ -1,10 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient, PayrollStatus } from '@prisma/client';
+import prisma from '../config/database';
+import { PayrollStatus } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { notifyPayrollDeadline } from './notification.controller';
 import { sendPayrollReminderEmail } from '../services/email.service';
-
-const prisma = new PrismaClient();
 
 // Helper function to determine readiness status
 const getReadinessStatus = (

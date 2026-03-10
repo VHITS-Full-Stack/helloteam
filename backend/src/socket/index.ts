@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { JwtPayload } from '../types';
+import prisma from '../config/database';
 
 // Track online users: userId -> socketId
 const onlineUsers = new Map<string, string>();
@@ -57,9 +58,6 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
       recipientUserId: string;
       tempId?: string;
     }) => {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-
       try {
         const message = await prisma.message.create({
           data: {
@@ -95,8 +93,6 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
           tempId: data.tempId,
           error: 'Failed to send message',
         });
-      } finally {
-        await prisma.$disconnect();
       }
     });
 
@@ -105,9 +101,6 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
       conversationId: string;
       senderUserId: string;
     }) => {
-      const { PrismaClient } = await import('@prisma/client');
-      const prisma = new PrismaClient();
-
       try {
         await prisma.message.updateMany({
           where: {
@@ -131,8 +124,6 @@ export const initializeSocket = (httpServer: HttpServer): Server => {
         }
       } catch (error) {
         console.error('Socket mark_read error:', error);
-      } finally {
-        await prisma.$disconnect();
       }
     });
 

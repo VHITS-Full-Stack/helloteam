@@ -37,7 +37,7 @@ const Sidebar = ({
 
   const employeeLinks = [
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/employee/time-clock', icon: Clock, label: 'Time Clock' },
+    // { to: '/employee/time-clock', icon: Clock, label: 'Time Clock' },
     { to: '/employee/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/employee/time-records', icon: FileText, label: 'Time Records' },
     { to: '/employee/leave', icon: Calendar, label: 'Leave Requests' },

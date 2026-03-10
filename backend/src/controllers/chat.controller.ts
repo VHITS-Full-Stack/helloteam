@@ -1,11 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { uploadChatFile } from '../services/s3.service';
 import { getPresignedUrl } from '../services/s3.service';
 import { createNotification } from './notification.controller';
-
-const prisma = new PrismaClient();
 
 // Helper to refresh presigned URLs on messages
 const refreshMessageUrls = async (messages: any[]) => {

@@ -524,6 +524,13 @@ const Onboarding = () => {
     );
   }
 
+  // Clear token when onboarding is completed so user must login with credentials
+  useEffect(() => {
+    if (completed) {
+      api.removeToken();
+    }
+  }, [completed]);
+
   if (completed) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">

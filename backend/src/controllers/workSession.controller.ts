@@ -118,9 +118,17 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
     console.log(`[Clock-in] Schedule found:`, schedule ? `startTime=${schedule.startTime}, endTime=${schedule.endTime}, dayOfWeek=${schedule.dayOfWeek}` : 'NONE');
 
+    // Check if overtime requires approval for clock-in warnings
+    const clockInPolicy = await prisma.clientPolicy.findUnique({
+      where: { clientId: clientAssignment.clientId },
+      select: { overtimeRequiresApproval: true },
+    });
+    const clockInOtRequiresApproval = clockInPolicy?.overtimeRequiresApproval ?? true;
+
     // Warn on unscheduled day — allow as Extra Time after confirmation
+    // Skip warning when OT doesn't require approval (all hours are regular approved time)
     if (!schedule) {
-      if (!req.body?.confirmUnscheduledDay) {
+      if (clockInOtRequiresApproval && !req.body?.confirmUnscheduledDay) {
         res.status(200).json({
           success: false,
           requiresConfirmation: true,
@@ -138,7 +146,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
 
       console.log(`[Clock-in] Time check: nowTotalMinutes=${nowTotalMinutes}, startTotalMinutes=${startTotalMinutes}, isEarly=${nowTotalMinutes < startTotalMinutes}, isLate=${nowTotalMinutes >= startTotalMinutes + 1}, confirmFlags=`, { confirmEarlyClockIn: req.body?.confirmEarlyClockIn, confirmLateArrival: req.body?.confirmLateArrival });
 
-      if (nowTotalMinutes < startTotalMinutes && !req.body?.confirmEarlyClockIn) {
+      if (clockInOtRequiresApproval && nowTotalMinutes < startTotalMinutes && !req.body?.confirmEarlyClockIn) {
         const currentTimeStr = `${String(clientTime.hour).padStart(2, '0')}:${String(clientTime.minute).padStart(2, '0')}`;
         // Before schedule start — warn employee about early clock-in
         res.status(200).json({
@@ -181,7 +189,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       }
     }
 
-    if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+    if (schedule?.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
       const [endHour, endMinute] = schedule.endTime.split(':').map(Number);
       const endTotalMinutes = endHour * 60 + endMinute;
 
@@ -200,7 +208,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
           },
         });
 
-        if (!approvedOT && !req.body?.confirmPostShift) {
+        if (clockInOtRequiresApproval && !approvedOT && !req.body?.confirmPostShift) {
           // Check if there's a pending/rejected OT request to tailor the message
           const anyOTRequest = await prisma.overtimeRequest.findFirst({
             where: {
@@ -419,9 +427,10 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       // Get client timezone for schedule lookup
       const firstClient = await prisma.client.findUnique({
         where: { id: clientAssignments[0].clientId },
-        select: { timezone: true },
+        select: { timezone: true, clientPolicies: { select: { overtimeRequiresApproval: true } } },
       });
       const clockOutTz = firstClient?.timezone || 'UTC';
+      const otRequiresApproval = firstClient?.clientPolicies?.overtimeRequiresApproval ?? true;
 
       // Use client timezone to determine "today" date (same approach as clock-in)
       // This ensures the TimeRecord date matches the employee's local calendar date
@@ -488,11 +497,17 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         ? (activeSession.notes || null)
         : null;
 
+      // When "Overtime Requires Approval" is UNCHECKED: treat ALL hours as regular approved time
+      if (!otRequiresApproval) {
+        overtimeMinutes = 0;
+        shiftExtensionMinutes = 0;
+      }
+
       // Create/update time record for each assigned client
       await Promise.all(
         clientAssignments.map(async (assignment) => {
           // Check if there's a pre-approved OvertimeRequest for this employee/client/date
-          let status: 'PENDING' | 'APPROVED' = 'PENDING';
+          let status: 'PENDING' | 'APPROVED' = !otRequiresApproval ? 'APPROVED' : 'PENDING';
           let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
           let extraTimeStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
           let extraTimeMinutes = 0;
@@ -541,7 +556,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           }
 
           // Determine extra time approval status (early clock-in or post-shift session)
-          const hasExtraTime = isExtraTime || earlyOvertimeMinutes > 0;
+          // Skip when OT doesn't require approval — all hours are regular approved time
+          const hasExtraTime = otRequiresApproval && (isExtraTime || earlyOvertimeMinutes > 0);
           if (hasExtraTime) {
             extraTimeMinutes = isExtraTime ? totalWorkMinutes : earlyOvertimeMinutes;
             const otRequest = await prisma.overtimeRequest.findFirst({
@@ -654,6 +670,9 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           }
 
           // --- Auto-create OvertimeRequest(s) if overtime was worked without a prior request ---
+          // Skip entirely when OT doesn't require approval — no OT tracking needed
+          if (!otRequiresApproval) { /* no-op: all hours are regular */ }
+          else {
           const fmtHHMM = (d: Date) => {
             const parts = d.toLocaleString('en-US', { timeZone: clockOutTz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
             return `${parts[0].padStart(2, '0')}:${parts[1]}`;
@@ -708,11 +727,12 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               console.error(`[OT-Auto] Failed to auto-create OvertimeRequest:`, e);
             }
           }
+          } // end else (otRequiresApproval)
         })
       );
 
       // --- Send OT notifications to client(s) if overtime was worked ---
-      if (overtimeMinutes > 0) {
+      if (overtimeMinutes > 0 && otRequiresApproval) {
         const employeeName = `${employee.firstName} ${employee.lastName}`;
         const now2 = new Date();
         const dateStr = now2.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
@@ -1162,6 +1182,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       employeeId: employee.id,
       // Include completed, active, and on-break sessions
       status: { in: ['COMPLETED', 'ACTIVE', 'ON_BREAK'] },
+      // Exclude manual entries — they are shown in the Manual Time Card tab
+      isManual: false,
     };
 
     if (Object.keys(dateFilter).length > 0) {
@@ -1750,6 +1772,7 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
         status: 'COMPLETED',
         notes: notes || null,
         totalBreakMinutes: 0,
+        isManual: true,
       },
     });
 
@@ -1817,6 +1840,87 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
   } catch (error) {
     console.error('Add manual entry error:', error);
     res.status(500).json({ success: false, message: 'Failed to add manual time entry' });
+  }
+};
+
+// Get manual time entries
+export const getManualEntries = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const { startDate, endDate, page = '1', limit = '50' } = req.query;
+
+    if (!userId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, message: 'Employee record not found' });
+      return;
+    }
+
+    const pageNum = parseInt(page as string, 10);
+    const limitNum = parseInt(limit as string, 10);
+    const skip = (pageNum - 1) * limitNum;
+
+    const dateFilter: any = {};
+    if (startDate) {
+      dateFilter.gte = new Date(startDate as string);
+    }
+    if (endDate) {
+      const endDateObj = new Date(endDate as string);
+      endDateObj.setUTCHours(23, 59, 59, 999);
+      dateFilter.lte = endDateObj;
+    }
+
+    const whereClause: any = {
+      employeeId: employee.id,
+      isManual: true,
+    };
+
+    if (Object.keys(dateFilter).length > 0) {
+      whereClause.startTime = dateFilter;
+    }
+
+    const [entries, total] = await Promise.all([
+      prisma.workSession.findMany({
+        where: whereClause,
+        orderBy: { startTime: 'desc' },
+        skip,
+        take: limitNum,
+      }),
+      prisma.workSession.count({ where: whereClause }),
+    ]);
+
+    // Calculate work minutes for each entry
+    const entriesWithStats = entries.map(entry => {
+      const totalMinutes = entry.endTime
+        ? Math.round((entry.endTime.getTime() - entry.startTime.getTime()) / 60000)
+        : 0;
+      return {
+        ...entry,
+        totalMinutes,
+        workMinutes: totalMinutes,
+      };
+    });
+
+    res.json({
+      success: true,
+      entries: entriesWithStats,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+      },
+    });
+  } catch (error) {
+    console.error('Get manual entries error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get manual entries' });
   }
 };
 

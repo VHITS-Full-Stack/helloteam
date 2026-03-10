@@ -1,9 +1,9 @@
 import { Response } from 'express';
-import { PrismaClient, LeaveType, LeaveStatus } from '@prisma/client';
+import prisma from '../config/database';
+import { LeaveType, LeaveStatus } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
-
-const prisma = new PrismaClient();
+import { calculateCurrentBlock } from '../utils/ptoHalfYearlyCalculator';
 
 // Helper: Calculate days between two dates
 const calculateDays = (startDate: Date, endDate: Date): number => {
@@ -186,23 +186,83 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
     // Get or create balance
     const balance = await getOrCreateLeaveBalance(employee.id, assignment.clientId);
 
-    // Calculate available balance
-    const paidLeaveAvailable = Number(balance.paidLeaveEntitled) +
-      Number(balance.paidLeaveCarryover) -
-      Number(balance.paidLeaveUsed) -
-      Number(balance.paidLeavePending);
+    let paidLeaveEntitled = Number(balance.paidLeaveEntitled);
+    let paidLeaveUsed = Number(balance.paidLeaveUsed);
+    let paidLeavePending = Number(balance.paidLeavePending);
+    let paidLeaveCarryover = Number(balance.paidLeaveCarryover);
+    let blockInfo: { blockStart?: Date; blockEnd?: Date } = {};
+
+    // For FIXED_HALF_YEARLY: dynamically compute entitlement and scoped usage
+    if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && employee.hireDate) {
+      const now = new Date();
+      const block = calculateCurrentBlock(employee.hireDate, now, effectivePto.annualPaidLeaveDays);
+      paidLeaveEntitled = block.entitledDays;
+      paidLeaveCarryover = 0; // No rollover for half-yearly
+
+      // Count only leave used/pending within the current block
+      const [usedInBlock, pendingInBlock] = await Promise.all([
+        prisma.leaveRequest.aggregate({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            leaveType: 'PAID',
+            status: 'APPROVED',
+            startDate: { gte: block.blockStart },
+            endDate: { lt: block.blockEnd },
+          },
+          _count: true,
+        }).then(async (result) => {
+          // Sum actual days from approved requests in this block
+          const requests = await prisma.leaveRequest.findMany({
+            where: {
+              employeeId: employee.id,
+              clientId: assignment.clientId,
+              leaveType: 'PAID',
+              status: 'APPROVED',
+              startDate: { gte: block.blockStart },
+              endDate: { lt: block.blockEnd },
+            },
+            select: { startDate: true, endDate: true },
+          });
+          return requests.reduce((sum, r) => sum + calculateDays(new Date(r.startDate), new Date(r.endDate)), 0);
+        }),
+        prisma.leaveRequest.findMany({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            leaveType: 'PAID',
+            status: { in: ['PENDING', 'APPROVED_BY_CLIENT'] },
+            startDate: { gte: block.blockStart },
+            endDate: { lt: block.blockEnd },
+          },
+          select: { startDate: true, endDate: true },
+        }).then(requests =>
+          requests.reduce((sum, r) => sum + calculateDays(new Date(r.startDate), new Date(r.endDate)), 0)
+        ),
+      ]);
+
+      paidLeaveUsed = usedInBlock;
+      paidLeavePending = pendingInBlock;
+      blockInfo = { blockStart: block.blockStart, blockEnd: block.blockEnd };
+    }
+
+    const paidLeaveAvailable = Math.max(0, paidLeaveEntitled + paidLeaveCarryover - paidLeaveUsed - paidLeavePending);
 
     res.json({
       success: true,
       data: {
         year: balance.year,
         paidLeave: {
-          entitled: Number(balance.paidLeaveEntitled),
-          carryover: Number(balance.paidLeaveCarryover),
-          used: Number(balance.paidLeaveUsed),
-          pending: Number(balance.paidLeavePending),
+          entitled: paidLeaveEntitled,
+          carryover: paidLeaveCarryover,
+          used: paidLeaveUsed,
+          pending: paidLeavePending,
           available: paidLeaveAvailable,
           entitlementType: effectivePto.paidLeaveEntitlementType,
+          ...(blockInfo.blockStart ? {
+            blockStart: blockInfo.blockStart,
+            blockEnd: blockInfo.blockEnd,
+          } : {}),
         },
         unpaidLeave: {
           taken: Number(balance.unpaidLeaveTaken),
@@ -303,11 +363,35 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
 
     // Check balance for paid leave
     if (leaveType === 'PAID') {
-      const balance = await getOrCreateLeaveBalance(employee.id, assignment.clientId);
-      const available = Number(balance.paidLeaveEntitled) +
-        Number(balance.paidLeaveCarryover) -
-        Number(balance.paidLeaveUsed) -
-        Number(balance.paidLeavePending);
+      let available: number;
+
+      if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && employee.hireDate) {
+        const now = new Date();
+        const block = calculateCurrentBlock(employee.hireDate, now, effectivePto.annualPaidLeaveDays);
+
+        // Sum days used + pending within current block
+        const blockRequests = await prisma.leaveRequest.findMany({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            leaveType: 'PAID',
+            status: { in: ['APPROVED', 'PENDING', 'APPROVED_BY_CLIENT'] },
+            startDate: { gte: block.blockStart },
+            endDate: { lt: block.blockEnd },
+          },
+          select: { startDate: true, endDate: true },
+        });
+        const usedAndPending = blockRequests.reduce(
+          (sum, r) => sum + calculateDays(new Date(r.startDate), new Date(r.endDate)), 0
+        );
+        available = block.entitledDays - usedAndPending;
+      } else {
+        const balance = await getOrCreateLeaveBalance(employee.id, assignment.clientId);
+        available = Number(balance.paidLeaveEntitled) +
+          Number(balance.paidLeaveCarryover) -
+          Number(balance.paidLeaveUsed) -
+          Number(balance.paidLeavePending);
+      }
 
       if (requestedDays > available) {
         res.status(400).json({

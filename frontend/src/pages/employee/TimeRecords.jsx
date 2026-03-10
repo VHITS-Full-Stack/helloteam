@@ -54,6 +54,9 @@ const TimeRecords = () => {
     notes: "",
   });
   const [addTimeLoading, setAddTimeLoading] = useState(false);
+  const [addTimeError, setAddTimeError] = useState(null);
+  const [manualEntries, setManualEntries] = useState([]);
+  const [manualEntriesLoading, setManualEntriesLoading] = useState(false);
 
   // Detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -134,6 +137,30 @@ const TimeRecords = () => {
   useEffect(() => {
     fetchSessions();
   }, [fetchSessions]);
+
+  // Fetch manual entries
+  const fetchManualEntries = useCallback(async () => {
+    try {
+      setManualEntriesLoading(true);
+      const result = await workSessionService.getManualEntries({
+        startDate: toLocalDateString(activeRange.start),
+        endDate: toLocalDateString(activeRange.end),
+      });
+      if (result?.success) {
+        setManualEntries(result.entries || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch manual entries:", err);
+    } finally {
+      setManualEntriesLoading(false);
+    }
+  }, [activeRange]);
+
+  useEffect(() => {
+    if (activeTab === "manual") {
+      fetchManualEntries();
+    }
+  }, [activeTab, fetchManualEntries]);
 
   // Navigation handlers
   const goToPrevious = () => {
@@ -269,25 +296,26 @@ const TimeRecords = () => {
   const handleAddTime = async (e) => {
     e.preventDefault();
     setAddTimeLoading(true);
-    setError(null);
+    setAddTimeError(null);
 
     try {
       const result = await workSessionService.addManualEntry(manualEntry);
       if (result?.success) {
         setShowAddTimeModal(false);
+        setAddTimeError(null);
         setManualEntry({
           date: new Date().toISOString().split("T")[0],
           startTime: "09:00",
           endTime: "17:00",
           notes: "",
         });
-        fetchSessions();
+        fetchManualEntries();
       } else {
-        setError(result?.message || "Failed to add time entry");
+        setAddTimeError(result?.message || "Failed to add time entry");
       }
     } catch (err) {
       console.error("Failed to add time entry:", err);
-      setError(err.message || "Failed to add time entry");
+      setAddTimeError(err.message || "Failed to add time entry");
     } finally {
       setAddTimeLoading(false);
     }
@@ -1115,34 +1143,108 @@ const TimeRecords = () => {
 
         {/* Manual Time Card Tab */}
         {activeTab === "manual" && (
-          <div className="p-8 text-center">
-            <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <h3 className="text-lg font-medium text-gray-900 mb-1">
-              Manual Time Card
-            </h3>
-            <p className="text-gray-500 text-sm mb-4">
-              Enter time manually for days you forgot to clock in.
-            </p>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Plus}
-              onClick={() => setShowAddTimeModal(true)}
-            >
-              Add Manual Entry
-            </Button>
-          </div>
+          <>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <p className="text-sm text-gray-500">
+                Manual time entries for days you forgot to clock in.
+              </p>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={Plus}
+                onClick={() => setShowAddTimeModal(true)}
+              >
+                Add Entry
+              </Button>
+            </div>
+            {manualEntriesLoading ? (
+              <div className="flex items-center justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : manualEntries.length === 0 ? (
+              <div className="p-8 text-center">
+                <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  No Manual Entries
+                </h3>
+                <p className="text-gray-500 text-sm">
+                  No manual time entries found for this period.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 bg-gray-50">
+                      <th className="text-left py-3 px-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Start Time
+                      </th>
+                      <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        End Time
+                      </th>
+                      <th className="text-center py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Total Hours
+                      </th>
+                      <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                        Notes
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {manualEntries.map((entry) => (
+                      <tr key={entry.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4">
+                          <span className="font-semibold text-gray-900 text-sm">
+                            {formatDateHeader(entry.startTime)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatTime(entry.startTime)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="text-sm font-medium text-gray-900">
+                            {formatTime(entry.endTime)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          <span className="font-bold text-gray-900 text-sm">
+                            {formatDuration(entry.workMinutes || 0)}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className="text-sm text-gray-500">
+                            {entry.notes || "—"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </Card>
 
       {/* Add Time Modal */}
       <Modal
         isOpen={showAddTimeModal}
-        onClose={() => setShowAddTimeModal(false)}
+        onClose={() => { setShowAddTimeModal(false); setAddTimeError(null); }}
         title="Add Time Entry"
         size="md"
       >
         <form onSubmit={handleAddTime} className="space-y-4">
+          {addTimeError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-3">
+              <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+              <p className="text-sm text-red-700 flex-1">{addTimeError}</p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Date

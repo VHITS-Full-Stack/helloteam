@@ -1,8 +1,6 @@
 import { Response, NextFunction } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-
-const prisma = new PrismaClient();
 
 /**
  * Middleware that blocks CLIENT users with PENDING_AGREEMENT status

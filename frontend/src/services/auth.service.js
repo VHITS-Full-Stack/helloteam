@@ -29,6 +29,9 @@ export const authService = {
       await api.post('/auth/logout');
     } finally {
       api.removeToken();
+      localStorage.removeItem('token');
+      localStorage.removeItem('rememberMe');
+      localStorage.removeItem('adminToken');
     }
   },
 

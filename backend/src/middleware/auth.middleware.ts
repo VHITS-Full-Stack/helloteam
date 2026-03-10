@@ -1,11 +1,9 @@
 import { Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { config } from '../config';
 import { AuthenticatedRequest, JwtPayload } from '../types';
 // Dynamic permissions are now fully database-driven (no static fallback)
-
-const prisma = new PrismaClient();
 
 // Cache for user permissions to avoid repeated DB queries
 const permissionsCache = new Map<string, { permissions: string[]; timestamp: number }>();

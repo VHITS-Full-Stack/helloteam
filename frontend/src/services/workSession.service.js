@@ -60,6 +60,11 @@ const workSessionService = {
     return await api.post('/work-sessions/manual-entry', data);
   },
 
+  // Get manual time entries
+  async getManualEntries(params = {}) {
+    return await api.get('/work-sessions/manual-entries', { params });
+  },
+
   // Get session logs
   async getSessionLogs(sessionId) {
     return await api.get(`/work-sessions/${sessionId}/logs`);

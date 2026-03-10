@@ -12,7 +12,7 @@ import clientService from '../../services/client.service';
 import { formatHours, formatDuration, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,7 +20,56 @@ const TimeRecords = () => {
   const [endDate, setEndDate] = useState('');
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [timeRecords, setTimeRecords] = useState([]);
+  const [timeRecords, setTimeRecords] = useState([
+    {
+      employeeId: 'demo-1',
+      employee: 'Nikita Karanpuria',
+      client: 'Acme Corp',
+      clientId: 'c1',
+      clientTimezone: 'America/New_York',
+      profilePhoto: null,
+      totalHours: 24.5,
+      overtimeHours: 2,
+      workedDays: 3,
+      status: 'pending',
+      dailyRecords: [
+        { id: 'd1', date: '2026-03-09', clockIn: '2026-03-09T14:00:00Z', clockOut: '2026-03-09T22:00:00Z', billingStart: '2026-03-09T14:00:00Z', billingEnd: '2026-03-09T22:00:00Z', hours: 8, overtimeHours: 0, breaks: 0.5, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
+        { id: 'd2', date: '2026-03-10', clockIn: '2026-03-10T14:05:00Z', clockOut: '2026-03-10T23:30:00Z', billingStart: '2026-03-10T14:05:00Z', billingEnd: '2026-03-10T23:30:00Z', hours: 9.4, overtimeHours: 1.4, breaks: 0, status: 'pending', isLate: true, lateMinutes: 5, arrivalStatus: 'Late', overtimeEntries: [{ id: 'ot1', type: 'SHIFT_EXTENSION', requestedMinutes: 84, status: 'PENDING' }], notes: '' },
+        { id: 'd3', date: '2026-03-11', clockIn: '2026-03-11T13:55:00Z', clockOut: '2026-03-11T22:00:00Z', billingStart: '2026-03-11T14:00:00Z', billingEnd: '2026-03-11T22:00:00Z', hours: 8.1, overtimeHours: 0, breaks: 0, status: 'approved', isLate: false, arrivalStatus: 'Early', overtimeEntries: [], notes: '' },
+      ],
+    },
+    {
+      employeeId: 'demo-2',
+      employee: 'John Smith',
+      client: 'TechStart Inc',
+      clientId: 'c2',
+      clientTimezone: 'America/Chicago',
+      profilePhoto: null,
+      totalHours: 16,
+      overtimeHours: 0,
+      workedDays: 2,
+      status: 'approved',
+      dailyRecords: [
+        { id: 'd4', date: '2026-03-09', clockIn: '2026-03-09T15:00:00Z', clockOut: '2026-03-09T23:00:00Z', billingStart: '2026-03-09T15:00:00Z', billingEnd: '2026-03-09T23:00:00Z', hours: 8, overtimeHours: 0, breaks: 0.5, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
+        { id: 'd5', date: '2026-03-10', clockIn: '2026-03-10T15:00:00Z', clockOut: '2026-03-10T23:00:00Z', billingStart: '2026-03-10T15:00:00Z', billingEnd: '2026-03-10T23:00:00Z', hours: 8, overtimeHours: 0, breaks: 0, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
+      ],
+    },
+    {
+      employeeId: 'demo-3',
+      employee: 'Sarah Johnson',
+      client: 'Acme Corp',
+      clientId: 'c1',
+      clientTimezone: 'America/New_York',
+      profilePhoto: null,
+      totalHours: 8,
+      overtimeHours: 0,
+      workedDays: 1,
+      status: 'active',
+      dailyRecords: [
+        { id: 'd6', date: '2026-03-10', clockIn: '2026-03-10T14:00:00Z', clockOut: null, billingStart: null, billingEnd: null, hours: null, overtimeHours: 0, breaks: 0, status: 'active', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
+      ],
+    },
+  ]);
   const [expandedEmployees, setExpandedEmployees] = useState(new Set());
   const [expandedClients, setExpandedClients] = useState(new Set());
   const [stats, setStats] = useState({
@@ -104,21 +153,22 @@ const TimeRecords = () => {
     }
   };
 
-  // Fetch on filter/date changes
-  useEffect(() => {
-    if (startDate && endDate) {
-      fetchTimeRecords();
-    }
-  }, [selectedClient, selectedStatus, startDate, endDate]);
+  // TODO: Remove static data and re-enable these fetches
+  // // Fetch on filter/date changes
+  // useEffect(() => {
+  //   if (startDate && endDate) {
+  //     fetchTimeRecords();
+  //   }
+  // }, [selectedClient, selectedStatus, startDate, endDate]);
 
-  // Debounce search term
-  useEffect(() => {
-    if (!startDate || !endDate) return;
-    const timer = setTimeout(() => {
-      fetchTimeRecords();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  // // Debounce search term
+  // useEffect(() => {
+  //   if (!startDate || !endDate) return;
+  //   const timer = setTimeout(() => {
+  //     fetchTimeRecords();
+  //   }, 300);
+  //   return () => clearTimeout(timer);
+  // }, [searchTerm]);
 
   // Group time records by client
   const clientGroups = useMemo(() => {
@@ -368,9 +418,6 @@ const TimeRecords = () => {
           <p className="text-sm text-gray-500 mt-1">View and manage all employee time records</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchTimeRecords}>
-            Refresh
-          </Button>
           <Button variant="outline" size="sm" icon={Download} onClick={handleExport}>
             Export
           </Button>
@@ -405,48 +452,12 @@ const TimeRecords = () => {
 
       {/* Filters */}
       <Card>
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <select
-              className="input py-2 text-sm w-44"
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-            >
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className="input py-2 text-sm w-32"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="active">Active</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <input
-              type="date"
-              className="input py-2 text-sm w-36"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
-            <span className="text-gray-400 text-sm">to</span>
-            <input
-              type="date"
-              className="input py-2 text-sm w-36"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-            />
-          </div>
-          <div className="flex-1">
+        <div className="flex flex-wrap items-end gap-3">
+          {/* Search */}
+          <div className="w-full sm:w-auto sm:min-w-[200px] sm:flex-1">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search employees..."
@@ -457,316 +468,295 @@ const TimeRecords = () => {
               />
             </div>
           </div>
+
+          {/* Client */}
+          <div className="w-[calc(50%-6px)] sm:w-auto">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Client</label>
+            <select
+              className="input w-full py-2 text-sm sm:w-40"
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div className="w-[calc(50%-6px)] sm:w-auto">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
+            <select
+              className="input w-full py-2 text-sm sm:w-32"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="active">Active</option>
+            </select>
+          </div>
+
+          {/* Date Range */}
+          <div className="w-full sm:w-auto">
+            <label className="block text-xs font-medium text-gray-500 mb-1">Date Range</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                className="input py-2 text-sm w-full sm:w-36"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+              <span className="text-gray-400 text-xs flex-shrink-0">to</span>
+              <input
+                type="date"
+                className="input py-2 text-sm w-full sm:w-36"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Refresh */}
+          <div>
+            <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchTimeRecords} />
+          </div>
         </div>
       </Card>
 
-      {/* Time Records Accordion */}
+      {/* Time Records Table */}
       <Card padding="none">
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : clientGroups.length > 0 ? (
-          <div>
-            {/* Accordion Header */}
-            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50/50">
-              <span className="text-sm text-gray-500">
-                {clientGroups.length} client{clientGroups.length !== 1 ? 's' : ''} · {timeRecords.length} employee{timeRecords.length !== 1 ? 's' : ''}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={expandAll}
-                  className="text-xs text-primary hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-                >
-                  Expand All
-                </button>
-                <button
-                  onClick={collapseAll}
-                  className="text-xs text-primary hover:text-primary-700 font-medium px-2 py-1 rounded hover:bg-primary-50 transition-colors"
-                >
-                  Collapse All
-                </button>
-              </div>
-            </div>
+        ) : timeRecords.length > 0 ? (
+          <div className="overflow-x-auto">
+            {/* Desktop Table */}
+            <table className="w-full hidden md:table">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left py-3 px-4 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
+                  <th className="text-left py-3 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Actual In/Out</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Billing In/Out</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Break</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Regular</th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
+                    OT
+                    <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">Ext / Off‑Shift</span>
+                  </th>
+                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="py-3 px-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {timeRecords.flatMap((empRecord) =>
+                  empRecord.dailyRecords.map((day, dayIdx) => (
+                    <tr key={`${empRecord.employeeId}-${day.id}`} className={`hover:bg-gray-50/50 ${dayIdx === 0 ? 'border-t border-gray-200' : 'border-t border-gray-50'}`}>
+                      {/* Employee + Company — only on first row, spans all days */}
+                      {dayIdx === 0 && (
+                        <td className="py-2.5 px-4 align-top" rowSpan={empRecord.dailyRecords.length}>
+                          <div className="flex items-center gap-2.5 sticky top-0">
+                            <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
+                            <div>
+                              <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
+                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded mt-0.5">
+                                <Building2 className="w-3 h-3" />
+                                {empRecord.client}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                      )}
 
-            {/* Client Groups */}
-            <div className="divide-y divide-gray-200">
-              {clientGroups.map((clientGroup) => {
-                const isClientExpanded = expandedClients.has(clientGroup.clientId);
-                return (
-                  <div key={clientGroup.clientId}>
-                    {/* Client Header Row */}
-                    <div
-                      className="flex items-center gap-4 px-5 py-3.5 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => toggleClient(clientGroup.clientId)}
-                    >
-                      <ChevronDown
-                        className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isClientExpanded ? '' : '-rotate-90'}`}
-                      />
-                      <div className="flex items-center gap-2.5 min-w-[180px]">
-                        <div className="p-1.5 bg-primary-100 rounded-lg">
-                          <Building2 className="w-4 h-4 text-primary-600" />
-                        </div>
+                      {/* Date */}
+                      <td className="py-2.5 px-3">
+                        <span className="font-medium text-gray-900 text-xs">{formatDate(day.date)}</span>
+                        {(day.isLate || day.arrivalStatus === 'Late') && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
+                            Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
+                          </span>
+                        )}
+                        {!day.isLate && day.arrivalStatus === 'Early' && (
+                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700">
+                            Early
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actual In/Out */}
+                      <td className="py-2.5 px-2 text-xs text-center">
+                        <span className="text-gray-700">{fmtTime(day.clockIn, empRecord.clientTimezone)}</span>
+                        <span className="text-gray-300 mx-1">–</span>
+                        {day.clockOut ? (
+                          <span className="text-gray-700">{fmtTime(day.clockOut, empRecord.clientTimezone)}</span>
+                        ) : day.status === 'active' ? (
+                          <span className="text-green-600 inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            Now
+                          </span>
+                        ) : <span className="text-gray-400">-</span>}
+                      </td>
+
+                      {/* Billing In/Out */}
+                      <td className="py-2.5 px-2 text-xs text-center">
+                        {day.billingStart && day.billingEnd ? (
+                          <span className="text-blue-700 font-medium">
+                            {fmtTime(day.billingStart, empRecord.clientTimezone)}
+                            <span className="text-blue-300 mx-1">–</span>
+                            {fmtTime(day.billingEnd, empRecord.clientTimezone)}
+                          </span>
+                        ) : day.status === 'active' ? (
+                          <span className="text-gray-400 italic">In progress</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+
+                      {/* Break */}
+                      <td className="py-2.5 px-2 text-center">
+                        {day.breaks > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
+                            <Coffee className="w-3 h-3" />
+                            {formatHours(day.breaks)}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">-</span>
+                        )}
+                      </td>
+
+                      {/* Regular Hours */}
+                      <td className="py-2.5 px-2 text-center">
+                        <span className="font-semibold text-gray-900 text-xs">
+                          {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
+                        </span>
+                      </td>
+
+                      {/* OT (Ext / Off-Shift) */}
+                      <td className="py-2.5 px-2 text-center">
+                        {(() => {
+                          const shiftExtEntries = (day.overtimeEntries || []).filter(o => o.type === 'SHIFT_EXTENSION');
+                          const offShiftEntries = (day.overtimeEntries || []).filter(o => o.type === 'OFF_SHIFT');
+                          if (shiftExtEntries.length > 0 || offShiftEntries.length > 0) {
+                            return (
+                              <div className="flex flex-col items-center gap-0.5">
+                                {shiftExtEntries.map((ot, i) => (
+                                  <span key={i} className="text-[10px] text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
+                                ))}
+                                {offShiftEntries.map((ot, i) => (
+                                  <span key={i} className="text-[10px] text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
+                                ))}
+                              </div>
+                            );
+                          }
+                          return <span className="text-gray-300 text-xs">—</span>;
+                        })()}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-2 text-center">
+                        {getStatusBadge(day.status)}
+                        {day.notes && (
+                          <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[100px] mx-auto" title={day.notes}>
+                            {day.notes}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-2.5 px-2 text-center">
+                        <button
+                          onClick={() => handleAdjust(day, empRecord)}
+                          className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Adjust"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden divide-y divide-gray-50">
+              {timeRecords.flatMap((empRecord) =>
+                empRecord.dailyRecords.map((day) => (
+                  <div key={`${empRecord.employeeId}-${day.id}-m`} className="p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
                         <div>
-                          <p className="font-semibold text-gray-900 text-sm">{clientGroup.clientName}</p>
-                          <p className="text-xs text-gray-400">{clientGroup.employeeCount} employee{clientGroup.employeeCount !== 1 ? 's' : ''}</p>
+                          <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded">
+                            <Building2 className="w-2.5 h-2.5" />
+                            {empRecord.client}
+                          </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-5 flex-1 justify-end">
-                        <div className="text-right">
-                          <p className="text-sm font-semibold text-gray-900">{formatHours(clientGroup.totalHours)}</p>
-                          <p className="text-[10px] text-gray-400 uppercase">Total</p>
-                        </div>
-                        {clientGroup.overtimeHours > 0 && (
-                          <div className="text-right">
-                            <p className="text-sm font-semibold text-orange-600">{formatHours(clientGroup.overtimeHours)}</p>
-                            <p className="text-[10px] text-gray-400 uppercase">Overtime</p>
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2">
+                        {getStatusBadge(day.status)}
+                        <button
+                          onClick={() => handleAdjust(day, empRecord)}
+                          className="p-1 text-gray-400 hover:text-primary rounded"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Employees under this client */}
-                    {isClientExpanded && (
-                      <div className="divide-y divide-gray-100 bg-gray-50/30">
-                        {clientGroup.employees.map((empRecord) => {
-                          const isEmpExpanded = expandedEmployees.has(empRecord.employeeId);
+                    <p className="text-xs font-medium text-gray-900 mb-1">
+                      {formatDate(day.date)}
+                      {(day.isLate || day.arrivalStatus === 'Late') && (
+                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">Late</span>
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Actual: {fmtTime(day.clockIn, empRecord.clientTimezone)} → {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : (day.status === 'active' ? 'Now' : '-')}
+                    </p>
+                    {day.billingStart && day.billingEnd && (
+                      <p className="text-xs text-blue-600 mt-0.5">
+                        Billing: {fmtTime(day.billingStart, empRecord.clientTimezone)} → {fmtTime(day.billingEnd, empRecord.clientTimezone)}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-4 text-xs mt-2">
+                      <div>
+                        <span className="text-gray-400">Regular</span>
+                        <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}</p>
+                      </div>
+                      {day.breaks > 0 && (
+                        <div>
+                          <span className="text-gray-400">Break</span>
+                          <p className="text-yellow-600">{formatHours(day.breaks)}</p>
+                        </div>
+                      )}
+                    </div>
+                    {day.overtimeEntries && day.overtimeEntries.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {day.overtimeEntries.map((ot, otIdx) => {
+                          const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
+                          const isDenied = ot.status === 'REJECTED';
+                          const badgeBg = isApproved
+                            ? 'bg-green-100 text-green-800'
+                            : isDenied
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-amber-100 text-amber-800';
+                          const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
                           return (
-                            <div key={empRecord.employeeId}>
-                              {/* Employee Summary Row */}
-                              <div
-                                className="flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-gray-100/60 transition-colors pl-12"
-                                onClick={() => toggleEmployee(empRecord.employeeId)}
-                              >
-                                <ChevronDown
-                                  className={`w-3.5 h-3.5 text-gray-400 flex-shrink-0 transition-transform duration-200 ${isEmpExpanded ? '' : '-rotate-90'}`}
-                                />
-                                <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
-                                <div className="min-w-[140px]">
-                                  <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
-                                  <p className="text-xs text-gray-400">{empRecord.workedDays} day{empRecord.workedDays !== 1 ? 's' : ''} worked</p>
-                                </div>
-                                <div className="flex items-center gap-4 flex-1 justify-end">
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold text-gray-900">{formatHours(empRecord.totalHours)}</p>
-                                    <p className="text-[10px] text-gray-400 uppercase">Total</p>
-                                  </div>
-                                  {empRecord.overtimeHours > 0 && (
-                                    <div className="text-right">
-                                      <p className="text-sm font-semibold text-orange-600">{formatHours(empRecord.overtimeHours)}</p>
-                                      <p className="text-[10px] text-gray-400 uppercase">OT</p>
-                                    </div>
-                                  )}
-                                  <div className="min-w-[80px] text-right">
-                                    {getStatusBadge(empRecord.status)}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Daily Records */}
-                              {isEmpExpanded && (
-                                <div className="bg-white border-t border-gray-100">
-                                  {/* Table Header */}
-                                  <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-semibold text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                                    <div className="col-span-2 pl-16">Date</div>
-                                    <div className="col-span-2 text-center">Actual In/Out</div>
-                                    <div className="col-span-2 text-center">Billing In/Out</div>
-                                    <div className="col-span-1">Break</div>
-                                    <div className="col-span-1">Regular</div>
-                                    <div className="col-span-1">OT<span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">Ext / Off‑Shift</span></div>
-                                    <div className="col-span-3">Status</div>
-                                  </div>
-
-                                  {empRecord.dailyRecords.map((day) => (
-                                    <div key={day.id}>
-                                      {/* Desktop row */}
-                                      <div className="hidden md:grid md:grid-cols-12 gap-2 px-5 py-2.5 text-sm border-b border-gray-50 hover:bg-gray-50/50 items-center">
-                                        {/* Date */}
-                                        <div className="col-span-2 pl-16">
-                                          <span className="font-medium text-gray-900 text-xs">{formatDate(day.date)}</span>
-                                          {(day.isLate || day.arrivalStatus === 'Late') && (
-                                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
-                                              Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
-                                            </span>
-                                          )}
-                                          {!day.isLate && day.arrivalStatus === 'Early' && (
-                                            <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700">
-                                              Early
-                                            </span>
-                                          )}
-                                        </div>
-
-                                        {/* Actual In/Out */}
-                                        <div className="col-span-2 text-xs text-center">
-                                          <span className="text-gray-700">{fmtTime(day.clockIn, empRecord.clientTimezone)}</span>
-                                          <span className="text-gray-300 mx-1">–</span>
-                                          {day.clockOut ? (
-                                            <span className="text-gray-700">{fmtTime(day.clockOut, empRecord.clientTimezone)}</span>
-                                          ) : day.status === 'active' ? (
-                                            <span className="text-green-600 inline-flex items-center gap-1">
-                                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                              Now
-                                            </span>
-                                          ) : <span className="text-gray-400">-</span>}
-                                        </div>
-
-                                        {/* Billing In/Out */}
-                                        <div className="col-span-2 text-xs text-center">
-                                          {day.billingStart && day.billingEnd ? (
-                                            <span className="text-blue-700 font-medium">
-                                              {fmtTime(day.billingStart, empRecord.clientTimezone)}
-                                              <span className="text-blue-300 mx-1">–</span>
-                                              {fmtTime(day.billingEnd, empRecord.clientTimezone)}
-                                            </span>
-                                          ) : day.status === 'active' ? (
-                                            <span className="text-gray-400 italic">In progress</span>
-                                          ) : (
-                                            <span className="text-gray-300">—</span>
-                                          )}
-                                          {day.isLate && <span className="ml-1 text-[9px] font-semibold text-red-600 bg-red-50 px-1 py-0.5 rounded">LATE</span>}
-                                        </div>
-
-                                        {/* Break */}
-                                        <div className="col-span-1">
-                                          {day.breaks > 0 ? (
-                                            <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
-                                              <Coffee className="w-3 h-3" />
-                                              {formatHours(day.breaks)}
-                                            </span>
-                                          ) : (
-                                            <span className="text-gray-300 text-xs">-</span>
-                                          )}
-                                        </div>
-
-                                        {/* Regular Hours */}
-                                        <div className="col-span-1">
-                                          <span className="font-semibold text-gray-900 text-xs">
-                                            {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
-                                          </span>
-                                        </div>
-
-                                        {/* OT (Ext / Off-Shift) */}
-                                        <div className="col-span-1">
-                                          {(() => {
-                                            const shiftExtEntries = (day.overtimeEntries || []).filter(o => o.type === 'SHIFT_EXTENSION');
-                                            const offShiftEntries = (day.overtimeEntries || []).filter(o => o.type === 'OFF_SHIFT');
-                                            if (shiftExtEntries.length > 0 || offShiftEntries.length > 0) {
-                                              return (
-                                                <div className="flex flex-col gap-0.5">
-                                                  {shiftExtEntries.map((ot, i) => (
-                                                    <span key={i} className="text-[10px] text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
-                                                  ))}
-                                                  {offShiftEntries.map((ot, i) => (
-                                                    <span key={i} className="text-[10px] text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
-                                                  ))}
-                                                </div>
-                                              );
-                                            }
-                                            return <span className="text-gray-300 text-xs">—</span>;
-                                          })()}
-                                        </div>
-
-                                        {/* Status + Actions */}
-                                        <div className="col-span-3 flex items-center justify-between">
-                                          <div>
-                                            {getStatusBadge(day.status)}
-                                            {day.notes && (
-                                              <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[130px]" title={day.notes}>
-                                                {day.notes}
-                                              </p>
-                                            )}
-                                          </div>
-                                          <div className="text-right">
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleAdjust(day, empRecord);
-                                              }}
-                                              className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
-                                              title="Adjust"
-                                            >
-                                              <Edit className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-
-                                      {/* Mobile card */}
-                                      <div className="md:hidden p-4 border-b border-gray-50">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <div className="flex items-center gap-2">
-                                            <span className="font-medium text-gray-900 text-sm">{formatDate(day.date)}</span>
-                                            {(day.isLate || day.arrivalStatus === 'Late') && (
-                                              <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
-                                                Late
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-2">
-                                            {getStatusBadge(day.status)}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleAdjust(day, empRecord);
-                                              }}
-                                              className="p-1 text-gray-400 hover:text-primary rounded"
-                                            >
-                                              <Edit className="w-3.5 h-3.5" />
-                                            </button>
-                                          </div>
-                                        </div>
-                                        <p className="text-xs text-gray-500">
-                                          Actual: {fmtTime(day.clockIn, empRecord.clientTimezone)} → {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : (day.status === 'active' ? 'Now' : '-')}
-                                        </p>
-                                        {day.billingStart && day.billingEnd && (
-                                          <p className="text-xs text-blue-600 mt-0.5">
-                                            Billing: {fmtTime(day.billingStart, empRecord.clientTimezone)} → {fmtTime(day.billingEnd, empRecord.clientTimezone)}
-                                          </p>
-                                        )}
-                                        <div className="flex items-center gap-4 text-xs mt-2">
-                                          <div>
-                                            <span className="text-gray-400">Regular</span>
-                                            <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}</p>
-                                          </div>
-                                          {day.breaks > 0 && (
-                                            <div>
-                                              <span className="text-gray-400">Break</span>
-                                              <p className="text-yellow-600">{formatHours(day.breaks)}</p>
-                                            </div>
-                                          )}
-                                        </div>
-                                        {day.overtimeEntries && day.overtimeEntries.length > 0 && (
-                                          <div className="mt-2 flex flex-wrap gap-1">
-                                            {day.overtimeEntries.map((ot, otIdx) => {
-                                              const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
-                                              const isDenied = ot.status === 'REJECTED';
-                                              const badgeBg = isApproved
-                                                ? 'bg-green-100 text-green-800'
-                                                : isDenied
-                                                ? 'bg-red-100 text-red-800'
-                                                : 'bg-amber-100 text-amber-800';
-                                              const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
-                                              return (
-                                                <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
-                                                  +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
-                                                </span>
-                                              );
-                                            })}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
+                              +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
+                            </span>
                           );
                         })}
                       </div>
                     )}
                   </div>
-                );
-              })}
+                ))
+              )}
             </div>
           </div>
         ) : (

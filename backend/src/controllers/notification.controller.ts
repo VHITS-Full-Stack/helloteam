@@ -1,8 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient, NotificationType } from '@prisma/client';
+import prisma from '../config/database';
+import { NotificationType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
-
-const prisma = new PrismaClient();
 
 // Get all notifications for the current user
 export const getNotifications = async (req: AuthenticatedRequest, res: Response) => {

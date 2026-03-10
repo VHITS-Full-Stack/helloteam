@@ -57,6 +57,13 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       const assignment = employee.clientAssignments[0];
       const clientTimezone = assignment.client.timezone || 'UTC';
 
+      // Check if overtime requires approval for this client
+      const clientPolicy = await prisma.clientPolicy.findUnique({
+        where: { clientId: assignment.clientId },
+        select: { overtimeRequiresApproval: true },
+      });
+      const otRequiresApproval = clientPolicy?.overtimeRequiresApproval ?? true;
+
       // Get today's date and day-of-week IN THE CLIENT TIMEZONE
       const dayOfWeek = getDayOfWeekInTimezone(clientTimezone, now);
       const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clientTimezone }));
@@ -90,7 +97,10 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: schedule=${schedule.endTime}, tz=${clientTimezone}, shiftEndUTC=${shiftEndUTC.toISOString()}, now=${now.toISOString()}, minutesUntilEnd=${minutesUntilEnd.toFixed(1)}`);
 
       // --- 30-minute warning (fires once around the 30-min mark) ---
-      if (minutesUntilEnd <= 30 && minutesUntilEnd > 28 && !session.shiftEndNotifiedAt) {
+      // Skip when OT doesn't require approval — no auto-clock-out or OT warnings needed
+      if (!otRequiresApproval) {
+        // No shift-end warnings or auto-clock-out — all hours are regular
+      } else if (minutesUntilEnd <= 30 && minutesUntilEnd > 28 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
 
         // Check if employee already has an approved OT request for today
@@ -155,6 +165,13 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         console.log(`[Shift-End] Extra-time check: session.startTime=${session.startTime.toISOString()} vs shiftEndUTC=${shiftEndUTC.toISOString()} → isExtraTime=${session.startTime > shiftEndUTC}`);
         if (session.startTime > shiftEndUTC) {
           console.log(`[Shift-End] SKIPPING extra-time session for ${employee.firstName} ${employee.lastName} (clocked in after shift end)`);
+          continue;
+        }
+
+        // When OT does NOT require approval, skip controlled pause entirely
+        // All hours are treated as regular approved time — let employee keep working
+        if (!otRequiresApproval) {
+          console.log(`[Shift-End] SKIPPING ${employee.firstName} ${employee.lastName} — overtimeRequiresApproval=false, all hours are regular`);
           continue;
         }
 

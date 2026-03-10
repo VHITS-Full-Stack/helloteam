@@ -491,6 +491,7 @@ model WorkSession {
   shiftEndPausedAt     DateTime? // When the controlled pause started at shift end
   shiftEndResumedAt    DateTime? // When employee chose to continue working
   shiftEndAction       String?   // 'CONTINUE_WORKING' | 'STAY_CLOCKED_OUT' | 'AUTO_TIMEOUT'
+  isManual             Boolean           @default(false)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
 

@@ -10,6 +10,7 @@ import {
   getWeeklySummary,
   updateSessionNotes,
   addManualEntry,
+  getManualEntries,
   getSessionLogs,
   shiftEndResponse,
 } from '../controllers/workSession.controller';
@@ -40,6 +41,7 @@ router.patch('/notes', updateSessionNotes);
 
 // Manual time entry
 router.post('/manual-entry', addManualEntry);
+router.get('/manual-entries', getManualEntries);
 
 // History and summaries
 router.get('/history', getSessionHistory);

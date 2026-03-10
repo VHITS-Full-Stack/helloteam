@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { PaidLeaveEntitlementType, Prisma } from '@prisma/client';
 import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
+import { calculateCurrentBlock, calculateLeaveDays } from '../utils/ptoHalfYearlyCalculator';
 
 // ============================================
 // LEAVE POLICY CONFIGURATION
@@ -352,10 +353,40 @@ export const getEmployeeBalances = async (req: AuthenticatedRequest, res: Respon
           });
         }
 
-        const paidLeaveAvailable = Number(balance.paidLeaveEntitled) +
-          Number(balance.paidLeaveCarryover) -
-          Number(balance.paidLeaveUsed) -
-          Number(balance.paidLeavePending);
+        const policy = assignment.client.clientPolicies;
+        const effectivePto = resolveEffectivePtoConfig(policy, assignment);
+
+        let entitled = Number(balance.paidLeaveEntitled);
+        let carryover = Number(balance.paidLeaveCarryover);
+        let used = Number(balance.paidLeaveUsed);
+        let pending = Number(balance.paidLeavePending);
+
+        // For FIXED_HALF_YEARLY: dynamically compute from hire date
+        if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && emp.hireDate) {
+          const now = new Date();
+          const block = calculateCurrentBlock(emp.hireDate, now, effectivePto.annualPaidLeaveDays);
+          entitled = block.entitledDays;
+          carryover = 0;
+
+          const blockRequests = await prisma.leaveRequest.findMany({
+            where: {
+              employeeId: emp.id,
+              clientId: assignment.clientId,
+              leaveType: 'PAID',
+              startDate: { gte: block.blockStart },
+              endDate: { lt: block.blockEnd },
+            },
+            select: { startDate: true, endDate: true, status: true },
+          });
+          used = blockRequests
+            .filter(r => r.status === 'APPROVED')
+            .reduce((sum, r) => sum + calculateLeaveDays(new Date(r.startDate), new Date(r.endDate)), 0);
+          pending = blockRequests
+            .filter(r => r.status === 'PENDING' || r.status === 'APPROVED_BY_CLIENT')
+            .reduce((sum, r) => sum + calculateLeaveDays(new Date(r.startDate), new Date(r.endDate)), 0);
+        }
+
+        const paidLeaveAvailable = Math.max(0, entitled + carryover - used - pending);
 
         return {
           id: emp.id,
@@ -365,10 +396,10 @@ export const getEmployeeBalances = async (req: AuthenticatedRequest, res: Respon
           clientName: assignment.client.companyName,
           year,
           balance: {
-            entitled: Number(balance.paidLeaveEntitled),
-            carryover: Number(balance.paidLeaveCarryover),
-            used: Number(balance.paidLeaveUsed),
-            pending: Number(balance.paidLeavePending),
+            entitled,
+            carryover,
+            used,
+            pending,
             available: paidLeaveAvailable,
             accrued: Number(balance.accruedToDate),
             unpaidTaken: Number(balance.unpaidLeaveTaken),
@@ -488,13 +519,44 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
       take: 20,
     });
 
-    const paidLeaveAvailable = Number(balance.paidLeaveEntitled) +
-      Number(balance.paidLeaveCarryover) -
-      Number(balance.paidLeaveUsed) -
-      Number(balance.paidLeavePending);
-
     // Resolve effective PTO config for display
     const effectivePto = resolveEffectivePtoConfig(assignment.client.clientPolicies, assignment);
+
+    let entitled = Number(balance.paidLeaveEntitled);
+    let carryover = Number(balance.paidLeaveCarryover);
+    let used = Number(balance.paidLeaveUsed);
+    let pending = Number(balance.paidLeavePending);
+    let blockStart: Date | undefined;
+    let blockEnd: Date | undefined;
+
+    // For FIXED_HALF_YEARLY: dynamically compute from hire date
+    if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && employee.hireDate) {
+      const now = new Date();
+      const block = calculateCurrentBlock(employee.hireDate, now, effectivePto.annualPaidLeaveDays);
+      entitled = block.entitledDays;
+      carryover = 0;
+      blockStart = block.blockStart;
+      blockEnd = block.blockEnd;
+
+      const blockRequests = await prisma.leaveRequest.findMany({
+        where: {
+          employeeId,
+          clientId,
+          leaveType: 'PAID',
+          startDate: { gte: block.blockStart },
+          endDate: { lt: block.blockEnd },
+        },
+        select: { startDate: true, endDate: true, status: true },
+      });
+      used = blockRequests
+        .filter(r => r.status === 'APPROVED')
+        .reduce((sum, r) => sum + calculateLeaveDays(new Date(r.startDate), new Date(r.endDate)), 0);
+      pending = blockRequests
+        .filter(r => r.status === 'PENDING' || r.status === 'APPROVED_BY_CLIENT')
+        .reduce((sum, r) => sum + calculateLeaveDays(new Date(r.startDate), new Date(r.endDate)), 0);
+    }
+
+    const paidLeaveAvailable = Math.max(0, entitled + carryover - used - pending);
 
     res.json({
       success: true,
@@ -503,6 +565,7 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
           id: employee.id,
           name: `${employee.firstName} ${employee.lastName}`,
           profilePhoto: employee.profilePhoto,
+          hireDate: employee.hireDate,
         },
         client: {
           id: clientId,
@@ -510,15 +573,16 @@ export const getEmployeeBalanceDetails = async (req: AuthenticatedRequest, res: 
         },
         year,
         balance: {
-          entitled: Number(balance.paidLeaveEntitled),
-          carryover: Number(balance.paidLeaveCarryover),
-          used: Number(balance.paidLeaveUsed),
-          pending: Number(balance.paidLeavePending),
+          entitled,
+          carryover,
+          used,
+          pending,
           available: paidLeaveAvailable,
           accrued: Number(balance.accruedToDate),
           lastAccrualDate: balance.lastAccrualDate,
           unpaidTaken: Number(balance.unpaidLeaveTaken),
           unpaidPending: Number(balance.unpaidLeavePending),
+          ...(blockStart ? { blockStart, blockEnd } : {}),
         },
         policy: assignment.client.clientPolicies,
         effectivePto,

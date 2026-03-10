@@ -1,9 +1,7 @@
 import { Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { ALL_PERMISSIONS, getPermissionsByCategory } from '../config/permissions';
-
-const prisma = new PrismaClient();
 
 // Get all roles with their permissions
 export const getRoles = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
