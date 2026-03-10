@@ -340,7 +340,7 @@ const ClientChat = () => {
       {/* Chat Area */}
       <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${!showMobileList ? 'flex' : 'hidden'} lg:flex`}>
         {selectedConversation ? (
-          <>
+          <div className="flex flex-col h-full min-h-0">
             <ChatHeader
               participant={selectedConversation.participant}
               isOnline={isUserOnline?.(selectedConversation.participant?.userId)}
@@ -350,7 +350,7 @@ const ClientChat = () => {
             {/* Messages */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto px-6 py-4 bg-white"
+              className="flex-1 overflow-y-auto px-6 py-4 bg-white min-h-0"
               onScroll={handleScroll}
             >
               {messagesLoading && messages.length === 0 ? (
@@ -409,7 +409,7 @@ const ClientChat = () => {
               onTyping={handleTyping}
               participantName={selectedConversation.participant?.name?.split(' ')[0]}
             />
-          </>
+          </div>
         ) : (
           <EmptyState hasConversations={conversations.length > 0} />
         )}

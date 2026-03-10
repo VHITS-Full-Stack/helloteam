@@ -252,21 +252,23 @@ const ChatInput = ({ onSendText, onSendFile, onSendAudio, onTyping, disabled, pa
           />
         </div>
 
-        {/* Send button */}
-        <button
-          onClick={selectedFiles.length > 0 ? handleSendFiles : handleSendText}
-          disabled={(!text.trim() && selectedFiles.length === 0) || sending || disabled}
-          className={`
-            px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0
-            ${(text.trim() || selectedFiles.length > 0) && !sending
-              ? 'bg-[#1a5c3a] text-white hover:bg-[#15472e] shadow-sm'
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }
-          `}
-          title="Send"
-        >
-          Send
-        </button>
+        {/* Send button - only show when no files are selected (file preview has its own Send) */}
+        {selectedFiles.length === 0 && (
+          <button
+            onClick={handleSendText}
+            disabled={!text.trim() || sending || disabled}
+            className={`
+              px-5 py-2.5 rounded-xl text-sm font-semibold transition-all flex-shrink-0
+              ${text.trim() && !sending
+                ? 'bg-[#1a5c3a] text-white hover:bg-[#15472e] shadow-sm'
+                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              }
+            `}
+            title="Send"
+          >
+            Send
+          </button>
+        )}
       </div>
     </div>
   );
