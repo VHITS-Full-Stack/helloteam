@@ -181,19 +181,26 @@ const Invoices = () => {
     }
   };
 
-  const handleDelete = async (invoiceId) => {
-    if (!confirm('Delete this draft invoice?')) return;
+  const [deleteInvoiceId, setDeleteInvoiceId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!deleteInvoiceId) return;
+    setDeleting(true);
     try {
-      const response = await invoiceService.deleteInvoice(invoiceId);
+      const response = await invoiceService.deleteInvoice(deleteInvoiceId);
       if (response.success) {
         setSuccess('Invoice deleted');
         setTimeout(() => setSuccess(''), 3000);
+        setDeleteInvoiceId(null);
         fetchInvoices();
       } else {
         setError(response.error || 'Failed to delete invoice');
       }
     } catch (err) {
       setError(err.error || err.message || 'Failed to delete invoice');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -551,7 +558,7 @@ const Invoices = () => {
                               <Send className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(invoice.id)}
+                              onClick={() => setDeleteInvoiceId(invoice.id)}
                               className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Delete"
                             >
@@ -955,7 +962,7 @@ const Invoices = () => {
                     size="sm"
                     icon={Trash2}
                     className="text-red-600 hover:bg-red-50"
-                    onClick={() => { handleDelete(selectedInvoice.id); setShowDetailModal(false); }}
+                    onClick={() => { setDeleteInvoiceId(selectedInvoice.id); setShowDetailModal(false); }}
                   >
                     Delete
                   </Button>
@@ -984,6 +991,39 @@ const Invoices = () => {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteInvoiceId}
+        onClose={() => setDeleteInvoiceId(null)}
+        title="Delete Draft Invoice"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-red-50 rounded-lg flex-shrink-0">
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-gray-900 font-medium">Are you sure you want to delete this draft invoice?</p>
+              <p className="text-sm text-gray-500 mt-1">This will release all associated time records so they can be re-invoiced. This action cannot be undone.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setDeleteInvoiceId(null)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              className="!bg-red-600 hover:!bg-red-700"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting...' : 'Delete Invoice'}
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

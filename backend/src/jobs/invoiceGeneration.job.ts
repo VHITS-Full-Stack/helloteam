@@ -461,13 +461,15 @@ export const generateInvoicesForPeriod = async (
 
 /**
  * Generate weekly invoices for a specific week.
- * Only processes clients with WEEKLY or BI_WEEKLY agreement type.
+ * Generate weekly invoices. When cronMode is true, only processes WEEKLY/BI_WEEKLY clients.
+ * When cronMode is false (admin manual trigger), processes all active clients.
  */
 export const generateWeeklyInvoicesForWeek = async (
   year: number,
   week: number, // ISO week number (1-53)
   io?: Server,
-  clientId?: string
+  clientId?: string,
+  cronMode: boolean = false
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -477,13 +479,13 @@ export const generateWeeklyInvoicesForWeek = async (
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
 
-    // When a specific client is requested, skip agreement-type filtering (admin override).
     const clientWhere: any = {
       user: { status: 'ACTIVE' },
     };
     if (clientId) {
       clientWhere.id = clientId;
-    } else {
+    } else if (cronMode) {
+      // Cron job: only WEEKLY/BI_WEEKLY agreement clients
       clientWhere.agreementType = { in: ['WEEKLY', 'BI_WEEKLY'] };
     }
 
@@ -552,7 +554,7 @@ export const runWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => 
   const week = getISOWeekNumber(monday);
 
   console.log(`[Invoice] Starting weekly invoice generation for ${year}-W${String(week).padStart(2, '0')}`);
-  const result = await generateWeeklyInvoicesForWeek(year, week, io);
+  const result = await generateWeeklyInvoicesForWeek(year, week, io, undefined, true);
   console.log(`[Invoice] Weekly completed: ${result.generated} invoices generated, ${result.errors.length} errors`);
 };
 
@@ -760,14 +762,12 @@ export const previewWeeklyInvoicesForWeek = async (
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
-  // When a specific client is requested, skip agreement-type filtering (admin override).
+  // Include all active clients for weekly preview (admin manual trigger).
   const clientWhere: any = {
     user: { status: 'ACTIVE' },
   };
   if (clientId) {
     clientWhere.id = clientId;
-  } else {
-    clientWhere.agreementType = { in: ['WEEKLY', 'BI_WEEKLY'] };
   }
 
   const clients = await prisma.client.findMany({
