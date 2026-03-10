@@ -71,6 +71,8 @@ const AudioPlayer = ({ src, duration }) => {
 };
 
 const MessageBubble = ({ message, isMine, senderName }) => {
+  const [imgError, setImgError] = useState(false);
+
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString([], {
       hour: 'numeric',
@@ -102,12 +104,25 @@ const MessageBubble = ({ message, isMine, senderName }) => {
               rel="noopener noreferrer"
               className="block rounded-xl overflow-hidden border border-gray-200 shadow-sm"
             >
-              <img
-                src={message.fileUrl}
-                alt={message.fileName || 'Image'}
-                className="w-full h-auto max-h-[300px] object-contain bg-gray-50"
-                loading="lazy"
-              />
+              {imgError ? (
+                <div className="flex items-center gap-3 p-3 bg-gray-50">
+                  <div className="w-10 h-10 rounded-lg bg-[#1a5c3a]/10 flex items-center justify-center flex-shrink-0">
+                    <Image className="w-5 h-5 text-[#1a5c3a]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">{message.fileName || 'Image'}</p>
+                    <p className="text-xs text-[#1a5c3a]">Click to view</p>
+                  </div>
+                </div>
+              ) : (
+                <img
+                  src={message.fileUrl}
+                  alt={message.fileName || 'Image'}
+                  className="w-full h-auto max-h-[300px] object-contain bg-gray-50"
+                  loading="lazy"
+                  onError={() => setImgError(true)}
+                />
+              )}
             </a>
             {message.content && (
               <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{message.content}</p>

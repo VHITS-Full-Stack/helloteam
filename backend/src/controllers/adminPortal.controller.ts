@@ -155,6 +155,28 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
     }, 0);
     const roundedMonthlyRevenue = Math.round(monthlyRevenue * 100) / 100;
 
+    // Calculate weekly revenue using actual employee billing rates
+    const weeklyBillableRecords = await prisma.timeRecord.findMany({
+      where: {
+        date: { gte: startOfWeek },
+        status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      },
+      select: {
+        totalMinutes: true,
+        overtimeMinutes: true,
+        employee: {
+          select: { billingRate: true },
+        },
+      },
+    });
+
+    const weeklyRevenue = weeklyBillableRecords.reduce((acc, tr) => {
+      const totalMins = (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
+      const rate = tr.employee?.billingRate ? Number(tr.employee.billingRate) : 0;
+      return acc + (totalMins / 60) * rate;
+    }, 0);
+    const roundedWeeklyRevenue = Math.round(weeklyRevenue * 100) / 100;
+
     res.json({
       success: true,
       data: {
@@ -168,6 +190,7 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
         pendingLeaveRequests,
         openTickets,
         weeklyHours,
+        weeklyRevenue: roundedWeeklyRevenue,
         monthlyRevenue: roundedMonthlyRevenue,
       },
     });
@@ -185,8 +208,8 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
   try {
     const limit = parseInt(req.query.limit as string, 10) || 10;
 
-    // Get recent time records, leave requests, support tickets in parallel
-    const [recentTimeRecords, recentLeaveRequests, recentTickets, recentClients] = await Promise.all([
+    // Get recent time records, leave requests, support tickets, clock-ins, clients in parallel
+    const [recentTimeRecords, recentLeaveRequests, recentTickets, recentClients, recentClockIns] = await Promise.all([
       prisma.timeRecord.findMany({
         where: { status: { in: ['APPROVED', 'AUTO_APPROVED'] } },
         orderBy: { approvedAt: 'desc' },
@@ -215,6 +238,13 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
         take: 3,
         select: { companyName: true, createdAt: true },
       }),
+      prisma.workSession.findMany({
+        orderBy: { startTime: 'desc' },
+        take: 5,
+        include: {
+          employee: { select: { firstName: true, lastName: true } },
+        },
+      }),
     ]);
 
     // Combine and format activities
@@ -222,20 +252,22 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
 
     recentTimeRecords.forEach(tr => {
       if (tr.approvedAt) {
+        const hours = Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100;
         activities.push({
           id: `tr-${tr.id}`,
           type: 'approval',
-          message: `${tr.client?.companyName || 'Client'} approved ${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours for ${tr.employee.firstName} ${tr.employee.lastName}`,
+          message: `${tr.employee.firstName} ${tr.employee.lastName}'s ${hours}h timesheet approved`,
           time: tr.approvedAt,
         });
       }
     });
 
     recentLeaveRequests.forEach(lr => {
+      const action = lr.status === 'PENDING' ? 'requested' : lr.status === 'APPROVED' ? 'approved' : lr.status.toLowerCase();
       activities.push({
         id: `lr-${lr.id}`,
         type: 'leave',
-        message: `${lr.employee.firstName} ${lr.employee.lastName} ${lr.status === 'PENDING' ? 'requested' : lr.status.toLowerCase()} ${lr.leaveType.toLowerCase()} leave`,
+        message: `${lr.employee.firstName} ${lr.employee.lastName} ${action} ${lr.leaveType.replace(/_/g, ' ').toLowerCase()} leave`,
         time: lr.createdAt,
       });
     });
@@ -244,7 +276,7 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
       activities.push({
         id: `ticket-${ticket.id}`,
         type: 'ticket',
-        message: `New support ticket from ${ticket.employee.firstName} ${ticket.employee.lastName}`,
+        message: `${ticket.employee.firstName} ${ticket.employee.lastName} opened a support ticket`,
         time: ticket.createdAt,
       });
     });
@@ -253,8 +285,17 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
       activities.push({
         id: `client-${client.companyName}`,
         type: 'client',
-        message: `New client ${client.companyName} added`,
+        message: `New client ${client.companyName} onboarded`,
         time: client.createdAt,
+      });
+    });
+
+    recentClockIns.forEach(session => {
+      activities.push({
+        id: `session-${session.id}`,
+        type: 'clock-in',
+        message: `${session.employee.firstName} ${session.employee.lastName} clocked in${session.arrivalStatus ? ` (${session.arrivalStatus})` : ''}`,
+        time: session.startTime,
       });
     });
 
@@ -385,41 +426,62 @@ export const getClientOverview = async (req: AuthenticatedRequest, res: Response
       orderBy: { createdAt: 'desc' },
     });
 
-    // Get active sessions and pending approvals per client
+    // Get issues per client
     const clientData = await Promise.all(
       clients.map(async (client) => {
         const employeeIds = client.employees.map(e => e.employeeId);
 
-        const [activeSessions, pendingApprovals] = await Promise.all([
-          prisma.workSession.count({
-            where: {
-              employeeId: { in: employeeIds },
-              status: 'ACTIVE',
-            },
-          }),
+        const [pendingApprovals, pendingLeaves, unapprovedOT] = await Promise.all([
           prisma.timeRecord.count({
             where: {
               clientId: client.id,
               status: 'PENDING',
             },
           }),
+          prisma.leaveRequest.count({
+            where: {
+              employeeId: { in: employeeIds },
+              status: 'PENDING',
+            },
+          }),
+          prisma.timeRecord.count({
+            where: {
+              clientId: client.id,
+              overtimeMinutes: { gt: 0 },
+              status: 'PENDING',
+            },
+          }),
         ]);
 
-        // Determine health status
-        let status: 'healthy' | 'warning' | 'critical' = 'healthy';
-        if (pendingApprovals > 10) status = 'warning';
-        if (pendingApprovals > 20) status = 'critical';
+        // Build issues list
+        const issues: string[] = [];
+        if (pendingApprovals > 0) issues.push(`${pendingApprovals} pending timesheet${pendingApprovals > 1 ? 's' : ''}`);
+        if (unapprovedOT > 0) issues.push(`${unapprovedOT} unapproved OT`);
+        if (pendingLeaves > 0) issues.push(`${pendingLeaves} pending leave request${pendingLeaves > 1 ? 's' : ''}`);
+
+        // Determine severity
+        const totalIssues = pendingApprovals + pendingLeaves + unapprovedOT;
+        let severity: 'red' | 'yellow' | 'blue' | 'green' = 'green';
+        if (totalIssues > 20) severity = 'red';
+        else if (totalIssues > 5) severity = 'yellow';
+        else if (totalIssues > 0) severity = 'blue';
 
         return {
           id: client.id,
           name: client.companyName,
           employees: client._count.employees,
-          activeNow: activeSessions,
+          issues: issues.join(' · '),
+          issueCount: totalIssues,
+          severity,
           pendingApprovals,
-          status,
+          pendingLeaves,
+          unapprovedOT,
         };
       })
     );
+
+    // Sort by issue count (most issues first)
+    clientData.sort((a, b) => b.issueCount - a.issueCount);
 
     res.json({
       success: true,

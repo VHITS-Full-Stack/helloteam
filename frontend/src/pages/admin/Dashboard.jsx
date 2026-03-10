@@ -24,6 +24,7 @@ const AdminDashboard = () => {
     pendingLeaveRequests: 0,
     openTickets: 0,
     weeklyHours: 0,
+    weeklyRevenue: 0,
     monthlyRevenue: 0,
   });
   const [recentActivity, setRecentActivity] = useState([]);
@@ -124,21 +125,65 @@ const AdminDashboard = () => {
           <Button variant="outline" onClick={fetchDashboardData} icon={RefreshCw}>
             Refresh
           </Button>
-          <Button variant="primary">Quick Actions</Button>
+          {/* <Button variant="primary">Quick Actions</Button> */}
         </div>
       </div>
 
       {/* Main Stats */}
-      <div className="overflow-x-auto pb-2">
-        <div className="grid grid-cols-8 gap-4 min-w-[1000px]">
-          <StatCard title="Employees" value={stats.totalEmployees} icon={Users} />
-          <StatCard title="Clients" value={stats.totalClients} icon={Building} />
-          <StatCard title="Active Now" value={stats.activeNow} icon={Activity} />
-          <StatCard title="Pending Approvals" value={stats.pendingApprovals} icon={AlertCircle} />
-          <StatCard title="Leave Requests" value={stats.pendingLeaveRequests} icon={Clock} />
-          <StatCard title="Open Tickets" value={stats.openTickets} icon={MessageSquare} />
-          <StatCard title="Weekly Hours" value={stats.weeklyHours.toLocaleString()} icon={Clock} />
-          <StatCard title="Monthly Revenue" value={formatCurrency(stats.monthlyRevenue)} icon={DollarSign} />
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-blue-50 rounded-xl flex-shrink-0">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{stats.totalEmployees}</p>
+            <p className="text-xs text-gray-500">Employees</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-indigo-50 rounded-xl flex-shrink-0">
+            <Building className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{stats.totalClients}</p>
+            <p className="text-xs text-gray-500">Clients</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-yellow-50 rounded-xl flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-yellow-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{stats.pendingApprovals}</p>
+            <p className="text-xs text-gray-500">Pending Approvals</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-purple-50 rounded-xl flex-shrink-0">
+            <MessageSquare className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{stats.openTickets}</p>
+            <p className="text-xs text-gray-500">Open Tickets</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-teal-50 rounded-xl flex-shrink-0">
+            <TrendingUp className="w-5 h-5 text-teal-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.weeklyRevenue)}</p>
+            <p className="text-xs text-gray-500">Weekly Revenue</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+          <div className="p-3 bg-green-50 rounded-xl flex-shrink-0">
+            <DollarSign className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
+            <p className="text-xs text-gray-500">Monthly Revenue</p>
+          </div>
         </div>
       </div>
 
@@ -188,44 +233,41 @@ const AdminDashboard = () => {
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Client Overview</h3>
-            <Button variant="ghost" size="sm">View All</Button>
+            {clientOverview.length > 0 && (
+              <Button variant="ghost" size="sm">View All</Button>
+            )}
           </div>
-          <div className="space-y-3">
+          <div className="divide-y divide-gray-100">
             {clientOverview.length > 0 ? (
               clientOverview.slice(0, 5).map((client) => (
                 <div
                   key={client.id}
-                  className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="flex items-center justify-between py-3.5"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
-                      <Building className="w-5 h-5 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{client.name}</p>
-                      <p className="text-sm text-gray-500">{client.employees} employees</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Active</p>
-                      <p className="font-semibold text-green-600">{client.activeNow}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-gray-500">Pending</p>
-                      <p className={`font-semibold ${client.pendingApprovals > 0 ? 'text-yellow-600' : 'text-gray-400'}`}>
-                        {client.pendingApprovals}
-                      </p>
-                    </div>
-                    <div className={`w-3 h-3 rounded-full ${
-                      client.status === 'healthy' ? 'bg-green-500' :
-                      client.status === 'warning' ? 'bg-yellow-500' : 'bg-red-500'
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      client.severity === 'red' ? 'bg-red-500' :
+                      client.severity === 'yellow' ? 'bg-yellow-500' :
+                      client.severity === 'blue' ? 'bg-blue-500' : 'bg-green-500'
                     }`} />
+                    <div>
+                      <span className="font-semibold text-gray-900">{client.name}</span>
+                      {client.issues ? (
+                        <span className="text-sm text-gray-500"> — {client.issues}</span>
+                      ) : (
+                        <span className="text-sm text-gray-400"> — No issues</span>
+                      )}
+                    </div>
                   </div>
+                  {client.issueCount > 0 && (
+                    <button className="text-sm text-primary font-medium hover:text-primary-dark flex-shrink-0 ml-4">
+                      View →
+                    </button>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="p-8 text-center text-gray-500">
+              <div className="py-8 text-center text-gray-500">
                 <Building className="w-12 h-12 text-gray-300 mx-auto mb-3" />
                 <p>No clients found</p>
               </div>
@@ -268,7 +310,7 @@ const AdminDashboard = () => {
         </Card>
 
         {/* Payroll Status */}
-        <Card>
+        {/* <Card>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll Readiness</h3>
           <div className="space-y-4">
             <div className="p-4 bg-green-50 rounded-lg">
@@ -319,7 +361,7 @@ const AdminDashboard = () => {
               Process Payroll
             </Button>
           </div>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );

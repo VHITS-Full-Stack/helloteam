@@ -114,6 +114,11 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     setSubmitting(true);
     setError('');
 
+    if (!formData.hireDate) {
+      setError('Start date is required.');
+      setSubmitting(false);
+      return;
+    }
     if (!formData.payableRate) {
       setError('Payable rate is required');
       setSubmitting(false);
