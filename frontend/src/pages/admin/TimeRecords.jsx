@@ -12,7 +12,7 @@ import clientService from '../../services/client.service';
 import { formatHours, formatDuration, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -20,56 +20,7 @@ const TimeRecords = () => {
   const [endDate, setEndDate] = useState('');
   const [showAdjustment, setShowAdjustment] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const [timeRecords, setTimeRecords] = useState([
-    {
-      employeeId: 'demo-1',
-      employee: 'Nikita Karanpuria',
-      client: 'Acme Corp',
-      clientId: 'c1',
-      clientTimezone: 'America/New_York',
-      profilePhoto: null,
-      totalHours: 24.5,
-      overtimeHours: 2,
-      workedDays: 3,
-      status: 'pending',
-      dailyRecords: [
-        { id: 'd1', date: '2026-03-09', clockIn: '2026-03-09T14:00:00Z', clockOut: '2026-03-09T22:00:00Z', billingStart: '2026-03-09T14:00:00Z', billingEnd: '2026-03-09T22:00:00Z', hours: 8, overtimeHours: 0, breaks: 0.5, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
-        { id: 'd2', date: '2026-03-10', clockIn: '2026-03-10T14:05:00Z', clockOut: '2026-03-10T23:30:00Z', billingStart: '2026-03-10T14:05:00Z', billingEnd: '2026-03-10T23:30:00Z', hours: 9.4, overtimeHours: 1.4, breaks: 0, status: 'pending', isLate: true, lateMinutes: 5, arrivalStatus: 'Late', overtimeEntries: [{ id: 'ot1', type: 'SHIFT_EXTENSION', requestedMinutes: 84, status: 'PENDING' }], notes: '' },
-        { id: 'd3', date: '2026-03-11', clockIn: '2026-03-11T13:55:00Z', clockOut: '2026-03-11T22:00:00Z', billingStart: '2026-03-11T14:00:00Z', billingEnd: '2026-03-11T22:00:00Z', hours: 8.1, overtimeHours: 0, breaks: 0, status: 'approved', isLate: false, arrivalStatus: 'Early', overtimeEntries: [], notes: '' },
-      ],
-    },
-    {
-      employeeId: 'demo-2',
-      employee: 'John Smith',
-      client: 'TechStart Inc',
-      clientId: 'c2',
-      clientTimezone: 'America/Chicago',
-      profilePhoto: null,
-      totalHours: 16,
-      overtimeHours: 0,
-      workedDays: 2,
-      status: 'approved',
-      dailyRecords: [
-        { id: 'd4', date: '2026-03-09', clockIn: '2026-03-09T15:00:00Z', clockOut: '2026-03-09T23:00:00Z', billingStart: '2026-03-09T15:00:00Z', billingEnd: '2026-03-09T23:00:00Z', hours: 8, overtimeHours: 0, breaks: 0.5, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
-        { id: 'd5', date: '2026-03-10', clockIn: '2026-03-10T15:00:00Z', clockOut: '2026-03-10T23:00:00Z', billingStart: '2026-03-10T15:00:00Z', billingEnd: '2026-03-10T23:00:00Z', hours: 8, overtimeHours: 0, breaks: 0, status: 'approved', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
-      ],
-    },
-    {
-      employeeId: 'demo-3',
-      employee: 'Sarah Johnson',
-      client: 'Acme Corp',
-      clientId: 'c1',
-      clientTimezone: 'America/New_York',
-      profilePhoto: null,
-      totalHours: 8,
-      overtimeHours: 0,
-      workedDays: 1,
-      status: 'active',
-      dailyRecords: [
-        { id: 'd6', date: '2026-03-10', clockIn: '2026-03-10T14:00:00Z', clockOut: null, billingStart: null, billingEnd: null, hours: null, overtimeHours: 0, breaks: 0, status: 'active', isLate: false, arrivalStatus: 'On Time', overtimeEntries: [], notes: '' },
-      ],
-    },
-  ]);
+  const [timeRecords, setTimeRecords] = useState([]);
   const [expandedEmployees, setExpandedEmployees] = useState(new Set());
   const [expandedClients, setExpandedClients] = useState(new Set());
   const [stats, setStats] = useState({
@@ -153,22 +104,21 @@ const TimeRecords = () => {
     }
   };
 
-  // TODO: Remove static data and re-enable these fetches
-  // // Fetch on filter/date changes
-  // useEffect(() => {
-  //   if (startDate && endDate) {
-  //     fetchTimeRecords();
-  //   }
-  // }, [selectedClient, selectedStatus, startDate, endDate]);
+  // Fetch on filter/date changes
+  useEffect(() => {
+    if (startDate && endDate) {
+      fetchTimeRecords();
+    }
+  }, [selectedClient, selectedStatus, startDate, endDate]);
 
-  // // Debounce search term
-  // useEffect(() => {
-  //   if (!startDate || !endDate) return;
-  //   const timer = setTimeout(() => {
-  //     fetchTimeRecords();
-  //   }, 300);
-  //   return () => clearTimeout(timer);
-  // }, [searchTerm]);
+  // Debounce search term
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    const timer = setTimeout(() => {
+      fetchTimeRecords();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Group time records by client
   const clientGroups = useMemo(() => {
@@ -450,80 +400,65 @@ const TimeRecords = () => {
         </Card>
       </div> */}
 
-      {/* Filters */}
+      {/* Date Filter */}
       <Card>
-        <div className="flex flex-wrap items-end gap-3">
-          {/* Search */}
-          <div className="w-full sm:w-auto sm:min-w-[200px] sm:flex-1">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search employees..."
-                className="input w-full py-2 text-sm"
-                style={{ paddingLeft: '2.25rem' }}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              className="input text-sm"
+              style={{ width: '12rem', padding: '0.5rem 0.75rem 0.5rem 2.25rem' }}
+              placeholder="Search employee..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          {/* Client */}
-          <div className="w-[calc(50%-6px)] sm:w-auto">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Client</label>
-            <select
-              className="input w-full py-2 text-sm sm:w-40"
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-            >
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>
-                  {client.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="h-6 w-px bg-gray-200" />
 
-          {/* Status */}
-          <div className="w-[calc(50%-6px)] sm:w-auto">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-            <select
-              className="input w-full py-2 text-sm sm:w-32"
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="active">Active</option>
-            </select>
-          </div>
+          <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <input
+            type="date"
+            className="input text-sm"
+            style={{ width: '10rem', padding: '0.5rem 0.75rem' }}
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <span className="text-gray-400 text-sm">to</span>
+          <input
+            type="date"
+            className="input text-sm"
+            style={{ width: '10rem', padding: '0.5rem 0.75rem' }}
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
 
-          {/* Date Range */}
-          <div className="w-full sm:w-auto">
-            <label className="block text-xs font-medium text-gray-500 mb-1">Date Range</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                className="input py-2 text-sm w-full sm:w-36"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-              <span className="text-gray-400 text-xs flex-shrink-0">to</span>
-              <input
-                type="date"
-                className="input py-2 text-sm w-full sm:w-36"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-              />
-            </div>
-          </div>
+          <div className="h-6 w-px bg-gray-200" />
 
-          {/* Refresh */}
-          <div>
-            <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchTimeRecords} />
-          </div>
+          <select
+            className="input text-sm"
+            style={{ width: '11rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+          >
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+
+          <select
+            className="input text-sm"
+            style={{ width: '9rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+          >
+            <option value="all">All Status</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="active">Active</option>
+            <option value="adjusted">Adjusted</option>
+          </select>
         </div>
       </Card>
 
@@ -535,66 +470,61 @@ const TimeRecords = () => {
           </div>
         ) : timeRecords.length > 0 ? (
           <div className="overflow-x-auto">
-            {/* Desktop Table */}
-            <table className="w-full hidden md:table">
+            <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left py-3 px-4 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="text-left py-3 px-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Actual In/Out</th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Billing In/Out</th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Break</th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Regular</th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">
-                    OT
-                    <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">Ext / Off‑Shift</span>
-                  </th>
-                  <th className="text-center py-3 px-2 text-[10px] font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="py-3 px-2 w-10"></th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actual In/Out</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Billing In/Out</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Break</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Regular</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">OT</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {timeRecords.flatMap((empRecord) =>
-                  empRecord.dailyRecords.map((day, dayIdx) => (
-                    <tr key={`${empRecord.employeeId}-${day.id}`} className={`hover:bg-gray-50/50 ${dayIdx === 0 ? 'border-t border-gray-200' : 'border-t border-gray-50'}`}>
-                      {/* Employee + Company — only on first row, spans all days */}
-                      {dayIdx === 0 && (
-                        <td className="py-2.5 px-4 align-top" rowSpan={empRecord.dailyRecords.length}>
-                          <div className="flex items-center gap-2.5 sticky top-0">
-                            <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
-                            <div>
-                              <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
-                              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded mt-0.5">
-                                <Building2 className="w-3 h-3" />
-                                {empRecord.client}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                      )}
+                  empRecord.dailyRecords.map((day) => (
+                    <tr key={`${empRecord.employeeId}-${day.id}`} className="hover:bg-gray-50/50 transition-colors">
+                      {/* Name */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
+                          <span className="font-semibold text-gray-900 text-sm">{empRecord.employee}</span>
+                        </div>
+                      </td>
+
+                      {/* Client */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary-700 bg-primary-50 px-2 py-0.5 rounded-full">
+                          <Building2 className="w-3 h-3" />
+                          {empRecord.client}
+                        </span>
+                      </td>
 
                       {/* Date */}
-                      <td className="py-2.5 px-3">
-                        <span className="font-medium text-gray-900 text-xs">{formatDate(day.date)}</span>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-sm text-gray-900">{formatDate(day.date)}</p>
                         {(day.isLate || day.arrivalStatus === 'Late') && (
-                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700 mt-0.5">
                             Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
                           </span>
                         )}
                         {!day.isLate && day.arrivalStatus === 'Early' && (
-                          <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700">
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-blue-100 text-blue-700 mt-0.5">
                             Early
                           </span>
                         )}
                       </td>
 
                       {/* Actual In/Out */}
-                      <td className="py-2.5 px-2 text-xs text-center">
-                        <span className="text-gray-700">{fmtTime(day.clockIn, empRecord.clientTimezone)}</span>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                        {fmtTime(day.clockIn, empRecord.clientTimezone)}
                         <span className="text-gray-300 mx-1">–</span>
-                        {day.clockOut ? (
-                          <span className="text-gray-700">{fmtTime(day.clockOut, empRecord.clientTimezone)}</span>
-                        ) : day.status === 'active' ? (
+                        {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : day.status === 'active' ? (
                           <span className="text-green-600 inline-flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
                             Now
@@ -603,7 +533,7 @@ const TimeRecords = () => {
                       </td>
 
                       {/* Billing In/Out */}
-                      <td className="py-2.5 px-2 text-xs text-center">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {day.billingStart && day.billingEnd ? (
                           <span className="text-blue-700 font-medium">
                             {fmtTime(day.billingStart, empRecord.clientTimezone)}
@@ -618,57 +548,50 @@ const TimeRecords = () => {
                       </td>
 
                       {/* Break */}
-                      <td className="py-2.5 px-2 text-center">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {day.breaks > 0 ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-yellow-600">
+                          <span className="text-yellow-600 font-medium inline-flex items-center gap-1">
                             <Coffee className="w-3 h-3" />
                             {formatHours(day.breaks)}
                           </span>
                         ) : (
-                          <span className="text-gray-300 text-xs">-</span>
+                          <span className="text-gray-300">-</span>
                         )}
                       </td>
 
-                      {/* Regular Hours */}
-                      <td className="py-2.5 px-2 text-center">
-                        <span className="font-semibold text-gray-900 text-xs">
-                          {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
-                        </span>
+                      {/* Regular */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
                       </td>
 
-                      {/* OT (Ext / Off-Shift) */}
-                      <td className="py-2.5 px-2 text-center">
+                      {/* OT */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {(() => {
                           const shiftExtEntries = (day.overtimeEntries || []).filter(o => o.type === 'SHIFT_EXTENSION');
                           const offShiftEntries = (day.overtimeEntries || []).filter(o => o.type === 'OFF_SHIFT');
                           if (shiftExtEntries.length > 0 || offShiftEntries.length > 0) {
                             return (
-                              <div className="flex flex-col items-center gap-0.5">
+                              <div className="flex flex-col gap-0.5">
                                 {shiftExtEntries.map((ot, i) => (
-                                  <span key={i} className="text-[10px] text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
+                                  <span key={i} className="text-xs text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
                                 ))}
                                 {offShiftEntries.map((ot, i) => (
-                                  <span key={i} className="text-[10px] text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
+                                  <span key={i} className="text-xs text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
                                 ))}
                               </div>
                             );
                           }
-                          return <span className="text-gray-300 text-xs">—</span>;
+                          return <span className="text-gray-300">—</span>;
                         })()}
                       </td>
 
                       {/* Status */}
-                      <td className="py-2.5 px-2 text-center">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {getStatusBadge(day.status)}
-                        {day.notes && (
-                          <p className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[100px] mx-auto" title={day.notes}>
-                            {day.notes}
-                          </p>
-                        )}
                       </td>
 
-                      {/* Actions */}
-                      <td className="py-2.5 px-2 text-center">
+                      {/* Action */}
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <button
                           onClick={() => handleAdjust(day, empRecord)}
                           className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
@@ -682,82 +605,6 @@ const TimeRecords = () => {
                 )}
               </tbody>
             </table>
-
-            {/* Mobile Cards */}
-            <div className="md:hidden divide-y divide-gray-50">
-              {timeRecords.flatMap((empRecord) =>
-                empRecord.dailyRecords.map((day) => (
-                  <div key={`${empRecord.employeeId}-${day.id}-m`} className="p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Avatar name={empRecord.employee} size="sm" src={empRecord.profilePhoto} />
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">{empRecord.employee}</p>
-                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-primary-700 bg-primary-50 px-1.5 py-0.5 rounded">
-                            <Building2 className="w-2.5 h-2.5" />
-                            {empRecord.client}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(day.status)}
-                        <button
-                          onClick={() => handleAdjust(day, empRecord)}
-                          className="p-1 text-gray-400 hover:text-primary rounded"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                    <p className="text-xs font-medium text-gray-900 mb-1">
-                      {formatDate(day.date)}
-                      {(day.isLate || day.arrivalStatus === 'Late') && (
-                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700">Late</span>
-                      )}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Actual: {fmtTime(day.clockIn, empRecord.clientTimezone)} → {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : (day.status === 'active' ? 'Now' : '-')}
-                    </p>
-                    {day.billingStart && day.billingEnd && (
-                      <p className="text-xs text-blue-600 mt-0.5">
-                        Billing: {fmtTime(day.billingStart, empRecord.clientTimezone)} → {fmtTime(day.billingEnd, empRecord.clientTimezone)}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-4 text-xs mt-2">
-                      <div>
-                        <span className="text-gray-400">Regular</span>
-                        <p className="font-semibold text-gray-900">{day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}</p>
-                      </div>
-                      {day.breaks > 0 && (
-                        <div>
-                          <span className="text-gray-400">Break</span>
-                          <p className="text-yellow-600">{formatHours(day.breaks)}</p>
-                        </div>
-                      )}
-                    </div>
-                    {day.overtimeEntries && day.overtimeEntries.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {day.overtimeEntries.map((ot, otIdx) => {
-                          const isApproved = ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED';
-                          const isDenied = ot.status === 'REJECTED';
-                          const badgeBg = isApproved
-                            ? 'bg-green-100 text-green-800'
-                            : isDenied
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-amber-100 text-amber-800';
-                          const badgeLabel = isApproved ? 'Approved' : isDenied ? 'Denied' : 'Pending';
-                          return (
-                            <span key={ot.id || otIdx} className={`inline-flex items-center px-1.5 py-0.5 text-[10px] font-bold rounded ${badgeBg}`}>
-                              +{formatDuration(ot.requestedMinutes)} · {badgeLabel}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
           </div>
         ) : (
           <div className="py-16 text-center">
