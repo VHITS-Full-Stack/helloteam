@@ -326,7 +326,7 @@ const EmployeeChat = () => {
       </div>
 
       {/* Chat Area */}
-      <div className={`flex-1 flex flex-col min-w-0 ${!showMobileList ? 'block' : 'hidden'} lg:block`}>
+      <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${!showMobileList ? 'flex' : 'hidden'} lg:flex`}>
         {selectedConversation ? (
           <>
             <ChatHeader
@@ -338,7 +338,7 @@ const EmployeeChat = () => {
             {/* Messages */}
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto px-4 py-3 bg-gray-50/50"
+              className="flex-1 overflow-y-auto px-6 py-4 bg-white"
               onScroll={handleScroll}
             >
               {messagesLoading && messages.length === 0 ? (
@@ -372,6 +372,7 @@ const EmployeeChat = () => {
                       key={msg.id}
                       message={msg}
                       isMine={msg.senderUserId === user.id}
+                      senderName={selectedConversation.participant?.name}
                     />
                   ))}
                   {typingUser && (
@@ -394,6 +395,7 @@ const EmployeeChat = () => {
               onSendFile={handleSendFile}
               onSendAudio={handleSendAudio}
               onTyping={handleTyping}
+              participantName={selectedConversation.participant?.name?.split(' ')[0]}
             />
           </>
         ) : (

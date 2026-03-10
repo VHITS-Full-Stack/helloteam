@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Play, Pause, Download, FileText, Image, Check, CheckCheck } from 'lucide-react';
+import { Play, Pause, Download, FileText, Image } from 'lucide-react';
 
 const AudioPlayer = ({ src, duration }) => {
   const [playing, setPlaying] = useState(false);
@@ -70,11 +70,12 @@ const AudioPlayer = ({ src, duration }) => {
   );
 };
 
-const MessageBubble = ({ message, isMine }) => {
+const MessageBubble = ({ message, isMine, senderName }) => {
   const formatTime = (dateString) => {
     return new Date(dateString).toLocaleTimeString([], {
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
+      hour12: true,
     });
   };
 
@@ -94,22 +95,22 @@ const MessageBubble = ({ message, isMine }) => {
 
       case 'IMAGE':
         return (
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <a
               href={message.fileUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="block rounded-lg overflow-hidden max-w-[280px]"
+              className="block rounded-xl overflow-hidden border border-gray-200 shadow-sm"
             >
               <img
                 src={message.fileUrl}
                 alt={message.fileName || 'Image'}
-                className="w-full h-auto max-h-[300px] object-cover"
+                className="w-full h-auto max-h-[300px] object-contain bg-gray-50"
                 loading="lazy"
               />
             </a>
             {message.content && (
-              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+              <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{message.content}</p>
             )}
           </div>
         );
@@ -121,20 +122,16 @@ const MessageBubble = ({ message, isMine }) => {
             href={message.fileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-2 p-2 rounded-lg ${
-              isMine ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200'
-            } transition-colors`}
+            className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 shadow-sm transition-colors"
           >
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-              isMine ? 'bg-white/20' : 'bg-gray-200'
-            }`}>
-              <FileText className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-lg bg-[#1a5c3a]/10 flex items-center justify-center flex-shrink-0">
+              <FileText className="w-5 h-5 text-[#1a5c3a]" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{message.fileName || 'File'}</p>
-              <p className="text-[10px] opacity-70">{formatFileSize(message.fileSize)}</p>
+              <p className="text-sm font-medium text-gray-800 truncate">{message.fileName || 'File'}</p>
+              <p className="text-xs text-gray-400">{formatFileSize(message.fileSize)}</p>
             </div>
-            <Download className="w-4 h-4 opacity-60 flex-shrink-0" />
+            <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
           </a>
         );
 
@@ -145,31 +142,31 @@ const MessageBubble = ({ message, isMine }) => {
     }
   };
 
+  const displayName = isMine ? 'You' : (senderName || 'Unknown');
+  const isMedia = message.messageType === 'IMAGE' || message.messageType === 'FILE' || message.messageType === 'VIDEO';
+
   return (
-    <div className={`flex ${isMine ? 'justify-end' : 'justify-start'} mb-1`}>
-      <div
-        className={`
-          max-w-[75%] px-3 py-2 rounded-2xl
-          ${isMine
-            ? 'bg-primary text-white rounded-br-md'
-            : 'bg-gray-100 text-gray-900 rounded-bl-md'
-          }
-        `}
-      >
-        {renderContent()}
-        <div className={`flex items-center justify-end gap-1 mt-0.5 ${
-          isMine ? 'text-white/60' : 'text-gray-400'
-        }`}>
-          <span className="text-[10px]">{formatTime(message.createdAt)}</span>
-          {isMine && (
-            message.isRead ? (
-              <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
-            ) : (
-              <Check className="w-3.5 h-3.5" />
-            )
-          )}
+    <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} mb-4`}>
+      {isMedia ? (
+        <div className="max-w-[65%]">
+          {renderContent()}
         </div>
-      </div>
+      ) : (
+        <div
+          className={`
+            max-w-[65%] px-4 py-2.5 rounded-2xl
+            ${isMine
+              ? 'bg-[#1a5c3a] text-white rounded-br-md'
+              : 'bg-gray-100 text-gray-900 rounded-bl-md'
+            }
+          `}
+        >
+          {renderContent()}
+        </div>
+      )}
+      <p className={`text-xs text-gray-400 mt-1 ${isMine ? 'text-right' : 'text-left'}`}>
+        {displayName} &middot; {formatTime(message.createdAt)}
+      </p>
     </div>
   );
 };
