@@ -151,6 +151,7 @@ const Approvals = () => {
       if (response?.success) {
         setShowApprovalModal(false);
         fetchApprovals();
+        window.dispatchEvent(new Event('approvals-updated'));
       }
     } catch (error) {
       console.error('Failed to approve:', error);
@@ -173,6 +174,7 @@ const Approvals = () => {
         setShowRejectModal(false);
         setRejectionReason('');
         fetchApprovals();
+        window.dispatchEvent(new Event('approvals-updated'));
       }
     } catch (error) {
       console.error('Failed to reject:', error);
@@ -185,7 +187,6 @@ const Approvals = () => {
     if (selectedItems.length === 0) return;
     setProcessing(true);
     try {
-      // Filter out leave requests (they need individual approval)
       const timeRecordIds = selectedItems.filter(id => {
         const item = approvalItems.find(a => a.id === id);
         return item && item.type !== 'leave';
@@ -196,6 +197,7 @@ const Approvals = () => {
         if (response?.success) {
           setSelectedItems([]);
           fetchApprovals();
+          window.dispatchEvent(new Event('approvals-updated'));
         }
       }
     } catch (error) {

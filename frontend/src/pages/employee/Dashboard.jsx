@@ -1805,6 +1805,18 @@ const EmployeeDashboard = () => {
                 const daySchedule = weekSchedule.find((s) => s.dayOfWeek === dayOfWeek);
                 const isScheduled = daySchedule?.isScheduled;
 
+                // Check for approved shift extension on this day
+                const dayDateStr = dayDate.toISOString().split("T")[0];
+                const approvedExtension = myOvertimeRequests.find(
+                  (ot) =>
+                    ot.type === "SHIFT_EXTENSION" &&
+                    ot.status === "APPROVED" &&
+                    new Date(ot.date).toISOString().split("T")[0] === dayDateStr
+                );
+                const displayEndTime = approvedExtension?.estimatedEndTime
+                  ? approvedExtension.estimatedEndTime
+                  : daySchedule?.endTime;
+
                 return (
                   <div
                     key={day}
@@ -1845,9 +1857,14 @@ const EmployeeDashboard = () => {
                       }`}
                     >
                       {isScheduled
-                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
+                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(displayEndTime)}`
                         : "Off"}
                     </p>
+                    {approvedExtension && isScheduled && (
+                      <span className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}>
+                        +{Math.round(approvedExtension.requestedMinutes / 60 * 10) / 10}h OT
+                      </span>
+                    )}
                     {isPast && !isToday && isScheduled && (
                       <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
                     )}

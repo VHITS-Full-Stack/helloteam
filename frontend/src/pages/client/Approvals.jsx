@@ -133,6 +133,30 @@ const Approvals = () => {
     }
   }, [activeTab, dateRange.startDate, dateRange.endDate]);
 
+  // Always fetch overtime summary so the pending badge shows on the tab
+  const initialOTFetchDone = useRef(false);
+  useEffect(() => {
+    if (!initialOTFetchDone.current) {
+      initialOTFetchDone.current = true;
+      // Fetch OT summary in background to show pending count on tab badge
+      (async () => {
+        try {
+          const summaryRes = await overtimeService.getOvertimeSummary({});
+          if (summaryRes.success) {
+            const otSummary = summaryRes.data || { pending: 0, approved: 0, rejected: 0, totalApprovedMinutes: 0, totalPendingMinutes: 0 };
+            setOvertimeSummary(otSummary);
+            // Auto-switch to overtime tab if there are pending OT requests
+            if (otSummary.pending > 0 && activeType === 'leave' && !searchParams.get('type')) {
+              setActiveType('overtime');
+            }
+          }
+        } catch (e) {
+          console.error('Failed to fetch OT summary:', e);
+        }
+      })();
+    }
+  }, []);
+
   useEffect(() => {
     if (activeType === 'leave') {
       fetchApprovals();
@@ -207,6 +231,7 @@ const Approvals = () => {
         } else {
           fetchOvertimeRequests();
         }
+        window.dispatchEvent(new Event('approvals-updated'));
       } else {
         alert(response.error || 'Failed to approve');
       }
@@ -241,6 +266,7 @@ const Approvals = () => {
         } else {
           fetchOvertimeRequests();
         }
+        window.dispatchEvent(new Event('approvals-updated'));
       } else {
         alert(response.error || 'Failed to reject');
       }
@@ -275,20 +301,19 @@ const Approvals = () => {
     setActionLoading(true);
     try {
       if (activeType === 'leave') {
-        // Bulk approve leave requests one by one
         for (const id of selectedItems) {
           await clientPortalService.approveLeaveRequest(id);
         }
         setSelectedItems([]);
         fetchApprovals();
       } else {
-        // Bulk approve overtime requests one by one
         for (const id of selectedItems) {
           await overtimeService.approveOvertimeRequest(id);
         }
         setSelectedItems([]);
         fetchOvertimeRequests();
       }
+      window.dispatchEvent(new Event('approvals-updated'));
     } catch (err) {
       console.error('Bulk approve error:', err);
       alert('Failed to bulk approve');
@@ -712,17 +737,9 @@ const Approvals = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <Badge variant={request.type === 'OFF_SHIFT' ? 'info' : 'secondary'} size="xs">
-                          {request.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
-                        </Badge>
-                        {request.type === 'OFF_SHIFT' && request.requestedStartTime && request.requestedEndTime && (
-                          <p className="text-xs text-gray-500 mt-1">{formatTime12(request.requestedStartTime)} – {formatTime12(request.requestedEndTime)}</p>
-                        )}
-                        {request.type !== 'OFF_SHIFT' && request.estimatedEndTime && (
-                          <p className="text-xs text-gray-500 mt-1">Until {formatTime12(request.estimatedEndTime)}</p>
-                        )}
-                      </div>
+                      <Badge variant={request.type === 'OFF_SHIFT' ? 'info' : 'secondary'} size="xs">
+                        {request.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <p className="text-gray-900">{request.reason}</p>

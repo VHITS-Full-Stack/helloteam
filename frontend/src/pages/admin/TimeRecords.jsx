@@ -570,13 +570,29 @@ const TimeRecords = () => {
                           const shiftExtEntries = (day.overtimeEntries || []).filter(o => o.type === 'SHIFT_EXTENSION');
                           const offShiftEntries = (day.overtimeEntries || []).filter(o => o.type === 'OFF_SHIFT');
                           if (shiftExtEntries.length > 0 || offShiftEntries.length > 0) {
+                            const otStatusClass = (status) => {
+                              if (status === 'APPROVED') return 'text-green-600';
+                              if (status === 'REJECTED') return 'text-red-500';
+                              return 'text-amber-500';
+                            };
+                            const otStatusLabel = (status) => {
+                              if (status === 'APPROVED') return '✓';
+                              if (status === 'REJECTED') return '✗';
+                              return 'pending';
+                            };
                             return (
-                              <div className="flex flex-col gap-0.5">
+                              <div className="flex flex-col gap-1">
                                 {shiftExtEntries.map((ot, i) => (
-                                  <span key={i} className="text-xs text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
+                                  <div key={i} className="flex flex-col">
+                                    <span className="text-xs text-purple-600 font-medium">{formatDuration(ot.requestedMinutes)} ext</span>
+                                    <span className={`text-[10px] ${otStatusClass(ot.status)}`}>{otStatusLabel(ot.status)}</span>
+                                  </div>
                                 ))}
                                 {offShiftEntries.map((ot, i) => (
-                                  <span key={i} className="text-xs text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
+                                  <div key={i} className="flex flex-col">
+                                    <span className="text-xs text-orange-600 font-medium">{formatDuration(ot.requestedMinutes)} off</span>
+                                    <span className={`text-[10px] ${otStatusClass(ot.status)}`}>{otStatusLabel(ot.status)}</span>
+                                  </div>
                                 ))}
                               </div>
                             );

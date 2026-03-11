@@ -337,9 +337,10 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
 // Get pending actions
 export const getPendingActions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const [pendingTimeRecords, pendingLeaveRequests, openTickets] = await Promise.all([
+    const [pendingTimeRecords, pendingLeaveRequests, pendingOvertimeRequests, openTickets] = await Promise.all([
       prisma.timeRecord.count({ where: { status: 'PENDING' } }),
       prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
+      prisma.overtimeRequest.count({ where: { status: 'PENDING' } }),
       prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
     ]);
 
@@ -395,6 +396,11 @@ export const getPendingActions = async (req: AuthenticatedRequest, res: Response
     res.json({
       success: true,
       data: actions,
+      counts: {
+        pendingLeave: pendingLeaveRequests,
+        pendingOvertime: pendingOvertimeRequests,
+        pendingTimeRecords,
+      },
     });
   } catch (error) {
     console.error('Get pending actions error:', error);

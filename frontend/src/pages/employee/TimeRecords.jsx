@@ -343,7 +343,7 @@ const TimeRecords = () => {
     if (otEntries.length > 0) {
       const hasRejected = otEntries.some((ot) => ot.status === "REJECTED");
       const hasPending = otEntries.some((ot) => ot.status === "PENDING");
-      if (hasRejected) {
+      if (hasRejected && !hasPending) {
         return (
           <Badge variant="danger" size="xs">
             OT Rejected
@@ -353,14 +353,14 @@ const TimeRecords = () => {
       if (hasPending) {
         return (
           <Badge variant="warning" size="xs">
-            Pending
+            OT Pending
           </Badge>
         );
       }
       // All approved/auto-approved
       return (
         <Badge variant="success" size="xs">
-          Approved
+          OT Approved
         </Badge>
       );
     }
@@ -458,7 +458,13 @@ const TimeRecords = () => {
     let breakMinutes = 0;
     for (const s of sessions) {
       totalMinutes += s.totalMinutes || 0;
-      overtimeMinutes += s.overtimeMinutes || 0;
+      // Only count unapproved OT (pending + rejected) as overtime
+      // Approved OT is included in regular hours
+      const otEntries = s.overtimeEntries || [];
+      const unapprovedOT = otEntries
+        .filter((o) => o.status !== "APPROVED" && o.status !== "AUTO_APPROVED")
+        .reduce((sum, o) => sum + (o.requestedMinutes || 0), 0);
+      overtimeMinutes += unapprovedOT;
       breakMinutes += s.breakMinutes || s.totalBreakMinutes || 0;
     }
     return {
@@ -690,6 +696,9 @@ const TimeRecords = () => {
                           Date
                         </th>
                         <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                          Schedule
+                        </th>
+                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                           Actual In/Out
                         </th>
                         <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -732,7 +741,6 @@ const TimeRecords = () => {
                                     <span className="font-semibold text-gray-900 text-sm">
                                       {formatDateHeader(session.startTime)}
                                     </span>
-                                    {getArrivalBadge(session)}
                                   </div>
                                   {session.client && (
                                     <span className="text-xs text-gray-400">
@@ -742,12 +750,33 @@ const TimeRecords = () => {
                                 </div>
                               </td>
 
+                              {/* Schedule */}
+                              <td className="py-3 px-2 text-center">
+                                {session.scheduledStart &&
+                                session.scheduledEnd ? (
+                                  <div className="text-sm font-medium text-gray-600">
+                                    {formatTime(session.scheduledStart)}
+                                    <span className="text-gray-300 mx-1">
+                                      –
+                                    </span>
+                                    {formatTime(session.scheduledEnd)}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-300">&mdash;</span>
+                                )}
+                              </td>
+
                               {/* Actual In / Out */}
                               <td className="py-3 px-2 text-center">
                                 {isActiveSession(session) ? (
                                   <div>
-                                    <span className="text-sm font-medium text-gray-900">{formatTime(session.startTime)}</span>
-                                    <span className="text-gray-300 mx-1">–</span>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {formatTime(session.startTime)}
+                                    </span>
+                                    <span className="text-gray-300 mx-1">
+                                      –
+                                    </span>
+
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700">
                                       <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
                                       Active
@@ -756,8 +785,17 @@ const TimeRecords = () => {
                                 ) : (
                                   <div className="text-sm font-medium text-gray-900">
                                     {formatTime(session.startTime)}
-                                    <span className="text-gray-300 mx-1">–</span>
-                                    {session.endTime ? formatTime(session.endTime) : <span className="text-gray-400 italic text-xs">—</span>}
+                                    <span className="text-gray-300 mx-1">
+                                      –
+                                    </span>
+                                    {session.endTime ? (
+                                      formatTime(session.endTime)
+                                    ) : (
+                                      <span className="text-gray-400 italic text-xs">
+                                        —
+                                      </span>
+                                    )}
+                                    <span>{getArrivalBadge(session)}</span>
                                   </div>
                                 )}
                               </td>
@@ -767,11 +805,15 @@ const TimeRecords = () => {
                                 {session.billingStart && session.billingEnd ? (
                                   <div className="text-sm font-medium text-blue-700">
                                     {formatTime(session.billingStart)}
-                                    <span className="text-blue-300 mx-1">–</span>
+                                    <span className="text-blue-300 mx-1">
+                                      –
+                                    </span>
                                     {formatTime(session.billingEnd)}
                                   </div>
                                 ) : isActiveSession(session) ? (
-                                  <span className="text-xs text-gray-400 italic">In progress</span>
+                                  <span className="text-xs text-gray-400 italic">
+                                    In progress
+                                  </span>
                                 ) : (
                                   <span className="text-gray-300">&mdash;</span>
                                 )}
@@ -796,32 +838,109 @@ const TimeRecords = () => {
                               {/* Regular Hours + OT combined */}
                               {(() => {
                                 const otEntries = session.overtimeEntries || [];
-                                const otM = session.overtimeMinutes || 0;
                                 const totalM = session.totalMinutes || 0;
-                                const regularM = Math.max(0, totalM - otM);
-                                const shiftExtM = otEntries.filter(o => o.type === 'SHIFT_EXTENSION').reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-                                const extraTimeM = otEntries.filter(o => o.type === 'OFF_SHIFT').reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                                // Subtract only unapproved OT (pending + rejected) from regular hours
+                                // Approved OT is included in regular hours
+                                const unapprovedOTM = otEntries
+                                  .filter(
+                                    (o) =>
+                                      o.status !== "APPROVED" &&
+                                      o.status !== "AUTO_APPROVED",
+                                  )
+                                  .reduce(
+                                    (s, o) => s + (o.requestedMinutes || 0),
+                                    0,
+                                  );
+                                const regularM = Math.max(
+                                  0,
+                                  totalM - unapprovedOTM,
+                                );
+                                const shiftExtM = otEntries
+                                  .filter((o) => o.type === "SHIFT_EXTENSION")
+                                  .reduce(
+                                    (s, o) => s + (o.requestedMinutes || 0),
+                                    0,
+                                  );
+                                const extraTimeM = otEntries
+                                  .filter((o) => o.type === "OFF_SHIFT")
+                                  .reduce(
+                                    (s, o) => s + (o.requestedMinutes || 0),
+                                    0,
+                                  );
                                 return (
                                   <>
                                     <td className="py-3 px-2 text-center">
                                       {isActiveSession(session) ? (
-                                        <span className="text-green-600 font-medium text-sm">In Progress</span>
+                                        <span className="text-green-600 font-medium text-sm">
+                                          In Progress
+                                        </span>
                                       ) : (
-                                        <span className="font-bold text-gray-900 text-sm">{formatDuration(regularM)}</span>
+                                        <span className="font-bold text-gray-900 text-sm">
+                                          {formatDuration(regularM)}
+                                        </span>
                                       )}
                                     </td>
                                     <td className="py-3 px-2 text-center">
-                                      {(shiftExtM > 0 || extraTimeM > 0) ? (
-                                        <div className="flex flex-col items-center gap-0.5">
-                                          {shiftExtM > 0 && (
-                                            <span className="text-xs text-purple-600 font-medium">{formatDuration(shiftExtM)} ext</span>
-                                          )}
-                                          {extraTimeM > 0 && (
-                                            <span className="text-xs text-orange-600 font-medium">{formatDuration(extraTimeM)} off</span>
-                                          )}
+                                      {shiftExtM > 0 || extraTimeM > 0 ? (
+                                        <div className="flex flex-col items-center gap-1">
+                                          {otEntries
+                                            .filter(
+                                              (o) =>
+                                                o.type === "SHIFT_EXTENSION",
+                                            )
+                                            .map((ot, i) => (
+                                              <div
+                                                key={i}
+                                                className="flex flex-col items-center"
+                                              >
+                                                <span className="text-xs text-purple-600 font-medium">
+                                                  {formatDuration(
+                                                    ot.requestedMinutes,
+                                                  )}{" "}
+                                                  ext
+                                                </span>
+                                                <span
+                                                  className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                                >
+                                                  {ot.status === "APPROVED"
+                                                    ? "✓"
+                                                    : ot.status === "REJECTED"
+                                                      ? "✗"
+                                                      : "pending"}
+                                                </span>
+                                              </div>
+                                            ))}
+                                          {otEntries
+                                            .filter(
+                                              (o) => o.type === "OFF_SHIFT",
+                                            )
+                                            .map((ot, i) => (
+                                              <div
+                                                key={i}
+                                                className="flex flex-col items-center"
+                                              >
+                                                <span className="text-xs text-orange-600 font-medium">
+                                                  {formatDuration(
+                                                    ot.requestedMinutes,
+                                                  )}{" "}
+                                                  off
+                                                </span>
+                                                <span
+                                                  className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                                >
+                                                  {ot.status === "APPROVED"
+                                                    ? "✓"
+                                                    : ot.status === "REJECTED"
+                                                      ? "✗"
+                                                      : "pending"}
+                                                </span>
+                                              </div>
+                                            ))}
                                         </div>
                                       ) : (
-                                        <span className="text-gray-300">&mdash;</span>
+                                        <span className="text-gray-300">
+                                          &mdash;
+                                        </span>
                                       )}
                                     </td>
                                   </>
@@ -870,7 +989,7 @@ const TimeRecords = () => {
                             {session.approvalStatus ===
                               "REVISION_REQUESTED" && (
                               <tr className="bg-amber-50 border-b border-amber-100">
-                                <td colSpan={8} className="px-4 py-2">
+                                <td colSpan={9} className="px-4 py-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-sm text-amber-700">
                                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -947,7 +1066,19 @@ const TimeRecords = () => {
                             </div>
                           </div>
 
-                          {/* Actual In/Out */}
+                          {/* Schedule + Actual In/Out */}
+                          {session.scheduledStart && session.scheduledEnd && (
+                            <div className="mb-2 px-3 py-1.5 bg-primary-50 rounded-lg flex items-center gap-2">
+                              <Calendar className="w-3.5 h-3.5 text-primary-400" />
+                              <span className="text-xs text-gray-500">
+                                Schedule:
+                              </span>
+                              <span className="text-xs font-medium text-gray-700">
+                                {formatTime(session.scheduledStart)} –{" "}
+                                {formatTime(session.scheduledEnd)}
+                              </span>
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 gap-3 bg-gray-50 rounded-lg p-3">
                             <div>
                               <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-0.5">
@@ -987,9 +1118,13 @@ const TimeRecords = () => {
                                   {formatTime(session.billingStart)}
                                 </span>
                               ) : isActiveSession(session) ? (
-                                <span className="text-xs text-gray-400 italic">In progress</span>
+                                <span className="text-xs text-gray-400 italic">
+                                  In progress
+                                </span>
                               ) : (
-                                <span className="text-sm text-gray-300">&mdash;</span>
+                                <span className="text-sm text-gray-300">
+                                  &mdash;
+                                </span>
                               )}
                             </div>
                             <div>
@@ -1001,9 +1136,13 @@ const TimeRecords = () => {
                                   {formatTime(session.billingEnd)}
                                 </span>
                               ) : isActiveSession(session) ? (
-                                <span className="text-xs text-gray-400 italic">In progress</span>
+                                <span className="text-xs text-gray-400 italic">
+                                  In progress
+                                </span>
                               ) : (
-                                <span className="text-sm text-gray-300">&mdash;</span>
+                                <span className="text-sm text-gray-300">
+                                  &mdash;
+                                </span>
                               )}
                             </div>
 
@@ -1034,13 +1173,30 @@ const TimeRecords = () => {
                                 Regular
                               </p>
                               {(() => {
-                                const otM = session.overtimeMinutes || 0;
+                                const otEntries = session.overtimeEntries || [];
                                 const totalM = session.totalMinutes || 0;
-                                const regularM = Math.max(0, totalM - otM);
+                                const unapprovedOTM = otEntries
+                                  .filter(
+                                    (o) =>
+                                      o.status !== "APPROVED" &&
+                                      o.status !== "AUTO_APPROVED",
+                                  )
+                                  .reduce(
+                                    (s, o) => s + (o.requestedMinutes || 0),
+                                    0,
+                                  );
+                                const regularM = Math.max(
+                                  0,
+                                  totalM - unapprovedOTM,
+                                );
                                 return isActiveSession(session) ? (
-                                  <span className="text-sm font-bold text-green-600">In Progress</span>
+                                  <span className="text-sm font-bold text-green-600">
+                                    In Progress
+                                  </span>
                                 ) : (
-                                  <span className="text-sm font-bold text-gray-900">{formatDuration(regularM)}</span>
+                                  <span className="text-sm font-bold text-gray-900">
+                                    {formatDuration(regularM)}
+                                  </span>
                                 );
                               })()}
                             </div>
@@ -1049,23 +1205,64 @@ const TimeRecords = () => {
                           {/* OT summary row */}
                           {(() => {
                             const otEntries = session.overtimeEntries || [];
-                            const shiftExtM = otEntries.filter(o => o.type === 'SHIFT_EXTENSION').reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-                            const extraTimeM = otEntries.filter(o => o.type === 'OFF_SHIFT').reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-                            if (shiftExtM === 0 && extraTimeM === 0) return null;
+                            const shiftExtM = otEntries
+                              .filter((o) => o.type === "SHIFT_EXTENSION")
+                              .reduce(
+                                (s, o) => s + (o.requestedMinutes || 0),
+                                0,
+                              );
+                            const extraTimeM = otEntries
+                              .filter((o) => o.type === "OFF_SHIFT")
+                              .reduce(
+                                (s, o) => s + (o.requestedMinutes || 0),
+                                0,
+                              );
+                            if (shiftExtM === 0 && extraTimeM === 0)
+                              return null;
                             return (
                               <div className="mt-3 flex items-center gap-6 text-sm text-gray-700">
-                                {shiftExtM > 0 && (
-                                  <div>
-                                    <p className="text-[10px] text-gray-400 uppercase">Shift Ext.</p>
-                                    <div className="font-semibold text-purple-600">{formatDuration(shiftExtM)}</div>
-                                  </div>
-                                )}
-                                {extraTimeM > 0 && (
-                                  <div>
-                                    <p className="text-[10px] text-gray-400 uppercase">Off‑Shift</p>
-                                    <div className="font-semibold text-orange-600">{formatDuration(extraTimeM)}</div>
-                                  </div>
-                                )}
+                                {otEntries
+                                  .filter((o) => o.type === "SHIFT_EXTENSION")
+                                  .map((ot, i) => (
+                                    <div key={i}>
+                                      <p className="text-[10px] text-gray-400 uppercase">
+                                        Shift Ext.
+                                      </p>
+                                      <div className="font-semibold text-purple-600">
+                                        {formatDuration(ot.requestedMinutes)}
+                                      </div>
+                                      <span
+                                        className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                      >
+                                        {ot.status === "APPROVED"
+                                          ? "Approved"
+                                          : ot.status === "REJECTED"
+                                            ? "Rejected"
+                                            : "Pending"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                {otEntries
+                                  .filter((o) => o.type === "OFF_SHIFT")
+                                  .map((ot, i) => (
+                                    <div key={i}>
+                                      <p className="text-[10px] text-gray-400 uppercase">
+                                        Off‑Shift
+                                      </p>
+                                      <div className="font-semibold text-orange-600">
+                                        {formatDuration(ot.requestedMinutes)}
+                                      </div>
+                                      <span
+                                        className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                      >
+                                        {ot.status === "APPROVED"
+                                          ? "Approved"
+                                          : ot.status === "REJECTED"
+                                            ? "Rejected"
+                                            : "Pending"}
+                                      </span>
+                                    </div>
+                                  ))}
                               </div>
                             );
                           })()}
@@ -1234,7 +1431,10 @@ const TimeRecords = () => {
       {/* Add Time Modal */}
       <Modal
         isOpen={showAddTimeModal}
-        onClose={() => { setShowAddTimeModal(false); setAddTimeError(null); }}
+        onClose={() => {
+          setShowAddTimeModal(false);
+          setAddTimeError(null);
+        }}
         title="Add Time Entry"
         size="md"
       >
@@ -1342,7 +1542,7 @@ const TimeRecords = () => {
           <div className="space-y-6">
             {/* Session Summary */}
             <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-5">
                 <div>
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
                     Date
@@ -1353,12 +1553,27 @@ const TimeRecords = () => {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
-                    Time
+                    Actual Time
                   </p>
                   <p className="font-semibold text-gray-900 mt-1">
                     {formatTime(selectedSession.startTime)}
-                    {selectedSession.endTime &&
-                      ` - ${formatTime(selectedSession.endTime)}`}
+                    {selectedSession.endTime
+                      ? ` - ${formatTime(selectedSession.endTime)}`
+                      : isActiveSession(selectedSession)
+                        ? " - Active"
+                        : ""}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                    Billing Time
+                  </p>
+                  <p className="font-semibold text-blue-700 mt-1">
+                    {selectedSession.billingStart && selectedSession.billingEnd
+                      ? `${formatTime(selectedSession.billingStart)} - ${formatTime(selectedSession.billingEnd)}`
+                      : isActiveSession(selectedSession)
+                        ? "In Progress"
+                        : "—"}
                   </p>
                 </div>
                 <div>
@@ -1366,7 +1581,9 @@ const TimeRecords = () => {
                     Duration
                   </p>
                   <p className="font-semibold text-green-600 mt-1">
-                    {formatDuration(selectedSession.totalMinutes)}
+                    {isActiveSession(selectedSession)
+                      ? "In Progress"
+                      : formatDuration(Math.max(0, selectedSession.totalMinutes || 0))}
                   </p>
                 </div>
                 <div>
@@ -1400,24 +1617,14 @@ const TimeRecords = () => {
                           : isDenied
                             ? "Denied"
                             : "Pending";
-                        const timeRange =
-                          ot.type === "OFF_SHIFT"
-                            ? `${formatTime12(ot.requestedStartTime)} → ${formatTime12(ot.requestedEndTime)}`
-                            : ot.estimatedEndTime
-                              ? `until ${formatTime12(ot.estimatedEndTime)}`
-                              : "";
                         return (
                           <div
                             key={ot.id || otIdx}
                             className={`px-3 py-1.5 rounded-lg border text-xs font-medium ${badgeBg}`}
                           >
                             +{formatDurationShort(ot.requestedMinutes)} ·{" "}
+                            {ot.type === "SHIFT_EXTENSION" ? "Shift Extension" : "Off-Shift"} ·{" "}
                             {badgeLabel}
-                            {timeRange && (
-                              <span className="text-gray-500 ml-1">
-                                ({timeRange})
-                              </span>
-                            )}
                           </div>
                         );
                       })}

@@ -334,9 +334,23 @@ const TimeRecords = () => {
                         {/* OT (Ext / Off-Shift) */}
                         <td className="py-2.5 px-3 text-sm text-center">
                           {(shiftExtM > 0 || extraTimeM > 0) ? (
-                            <div className="flex flex-col items-center gap-0.5">
-                              {shiftExtM > 0 && <span className="text-xs text-purple-600 font-medium">{formatHours(shiftExtM / 60)} ext</span>}
-                              {extraTimeM > 0 && <span className="text-xs text-orange-600 font-medium">{formatHours(extraTimeM / 60)} off</span>}
+                            <div className="flex flex-col items-center gap-1">
+                              {(rec.overtimeEntries || []).filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
+                                <div key={i} className="flex flex-col items-center">
+                                  <span className="text-xs text-purple-600 font-medium">{formatHours(ot.requestedMinutes / 60)} ext</span>
+                                  <span className={`text-[10px] ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
+                                    {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : 'pending'}
+                                  </span>
+                                </div>
+                              ))}
+                              {(rec.overtimeEntries || []).filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
+                                <div key={i} className="flex flex-col items-center">
+                                  <span className="text-xs text-orange-600 font-medium">{formatHours(ot.requestedMinutes / 60)} off</span>
+                                  <span className={`text-[10px] ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
+                                    {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : 'pending'}
+                                  </span>
+                                </div>
+                              ))}
                             </div>
                           ) : (
                             <span className="text-gray-400">—</span>
@@ -393,8 +407,12 @@ const TimeRecords = () => {
                     <div className="flex items-center gap-3 mt-1 text-xs">
                       {(rec.breakMinutes || 0) > 0 && <span className="text-yellow-600">Break: {formatHours(rec.breakMinutes / 60)}</span>}
                       <span className={regularM > 0 ? 'text-gray-700' : 'text-gray-400'}>Reg: {formatHours(regularM / 60)}</span>
-                      {shiftExtM > 0 && <span className="text-purple-600">Ext: {formatHours(shiftExtM / 60)}</span>}
-                      {extraTimeM > 0 && <span className="text-orange-600">Extra: {formatHours(extraTimeM / 60)}</span>}
+                      {(rec.overtimeEntries || []).filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
+                        <span key={i} className="text-purple-600">Ext: {formatHours(ot.requestedMinutes / 60)} <span className={`${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>{ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '(pending)'}</span></span>
+                      ))}
+                      {(rec.overtimeEntries || []).filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
+                        <span key={i} className="text-orange-600">Extra: {formatHours(ot.requestedMinutes / 60)} <span className={`${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>{ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '(pending)'}</span></span>
+                      ))}
                     </div>
                   </>
                 )}

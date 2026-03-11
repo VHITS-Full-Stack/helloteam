@@ -23,9 +23,12 @@ import {
   TrendingUp,
   FileCheck
 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
 import { PERMISSIONS } from '../../config/permissions';
+import clientPortalService from '../../services/clientPortal.service';
+import overtimeService from '../../services/overtime.service';
+import adminPortalService from '../../services/adminPortal.service';
 
 const Sidebar = ({
   portalType = 'employee',
@@ -34,6 +37,46 @@ const Sidebar = ({
 }) => {
   const [collapsed, setCollapsed] = useState(false);
   const { hasPermission, loading: permissionsLoading } = usePermissions();
+  const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+
+  // Fetch pending approval counts for sidebar badge
+  const fetchPendingCounts = useCallback(async () => {
+    if (portalType === 'client') {
+      try {
+        const [approvalsRes, otSummaryRes] = await Promise.all([
+          clientPortalService.getApprovals({ status: 'pending', type: 'leave' }),
+          overtimeService.getOvertimeSummary({}),
+        ]);
+        let total = 0;
+        if (approvalsRes.success) {
+          total += approvalsRes.data?.summary?.pending || 0;
+        }
+        if (otSummaryRes.success) {
+          total += otSummaryRes.data?.pending || 0;
+        }
+        setPendingApprovalCount(total);
+      } catch (e) {
+        console.error('Failed to fetch pending counts:', e);
+      }
+    } else if (portalType === 'admin') {
+      try {
+        const res = await adminPortalService.getPendingActions();
+        if (res.success && res.counts) {
+          setPendingApprovalCount((res.counts.pendingLeave || 0) + (res.counts.pendingOvertime || 0));
+        }
+      } catch (e) {
+        console.error('Failed to fetch admin pending counts:', e);
+      }
+    }
+  }, [portalType]);
+
+  useEffect(() => {
+    fetchPendingCounts();
+    // Re-fetch when approvals are updated
+    const handleUpdate = () => fetchPendingCounts();
+    window.addEventListener('approvals-updated', handleUpdate);
+    return () => window.removeEventListener('approvals-updated', handleUpdate);
+  }, [fetchPendingCounts]);
 
   const employeeLinks = [
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -53,7 +96,7 @@ const Sidebar = ({
     { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
     { to: '/client/tasks', icon: ClipboardList, label: 'Tasks' },
     { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
-    { to: '/client/approvals', icon: CheckSquare, label: 'Approvals' },
+    { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
     // { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing' },
@@ -109,7 +152,8 @@ const Sidebar = ({
       to: '/admin/approvals',
       icon: CheckSquare,
       label: 'Approvals',
-      permission: PERMISSIONS.APPROVALS.VIEW
+      permission: PERMISSIONS.APPROVALS.VIEW,
+      badge: pendingApprovalCount
     },
     {
       to: '/admin/payroll',
@@ -239,7 +283,7 @@ const Sidebar = ({
             key={link.to}
             to={link.to}
             className={({ isActive }) => `
-              flex items-center gap-3 px-4 py-3 rounded-xl
+              relative flex items-center gap-3 px-4 py-3 rounded-xl
               transition-all duration-200 group
               ${isActive
                 ? 'bg-secondary text-primary-900 shadow-lg font-semibold'
@@ -250,7 +294,19 @@ const Sidebar = ({
             title={collapsed ? link.label : ''}
           >
             <link.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
-            {!collapsed && <span className="font-medium">{link.label}</span>}
+            {!collapsed && (
+              <>
+                <span className="font-medium flex-1">{link.label}</span>
+                {link.badge > 0 && (
+                  <span className="ml-auto px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
+                    {link.badge}
+                  </span>
+                )}
+              </>
+            )}
+            {collapsed && link.badge > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+            )}
           </NavLink>
         ))}
       </nav>
