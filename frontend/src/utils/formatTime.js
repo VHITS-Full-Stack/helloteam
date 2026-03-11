@@ -17,17 +17,19 @@ export const formatDuration = (minutes) => {
   return `${hrs}h ${mins}m`;
 };
 
-/** Convert "HH:MM" (24h) or "HH:MM AM/PM" to "h:MM AM/PM" (12h) */
+/** Convert "HH:MM" (24h UTC) or "HH:MM AM/PM" to "h:MM AM/PM EST" (12h) */
 export const formatTime12 = (timeStr) => {
   if (!timeStr) return '';
   // Already 12h format — return as-is
   if (/AM|PM/i.test(timeStr)) return timeStr;
-  // 24h "HH:MM" format — convert
+  // 24h "HH:MM" format — convert from UTC to EST (UTC-5)
   if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
     const [h, m] = timeStr.split(':').map(Number);
-    const period = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+    let estH = h - 5;
+    if (estH < 0) estH += 24;
+    const period = estH >= 12 ? 'PM' : 'AM';
+    const hour12 = estH === 0 ? 12 : estH > 12 ? estH - 12 : estH;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period} EST`;
   }
   return timeStr;
 };

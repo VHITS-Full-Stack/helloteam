@@ -175,19 +175,39 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           continue;
         }
 
-        // Check if the employee has an APPROVED OT request for today
+        // Check if the employee has APPROVED OT requests for today
         // Only APPROVED requests skip the controlled pause (pending ≠ approved per spec)
-        const approvedOTRequest = await prisma.overtimeRequest.findFirst({
+        const approvedOTRequests = await prisma.overtimeRequest.findMany({
           where: {
             employeeId: employee.id,
             clientId: assignment.clientId,
             date: recordDate,
-            status: 'APPROVED',
+            status: { in: ['APPROVED', 'AUTO_APPROVED'] },
           },
         });
 
-        if (approvedOTRequest) {
-          // Employee has approved OT — skip auto-clock-out, let them work
+        if (approvedOTRequests.length > 0) {
+          // Sum all approved OT minutes to get total extended time
+          const totalApprovedOTMinutes = approvedOTRequests.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+          const extendedEndUTC = new Date(shiftEndUTC.getTime() + totalApprovedOTMinutes * 60000);
+          const minutesUntilExtendedEnd = (extendedEndUTC.getTime() - now.getTime()) / 60000;
+
+          console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: approved OT ${totalApprovedOTMinutes}min, extendedEndUTC=${extendedEndUTC.toISOString()}, minutesUntilExtendedEnd=${minutesUntilExtendedEnd.toFixed(1)}`);
+
+          if (minutesUntilExtendedEnd > 0) {
+            // Still within approved OT window — let them work
+            continue;
+          }
+
+          // Approved OT time has elapsed — auto-clock-out at extended end time
+          if (!session.shiftEndAction) {
+            await prisma.workSession.update({
+              where: { id: session.id },
+              data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
+            });
+            await autoClockOut(session, employee, extendedEndUTC, schedule, io);
+            console.log(`[Shift-End] Auto-clock-out after approved OT for ${employee.firstName} ${employee.lastName} at ${extendedEndUTC.toISOString()}`);
+          }
           continue;
         }
 

@@ -499,6 +499,13 @@ const Onboarding = () => {
     });
   };
 
+  // Clear token when onboarding is completed so user must login with credentials
+  useEffect(() => {
+    if (completed) {
+      api.removeToken();
+    }
+  }, [completed]);
+
   if (loading || (!tokenVerified && !error)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -523,13 +530,6 @@ const Onboarding = () => {
       </div>
     );
   }
-
-  // Clear token when onboarding is completed so user must login with credentials
-  useEffect(() => {
-    if (completed) {
-      api.removeToken();
-    }
-  }, [completed]);
 
   if (completed) {
     return (
