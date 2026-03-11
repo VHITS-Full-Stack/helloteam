@@ -10,10 +10,11 @@ import {
   AlertCircle,
   Loader2,
   RotateCcw,
+  TrendingUp,
 } from "lucide-react";
 import { Card, Button, Badge, Avatar } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
-import { formatHours, formatDuration } from "../../utils/formatTime";
+import { formatHours } from "../../utils/formatTime";
 
 const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;
@@ -26,12 +27,19 @@ const formatClockTime = (dateStr, tz) => {
   });
 };
 
+const formatScheduleTime = (timeStr) => {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 || 12;
+  return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
+};
+
 const TimesheetDetail = () => {
   const { employeeId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Employee info from navigation state (for fast initial render)
   const stateData = location.state || {};
   const [employeeInfo, setEmployeeInfo] = useState({
     name: stateData.employeeName || "",
@@ -42,7 +50,7 @@ const TimesheetDetail = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [halfFilter, setHalfFilter] = useState("full"); // 'full' | '1st' | '2nd'
+  const [halfFilter, setHalfFilter] = useState("full");
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -51,13 +59,14 @@ const TimesheetDetail = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
-  const [clientTimezone, setClientTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const [clientTimezone, setClientTimezone] = useState(
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
   const [showOTApproveModal, setShowOTApproveModal] = useState(false);
   const [showOTRejectModal, setShowOTRejectModal] = useState(false);
   const [selectedOTRecord, setSelectedOTRecord] = useState(null);
   const [otRejectReason, setOtRejectReason] = useState("");
 
-  // Fetch data from API
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -73,7 +82,8 @@ const TimesheetDetail = () => {
         endDate,
       });
       if (response.success) {
-        if (response.data.clientTimezone) setClientTimezone(response.data.clientTimezone);
+        if (response.data.clientTimezone)
+          setClientTimezone(response.data.clientTimezone);
         const empRecord = (response.data.records || []).find(
           (r) => r.id === employeeId,
         );
@@ -101,7 +111,6 @@ const TimesheetDetail = () => {
     fetchData();
   }, [fetchData]);
 
-  // Navigation handlers
   const handlePreviousMonth = () => {
     setCurrentMonth(
       (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
@@ -182,9 +191,7 @@ const TimesheetDetail = () => {
         setError(response.error || "Failed to approve overtime");
       }
     } catch (err) {
-      setError(
-        err?.error || err?.message || "Failed to approve overtime",
-      );
+      setError(err?.error || err?.message || "Failed to approve overtime");
     } finally {
       setActionLoading(false);
     }
@@ -207,15 +214,13 @@ const TimesheetDetail = () => {
         setError(response.error || "Failed to deny overtime");
       }
     } catch (err) {
-      setError(
-        err?.error || err?.message || "Failed to deny overtime",
-      );
+      setError(err?.error || err?.message || "Failed to deny overtime");
     } finally {
       setActionLoading(false);
     }
   };
 
-  // Build day data map: dayOfMonth -> record
+  // Build day data map
   const dayDataMap = {};
   record?.records?.forEach((rec) => {
     const d = new Date(rec.date);
@@ -226,7 +231,8 @@ const TimesheetDetail = () => {
   const totalHours = record?.totalHours ?? 0;
   const overtimeHours = record?.overtimeHours ?? 0;
   const regularHours = totalHours - overtimeHours;
-  const otEntryCount = record?.overtimeEntries?.length ?? 0;
+  const approvedOTHours = record?.approvedOvertimeHours ?? 0;
+  const pendingOTHours = record?.unapprovedOvertimeHours ?? 0;
 
   const getStatusBadge = (status, holidayName) => {
     switch (status) {
@@ -281,7 +287,7 @@ const TimesheetDetail = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header with back button */}
+      {/* Header */}
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate("/client/time-records")}
@@ -318,7 +324,6 @@ const TimesheetDetail = () => {
       {/* Period Navigation + Half Filter */}
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Half filter toggle */}
           <div className="inline-flex bg-gray-100 rounded-lg p-1">
             {[
               { key: "full", label: "Full Month" },
@@ -334,8 +339,6 @@ const TimesheetDetail = () => {
               </button>
             ))}
           </div>
-
-          {/* Month navigation */}
           <div className="flex items-center gap-3">
             <button
               onClick={handlePreviousMonth}
@@ -384,8 +387,8 @@ const TimesheetDetail = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card padding="sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <Clock className="w-5 h-5 text-green-600" />
+                <div className="p-2.5 bg-primary-50 rounded-xl">
+                  <TrendingUp className="w-5 h-5 text-primary-600" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -399,8 +402,8 @@ const TimesheetDetail = () => {
             </Card>
             <Card padding="sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-50 rounded-lg">
-                  <Calendar className="w-5 h-5 text-blue-600" />
+                <div className="p-2.5 bg-blue-50 rounded-xl">
+                  <Clock className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -414,642 +417,41 @@ const TimesheetDetail = () => {
             </Card>
             <Card padding="sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-orange-50 rounded-lg">
-                  <Timer className="w-5 h-5 text-orange-600" />
+                <div className="p-2.5 bg-green-50 rounded-xl">
+                  <Timer className="w-5 h-5 text-green-600" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Overtime
+                    Approved OT
                   </p>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {formatHours(overtimeHours)}
+                  <p className="text-2xl font-bold text-green-600">
+                    {approvedOTHours > 0 ? formatHours(approvedOTHours) : "0h"}
                   </p>
                 </div>
               </div>
             </Card>
             <Card padding="sm">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-yellow-50 rounded-lg">
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
+                <div className="p-2.5 bg-amber-50 rounded-xl">
+                  <AlertCircle className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    OT Entries
+                    Pending OT
                   </p>
-                  <p className="text-2xl font-bold text-yellow-600">
-                    {otEntryCount}
+                  <p className="text-2xl font-bold text-amber-600">
+                    {pendingOTHours > 0 ? formatHours(pendingOTHours) : "0h"}
                   </p>
                 </div>
               </div>
             </Card>
           </div>
 
-          {/* Monthly View — single flat table */}
-          {(() => {
-            const year = currentMonth.getFullYear();
-            const month = currentMonth.getMonth();
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const today = new Date();
-            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-            // Determine day range based on half filter
-            const rangeStart = halfFilter === "2nd" ? 16 : 1;
-            const rangeEnd = halfFilter === "1st" ? 15 : daysInMonth;
-
-            // Compute filtered totals
-            let filteredTotalMins = 0;
-            let filteredOtMins = 0;
-            let filteredApprovedOtMins = 0;
-            for (let day = rangeStart; day <= rangeEnd; day++) {
-              const rec = dayDataMap[day];
-              if (rec) {
-                filteredTotalMins += rec.totalMinutes || 0;
-                filteredOtMins += rec.overtimeMinutes || 0;
-                filteredApprovedOtMins += (rec.overtimeEntries || [])
-                  .filter(
-                    (ot) =>
-                      ot.status === "APPROVED" || ot.status === "AUTO_APPROVED",
-                  )
-                  .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-              }
-            }
-            const filteredRegularMins = filteredTotalMins - filteredOtMins;
-            const filteredDisplayTotal =
-              filteredRegularMins + filteredApprovedOtMins;
-            const totalLabel =
-              halfFilter === "1st"
-                ? "1st Half Total"
-                : halfFilter === "2nd"
-                  ? "2nd Half Total"
-                  : "Monthly Total";
-
-            // Format schedule time (HH:MM -> readable)
-            const formatScheduleTime = (timeStr) => {
-              if (!timeStr) return null;
-              const [h, m] = timeStr.split(":").map(Number);
-              const ampm = h >= 12 ? "PM" : "AM";
-              const hr = h % 12 || 12;
-              return `${hr}:${String(m).padStart(2, "0")} ${ampm}`;
-            };
-
-            return (
-              <Card padding="none">
-                {/* Desktop table */}
-                <div className="hidden md:block">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Date
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Schedule
-                        </th>
-                        <th className="text-center text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Billing In/Out
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Break Duration
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Regular Hours
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Shift Extension Hours
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Off‑Shift / Extra Time
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Total
-                        </th>
-                        <th className="text-right text-xs font-medium text-gray-500 uppercase tracking-wider py-2.5 px-5">
-                          Approval Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {(() => {
-                        const rows = [];
-                        for (let day = rangeStart; day <= rangeEnd; day++) {
-                          const date = new Date(year, month, day);
-                          const dayOfWeek = date.getDay();
-                          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                          const rec = dayDataMap[day];
-                          const totalM = rec ? rec.totalMinutes || 0 : 0;
-
-                          // Skip days with no work data
-                          if (!rec) continue;
-                          // Skip weekends with no hours
-                          if (isWeekend && totalM === 0) continue;
-
-                          const isToday =
-                            today.getDate() === day &&
-                            today.getMonth() === month &&
-                            today.getFullYear() === year;
-                          const recStatus = rec?.status?.toLowerCase();
-                          const isLeaveOrHoliday =
-                            recStatus === "paid_leave" ||
-                            recStatus === "unpaid_leave" ||
-                            recStatus === "holiday";
-                          const otM = rec ? rec.overtimeMinutes || 0 : 0;
-                          const approvedOtM = (rec?.overtimeEntries || [])
-                            .filter(
-                              (ot) =>
-                                ot.status === "APPROVED" ||
-                                ot.status === "AUTO_APPROVED",
-                            )
-                            .reduce(
-                              (sum, ot) => sum + (ot.requestedMinutes || 0),
-                              0,
-                            );
-                          const regularM = Math.max(0, totalM - otM);
-                          const displayTotal = regularM + approvedOtM;
-                          const dateLabel = date.toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          });
-                          const schedStart = formatScheduleTime(
-                            rec?.scheduledStart,
-                          );
-                          const schedEnd = formatScheduleTime(
-                            rec?.scheduledEnd,
-                          );
-
-                          const hasOT = otM > 0;
-                          const rowBg = isLeaveOrHoliday
-                            ? "bg-gray-50/50"
-                            : hasOT
-                              ? "bg-yellow-50/60"
-                              : isToday
-                                ? "bg-primary-50/30"
-                                : "";
-
-                          // Determine status display
-                          const getRowStatus = () => {
-                            if (!rec)
-                              return (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-                                  Not Started
-                                </span>
-                              );
-                            if (hasOT && recStatus === "pending")
-                              return (
-                                <Badge
-                                  variant="warning"
-                                  className="bg-orange-100 text-orange-700"
-                                >
-                                  OT Pending
-                                </Badge>
-                              );
-                            return getStatusBadge(recStatus);
-                          };
-
-                          rows.push(
-                            <tr key={day} className={rowBg}>
-                              <td className="py-3 px-5 text-sm">
-                                <span
-                                  className={`font-medium ${isToday ? "text-primary-700" : "text-gray-900"}`}
-                                >
-                                  {dateLabel}
-                                </span>
-                              </td>
-                              <td className="py-3 px-5 text-sm text-gray-600">
-                                {schedStart && schedEnd ? (
-                                  <span className="whitespace-nowrap">
-                                    {schedStart} - {schedEnd}
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-400">&mdash;</span>
-                                )}
-                              </td>
-                              {isLeaveOrHoliday ? (
-                                <td
-                                  colSpan={6}
-                                  className="py-3 px-5 text-sm text-center"
-                                >
-                                  {getStatusBadge(recStatus, rec?.holidayName)}
-                                </td>
-                              ) : (
-                                <>
-                                  <td className="py-3 px-5 text-sm text-center">
-                                    {rec?.billingStart && rec?.billingEnd ? (
-                                      <span className="text-gray-900 font-medium">
-                                        {formatClockTime(rec.billingStart, clientTimezone)}
-                                        <span className="text-gray-300 mx-1">–</span>
-                                        {formatClockTime(rec.billingEnd, clientTimezone)}
-                                      </span>
-                                    ) : rec?.clockIn ? (
-                                      <span className="text-gray-700">
-                                        {formatClockTime(rec.clockIn, clientTimezone)}
-                                        <span className="text-gray-300 mx-1">–</span>
-                                        {rec?.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : '—'}
-                                      </span>
-                                    ) : (
-                                      <span className="text-gray-400">&mdash;</span>
-                                    )}
-                                    {rec?.isLate && <span className="ml-1 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>}
-                                  </td>
-                                  <td className="py-3 px-5 text-sm">
-                                    <span
-                                      className={
-                                        (rec?.breakMinutes || 0) > 0
-                                          ? "font-medium text-yellow-600"
-                                          : "text-gray-400"
-                                      }
-                                    >
-                                      {(rec?.breakMinutes || 0) > 0
-                                        ? formatHours(rec.breakMinutes / 60)
-                                        : "—"}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-5 text-sm">
-                                    <span
-                                      className={
-                                        regularM > 0
-                                          ? "font-medium text-gray-900"
-                                          : "text-gray-400"
-                                      }
-                                    >
-                                      {formatHours(regularM / 60)}
-                                    </span>
-                                  </td>
-                                  {(() => {
-                                    const shiftExtM = (
-                                      rec?.overtimeEntries || []
-                                    )
-                                      .filter(
-                                        (ot) => ot.type === "SHIFT_EXTENSION",
-                                      )
-                                      .reduce(
-                                        (sum, ot) =>
-                                          sum + (ot.requestedMinutes || 0),
-                                        0,
-                                      );
-                                    const extraTimeM = (
-                                      rec?.overtimeEntries || []
-                                    )
-                                      .filter((ot) => ot.type === "OFF_SHIFT")
-                                      .reduce(
-                                        (sum, ot) =>
-                                          sum + (ot.requestedMinutes || 0),
-                                        0,
-                                      );
-                                    return (
-                                      <>
-                                        <td className="py-3 px-5 text-sm">
-                                          <span
-                                            className={
-                                              shiftExtM > 0
-                                                ? "font-medium text-purple-600"
-                                                : "text-gray-400"
-                                            }
-                                          >
-                                            {shiftExtM > 0
-                                              ? formatHours(shiftExtM / 60)
-                                              : "—"}
-                                          </span>
-                                        </td>
-                                        <td className="py-3 px-5 text-sm">
-                                          <span
-                                            className={
-                                              extraTimeM > 0
-                                                ? "font-medium text-orange-600"
-                                                : "text-gray-400"
-                                            }
-                                          >
-                                            {extraTimeM > 0
-                                              ? formatHours(extraTimeM / 60)
-                                              : "—"}
-                                          </span>
-                                        </td>
-                                      </>
-                                    );
-                                  })()}
-                                  <td className="py-3 px-5 text-sm">
-                                    <span
-                                      className={
-                                        displayTotal > 0
-                                          ? "font-semibold text-green-700"
-                                          : "text-gray-400"
-                                      }
-                                    >
-                                      {formatHours(displayTotal / 60)}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-5 text-right">
-                                    <div className="flex items-center justify-end gap-2">
-                                      {getRowStatus()}
-                                      {hasOT && recStatus === "pending" && rec?.timeRecordId && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleApproveOvertime(rec)}
-                                            className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-                                          >
-                                            Approve OT
-                                          </button>
-                                          <button
-                                            type="button"
-                                            onClick={() => handleRejectOvertime(rec)}
-                                            className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-                                          >
-                                            Deny OT
-                                          </button>
-                                        </>
-                                      )}
-                                    </div>
-                                  </td>
-                                </>
-                              )}
-                            </tr>,
-                          );
-                        }
-                        return rows;
-                      })()}
-                    </tbody>
-                    <tfoot>
-                      {(() => {
-                        let filteredShiftExtMins = 0;
-                        let filteredExtraTimeMins = 0;
-                        for (let d = rangeStart; d <= rangeEnd; d++) {
-                          const r = dayDataMap[d];
-                          if (r) {
-                            filteredShiftExtMins += (r.overtimeEntries || [])
-                              .filter((ot) => ot.type === "SHIFT_EXTENSION")
-                              .reduce(
-                                (sum, ot) => sum + (ot.requestedMinutes || 0),
-                                0,
-                              );
-                            filteredExtraTimeMins += (r.overtimeEntries || [])
-                              .filter((ot) => ot.type === "OFF_SHIFT")
-                              .reduce(
-                                (sum, ot) => sum + (ot.requestedMinutes || 0),
-                                0,
-                              );
-                          }
-                        }
-                        return (
-                          <tr className="bg-gray-50 border-t border-gray-200">
-                            <td className="py-3 px-5 text-sm font-semibold text-gray-700">
-                              {totalLabel}
-                            </td>
-                            <td colSpan={4} />
-                            <td className="py-3 px-5 text-sm font-semibold text-gray-900">
-                              {formatHours(filteredRegularMins / 60)}
-                            </td>
-                            <td className="py-3 px-5 text-sm font-semibold text-purple-700">
-                              {filteredShiftExtMins > 0
-                                ? formatHours(filteredShiftExtMins / 60)
-                                : "0h"}
-                            </td>
-                            <td className="py-3 px-5 text-sm font-semibold text-orange-700">
-                              {filteredExtraTimeMins > 0
-                                ? formatHours(filteredExtraTimeMins / 60)
-                                : "0h"}
-                            </td>
-                            <td className="py-3 px-5 text-sm font-semibold text-green-700">
-                              {formatHours(filteredDisplayTotal / 60)}
-                            </td>
-                            <td className="py-3 px-5" />
-                          </tr>
-                        );
-                      })()}
-                    </tfoot>
-                  </table>
-                </div>
-
-                {/* Mobile cards */}
-                <div className="md:hidden px-4 py-4 space-y-2">
-                  {(() => {
-                    const items = [];
-                    for (let day = rangeStart; day <= rangeEnd; day++) {
-                      const date = new Date(year, month, day);
-                      const dayOfWeek = date.getDay();
-                      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-                      const rec = dayDataMap[day];
-                      const totalM = rec ? rec.totalMinutes || 0 : 0;
-
-                      // Skip days with no work data
-                      if (!rec) continue;
-                      // Skip weekends with no hours
-                      if (isWeekend && totalM === 0) continue;
-
-                      const recStatus = rec?.status?.toLowerCase();
-                      const isLeaveOrHoliday =
-                        recStatus === "paid_leave" ||
-                        recStatus === "unpaid_leave" ||
-                        recStatus === "holiday";
-                      const otM = rec ? rec.overtimeMinutes || 0 : 0;
-                      const approvedOtM = (rec?.overtimeEntries || [])
-                        .filter(
-                          (ot) =>
-                            ot.status === "APPROVED" ||
-                            ot.status === "AUTO_APPROVED",
-                        )
-                        .reduce(
-                          (sum, ot) => sum + (ot.requestedMinutes || 0),
-                          0,
-                        );
-                      const regularM = Math.max(0, totalM - otM);
-                      const displayTotal = regularM + approvedOtM;
-                      const dateLabel = date.toLocaleDateString("en-US", {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                      });
-                      const schedStart = formatScheduleTime(
-                        rec?.scheduledStart,
-                      );
-                      const schedEnd = formatScheduleTime(rec?.scheduledEnd);
-
-                      const hasOT = otM > 0;
-                      const cardBg = isLeaveOrHoliday
-                        ? "bg-gray-50"
-                        : hasOT
-                          ? "bg-yellow-50 border-yellow-200"
-                          : "bg-white border-gray-100";
-
-                      // Determine status display for mobile
-                      const getMobileStatus = () => {
-                        if (hasOT && recStatus === "pending")
-                          return (
-                            <Badge
-                              variant="warning"
-                              className="bg-orange-100 text-orange-700"
-                            >
-                              OT Pending
-                            </Badge>
-                          );
-                        return getStatusBadge(recStatus, rec?.holidayName);
-                      };
-
-                      items.push(
-                        <div
-                          key={day}
-                          className={`px-3 py-2.5 rounded-lg border ${cardBg}`}
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-sm font-medium text-gray-900">
-                              {dateLabel}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {getMobileStatus()}
-                              {hasOT && recStatus === "pending" && rec?.timeRecordId && (
-                                <>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApproveOvertime(rec)}
-                                    className="px-2 py-1 rounded-md text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
-                                  >
-                                    Approve
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRejectOvertime(rec)}
-                                    className="px-2 py-1 rounded-md text-[11px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
-                                  >
-                                    Deny
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          {schedStart && schedEnd && (
-                            <p className="text-xs text-gray-400 mt-1">
-                              Schedule: {schedStart} - {schedEnd}
-                            </p>
-                          )}
-                          {!isLeaveOrHoliday && (
-                            <>
-                              <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
-                                {rec?.billingStart && rec?.billingEnd ? (
-                                  <>
-                                    <span>In: {formatClockTime(rec.billingStart, clientTimezone)}</span>
-                                    <span>Out: {formatClockTime(rec.billingEnd, clientTimezone)}</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span>In: {rec?.clockIn ? formatClockTime(rec.clockIn, clientTimezone) : "—"}</span>
-                                    <span>Out: {rec?.clockOut ? formatClockTime(rec.clockOut, clientTimezone) : "—"}</span>
-                                  </>
-                                )}
-                                {rec?.isLate && <span className="text-red-600 font-semibold">LATE</span>}
-                                {(rec?.breakMinutes || 0) > 0 && (
-                                  <span className="text-yellow-600">
-                                    Break: {formatHours(rec.breakMinutes / 60)}
-                                  </span>
-                                )}
-                              </div>
-                              {(() => {
-                                const shiftExtM = (rec?.overtimeEntries || [])
-                                  .filter((ot) => ot.type === "SHIFT_EXTENSION")
-                                  .reduce(
-                                    (sum, ot) =>
-                                      sum + (ot.requestedMinutes || 0),
-                                    0,
-                                  );
-                                const extraTimeM = (rec?.overtimeEntries || [])
-                                  .filter((ot) => ot.type === "OFF_SHIFT")
-                                  .reduce(
-                                    (sum, ot) =>
-                                      sum + (ot.requestedMinutes || 0),
-                                    0,
-                                  );
-                                return (
-                                  <div className="flex items-center gap-3 mt-1 text-xs">
-                                    <span
-                                      className={
-                                        regularM > 0
-                                          ? "text-gray-700"
-                                          : "text-gray-400"
-                                      }
-                                    >
-                                      Reg: {formatHours(regularM / 60)}
-                                    </span>
-                                    {shiftExtM > 0 && (
-                                      <span className="text-purple-600">
-                                        Ext: {formatHours(shiftExtM / 60)}
-                                      </span>
-                                    )}
-                                    {extraTimeM > 0 && (
-                                      <span className="text-orange-600">
-                                        Extra: {formatHours(extraTimeM / 60)}
-                                      </span>
-                                    )}
-                                    <span
-                                      className={`ml-auto text-sm font-semibold ${displayTotal > 0 ? "text-green-700" : "text-gray-400"}`}
-                                    >
-                                      Total: {formatHours(displayTotal / 60)}
-                                    </span>
-                                  </div>
-                                );
-                              })()}
-                            </>
-                          )}
-                        </div>,
-                      );
-                    }
-                    return items;
-                  })()}
-                  {(() => {
-                    let mobileShiftExtMins = 0;
-                    let mobileExtraTimeMins = 0;
-                    for (let d = rangeStart; d <= rangeEnd; d++) {
-                      const r = dayDataMap[d];
-                      if (r) {
-                        mobileShiftExtMins += (r.overtimeEntries || [])
-                          .filter((ot) => ot.type === "SHIFT_EXTENSION")
-                          .reduce(
-                            (sum, ot) => sum + (ot.requestedMinutes || 0),
-                            0,
-                          );
-                        mobileExtraTimeMins += (r.overtimeEntries || [])
-                          .filter((ot) => ot.type === "OFF_SHIFT")
-                          .reduce(
-                            (sum, ot) => sum + (ot.requestedMinutes || 0),
-                            0,
-                          );
-                      }
-                    }
-                    return (
-                      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gray-100 font-semibold mt-2">
-                        <span className="text-sm text-gray-700">
-                          {totalLabel}
-                        </span>
-                        <div className="text-right text-sm">
-                          <span className="text-gray-900">
-                            {formatHours(filteredRegularMins / 60)} reg
-                          </span>
-                          {mobileShiftExtMins > 0 && (
-                            <span className="text-purple-600">
-                              {" "}
-                              + {formatHours(mobileShiftExtMins / 60)} ext
-                            </span>
-                          )}
-                          {mobileExtraTimeMins > 0 && (
-                            <span className="text-orange-600">
-                              {" "}
-                              + {formatHours(mobileExtraTimeMins / 60)} extra
-                            </span>
-                          )}
-                          <span className="text-green-700 font-bold ml-2">
-                            = {formatHours(filteredDisplayTotal / 60)}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </Card>
-            );
-          })()}
-
-          {/* Revision reason display */}
+          {/* Revision reason banner */}
           {(() => {
             const revisionRecord = record?.records?.find(
-              (r) => r.status === "REVISION_REQUESTED" && r.revisionReason,
+              (r) =>
+                r.status === "REVISION_REQUESTED" && r.revisionReason,
             );
             if (!revisionRecord) return null;
             return (
@@ -1059,6 +461,570 @@ const TimesheetDetail = () => {
                   {revisionRecord.revisionReason}
                 </p>
               </div>
+            );
+          })()}
+
+          {/* Monthly Table */}
+          {(() => {
+            const year = currentMonth.getFullYear();
+            const month = currentMonth.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+
+            const rangeStart = halfFilter === "2nd" ? 16 : 1;
+            const rangeEnd = halfFilter === "1st" ? 15 : daysInMonth;
+
+            // Compute filtered totals
+            let filteredTotalMins = 0;
+            let filteredOtMins = 0;
+            let filteredBreakMins = 0;
+            let filteredShiftExtMins = 0;
+            let filteredExtraTimeMins = 0;
+            for (let day = rangeStart; day <= rangeEnd; day++) {
+              const rec = dayDataMap[day];
+              if (rec) {
+                filteredTotalMins += rec.totalMinutes || 0;
+                filteredOtMins += rec.overtimeMinutes || 0;
+                filteredBreakMins += rec.breakMinutes || 0;
+                filteredShiftExtMins += (rec.overtimeEntries || [])
+                  .filter((ot) => ot.type === "SHIFT_EXTENSION")
+                  .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                filteredExtraTimeMins += (rec.overtimeEntries || [])
+                  .filter((ot) => ot.type === "OFF_SHIFT")
+                  .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+              }
+            }
+            const filteredRegularMins = filteredTotalMins - filteredOtMins;
+            const filteredOTTotal = filteredShiftExtMins + filteredExtraTimeMins;
+            const totalLabel =
+              halfFilter === "1st"
+                ? "1st Half Total"
+                : halfFilter === "2nd"
+                  ? "2nd Half Total"
+                  : "Monthly Total";
+
+            // Build filtered rows
+            const dayRows = [];
+            for (let day = rangeStart; day <= rangeEnd; day++) {
+              const date = new Date(year, month, day);
+              const dayOfWeek = date.getDay();
+              const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+              const rec = dayDataMap[day];
+              const totalM = rec ? rec.totalMinutes || 0 : 0;
+              if (!rec) continue;
+              if (isWeekend && totalM === 0) continue;
+
+              const isToday =
+                today.getDate() === day &&
+                today.getMonth() === month &&
+                today.getFullYear() === year;
+              const recStatus = rec?.status?.toLowerCase();
+              const isLeaveOrHoliday =
+                recStatus === "paid_leave" ||
+                recStatus === "unpaid_leave" ||
+                recStatus === "holiday";
+              const otEntries = rec?.overtimeEntries || [];
+              const otM = rec.overtimeMinutes || 0;
+              const unapprovedOTM = Math.min(
+                totalM,
+                otEntries
+                  .filter((o) => o.status !== "APPROVED" && o.status !== "AUTO_APPROVED")
+                  .reduce((s, o) => s + (o.requestedMinutes || 0), 0),
+              );
+              const regularM = totalM - unapprovedOTM;
+              const shiftExtEntries = otEntries.filter((ot) => ot.type === "SHIFT_EXTENSION");
+              const offShiftEntries = otEntries.filter((ot) => ot.type === "OFF_SHIFT");
+              const hasOT = shiftExtEntries.length > 0 || offShiftEntries.length > 0;
+              const dateLabel = date.toLocaleDateString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+              });
+              const schedStart = formatScheduleTime(rec?.scheduledStart);
+              const schedEnd = formatScheduleTime(rec?.scheduledEnd);
+
+              dayRows.push({
+                day,
+                date,
+                rec,
+                isToday,
+                recStatus,
+                isLeaveOrHoliday,
+                totalM,
+                regularM,
+                hasOT,
+                shiftExtEntries,
+                offShiftEntries,
+                dateLabel,
+                schedStart,
+                schedEnd,
+              });
+            }
+
+            return (
+              <Card padding="none" className="overflow-hidden">
+                {/* Desktop table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-4">
+                          Date
+                        </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
+                          Schedule
+                        </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
+                          Billing In / Out
+                        </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3 w-[60px]">
+                          Break
+                        </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3 w-[75px]">
+                          Regular
+                        </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3 w-[120px]">
+                          Overtime
+                        </th>
+                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-4 w-[180px]">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dayRows.map(
+                        ({
+                          day,
+                          rec,
+                          isToday,
+                          recStatus,
+                          isLeaveOrHoliday,
+                          regularM,
+                          hasOT,
+                          shiftExtEntries,
+                          offShiftEntries,
+                          dateLabel,
+                          schedStart,
+                          schedEnd,
+                        }) => {
+                          const rowBg = isLeaveOrHoliday
+                            ? "bg-gray-50/50"
+                            : hasOT
+                              ? "bg-orange-50/30"
+                              : isToday
+                                ? "bg-primary-50/20"
+                                : "";
+
+                          return (
+                            <tr
+                              key={day}
+                              className={`border-b border-gray-50 last:border-b-0 ${rowBg} hover:bg-gray-50/50`}
+                            >
+                              {/* Date */}
+                              <td className="py-2.5 px-4 text-sm">
+                                <span
+                                  className={`font-medium ${isToday ? "text-primary-700" : "text-gray-900"}`}
+                                >
+                                  {dateLabel}
+                                </span>
+                                {rec?.isLate && (
+                                  <span className="ml-1.5 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                    LATE
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Schedule */}
+                              <td className="py-2.5 px-3 text-center text-sm text-gray-500">
+                                {schedStart && schedEnd ? (
+                                  <span className="whitespace-nowrap text-xs">
+                                    {schedStart} – {schedEnd}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
+
+                              {isLeaveOrHoliday ? (
+                                <td
+                                  colSpan={4}
+                                  className="py-2.5 px-3 text-center"
+                                >
+                                  {getStatusBadge(recStatus, rec?.holidayName)}
+                                </td>
+                              ) : (
+                                <>
+                                  {/* Billing In/Out */}
+                                  <td className="py-2.5 px-3 text-center text-sm">
+                                    {rec?.billingStart && rec?.billingEnd ? (
+                                      <span className="text-gray-900">
+                                        {formatClockTime(
+                                          rec.billingStart,
+                                          clientTimezone,
+                                        )}
+                                        <span className="text-gray-300 mx-1">
+                                          –
+                                        </span>
+                                        {formatClockTime(
+                                          rec.billingEnd,
+                                          clientTimezone,
+                                        )}
+                                      </span>
+                                    ) : rec?.clockIn ? (
+                                      <span className="text-gray-600">
+                                        {formatClockTime(
+                                          rec.clockIn,
+                                          clientTimezone,
+                                        )}
+                                        <span className="text-gray-300 mx-1">
+                                          –
+                                        </span>
+                                        {rec?.clockOut ? (
+                                          formatClockTime(
+                                            rec.clockOut,
+                                            clientTimezone,
+                                          )
+                                        ) : (
+                                          <span className="text-green-600 font-medium">
+                                            In Progress
+                                          </span>
+                                        )}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-300">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Break */}
+                                  <td className="py-2.5 px-3 text-center text-sm">
+                                    <span
+                                      className={
+                                        (rec?.breakMinutes || 0) > 0
+                                          ? "text-yellow-600 font-medium"
+                                          : "text-gray-300"
+                                      }
+                                    >
+                                      {(rec?.breakMinutes || 0) > 0
+                                        ? formatHours(rec.breakMinutes / 60)
+                                        : "—"}
+                                    </span>
+                                  </td>
+
+                                  {/* Regular */}
+                                  <td className="py-2.5 px-3 text-center text-sm">
+                                    <span
+                                      className={
+                                        regularM > 0
+                                          ? "font-semibold text-gray-900"
+                                          : "text-gray-300"
+                                      }
+                                    >
+                                      {formatHours(regularM / 60)}
+                                    </span>
+                                  </td>
+
+                                  {/* Overtime (combined) */}
+                                  <td className="py-2.5 px-3 text-center text-sm">
+                                    {hasOT ? (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        {shiftExtEntries.map((ot, i) => (
+                                          <span
+                                            key={`ext-${i}`}
+                                            className="inline-flex items-center gap-1"
+                                          >
+                                            <span className="text-purple-600 font-medium">
+                                              {formatHours(
+                                                ot.requestedMinutes / 60,
+                                              )}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">
+                                              ext
+                                            </span>
+                                            <span
+                                              className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                            >
+                                              {ot.status === "APPROVED"
+                                                ? "✓"
+                                                : ot.status === "REJECTED"
+                                                  ? "✗"
+                                                  : "⏳"}
+                                            </span>
+                                          </span>
+                                        ))}
+                                        {offShiftEntries.map((ot, i) => (
+                                          <span
+                                            key={`off-${i}`}
+                                            className="inline-flex items-center gap-1"
+                                          >
+                                            <span className="text-orange-600 font-medium">
+                                              {formatHours(
+                                                ot.requestedMinutes / 60,
+                                              )}
+                                            </span>
+                                            <span className="text-[10px] text-gray-400">
+                                              off
+                                            </span>
+                                            <span
+                                              className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                            >
+                                              {ot.status === "APPROVED"
+                                                ? "✓"
+                                                : ot.status === "REJECTED"
+                                                  ? "✗"
+                                                  : "⏳"}
+                                            </span>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <span className="text-gray-300">—</span>
+                                    )}
+                                  </td>
+
+                                  {/* Status + Actions */}
+                                  <td className="py-2.5 px-4 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      {hasOT && recStatus === "pending" ? (
+                                        <Badge
+                                          variant="warning"
+                                          className="bg-orange-100 text-orange-700"
+                                        >
+                                          OT Pending
+                                        </Badge>
+                                      ) : (
+                                        getStatusBadge(recStatus)
+                                      )}
+                                      {hasOT &&
+                                        recStatus === "pending" &&
+                                        rec?.timeRecordId && (
+                                          <div className="flex items-center gap-1 ml-1">
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                handleApproveOvertime(rec)
+                                              }
+                                              className="px-2 py-1 rounded-md text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                                            >
+                                              Approve
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                handleRejectOvertime(rec)
+                                              }
+                                              className="px-2 py-1 rounded-md text-[11px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                            >
+                                              Deny
+                                            </button>
+                                          </div>
+                                        )}
+                                    </div>
+                                  </td>
+                                </>
+                              )}
+                            </tr>
+                          );
+                        },
+                      )}
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50 border-t border-gray-200">
+                        <td
+                          className="py-3 px-4 text-sm font-semibold text-gray-700"
+                          colSpan={4}
+                        >
+                          {totalLabel}
+                        </td>
+                        <td className="py-3 px-3 text-center text-sm font-semibold text-gray-900">
+                          {formatHours(filteredRegularMins / 60)}
+                        </td>
+                        <td className="py-3 px-3 text-center text-sm font-semibold">
+                          {filteredOTTotal > 0 ? (
+                            <span className="text-orange-600">
+                              {formatHours(filteredOTTotal / 60)}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">0h</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4" />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+
+                {/* Mobile cards */}
+                <div className="md:hidden px-4 py-3 space-y-2">
+                  {dayRows.map(
+                    ({
+                      day,
+                      rec,
+                      recStatus,
+                      isLeaveOrHoliday,
+                      regularM,
+                      hasOT,
+                      shiftExtEntries,
+                      offShiftEntries,
+                      dateLabel,
+                      schedStart,
+                      schedEnd,
+                    }) => {
+                      const cardBg = isLeaveOrHoliday
+                        ? "bg-gray-50 border-gray-100"
+                        : hasOT
+                          ? "bg-orange-50/50 border-orange-100"
+                          : "bg-white border-gray-100";
+
+                      return (
+                        <div
+                          key={day}
+                          className={`px-3 py-2.5 rounded-lg border ${cardBg}`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">
+                                {dateLabel}
+                              </span>
+                              {rec?.isLate && (
+                                <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                  LATE
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              {hasOT && recStatus === "pending" ? (
+                                <Badge
+                                  variant="warning"
+                                  className="bg-orange-100 text-orange-700"
+                                >
+                                  OT Pending
+                                </Badge>
+                              ) : (
+                                getStatusBadge(recStatus, rec?.holidayName)
+                              )}
+                            </div>
+                          </div>
+                          {schedStart && schedEnd && (
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              Schedule: {schedStart} – {schedEnd}
+                            </p>
+                          )}
+                          {!isLeaveOrHoliday && (
+                            <>
+                              <div className="flex items-center gap-4 mt-1.5 text-xs text-gray-500">
+                                {rec?.billingStart && rec?.billingEnd ? (
+                                  <span>
+                                    {formatClockTime(
+                                      rec.billingStart,
+                                      clientTimezone,
+                                    )}{" "}
+                                    –{" "}
+                                    {formatClockTime(
+                                      rec.billingEnd,
+                                      clientTimezone,
+                                    )}
+                                  </span>
+                                ) : rec?.clockIn ? (
+                                  <span>
+                                    {formatClockTime(
+                                      rec.clockIn,
+                                      clientTimezone,
+                                    )}{" "}
+                                    –{" "}
+                                    {rec?.clockOut
+                                      ? formatClockTime(
+                                          rec.clockOut,
+                                          clientTimezone,
+                                        )
+                                      : "In Progress"}
+                                  </span>
+                                ) : null}
+                                {(rec?.breakMinutes || 0) > 0 && (
+                                  <span className="text-yellow-600">
+                                    Break:{" "}
+                                    {formatHours(rec.breakMinutes / 60)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-xs">
+                                <span className="text-gray-700 font-medium">
+                                  Reg: {formatHours(regularM / 60)}
+                                </span>
+                                {shiftExtEntries.map((ot, i) => (
+                                  <span key={i} className="text-purple-600">
+                                    Ext: {formatHours(ot.requestedMinutes / 60)}
+                                    <span
+                                      className={`ml-0.5 ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                    >
+                                      {ot.status === "APPROVED"
+                                        ? "✓"
+                                        : ot.status === "REJECTED"
+                                          ? "✗"
+                                          : "⏳"}
+                                    </span>
+                                  </span>
+                                ))}
+                                {offShiftEntries.map((ot, i) => (
+                                  <span key={i} className="text-orange-600">
+                                    Off: {formatHours(ot.requestedMinutes / 60)}
+                                    <span
+                                      className={`ml-0.5 ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
+                                    >
+                                      {ot.status === "APPROVED"
+                                        ? "✓"
+                                        : ot.status === "REJECTED"
+                                          ? "✗"
+                                          : "⏳"}
+                                    </span>
+                                  </span>
+                                ))}
+                              </div>
+                              {hasOT &&
+                                recStatus === "pending" &&
+                                rec?.timeRecordId && (
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleApproveOvertime(rec)
+                                      }
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                                    >
+                                      Approve OT
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleRejectOvertime(rec)
+                                      }
+                                      className="px-2.5 py-1 rounded-md text-[11px] font-semibold bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+                                    >
+                                      Deny OT
+                                    </button>
+                                  </div>
+                                )}
+                            </>
+                          )}
+                        </div>
+                      );
+                    },
+                  )}
+                  {/* Mobile total */}
+                  <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-gray-100 font-semibold mt-2">
+                    <span className="text-sm text-gray-700">{totalLabel}</span>
+                    <div className="text-right text-sm flex items-center gap-2">
+                      <span className="text-gray-900">
+                        {formatHours(filteredRegularMins / 60)} reg
+                      </span>
+                      {filteredOTTotal > 0 && (
+                        <span className="text-orange-600">
+                          + {formatHours(filteredOTTotal / 60)} OT
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
             );
           })()}
 
@@ -1132,7 +1098,9 @@ const TimesheetDetail = () => {
                 disabled={actionLoading || !revisionReason.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
               >
-                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {actionLoading && (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                )}
                 Submit Revision Request
               </button>
             </div>
