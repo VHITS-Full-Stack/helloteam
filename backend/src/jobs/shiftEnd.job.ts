@@ -182,7 +182,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
             employeeId: employee.id,
             clientId: assignment.clientId,
             date: recordDate,
-            status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+            status: 'APPROVED',
           },
         });
 
