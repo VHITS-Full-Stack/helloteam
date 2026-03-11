@@ -475,13 +475,18 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       // Detect Extra Time: session started AFTER scheduled end, or no schedule exists for the day
       const isExtraTime = !schedule || (scheduledEnd && activeSession.startTime > scheduledEnd);
 
+      const OT_GRACE_MINUTES = 7; // Minutes of early/late allowed before counting as OT
+
       // Overtime = early pre-schedule minutes + any hours beyond scheduled duration
+      // Only count as OT if beyond the grace period
       const scheduledDurationMinutes = scheduledEnd && scheduledStart
         ? Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000)
         : 480; // fallback to 8h if no schedule
-      const regularWorkMinutes = totalWorkMinutes - earlyOvertimeMinutes;
+      const effectiveEarlyOT = earlyOvertimeMinutes > OT_GRACE_MINUTES ? earlyOvertimeMinutes : 0;
+      const regularWorkMinutes = totalWorkMinutes - effectiveEarlyOT;
       const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
-      let overtimeMinutes = earlyOvertimeMinutes + lateOvertimeMinutes;
+      const effectiveLateOT = lateOvertimeMinutes > OT_GRACE_MINUTES ? lateOvertimeMinutes : 0;
+      let overtimeMinutes = effectiveEarlyOT + effectiveLateOT;
 
       // Calculate shift extension (minutes worked past scheduled end)
       let shiftExtensionMinutes = scheduledEnd && endTime > scheduledEnd
@@ -527,8 +532,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             }
           }
 
-          // Determine shift extension approval status
-          if (shiftExtensionMinutes > 0) {
+          // Determine shift extension approval status (only if beyond grace period)
+          if (shiftExtensionMinutes > OT_GRACE_MINUTES) {
             const otRequest = await prisma.overtimeRequest.findFirst({
               where: {
                 employeeId: employee.id,
@@ -557,7 +562,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
 
           // Determine extra time approval status (early clock-in or post-shift session)
           // Skip when OT doesn't require approval — all hours are regular approved time
-          const hasExtraTime = otRequiresApproval && (isExtraTime || earlyOvertimeMinutes > 0);
+          // Only count early clock-in as extra time if it exceeds the grace period
+          const hasExtraTime = otRequiresApproval && (isExtraTime || earlyOvertimeMinutes > OT_GRACE_MINUTES);
           if (hasExtraTime) {
             extraTimeMinutes = isExtraTime ? totalWorkMinutes : earlyOvertimeMinutes;
             const otRequest = await prisma.overtimeRequest.findFirst({
@@ -679,50 +685,75 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           };
 
           // Early clock-in overtime → OFF_SHIFT (Extra Time per spec: "early clock-in is Extra Time, not Shift Extension")
-          if (earlyOvertimeMinutes > 0 && !isExtraTime) {
+          // Only auto-create if early minutes exceed grace period and no existing request
+          if (earlyOvertimeMinutes > OT_GRACE_MINUTES && !isExtraTime) {
             try {
-              await prisma.overtimeRequest.create({
-                data: {
+              const existingEarlyOT = await prisma.overtimeRequest.findFirst({
+                where: {
                   employeeId: employee.id,
                   clientId: assignment.clientId,
                   date: today,
                   type: 'OFF_SHIFT',
-                  requestedMinutes: earlyOvertimeMinutes,
-                  requestedStartTime: fmtHHMM(activeSession.startTime),
-                  requestedEndTime: scheduledStart ? fmtHHMM(scheduledStart) : undefined,
-                  reason: 'Auto-generated — employee clocked in before scheduled shift',
-                  status: 'PENDING',
                 },
               });
-              console.log(`[OT-Auto] Created OFF_SHIFT (early clock-in) OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${earlyOvertimeMinutes} min`);
+              if (!existingEarlyOT) {
+                await prisma.overtimeRequest.create({
+                  data: {
+                    employeeId: employee.id,
+                    clientId: assignment.clientId,
+                    date: today,
+                    type: 'OFF_SHIFT',
+                    requestedMinutes: earlyOvertimeMinutes,
+                    requestedStartTime: fmtHHMM(activeSession.startTime),
+                    requestedEndTime: scheduledStart ? fmtHHMM(scheduledStart) : undefined,
+                    reason: 'Auto-generated — employee clocked in before scheduled shift',
+                    status: 'PENDING',
+                  },
+                });
+                console.log(`[OT-Auto] Created OFF_SHIFT (early clock-in) OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${earlyOvertimeMinutes} min`);
+              }
             } catch (e) {
               console.error(`[OT-Auto] Failed to auto-create early OvertimeRequest:`, e);
             }
           }
 
           // Shift extension overtime (stayed late) or full extra time session (post-shift clock-in)
+          // Only auto-create if OT is significant (> 7 min grace) and no existing request for this type
           const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
-          if (sessionOT > 0) {
+          if (sessionOT > OT_GRACE_MINUTES) {
             try {
               const otType = isExtraTime ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
-              await prisma.overtimeRequest.create({
-                data: {
+              // Check for existing OT request to avoid duplicates
+              const existingOT = await prisma.overtimeRequest.findFirst({
+                where: {
                   employeeId: employee.id,
                   clientId: assignment.clientId,
                   date: today,
                   type: otType,
-                  requestedMinutes: sessionOT,
-                  reason: 'Auto-generated — employee worked overtime without prior request',
-                  status: 'PENDING',
-                  ...(otType === 'SHIFT_EXTENSION'
-                    ? { estimatedEndTime: fmtHHMM(endTime) }
-                    : {
-                        requestedStartTime: fmtHHMM(activeSession.startTime),
-                        requestedEndTime: fmtHHMM(endTime),
-                      }),
                 },
               });
-              console.log(`[OT-Auto] Created ${otType} OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${sessionOT} min`);
+              if (!existingOT) {
+                await prisma.overtimeRequest.create({
+                  data: {
+                    employeeId: employee.id,
+                    clientId: assignment.clientId,
+                    date: today,
+                    type: otType,
+                    requestedMinutes: sessionOT,
+                    reason: 'Auto-generated — employee worked overtime without prior request',
+                    status: 'PENDING',
+                    ...(otType === 'SHIFT_EXTENSION'
+                      ? { estimatedEndTime: fmtHHMM(endTime) }
+                      : {
+                          requestedStartTime: fmtHHMM(activeSession.startTime),
+                          requestedEndTime: fmtHHMM(endTime),
+                        }),
+                  },
+                });
+                console.log(`[OT-Auto] Created ${otType} OvertimeRequest for employee ${employee.id}, client ${assignment.clientId}, ${sessionOT} min`);
+              } else {
+                console.log(`[OT-Auto] Skipped — existing ${otType} OvertimeRequest found for employee ${employee.id}`);
+              }
             } catch (e) {
               console.error(`[OT-Auto] Failed to auto-create OvertimeRequest:`, e);
             }

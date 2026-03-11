@@ -666,14 +666,21 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         })
       : sessions;
 
-    // Helper to get local date string from a Date (avoids timezone shift from toISOString)
-    const toLocalDateStr = (d: Date) =>
-      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    // Helper: get date string from a @db.Date field (stored as UTC midnight)
+    const toDateStr = (d: Date) =>
+      `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+
+    // Helper: get date string from a timestamp in a given timezone
+    const toTzDateStr = (d: Date, timezone: string) =>
+      d.toLocaleDateString('en-CA', { timeZone: timezone });
 
     // Build session lookup: employeeId_dateStr -> session[] (all sessions per day)
+    // Group by date in the employee's client timezone
     const sessionsByEmpDate = new Map<string, typeof filteredSessions>();
     for (const session of filteredSessions) {
-      const dateStr = toLocalDateStr(session.startTime);
+      const clientInfo = employeeClientMap.get(session.employeeId);
+      const tz = clientInfo?.timezone || 'America/New_York';
+      const dateStr = toTzDateStr(session.startTime, tz);
       const key = `${session.employeeId}_${dateStr}`;
       if (!sessionsByEmpDate.has(key)) sessionsByEmpDate.set(key, []);
       sessionsByEmpDate.get(key)!.push(session);
@@ -707,7 +714,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
     // Build OvertimeRequest lookup: employeeId_dateStr -> overtimeRequest[]
     const otRequestMap = new Map<string, typeof overtimeRequests>();
     for (const ot of overtimeRequests) {
-      const dateStr = toLocalDateStr(ot.date);
+      const dateStr = toDateStr(ot.date);
       const key = `${ot.employeeId}_${dateStr}`;
       if (!otRequestMap.has(key)) otRequestMap.set(key, []);
       otRequestMap.get(key)!.push(ot);
@@ -733,7 +740,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       : [];
     const timeRecordMap = new Map<string, typeof timeRecords[0]>();
     for (const tr of timeRecords) {
-      const dateStr = toLocalDateStr(tr.date);
+      const dateStr = toDateStr(tr.date);
       const key = `${tr.employeeId}_${dateStr}`;
       timeRecordMap.set(key, tr);
     }
@@ -749,7 +756,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const lastSession = daySessions[daySessions.length - 1];
       const emp = firstSession.employee;
       const clientInfo = employeeClientMap.get(firstSession.employeeId);
-      const dateStr = toLocalDateStr(firstSession.startTime);
+      const empTz = clientInfo?.timezone || 'America/New_York';
+      const dateStr = toTzDateStr(firstSession.startTime, empTz);
 
       let totalWorkMinutes = 0;
       let totalBreakMins = 0;
@@ -951,31 +959,62 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
 export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const recordId = req.params.recordId as string;
-    const { clockIn, clockOut, notes, sessions: sessionAdjustments } = req.body;
+    const { clockIn, clockOut, notes, sessions: sessionAdjustments, billingIn, billingOut, timezone } = req.body;
     const adminId = req.user?.userId;
+    const tz = timezone || 'America/New_York';
+
+    // Helper: convert a date string (YYYY-MM-DD) + time (HH:MM) in the client timezone to UTC Date
+    // Uses binary-search approach: create a UTC guess, format it in the target tz, and adjust
+    const toUTCDate = (dateStr: string, time: string): Date => {
+      const [inputH, inputM] = time.split(':').map(Number);
+      // Start with a naive UTC guess
+      const guess = new Date(`${dateStr}T${String(inputH).padStart(2, '0')}:${String(inputM).padStart(2, '0')}:00Z`);
+      // Format guess in the target timezone to see what local time it maps to
+      const fmt = (d: Date) => {
+        const parts = new Intl.DateTimeFormat('en-US', {
+          timeZone: tz,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit',
+          hour12: false,
+        }).formatToParts(d);
+        const get = (t: string) => parts.find(p => p.type === t)?.value || '0';
+        return { h: parseInt(get('hour'), 10) % 24, m: parseInt(get('minute'), 10) };
+      };
+      const local = fmt(guess);
+      // Calculate the difference between what we want and what we got
+      const wantMinutes = inputH * 60 + inputM;
+      const gotMinutes = local.h * 60 + local.m;
+      let diffMinutes = gotMinutes - wantMinutes;
+      // Handle day wrap (e.g., EST is UTC-5, so if we want 9:00 EST, naive UTC gives 9:00 UTC = 4:00 EST, diff = -300)
+      if (diffMinutes > 720) diffMinutes -= 1440;
+      if (diffMinutes < -720) diffMinutes += 1440;
+      // Adjust: subtract the diff to get the correct UTC time
+      // If got < want (diff negative), we need to move UTC forward; if got > want, move UTC backward
+      return new Date(guess.getTime() - diffMinutes * 60000);
+    };
 
     // New flow: adjust individual work sessions
     if (sessionAdjustments && Array.isArray(sessionAdjustments) && sessionAdjustments.length > 0) {
       const results = [];
+      let firstSession: any = null;
       for (const adj of sessionAdjustments) {
         if (!adj.id || (!adj.clockIn && !adj.clockOut)) continue;
 
         const session = await prisma.workSession.findUnique({ where: { id: adj.id } });
         if (!session) continue;
+        if (!firstSession) firstSession = session;
 
-        // Use local dates (matching how times are displayed via toLocaleTimeString)
-        const toLocalDate = (d: Date) =>
-          `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        // Get the date in the client timezone for this session
+        const sessionDateInTz = new Date(session.startTime).toLocaleDateString('en-CA', { timeZone: tz });
         const updateData: any = {};
 
         if (adj.clockIn) {
-          const startDateStr = toLocalDate(session.startTime);
-          updateData.startTime = new Date(`${startDateStr}T${adj.clockIn}:00`);
+          updateData.startTime = toUTCDate(sessionDateInTz, adj.clockIn);
         }
         if (adj.clockOut) {
           const endRef = session.endTime || session.startTime;
-          const endDateStr = toLocalDate(endRef);
-          updateData.endTime = new Date(`${endDateStr}T${adj.clockOut}:00`);
+          const endDateInTz = new Date(endRef).toLocaleDateString('en-CA', { timeZone: tz });
+          updateData.endTime = toUTCDate(endDateInTz, adj.clockOut);
         }
         if (adj.notes) {
           updateData.notes = adj.notes;
@@ -986,6 +1025,38 @@ export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response)
           data: updateData,
         });
         results.push(updated);
+      }
+
+      // Update billing times on the TimeRecord if provided
+      if ((billingIn || billingOut) && firstSession) {
+        const sessionDateInTz = new Date(firstSession.startTime).toLocaleDateString('en-CA', { timeZone: tz });
+        const timeRecord = await prisma.timeRecord.findFirst({
+          where: {
+            employeeId: firstSession.employeeId,
+            date: new Date(`${sessionDateInTz}T00:00:00Z`),
+          },
+        });
+        if (timeRecord) {
+          const billingUpdateData: any = {
+            adjustedBy: adminId,
+            adjustedAt: new Date(),
+          };
+          if (billingIn) {
+            billingUpdateData.billingStart = toUTCDate(sessionDateInTz, billingIn);
+          }
+          if (billingOut) {
+            billingUpdateData.billingEnd = toUTCDate(sessionDateInTz, billingOut);
+          }
+          if (billingIn && billingOut) {
+            const bStart = toUTCDate(sessionDateInTz, billingIn);
+            const bEnd = toUTCDate(sessionDateInTz, billingOut);
+            billingUpdateData.billingMinutes = Math.max(0, Math.round((bEnd.getTime() - bStart.getTime()) / 60000));
+          }
+          await prisma.timeRecord.update({
+            where: { id: timeRecord.id },
+            data: billingUpdateData,
+          });
+        }
       }
 
       res.json({

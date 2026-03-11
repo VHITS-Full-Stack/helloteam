@@ -841,20 +841,21 @@ const TimeRecords = () => {
                                 const totalM = session.totalMinutes || 0;
                                 // Subtract only unapproved OT (pending + rejected) from regular hours
                                 // Approved OT is included in regular hours
-                                const unapprovedOTM = otEntries
-                                  .filter(
-                                    (o) =>
-                                      o.status !== "APPROVED" &&
-                                      o.status !== "AUTO_APPROVED",
-                                  )
-                                  .reduce(
-                                    (s, o) => s + (o.requestedMinutes || 0),
-                                    0,
-                                  );
-                                const regularM = Math.max(
-                                  0,
-                                  totalM - unapprovedOTM,
+                                // Cap unapproved OT at totalM so regular never goes below 0
+                                const unapprovedOTM = Math.min(
+                                  totalM,
+                                  otEntries
+                                    .filter(
+                                      (o) =>
+                                        o.status !== "APPROVED" &&
+                                        o.status !== "AUTO_APPROVED",
+                                    )
+                                    .reduce(
+                                      (s, o) => s + (o.requestedMinutes || 0),
+                                      0,
+                                    ),
                                 );
+                                const regularM = totalM - unapprovedOTM;
                                 const shiftExtM = otEntries
                                   .filter((o) => o.type === "SHIFT_EXTENSION")
                                   .reduce(

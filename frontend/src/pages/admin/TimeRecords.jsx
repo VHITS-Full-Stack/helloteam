@@ -31,6 +31,7 @@ const TimeRecords = () => {
   });
   const [clients, setClients] = useState([{ id: 'all', name: 'All Clients' }]);
   const [sessionEdits, setSessionEdits] = useState([]);
+  const [billingEdits, setBillingEdits] = useState({ billingIn: '', billingOut: '' });
   const [adjustmentNotes, setAdjustmentNotes] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -138,7 +139,15 @@ const TimeRecords = () => {
       const group = groups.get(key);
       group.employees.push(record);
       group.totalHours += record.totalHours;
-      group.overtimeHours += record.overtimeHours;
+      // Only count unapproved OT as overtime
+      const dailyRecords = record.dailyRecords || [];
+      for (const day of dailyRecords) {
+        const otEntries = day.overtimeEntries || [];
+        const unapprovedOTMinutes = otEntries
+          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+          .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+        group.overtimeHours += unapprovedOTMinutes / 60;
+      }
       group.employeeCount++;
     }
     for (const group of groups.values()) {
@@ -256,6 +265,7 @@ const TimeRecords = () => {
       ...record,
       employee: employeeRecord.employee,
       client: employeeRecord.client,
+      clientTimezone: employeeRecord.clientTimezone,
     });
     // Initialize editable session data
     const tz = employeeRecord.clientTimezone;
@@ -278,6 +288,10 @@ const TimeRecords = () => {
           status: record.status,
           notes: '',
         }];
+    setBillingEdits({
+      billingIn: to24h(record.billingStart, tz),
+      billingOut: to24h(record.billingEnd, tz),
+    });
     setSessionEdits(sessions);
     setAdjustmentNotes(record.notes || '');
     setShowAdjustment(true);
@@ -298,6 +312,9 @@ const TimeRecords = () => {
           clockOut: s.clockOut,
           notes: s.notes,
         })),
+        billingIn: billingEdits.billingIn || undefined,
+        billingOut: billingEdits.billingOut || undefined,
+        timezone: selectedRecord.clientTimezone || 'America/New_York',
         notes: adjustmentNotes,
       });
       if (response?.success) {
@@ -312,10 +329,16 @@ const TimeRecords = () => {
   };
 
   const handleExport = () => {
-    const headers = ['Employee', 'Client', 'Date', 'Actual In', 'Actual Out', 'Billing In', 'Billing Out', 'Hours', 'OT Hours', 'Breaks', 'Status'];
+    const headers = ['Employee', 'Client', 'Date', 'Actual In', 'Actual Out', 'Billing In', 'Billing Out', 'Regular Hours', 'OT Hours', 'Breaks', 'Status'];
     const rows = [];
     for (const emp of timeRecords) {
       for (const day of emp.dailyRecords) {
+        const otEntries = day.overtimeEntries || [];
+        const unapprovedOTMinutes = otEntries
+          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+          .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+        const unapprovedOTHours = Math.round(unapprovedOTMinutes / 60 * 100) / 100;
+        const regularHours = Math.max(0, Math.round(((day.hours || 0) - unapprovedOTHours) * 100) / 100);
         rows.push([
           `"${emp.employee}"`,
           `"${emp.client}"`,
@@ -324,8 +347,8 @@ const TimeRecords = () => {
           fmtTime(day.clockOut, emp.clientTimezone) || 'N/A',
           fmtTime(day.billingStart, emp.clientTimezone) || 'N/A',
           fmtTime(day.billingEnd, emp.clientTimezone) || 'N/A',
-          day.hours || 0,
-          day.overtimeHours || 0,
+          regularHours,
+          unapprovedOTHours,
           day.breaks || 0,
           day.status,
         ].join(','));
@@ -345,17 +368,25 @@ const TimeRecords = () => {
   };
 
   // Compute totals from all records
+  // Only count unapproved OT (pending + rejected) as overtime; approved OT stays in regular hours
   const totals = useMemo(() => {
     let totalHours = 0;
-    let overtimeHours = 0;
+    let unapprovedOTHours = 0;
     for (const r of timeRecords) {
       totalHours += r.totalHours || 0;
-      overtimeHours += r.overtimeHours || 0;
+      const dailyRecords = r.dailyRecords || [];
+      for (const day of dailyRecords) {
+        const otEntries = day.overtimeEntries || [];
+        const unapprovedOTMinutes = otEntries
+          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+          .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+        unapprovedOTHours += unapprovedOTMinutes / 60;
+      }
     }
     return {
       totalHours: Math.round(totalHours * 100) / 100,
-      overtimeHours: Math.round(overtimeHours * 100) / 100,
-      regularHours: Math.round((totalHours - overtimeHours) * 100) / 100,
+      overtimeHours: Math.round(unapprovedOTHours * 100) / 100,
+      regularHours: Math.round((totalHours - unapprovedOTHours) * 100) / 100,
     };
   }, [timeRecords]);
 
@@ -508,9 +539,23 @@ const TimeRecords = () => {
                       {/* Date */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-sm text-gray-900">{formatDate(day.date)}</p>
+                      </td>
+
+                      {/* Actual In/Out */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm text-gray-700">
+                          {fmtTime(day.clockIn, empRecord.clientTimezone)}
+                          <span className="text-gray-300 mx-1">–</span>
+                          {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : day.status === 'active' ? (
+                            <span className="text-green-600 inline-flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                              Now
+                            </span>
+                          ) : <span className="text-gray-400">-</span>}
+                        </div>
                         {(day.isLate || day.arrivalStatus === 'Late') && (
                           <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700 mt-0.5">
-                            Late{day.lateMinutes ? ` ${day.lateMinutes}m` : ''}
+                            Late{day.lateMinutes ? ` ${day.lateMinutes >= 60 ? `${Math.floor(day.lateMinutes / 60)}h ${day.lateMinutes % 60}m` : `${day.lateMinutes}m`}` : ''}
                           </span>
                         )}
                         {!day.isLate && day.arrivalStatus === 'Early' && (
@@ -518,18 +563,11 @@ const TimeRecords = () => {
                             Early
                           </span>
                         )}
-                      </td>
-
-                      {/* Actual In/Out */}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                        {fmtTime(day.clockIn, empRecord.clientTimezone)}
-                        <span className="text-gray-300 mx-1">–</span>
-                        {day.clockOut ? fmtTime(day.clockOut, empRecord.clientTimezone) : day.status === 'active' ? (
-                          <span className="text-green-600 inline-flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            Now
+                        {!day.isLate && day.arrivalStatus === 'On Time' && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-green-100 text-green-700 mt-0.5">
+                            On Time
                           </span>
-                        ) : <span className="text-gray-400">-</span>}
+                        )}
                       </td>
 
                       {/* Billing In/Out */}
@@ -561,7 +599,14 @@ const TimeRecords = () => {
 
                       {/* Regular */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                        {day.hours != null ? formatHours(Math.max(0, (day.hours || 0) - (day.overtimeHours || 0))) : '-'}
+                        {day.hours != null ? (() => {
+                          const otEntries = day.overtimeEntries || [];
+                          const unapprovedOTMinutes = otEntries
+                            .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+                            .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                          const unapprovedOTHours = unapprovedOTMinutes / 60;
+                          return formatHours(Math.max(0, (day.hours || 0) - unapprovedOTHours));
+                        })() : '-'}
                       </td>
 
                       {/* OT */}
@@ -725,6 +770,35 @@ const TimeRecords = () => {
               </div>
             </div>
 
+            {/* Billing Time */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                Billing Time
+              </p>
+              <div className="border border-gray-200 rounded-lg p-4 bg-white">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-medium text-blue-500 uppercase">Billing In</label>
+                    <input
+                      type="time"
+                      className="input mt-1 text-sm"
+                      value={billingEdits.billingIn}
+                      onChange={(e) => setBillingEdits(prev => ({ ...prev, billingIn: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-medium text-blue-500 uppercase">Billing Out</label>
+                    <input
+                      type="time"
+                      className="input mt-1 text-sm"
+                      value={billingEdits.billingOut}
+                      onChange={(e) => setBillingEdits(prev => ({ ...prev, billingOut: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Overtime Entries (read-only) */}
             {selectedRecord.overtimeEntries && selectedRecord.overtimeEntries.length > 0 && (
               <div>
@@ -767,22 +841,32 @@ const TimeRecords = () => {
             )}
 
             {/* Day Totals */}
-            <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-400 uppercase">Total</p>
-                <p className="font-semibold text-gray-900 text-sm">{formatHours(selectedRecord.hours)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-400 uppercase">Overtime</p>
-                <p className={`font-semibold text-sm ${selectedRecord.overtimeHours > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
-                  {formatHours(selectedRecord.overtimeHours)}
-                </p>
-              </div>
-              <div className="text-center">
-                <p className="text-[10px] font-medium text-gray-400 uppercase">Breaks</p>
-                <p className="font-semibold text-yellow-600 text-sm">{formatHours(selectedRecord.breaks)}</p>
-              </div>
-            </div>
+            {(() => {
+              const otEntries = selectedRecord.overtimeEntries || [];
+              const unapprovedOTMinutes = otEntries
+                .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+                .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+              const unapprovedOTHours = unapprovedOTMinutes / 60;
+              const regularHours = Math.max(0, (selectedRecord.hours || 0) - unapprovedOTHours);
+              return (
+                <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="text-center">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase">Regular</p>
+                    <p className="font-semibold text-gray-900 text-sm">{formatHours(regularHours)}</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase">Overtime</p>
+                    <p className={`font-semibold text-sm ${unapprovedOTHours > 0 ? 'text-orange-600' : 'text-gray-900'}`}>
+                      {formatHours(unapprovedOTHours)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] font-medium text-gray-400 uppercase">Breaks</p>
+                    <p className="font-semibold text-yellow-600 text-sm">{formatHours(selectedRecord.breaks)}</p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Notes */}
             <div>
