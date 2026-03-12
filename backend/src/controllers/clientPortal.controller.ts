@@ -1715,7 +1715,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const summary = {
       totalEmployees: employeeWeeklyData.length,
       totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 100) / 100,
-      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours - e.overtimeHours, 0) * 100) / 100,
+      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 100) / 100,
       overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 100) / 100,
       approvedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.approvedOvertimeHours || 0), 0) * 100) / 100,
       unapprovedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.unapprovedOvertimeHours || 0), 0) * 100) / 100,

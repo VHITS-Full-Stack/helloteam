@@ -62,7 +62,7 @@ const TimeRecords = () => {
   const totalEmployees = timeRecords.length;
   const activeCount = timeRecords.filter(r => r.status === 'active').length;
   const totalBillingHours = timeRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
-  const totalRegularHours = timeRecords.reduce((sum, r) => sum + (r.totalHours || 0) - (r.overtimeHours || 0), 0);
+  const totalRegularHours = timeRecords.reduce((sum, r) => sum + (r.totalHours || 0), 0);
   const totalApprovedOT = timeRecords.reduce((sum, r) => sum + (r.approvedOvertimeHours || 0), 0);
   const totalUnapprovedOT = timeRecords.reduce((sum, r) => sum + (r.unapprovedOvertimeHours || 0), 0);
   const pendingRecordCount = allDayRecords.filter(r => r.status?.toLowerCase() === 'pending').length;
@@ -151,8 +151,9 @@ const TimeRecords = () => {
           const d = new Date(rec.date);
           const dateLabel = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
           const totalM = rec.totalMinutes || 0;
-          const otM = rec.overtimeMinutes || 0;
-          const regularM = Math.max(0, totalM - otM);
+          const otEntries = rec.overtimeEntries || [];
+          const pendingOTM = otEntries.filter(o => o.status === 'PENDING').reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+          const regularM = totalM;
           return [
             emp.employee,
             dateLabel,
@@ -435,7 +436,8 @@ const TimeRecords = () => {
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">Billing In / Out</th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[70px]">Break</th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[80px]">Regular</th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[120px]">Overtime</th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[100px]">Overtime</th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[100px]">Unapproved OT</th>
                         <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-5 w-[120px]">Status</th>
                       </tr>
                     </thead>
@@ -445,16 +447,12 @@ const TimeRecords = () => {
                         const isLeaveOrHoliday = status === 'paid_leave' || status === 'unpaid_leave' || status === 'holiday';
                         const otEntries = rec.overtimeEntries || [];
                         const totalM = rec.totalMinutes || 0;
-                        const unapprovedOTM = Math.min(
-                          totalM,
-                          otEntries
-                            .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
-                            .reduce((s, o) => s + (o.requestedMinutes || 0), 0)
-                        );
-                        const regularM = Math.max(0, totalM - (rec.overtimeMinutes || 0));
-                        const shiftExtEntries = otEntries.filter(ot => ot.type === 'SHIFT_EXTENSION');
-                        const offShiftEntries = otEntries.filter(ot => ot.type === 'OFF_SHIFT');
-                        const hasOT = shiftExtEntries.length > 0 || offShiftEntries.length > 0;
+                        const approvedEntries = otEntries.filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED');
+                        const unapprovedEntries = otEntries.filter(ot => ot.status === 'PENDING' || ot.status === 'REJECTED');
+                        const approvedOTM = approvedEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                        const unapprovedOTMinutes = unapprovedEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                        const regularM = totalM;
+                        const hasOT = approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
                         return (
@@ -463,14 +461,21 @@ const TimeRecords = () => {
                             className={`border-b border-gray-50 last:border-b-0 ${hasOT ? 'bg-orange-50/30' : 'hover:bg-gray-50/50'}`}
                           >
                             <td className="py-2.5 px-5 text-sm">
-                              <span className="text-gray-900">{dateLabel}</span>
-                              {rec.isLate && (
-                                <span className="ml-1.5 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-gray-900">{dateLabel}</span>
+                                {rec.isLate && (
+                                  <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>
+                                )}
+                              </div>
+                              {hasOT && (
+                                <span className="inline-block mt-0.5 text-[10px] font-semibold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded">
+                                  Includes OT
+                                </span>
                               )}
                             </td>
 
                             {isLeaveOrHoliday ? (
-                              <td colSpan={4} className="py-2.5 px-3 text-center">
+                              <td colSpan={5} className="py-2.5 px-3 text-center">
                                 {getStatusBadge(status)}
                               </td>
                             ) : (
@@ -506,23 +511,46 @@ const TimeRecords = () => {
                                 </td>
 
                                 <td className="py-2.5 px-3 text-center text-sm">
-                                  {hasOT ? (
+                                  {approvedOTM > 0 ? (
                                     <div className="flex flex-col items-center gap-0.5">
-                                      {shiftExtEntries.map((ot, i) => (
+                                      {approvedEntries.filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
                                         <span key={i} className="inline-flex items-center gap-1">
                                           <span className="text-purple-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">ext</span>
-                                          <span className={`text-[10px] ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
-                                            {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '⏳'}
-                                          </span>
+                                          <span className="text-[10px] text-green-600">✓</span>
                                         </span>
                                       ))}
-                                      {offShiftEntries.map((ot, i) => (
+                                      {approvedEntries.filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
                                         <span key={i} className="inline-flex items-center gap-1">
                                           <span className="text-orange-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">off</span>
-                                          <span className={`text-[10px] ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
-                                            {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '⏳'}
+                                          <span className="text-[10px] text-green-600">✓</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-300">—</span>
+                                  )}
+                                </td>
+
+                                <td className="py-2.5 px-3 text-center text-sm">
+                                  {unapprovedOTMinutes > 0 ? (
+                                    <div className="flex flex-col items-center gap-0.5">
+                                      {unapprovedEntries.filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
+                                        <span key={i} className="inline-flex items-center gap-1">
+                                          <span className="text-purple-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
+                                          <span className="text-[10px] text-gray-400">ext</span>
+                                          <span className={`text-[10px] ${ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
+                                            {ot.status === 'REJECTED' ? '✗' : '⏳'}
+                                          </span>
+                                        </span>
+                                      ))}
+                                      {unapprovedEntries.filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
+                                        <span key={i} className="inline-flex items-center gap-1">
+                                          <span className="text-orange-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
+                                          <span className="text-[10px] text-gray-400">off</span>
+                                          <span className={`text-[10px] ${ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
+                                            {ot.status === 'REJECTED' ? '✗' : '⏳'}
                                           </span>
                                         </span>
                                       ))}
@@ -551,22 +579,26 @@ const TimeRecords = () => {
                     const isLeaveOrHoliday = status === 'paid_leave' || status === 'unpaid_leave' || status === 'holiday';
                     const otEntries = rec.overtimeEntries || [];
                     const totalM = rec.totalMinutes || 0;
-                    const unapprovedOTM = Math.min(
-                      totalM,
-                      otEntries
-                        .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
-                        .reduce((s, o) => s + (o.requestedMinutes || 0), 0)
-                    );
-                    const regularM = Math.max(0, totalM - (rec.overtimeMinutes || 0));
+                    const mobileUnapprovedEntries = otEntries.filter(ot => ot.status === 'PENDING' || ot.status === 'REJECTED');
+                    const mobileUnapprovedOTM = mobileUnapprovedEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                    const regularM = totalM;
+                    const mobileApprovedEntries = otEntries.filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED');
                     const hasOT = otEntries.length > 0;
                     const dateLabel = rec.dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
                     return (
                       <div key={rec.date} className={`px-4 py-3 ${hasOT ? 'bg-orange-50/30' : ''}`}>
                         <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-900">{dateLabel}</span>
-                            {rec.isLate && <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-900">{dateLabel}</span>
+                              {rec.isLate && <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>}
+                            </div>
+                            {hasOT && (
+                              <span className="inline-block mt-0.5 text-[10px] font-semibold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded">
+                                Includes OT
+                              </span>
+                            )}
                           </div>
                           {getStatusBadge(status)}
                         </div>
@@ -580,21 +612,19 @@ const TimeRecords = () => {
                               ) : null}
                               {(rec.breakMinutes || 0) > 0 && <span className="text-yellow-600">Break: {formatHours(rec.breakMinutes / 60)}</span>}
                             </div>
-                            <div className="flex items-center gap-3 mt-1 text-xs">
+                            <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
                               <span className="text-gray-700 font-medium">Reg: {formatHours(regularM / 60)}</span>
-                              {otEntries.filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
-                                <span key={i} className="text-purple-600">
-                                  Ext: {formatHours(ot.requestedMinutes / 60)}
-                                  <span className={`ml-0.5 ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
-                                    {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '⏳'}
-                                  </span>
+                              {mobileApprovedEntries.map((ot, i) => (
+                                <span key={`a-${i}`} className={ot.type === 'SHIFT_EXTENSION' ? 'text-purple-600' : 'text-orange-600'}>
+                                  {ot.type === 'SHIFT_EXTENSION' ? 'Ext' : 'Off'}: {formatHours(ot.requestedMinutes / 60)}
+                                  <span className="ml-0.5 text-green-600">✓</span>
                                 </span>
                               ))}
-                              {otEntries.filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
-                                <span key={i} className="text-orange-600">
-                                  Off: {formatHours(ot.requestedMinutes / 60)}
-                                  <span className={`ml-0.5 ${ot.status === 'APPROVED' ? 'text-green-600' : ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
-                                    {ot.status === 'APPROVED' ? '✓' : ot.status === 'REJECTED' ? '✗' : '⏳'}
+                              {mobileUnapprovedEntries.map((ot, i) => (
+                                <span key={`u-${i}`} className={ot.type === 'SHIFT_EXTENSION' ? 'text-purple-600' : 'text-orange-600'}>
+                                  {ot.type === 'SHIFT_EXTENSION' ? 'Ext' : 'Off'}: {formatHours(ot.requestedMinutes / 60)}
+                                  <span className={`ml-0.5 ${ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
+                                    {ot.status === 'REJECTED' ? '✗' : '⏳'}
                                   </span>
                                 </span>
                               ))}

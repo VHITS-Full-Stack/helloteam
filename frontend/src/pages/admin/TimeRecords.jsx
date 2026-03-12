@@ -139,14 +139,14 @@ const TimeRecords = () => {
       const group = groups.get(key);
       group.employees.push(record);
       group.totalHours += record.totalHours;
-      // Only count unapproved OT as overtime
+      // Only count pending OT as overtime
       const dailyRecords = record.dailyRecords || [];
       for (const day of dailyRecords) {
         const otEntries = day.overtimeEntries || [];
-        const unapprovedOTMinutes = otEntries
-          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+        const pendingOTMinutes = otEntries
+          .filter(o => o.status === 'PENDING')
           .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-        group.overtimeHours += unapprovedOTMinutes / 60;
+        group.overtimeHours += pendingOTMinutes / 60;
       }
       group.employeeCount++;
     }
@@ -334,11 +334,11 @@ const TimeRecords = () => {
     for (const emp of timeRecords) {
       for (const day of emp.dailyRecords) {
         const otEntries = day.overtimeEntries || [];
-        const unapprovedOTMinutes = otEntries
-          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+        const pendingOTMinutes = otEntries
+          .filter(o => o.status === 'PENDING')
           .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-        const unapprovedOTHours = Math.round(unapprovedOTMinutes / 60 * 100) / 100;
-        const regularHours = Math.max(0, Math.round(((day.hours || 0) - unapprovedOTHours) * 100) / 100);
+        const unapprovedOTHours = Math.round(pendingOTMinutes / 60 * 100) / 100;
+        const regularHours = Math.round((day.hours || 0) * 100) / 100;
         rows.push([
           `"${emp.employee}"`,
           `"${emp.client}"`,
@@ -368,7 +368,7 @@ const TimeRecords = () => {
   };
 
   // Compute totals from all records
-  // Only count unapproved OT (pending + rejected) as overtime; approved OT stays in regular hours
+  // Only count pending OT as overtime; approved/auto-approved OT stays in regular hours
   const totals = useMemo(() => {
     let totalHours = 0;
     let unapprovedOTHours = 0;
@@ -377,16 +377,16 @@ const TimeRecords = () => {
       const dailyRecords = r.dailyRecords || [];
       for (const day of dailyRecords) {
         const otEntries = day.overtimeEntries || [];
-        const unapprovedOTMinutes = otEntries
-          .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+        const pendingOTMinutes = otEntries
+          .filter(o => o.status === 'PENDING')
           .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-        unapprovedOTHours += unapprovedOTMinutes / 60;
+        unapprovedOTHours += pendingOTMinutes / 60;
       }
     }
     return {
       totalHours: Math.round(totalHours * 100) / 100,
       overtimeHours: Math.round(unapprovedOTHours * 100) / 100,
-      regularHours: Math.round((totalHours - unapprovedOTHours) * 100) / 100,
+      regularHours: Math.round(totalHours * 100) / 100,
     };
   }, [timeRecords]);
 
@@ -599,14 +599,7 @@ const TimeRecords = () => {
 
                       {/* Regular */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                        {day.hours != null ? (() => {
-                          const otEntries = day.overtimeEntries || [];
-                          const unapprovedOTMinutes = otEntries
-                            .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
-                            .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-                          const unapprovedOTHours = unapprovedOTMinutes / 60;
-                          return formatHours(Math.max(0, (day.hours || 0) - unapprovedOTHours));
-                        })() : '-'}
+                        {day.hours != null ? formatHours(day.hours) : '-'}
                       </td>
 
                       {/* OT */}
@@ -844,10 +837,10 @@ const TimeRecords = () => {
             {(() => {
               const otEntries = selectedRecord.overtimeEntries || [];
               const unapprovedOTMinutes = otEntries
-                .filter(o => o.status !== 'APPROVED' && o.status !== 'AUTO_APPROVED')
+                .filter(o => o.status === 'PENDING')
                 .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
               const unapprovedOTHours = unapprovedOTMinutes / 60;
-              const regularHours = Math.max(0, (selectedRecord.hours || 0) - unapprovedOTHours);
+              const regularHours = selectedRecord.hours || 0;
               return (
                 <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="text-center">

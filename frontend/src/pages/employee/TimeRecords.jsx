@@ -458,11 +458,10 @@ const TimeRecords = () => {
     let breakMinutes = 0;
     for (const s of sessions) {
       totalMinutes += s.totalMinutes || 0;
-      // Only count unapproved OT (pending + rejected) as overtime
-      // Approved OT is included in regular hours
+      // Only count pending OT as overtime; approved OT stays in regular hours
       const otEntries = s.overtimeEntries || [];
       const unapprovedOT = otEntries
-        .filter((o) => o.status !== "APPROVED" && o.status !== "AUTO_APPROVED")
+        .filter((o) => o.status === "PENDING")
         .reduce((sum, o) => sum + (o.requestedMinutes || 0), 0);
       overtimeMinutes += unapprovedOT;
       breakMinutes += s.breakMinutes || s.totalBreakMinutes || 0;
@@ -839,23 +838,18 @@ const TimeRecords = () => {
                               {(() => {
                                 const otEntries = session.overtimeEntries || [];
                                 const totalM = session.totalMinutes || 0;
-                                // Subtract only unapproved OT (pending + rejected) from regular hours
-                                // Approved OT is included in regular hours
-                                // Cap unapproved OT at totalM so regular never goes below 0
+                                // Subtract only pending OT from regular hours
+                                // Approved/auto-approved OT is included in regular hours
                                 const unapprovedOTM = Math.min(
                                   totalM,
                                   otEntries
-                                    .filter(
-                                      (o) =>
-                                        o.status !== "APPROVED" &&
-                                        o.status !== "AUTO_APPROVED",
-                                    )
+                                    .filter((o) => o.status === "PENDING")
                                     .reduce(
                                       (s, o) => s + (o.requestedMinutes || 0),
                                       0,
                                     ),
                                 );
-                                const regularM = totalM - unapprovedOTM;
+                                const regularM = totalM;
                                 const shiftExtM = otEntries
                                   .filter((o) => o.type === "SHIFT_EXTENSION")
                                   .reduce(
@@ -1177,19 +1171,12 @@ const TimeRecords = () => {
                                 const otEntries = session.overtimeEntries || [];
                                 const totalM = session.totalMinutes || 0;
                                 const unapprovedOTM = otEntries
-                                  .filter(
-                                    (o) =>
-                                      o.status !== "APPROVED" &&
-                                      o.status !== "AUTO_APPROVED",
-                                  )
+                                  .filter((o) => o.status === "PENDING")
                                   .reduce(
                                     (s, o) => s + (o.requestedMinutes || 0),
                                     0,
                                   );
-                                const regularM = Math.max(
-                                  0,
-                                  totalM - unapprovedOTM,
-                                );
+                                const regularM = totalM;
                                 return isActiveSession(session) ? (
                                   <span className="text-sm font-bold text-green-600">
                                     In Progress
