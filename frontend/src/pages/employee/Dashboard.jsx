@@ -1774,87 +1774,79 @@ const EmployeeDashboard = () => {
             </div>
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
-            {(() => {
+            {weekSchedule.map((daySchedule, index) => {
+              const dayDate = new Date(daySchedule.date + "T00:00:00");
               const now = new Date();
               const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-              const startOfWeek = new Date(todayStart);
-              startOfWeek.setDate(todayStart.getDate() - todayStart.getDay()); // Sunday
+              const isToday = todayStart.getTime() === new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate()).getTime();
+              const isPast = dayDate < todayStart;
+              const isScheduled = daySchedule.isScheduled;
 
-              return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => {
-                const dayDate = new Date(startOfWeek);
-                dayDate.setDate(startOfWeek.getDate() + index);
-                const isToday = todayStart.getTime() === new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate()).getTime();
-                const isPast = dayDate < todayStart;
-                const daySchedule = weekSchedule.find((s) => s.date === dayDate.toISOString().split("T")[0]);
-                const isScheduled = daySchedule?.isScheduled;
+              // Check for approved shift extension on this day
+              const approvedExtension = myOvertimeRequests.find(
+                (ot) =>
+                  ot.type === "SHIFT_EXTENSION" &&
+                  ot.status === "APPROVED" &&
+                  ot.date?.split("T")[0] === daySchedule.date
+              );
+              const displayEndTime = approvedExtension?.estimatedEndTime
+                ? approvedExtension.estimatedEndTime
+                : daySchedule.endTime;
 
-                // Check for approved shift extension on this day
-                const dayDateStr = dayDate.toISOString().split("T")[0];
-                const approvedExtension = myOvertimeRequests.find(
-                  (ot) =>
-                    ot.type === "SHIFT_EXTENSION" &&
-                    ot.status === "APPROVED" &&
-                    new Date(ot.date).toISOString().split("T")[0] === dayDateStr
-                );
-                const displayEndTime = approvedExtension?.estimatedEndTime
-                  ? approvedExtension.estimatedEndTime
-                  : daySchedule?.endTime;
-
-                return (
-                  <div
-                    key={day}
-                    className={`relative p-3 rounded-xl text-center transition-all ${
-                      isToday
-                        ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
-                        : isPast && isScheduled
-                          ? "bg-green-50 border border-green-100"
-                          : !isScheduled
-                            ? "bg-gray-50 border border-gray-100 opacity-60"
-                            : "bg-gray-50 border border-gray-100"
+              return (
+                <div
+                  key={daySchedule.date || index}
+                  className={`relative p-3 rounded-xl text-center transition-all ${
+                    isToday
+                      ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
+                      : isPast && isScheduled
+                        ? "bg-green-50 border border-green-100"
+                        : !isScheduled
+                          ? "bg-gray-50 border border-gray-100 opacity-60"
+                          : "bg-gray-50 border border-gray-100"
+                  }`}
+                >
+                  {isToday && (
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                      <Badge variant="accent" size="xs">
+                        Today
+                      </Badge>
+                    </div>
+                  )}
+                  <p
+                    className={`text-sm font-medium ${
+                      isToday ? "text-primary-100" : "text-gray-500"
                     }`}
                   >
-                    {isToday && (
-                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
-                        <Badge variant="accent" size="xs">
-                          Today
-                        </Badge>
-                      </div>
-                    )}
-                    <p
-                      className={`text-sm font-medium ${
-                        isToday ? "text-primary-100" : "text-gray-500"
-                      }`}
-                    >
-                      {day}
-                    </p>
-                    <p
-                      className={`text-2xl font-bold mt-1 ${
-                        isToday ? "text-white" : "text-gray-900"
-                      }`}
-                    >
-                      {dayDate.getDate()}
-                    </p>
-                    <p
-                      className={`text-xs mt-2 ${
-                        isToday ? "text-primary-100" : isScheduled ? "text-gray-600" : "text-gray-400"
-                      }`}
-                    >
-                      {isScheduled
-                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(displayEndTime)}`
-                        : "Off"}
-                    </p>
-                    {approvedExtension && isScheduled && (
-                      <span className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}>
-                        +{Math.round(approvedExtension.requestedMinutes / 60 * 10) / 10}h OT
-                      </span>
-                    )}
-                    {isPast && !isToday && isScheduled && (
-                      <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
-                    )}
-                  </div>
-                );
-              });
-            })()}
+                    {daySchedule.dayName?.slice(0, 3)}
+                  </p>
+                  <p
+                    className={`text-2xl font-bold mt-1 ${
+                      isToday ? "text-white" : "text-gray-900"
+                    }`}
+                  >
+                    {dayDate.getDate()}
+                  </p>
+                  <p
+                    className={`text-xs mt-2 ${
+                      isToday ? "text-primary-100" : isScheduled ? "text-gray-600" : "text-gray-400"
+                    }`}
+                  >
+                    {isScheduled
+                      ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(displayEndTime)}`
+                      : "Off"}
+                  </p>
+                  {approvedExtension && isScheduled && (
+                    <span className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}>
+                      +{Math.round(approvedExtension.requestedMinutes / 60 * 10) / 10}h OT
+                    </span>
+                  )}
+                  {isPast && !isToday && isScheduled && (
+                    <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
+                  )}
+                </div>
+              );
+            })}
           </div>
           )}
         </CardContent>
