@@ -56,7 +56,7 @@ import {
   playBreakStartSound,
   playBreakEndSound,
 } from "../../utils/sounds";
-import { formatTime12 } from "../../utils/formatTime";
+import { formatTime12, formatDuration } from "../../utils/formatTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
@@ -1515,9 +1515,7 @@ const EmployeeDashboard = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold text-gray-900">
-                            {Math.round((request.requestedMinutes / 60) * 10) /
-                              10}{" "}
-                            hours
+                            {formatDuration(request.requestedMinutes)}
                           </p>
                           <Badge
                             variant={
@@ -1835,7 +1833,7 @@ const EmployeeDashboard = () => {
                   </p>
                   {approvedExtension && isScheduled && (
                     <span className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}>
-                      +{Math.round(approvedExtension.requestedMinutes / 60 * 10) / 10}h OT
+                      +{formatDuration(approvedExtension.requestedMinutes)} OT
                     </span>
                   )}
                   {isPast && !isToday && isScheduled && (
