@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { LeaveStatus, ApprovalStatus } from '@prisma/client';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { formatDuration } from '../utils/timezone';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -1195,10 +1196,10 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           description: isAdjustment
             ? 'Clock-out time correction'
             : isOvertime
-              ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 100) / 100}h overtime`
-              : `${Math.round((tr.totalMinutes || 0) / 60 * 100) / 100} hours total`,
+              ? `${formatDuration(tr.overtimeMinutes || 0)} overtime`
+              : `${formatDuration(tr.totalMinutes || 0)} total`,
           date: tr.date.toISOString().split('T')[0],
-          details: tr.adjustmentNotes || `${Math.round((tr.totalMinutes || 0) / 60 * 100) / 100} hours`,
+          details: tr.adjustmentNotes || formatDuration(tr.totalMinutes || 0),
           totalMinutes: tr.totalMinutes || 0,
           submitted: tr.createdAt,
           submittedBy: isAdjustment ? 'System' : 'Employee',

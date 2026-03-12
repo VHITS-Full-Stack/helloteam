@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 import { computeBillingTimes } from '../utils/helpers';
+import { formatDuration } from '../utils/timezone';
 
 // Helper to get local date string from a Date (avoids timezone shift from toISOString)
 const toLocalDateStr = (d: Date) =>
@@ -722,8 +723,8 @@ export const getPendingApprovals = async (req: AuthenticatedRequest, res: Respon
         hours: Math.round(totalHours * 100) / 100,
         date: tr.date,
         description: overtimeMinutes > 0
-          ? `${Math.round(overtimeMinutes / 60 * 100) / 100} overtime hours`
-          : `${Math.round(totalHours * 100) / 100} regular hours`,
+          ? `${formatDuration(overtimeMinutes)} overtime`
+          : `${formatDuration(totalMinutes)} regular`,
         createdAt: tr.createdAt,
       });
     });
