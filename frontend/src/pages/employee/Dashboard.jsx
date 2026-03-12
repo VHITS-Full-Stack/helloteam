@@ -1561,7 +1561,7 @@ const EmployeeDashboard = () => {
           </Card>
 
           {/* Today's Meetings */}
-          <Card>
+       {/*    <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -1572,7 +1572,7 @@ const EmployeeDashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {/* TODO: Replace empty state with todayMeetings.map when data is available
+              TODO: Replace empty state with todayMeetings.map when data is available
               <div className="space-y-4">
                 {todayMeetings.map((meeting, index) => (
                   <div
@@ -1619,13 +1619,13 @@ const EmployeeDashboard = () => {
                   </div>
                 ))}
               </div>
-              */}
+            
               <div className="text-center py-8">
                 <Video className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">No meetings scheduled</p>
               </div>
             </CardContent>
-          </Card>
+          </Card>  */}
         </div>
 
         {/* Right Column - Team & Announcements */}
