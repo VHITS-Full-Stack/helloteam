@@ -620,11 +620,11 @@ const Approvals = () => {
                       </div>
                     </TableCell>
                     <TableCell>{getTypeBadge(item.type)}</TableCell>
-                    <TableCell>
+                    <TableCell className="!whitespace-normal max-w-[300px]">
                       <div>
-                        <p className="text-gray-900">{item.description}</p>
+                        <p className="text-gray-900 line-clamp-2" title={item.description}>{item.description}</p>
                         {item.reason && (
-                          <p className="text-xs text-gray-500 mt-1">Reason: {item.reason}</p>
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={item.reason}>Reason: {item.reason}</p>
                         )}
                       </div>
                     </TableCell>
@@ -651,8 +651,8 @@ const Approvals = () => {
                       </TableCell>
                     )}
                     {activeTab === 'rejected' && (
-                      <TableCell>
-                        <span className="text-sm text-red-600">{item.rejectionReason || '-'}</span>
+                      <TableCell className="!whitespace-normal max-w-[250px]">
+                        <span className="text-sm text-red-600 line-clamp-2" title={item.rejectionReason}>{item.rejectionReason || '-'}</span>
                       </TableCell>
                     )}
                   </TableRow>
@@ -731,8 +731,8 @@ const Approvals = () => {
                         {request.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <p className="text-gray-900">{request.reason}</p>
+                    <TableCell className="!whitespace-normal max-w-[300px]">
+                      <p className="text-gray-900 line-clamp-2" title={request.reason}>{request.reason}</p>
                     </TableCell>
                     <TableCell>{formatDate(request.date)}</TableCell>
                     <TableCell>
@@ -766,9 +766,9 @@ const Approvals = () => {
                       </TableCell>
                     )}
                     {activeTab === 'rejected' && (
-                      <TableCell>
+                      <TableCell className="!whitespace-normal max-w-[250px]">
                         <div>
-                          <span className="text-sm text-red-600">{request.rejectionReason || '-'}</span>
+                          <span className="text-sm text-red-600 line-clamp-2" title={request.rejectionReason}>{request.rejectionReason || '-'}</span>
                           {request.rejecter && (
                             <p className="text-xs text-gray-500">by {request.rejecter.name}</p>
                           )}
