@@ -1511,10 +1511,10 @@ const EmployeeDashboard = () => {
                           })}
                         </p>
                       </div>
-                      <div className="w-px h-12 bg-gray-200" />
-                      <div className="flex-1">
+                      <div className="w-px h-12 bg-gray-200 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold text-gray-900">
+                          <p className="font-semibold text-gray-900 whitespace-nowrap">
                             {formatDuration(request.requestedMinutes)}
                           </p>
                           <Badge

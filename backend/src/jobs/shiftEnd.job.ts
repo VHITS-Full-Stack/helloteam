@@ -97,10 +97,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: schedule=${schedule.endTime}, tz=${clientTimezone}, shiftEndUTC=${shiftEndUTC.toISOString()}, now=${now.toISOString()}, minutesUntilEnd=${minutesUntilEnd.toFixed(1)}`);
 
       // --- 30-minute warning (fires once around the 30-min mark) ---
-      // Skip when OT doesn't require approval — no auto-clock-out or OT warnings needed
-      if (!otRequiresApproval) {
-        // No shift-end warnings or auto-clock-out — all hours are regular
-      } else if (minutesUntilEnd <= 30 && minutesUntilEnd > 28 && !session.shiftEndNotifiedAt) {
+      if (minutesUntilEnd <= 30 && minutesUntilEnd > 28 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
 
         // Check if employee already has an approved OT request for today
@@ -168,15 +165,30 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           continue;
         }
 
-        // When OT does NOT require approval, skip controlled pause entirely
-        // All hours are treated as regular approved time — let employee keep working
-        if (!otRequiresApproval) {
-          console.log(`[Shift-End] SKIPPING ${employee.firstName} ${employee.lastName} — overtimeRequiresApproval=false, all hours are regular`);
-          continue;
+        // Auto-reject any PENDING OT requests for today — shift has ended without client approval
+        const pendingOTRequests = await prisma.overtimeRequest.findMany({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            date: recordDate,
+            status: 'PENDING',
+          },
+        });
+
+        if (pendingOTRequests.length > 0) {
+          await prisma.overtimeRequest.updateMany({
+            where: {
+              id: { in: pendingOTRequests.map(ot => ot.id) },
+            },
+            data: {
+              status: 'REJECTED',
+              rejectionReason: 'Auto-rejected: shift ended without client approval',
+            },
+          });
+          console.log(`[Shift-End] Auto-rejected ${pendingOTRequests.length} pending OT request(s) for ${employee.firstName} ${employee.lastName}`);
         }
 
         // Check if the employee has APPROVED OT requests for today
-        // Only APPROVED requests skip the controlled pause (pending ≠ approved per spec)
         const approvedOTRequests = await prisma.overtimeRequest.findMany({
           where: {
             employeeId: employee.id,
