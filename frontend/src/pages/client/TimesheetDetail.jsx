@@ -531,7 +531,7 @@ const TimesheetDetail = () => {
                   .filter((o) => o.status !== "APPROVED" && o.status !== "AUTO_APPROVED")
                   .reduce((s, o) => s + (o.requestedMinutes || 0), 0),
               );
-              const regularM = totalM - unapprovedOTM;
+              const regularM = Math.max(0, totalM - (rec.overtimeMinutes || 0));
               const shiftExtEntries = otEntries.filter((ot) => ot.type === "SHIFT_EXTENSION");
               const offShiftEntries = otEntries.filter((ot) => ot.type === "OFF_SHIFT");
               const hasOT = shiftExtEntries.length > 0 || offShiftEntries.length > 0;
