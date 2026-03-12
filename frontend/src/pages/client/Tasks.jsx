@@ -337,8 +337,7 @@ const Tasks = () => {
           <h1 className="text-2xl font-bold text-gray-900">Tasks</h1>
           <p className="text-sm text-gray-500 mt-1">Create and manage tasks for your team</p>
         </div>
-        <Button onClick={openCreate} className="flex items-center gap-2">
-          <Plus className="w-4 h-4" />
+        <Button onClick={openCreate} size="sm" rounded="lg" icon={Plus} className="normal-case tracking-normal whitespace-nowrap">
           New Task
         </Button>
       </div>
@@ -423,7 +422,7 @@ const Tasks = () => {
           <div className="text-gray-400 mb-4"><CheckCircle2 className="w-12 h-12 mx-auto" /></div>
           <h3 className="text-lg font-medium text-gray-900">No tasks found</h3>
           <p className="text-gray-500 mt-1">Create your first task to get started</p>
-          <Button onClick={openCreate} className="mt-4"><Plus className="w-4 h-4 mr-2" />Create Task</Button>
+          <Button onClick={openCreate} size="sm" rounded="lg" icon={Plus} className="mt-4 normal-case tracking-normal whitespace-nowrap">Create Task</Button>
         </Card>
       ) : viewMode === 'board' ? (
         /* ===== BOARD VIEW ===== */
