@@ -46,6 +46,7 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
               lastName: true,
               profilePhoto: true,
               userId: true,
+              phone: true,
             },
           },
           messages: {
@@ -78,6 +79,7 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
               name: `${conv.employee.firstName} ${conv.employee.lastName}`,
               profilePhoto: conv.employee.profilePhoto,
               userId: conv.employee.userId,
+              phone: conv.employee.phone,
             },
           };
         })
@@ -98,6 +100,7 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
               contactPerson: true,
               logoUrl: true,
               userId: true,
+              phone: true,
             },
           },
           messages: {
@@ -129,6 +132,7 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
               name: conv.client.companyName,
               profilePhoto: conv.client.logoUrl,
               userId: conv.client.userId,
+              phone: conv.client.phone,
             },
           };
         })
@@ -419,6 +423,7 @@ export const getContacts = async (req: AuthenticatedRequest, res: Response) => {
               lastName: true,
               profilePhoto: true,
               userId: true,
+              phone: true,
             },
           },
         },
@@ -429,6 +434,7 @@ export const getContacts = async (req: AuthenticatedRequest, res: Response) => {
         name: `${a.employee.firstName} ${a.employee.lastName}`,
         profilePhoto: a.employee.profilePhoto,
         userId: a.employee.userId,
+        phone: a.employee.phone,
         type: 'employee',
       }));
 
@@ -449,6 +455,7 @@ export const getContacts = async (req: AuthenticatedRequest, res: Response) => {
               contactPerson: true,
               logoUrl: true,
               userId: true,
+              phone: true,
             },
           },
         },
@@ -459,6 +466,7 @@ export const getContacts = async (req: AuthenticatedRequest, res: Response) => {
         name: a.client.companyName,
         profilePhoto: a.client.logoUrl,
         userId: a.client.userId,
+        phone: a.client.phone,
         type: 'client',
       }));
 

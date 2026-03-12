@@ -1238,12 +1238,12 @@ const EmployeeDashboard = () => {
       {/* Quick Actions */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[
-          {
-            icon: Clock,
-            label: "Time Clock",
-            color: "primary",
-            link: "/employee/time-clock",
-          },
+          // {
+          //   icon: Clock,
+          //   label: "Time Clock",
+          //   color: "primary",
+          //   link: "/employee/time-clock",
+          // },
           {
             icon: Calendar,
             label: "Schedule",
@@ -1276,11 +1276,7 @@ const EmployeeDashboard = () => {
               } else if (action.action === "comingSoon") {
                 triggerComingSoon();
               } else if (action.action === "messages") {
-                if (unreadMessageCount > 0) {
-                  navigate(action.link);
-                } else {
-                  triggerNoConversations();
-                }
+                navigate(action.link);
               } else if (action.link !== "#") {
                 navigate(action.link);
               }

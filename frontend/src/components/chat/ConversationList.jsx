@@ -18,6 +18,15 @@ const ConversationList = ({
     conv.participant?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Available contacts that don't have a conversation yet
+  const availableContacts = (contacts || []).filter(
+    (contact) => !conversations.some((conv) => conv.participant?.id === contact.id)
+  );
+
+  const filteredContacts = availableContacts.filter((contact) =>
+    contact.name?.toLowerCase().includes(search.toLowerCase())
+  );
+
   const formatTime = (dateString) => {
     if (!dateString) return '';
     const date = new Date(dateString);
@@ -41,11 +50,6 @@ const ConversationList = ({
     if (msg.messageType === 'FILE' || msg.messageType === 'VIDEO') return msg.fileName || 'Attachment';
     return msg.content || '';
   };
-
-  // Available contacts that don't have a conversation yet
-  const availableContacts = (contacts || []).filter(
-    (contact) => !conversations.some((conv) => conv.participant?.id === contact.id)
-  );
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-gray-100">
@@ -108,62 +112,85 @@ const ConversationList = ({
           <div className="flex items-center justify-center py-12">
             <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && filteredContacts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
             <MessageCircle className="w-10 h-10 text-gray-300 mb-2" />
             <p className="text-sm text-gray-500">
               {search ? 'No conversations match your search' : 'No conversations yet'}
             </p>
-            {!search && availableContacts.length > 0 && (
-              <button
-                onClick={() => setShowNewChat(true)}
-                className="mt-2 text-sm text-primary font-medium hover:text-primary-dark"
-              >
-                Start a new conversation
-              </button>
-            )}
           </div>
         ) : (
-          filtered.map((conv) => (
-            <button
-              key={conv.id}
-              onClick={() => onSelect(conv)}
-              className={`
-                w-full flex items-center gap-3 px-4 py-3 transition-colors border-b border-gray-50
-                ${selectedId === conv.id
-                  ? 'bg-primary-50 border-l-3 border-l-primary'
-                  : 'hover:bg-gray-50'
-                }
-              `}
-            >
-              <Avatar
-                name={conv.participant?.name}
-                src={conv.participant?.profilePhoto}
-                size="md"
-                status={isUserOnline?.(conv.participant?.userId) ? 'online' : undefined}
-              />
-              <div className="flex-1 min-w-0 text-left">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-sm text-gray-900 truncate">
-                    {conv.participant?.name}
-                  </span>
-                  <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
-                    {formatTime(conv.messages?.[0]?.createdAt || conv.lastMessageAt)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mt-0.5">
-                  <p className="text-xs text-gray-500 truncate">
-                    {getLastMessagePreview(conv)}
-                  </p>
-                  {conv.unreadCount > 0 && (
-                    <span className="ml-2 flex-shrink-0 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center">
-                      {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
+          <>
+            {filtered.map((conv) => (
+              <button
+                key={conv.id}
+                onClick={() => onSelect(conv)}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-3 transition-colors border-b border-gray-50
+                  ${selectedId === conv.id
+                    ? 'bg-primary-50 border-l-3 border-l-primary'
+                    : 'hover:bg-gray-50'
+                  }
+                `}
+              >
+                <Avatar
+                  name={conv.participant?.name}
+                  src={conv.participant?.profilePhoto}
+                  size="md"
+                  status={isUserOnline?.(conv.participant?.userId) ? 'online' : undefined}
+                />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-sm text-gray-900 truncate">
+                      {conv.participant?.name}
                     </span>
-                  )}
+                    <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+                      {formatTime(conv.messages?.[0]?.createdAt || conv.lastMessageAt)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-xs text-gray-500 truncate">
+                      {getLastMessagePreview(conv)}
+                    </p>
+                    {conv.unreadCount > 0 && (
+                      <span className="ml-2 flex-shrink-0 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center">
+                        {conv.unreadCount > 9 ? '9+' : conv.unreadCount}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </button>
-          ))
+              </button>
+            ))}
+
+            {/* Available contacts shown by default */}
+            {filteredContacts.length > 0 && (
+              <>
+                <p className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  New conversation
+                </p>
+                {filteredContacts.map((contact) => (
+                  <button
+                    key={contact.id}
+                    onClick={() => onNewConversation(contact)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-primary-50 transition-colors border-b border-gray-50"
+                  >
+                    <Avatar
+                      name={contact.name}
+                      src={contact.profilePhoto}
+                      size="md"
+                      status={isUserOnline?.(contact.userId) ? 'online' : undefined}
+                    />
+                    <div className="flex-1 min-w-0 text-left">
+                      <span className="font-semibold text-sm text-gray-900 truncate block">
+                        {contact.name}
+                      </span>
+                      <p className="text-xs text-gray-400">Tap to start chatting</p>
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -106,6 +106,7 @@ const ClientChat = () => {
             name: contact.name,
             profilePhoto: contact.profilePhoto,
             userId: contact.userId,
+            phone: contact.phone,
           },
         };
 

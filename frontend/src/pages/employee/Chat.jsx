@@ -104,6 +104,7 @@ const EmployeeChat = () => {
             name: contact.name,
             profilePhoto: contact.profilePhoto,
             userId: contact.userId,
+            phone: contact.phone,
           },
         };
 
