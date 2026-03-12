@@ -47,7 +47,6 @@ import {
 import workSessionService from "../../services/workSession.service";
 import overtimeService from "../../services/overtime.service";
 import scheduleService from "../../services/schedule.service";
-import notificationService from "../../services/notification.service";
 import taskService from "../../services/task.service";
 import chatService from "../../services/chat.service";
 import {
@@ -89,29 +88,7 @@ const EmployeeDashboard = () => {
   const [overtimeError, setOvertimeError] = useState("");
   const [overtimeSuccess, setOvertimeSuccess] = useState("");
 
-  // Shift end / Stay Clocked In modal state
-  const [showShiftEndModal, setShowShiftEndModal] = useState(false);
-  const [shiftEndData, setShiftEndData] = useState(null);
-  const [shiftEndForm, setShiftEndForm] = useState({
-    duration: "",
-    customMinutes: "",
-    reason: "",
-  });
-  const [shiftEndLoading, setShiftEndLoading] = useState(false);
-  const [shiftEndError, setShiftEndError] = useState("");
-  const [shiftEndSuccess, setShiftEndSuccess] = useState("");
-
-  const shiftEndDismissedRef = useRef(
-    sessionStorage.getItem("shiftEndDismissed") === "true",
-  );
-
-  // Controlled pause modal state (shift has ended)
-  const [showPauseModal, setShowPauseModal] = useState(false);
-  const [pauseData, setPauseData] = useState(null);
-  const [pauseCountdown, setPauseCountdown] = useState(120); // 2 minutes
-  const [pauseReason, setPauseReason] = useState("");
-  const [pauseLoading, setPauseLoading] = useState(false);
-  const [pauseError, setPauseError] = useState("");
+  // Shift extension state (driven by session data)
   const [isInExtension, setIsInExtension] = useState(false);
 
   // My overtime requests state
@@ -132,7 +109,8 @@ const EmployeeDashboard = () => {
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
   const [showLateClockInWarning, setShowLateClockInWarning] = useState(false);
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
-  const [showUnscheduledDayWarning, setShowUnscheduledDayWarning] = useState(false);
+  const [showUnscheduledDayWarning, setShowUnscheduledDayWarning] =
+    useState(false);
   const [clockInWarningMessage, setClockInWarningMessage] = useState("");
   const [weekSchedule, setWeekSchedule] = useState([]);
 
@@ -143,17 +121,31 @@ const EmployeeDashboard = () => {
   const [toastMessage, setToastMessage] = useState(null);
 
   const triggerComingSoon = () => {
-    setToastMessage({ title: "Coming Soon", description: "This feature is under development." });
+    setToastMessage({
+      title: "Coming Soon",
+      description: "This feature is under development.",
+    });
     setShowComingSoon(true);
-    if (comingSoonTimeoutRef.current) clearTimeout(comingSoonTimeoutRef.current);
-    comingSoonTimeoutRef.current = setTimeout(() => setShowComingSoon(false), 3000);
+    if (comingSoonTimeoutRef.current)
+      clearTimeout(comingSoonTimeoutRef.current);
+    comingSoonTimeoutRef.current = setTimeout(
+      () => setShowComingSoon(false),
+      3000,
+    );
   };
 
   const triggerNoConversations = () => {
-    setToastMessage({ title: "No Messages", description: "No conversations yet." });
+    setToastMessage({
+      title: "No Messages",
+      description: "No conversations yet.",
+    });
     setShowComingSoon(true);
-    if (comingSoonTimeoutRef.current) clearTimeout(comingSoonTimeoutRef.current);
-    comingSoonTimeoutRef.current = setTimeout(() => setShowComingSoon(false), 3000);
+    if (comingSoonTimeoutRef.current)
+      clearTimeout(comingSoonTimeoutRef.current);
+    comingSoonTimeoutRef.current = setTimeout(
+      () => setShowComingSoon(false),
+      3000,
+    );
   };
 
   // Activity notes state
@@ -370,12 +362,22 @@ const EmployeeDashboard = () => {
     fetchTasks();
     fetchUnreadCount();
     fetchWeekSchedule();
-  }, [fetchWorkSessionData, fetchOvertimeRequests, fetchTasks, fetchUnreadCount, fetchWeekSchedule]);
+  }, [
+    fetchWorkSessionData,
+    fetchOvertimeRequests,
+    fetchTasks,
+    fetchUnreadCount,
+    fetchWeekSchedule,
+  ]);
 
   // Detect if session is in extension mode (resumed after shift end)
   useEffect(() => {
     const session = sessionData?.session;
-    if (session && session.shiftEndResumedAt && session.status !== "COMPLETED") {
+    if (
+      session &&
+      session.shiftEndResumedAt &&
+      session.status !== "COMPLETED"
+    ) {
       setIsInExtension(true);
     }
   }, [sessionData?.session?.id, sessionData?.session?.shiftEndResumedAt]);
@@ -404,14 +406,21 @@ const EmployeeDashboard = () => {
       for (const brk of breaks) {
         const brkStart = new Date(brk.startTime);
         if (brk.endTime) {
-          breakSeconds += Math.floor((new Date(brk.endTime).getTime() - brkStart.getTime()) / 1000);
+          breakSeconds += Math.floor(
+            (new Date(brk.endTime).getTime() - brkStart.getTime()) / 1000,
+          );
         } else {
           // Ongoing break — count time so far
-          breakSeconds += Math.floor((now.getTime() - brkStart.getTime()) / 1000);
+          breakSeconds += Math.floor(
+            (now.getTime() - brkStart.getTime()) / 1000,
+          );
         }
       }
     }
-    const totalSeconds = Math.max(0, Math.floor((now.getTime() - start.getTime()) / 1000) - breakSeconds);
+    const totalSeconds = Math.max(
+      0,
+      Math.floor((now.getTime() - start.getTime()) / 1000) - breakSeconds,
+    );
     const hrs = Math.floor(totalSeconds / 3600);
     const mins = Math.floor((totalSeconds % 3600) / 60);
     const secs = totalSeconds % 60;
@@ -448,8 +457,6 @@ const EmployeeDashboard = () => {
         return;
       }
       playClockInSound();
-      sessionStorage.removeItem("shiftEndDismissed");
-      shiftEndDismissedRef.current = false;
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -480,9 +487,6 @@ const EmployeeDashboard = () => {
       setShowPostShiftWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
-      // Post-shift session — suppress shift end popup and mark old notifications as read
-      dismissShiftEndPopup();
-      markShiftEndNotificationsRead();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -498,9 +502,6 @@ const EmployeeDashboard = () => {
       setShowLateClockInWarning(false);
       await workSessionService.clockIn({ confirmPostShift: true });
       playClockInSound();
-      // Post-shift session — suppress shift end popup and mark old notifications as read
-      dismissShiftEndPopup();
-      markShiftEndNotificationsRead();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock in");
@@ -614,7 +615,11 @@ const EmployeeDashboard = () => {
     }
 
     // Validate OFF_SHIFT times are outside schedule
-    if (overtimeForm.type === "OFF_SHIFT" && overtimeForm.requestedStartTime && overtimeForm.requestedEndTime) {
+    if (
+      overtimeForm.type === "OFF_SHIFT" &&
+      overtimeForm.requestedStartTime &&
+      overtimeForm.requestedEndTime
+    ) {
       try {
         const selectedDate = new Date(overtimeForm.date + "T00:00:00");
         const dayOfWeek = selectedDate.getDay(); // 0-6
@@ -625,22 +630,37 @@ const EmployeeDashboard = () => {
 
         const schedRes = await scheduleService.getMySchedule(weekStartStr);
         if (schedRes.success && schedRes.schedule) {
-          const daySchedule = schedRes.schedule.find((s) => s.dayOfWeek === dayOfWeek);
-          if (daySchedule && daySchedule.isScheduled && daySchedule.startTime && daySchedule.endTime) {
-            const [schedStartH, schedStartM] = daySchedule.startTime.split(":").map(Number);
-            const [schedEndH, schedEndM] = daySchedule.endTime.split(":").map(Number);
+          const daySchedule = schedRes.schedule.find(
+            (s) => s.dayOfWeek === dayOfWeek,
+          );
+          if (
+            daySchedule &&
+            daySchedule.isScheduled &&
+            daySchedule.startTime &&
+            daySchedule.endTime
+          ) {
+            const [schedStartH, schedStartM] = daySchedule.startTime
+              .split(":")
+              .map(Number);
+            const [schedEndH, schedEndM] = daySchedule.endTime
+              .split(":")
+              .map(Number);
             const schedStartMin = schedStartH * 60 + schedStartM;
             const schedEndMin = schedEndH * 60 + schedEndM;
 
-            const [reqStartH, reqStartM] = overtimeForm.requestedStartTime.split(":").map(Number);
-            const [reqEndH, reqEndM] = overtimeForm.requestedEndTime.split(":").map(Number);
+            const [reqStartH, reqStartM] = overtimeForm.requestedStartTime
+              .split(":")
+              .map(Number);
+            const [reqEndH, reqEndM] = overtimeForm.requestedEndTime
+              .split(":")
+              .map(Number);
             const reqStartMin = reqStartH * 60 + reqStartM;
             const reqEndMin = reqEndH * 60 + reqEndM;
 
             // Check overlap: reqStart < schedEnd AND reqEnd > schedStart
             if (reqStartMin < schedEndMin && reqEndMin > schedStartMin) {
               setOvertimeError(
-                `The requested time overlaps with your scheduled shift (${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)}). Off-shift overtime must be outside your schedule.`
+                `The requested time overlaps with your scheduled shift (${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)}). Off-shift overtime must be outside your schedule.`,
               );
               return;
             }
@@ -693,241 +713,16 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // Handle shift end modal triggered from notification click (Header)
+  // Listen for session-updated events from global ShiftModals component
   useEffect(() => {
-    // Check sessionStorage for cross-page navigation
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('showShiftEnd')) {
-      const stored = sessionStorage.getItem('shiftEndNotification');
-      if (stored) {
-        sessionStorage.removeItem('shiftEndNotification');
-        sessionStorage.removeItem('shiftEndDismissed');
-        shiftEndDismissedRef.current = false;
-        setShiftEndData(JSON.parse(stored));
-        setShowShiftEndModal(true);
-      }
-      window.history.replaceState({}, '', window.location.pathname);
-    }
-
-    // Listen for same-page custom event from Header
-    const handleShowShiftEnd = (e) => {
-      sessionStorage.removeItem('shiftEndDismissed');
-      shiftEndDismissedRef.current = false;
-      setShiftEndData(e.detail || {});
-      setShowShiftEndModal(true);
-    };
-    window.addEventListener('show-shift-end-modal', handleShowShiftEnd);
-    return () => window.removeEventListener('show-shift-end-modal', handleShowShiftEnd);
-  }, []);
-
-  // Listen for SHIFT_ENDING socket events
-  useEffect(() => {
-    if (!socket || !user?.id) return;
-
-    const handleShiftEnding = (data) => {
-      if (shiftEndDismissedRef.current) return; // Don't re-show if already dismissed/submitted
-      setShiftEndData(data.data || data);
-      setShowShiftEndModal(true);
-    };
-
-    const handleAutoClockOut = () => {
-      // Refresh session data — the employee has been auto-clocked out
+    const handleSessionUpdated = () => {
       fetchWorkSessionData();
-    };
-
-    socket.on(`notification:${user.id}`, (data) => {
-      if (
-        data.type === "SHIFT_ENDING" ||
-        data.type === "SHIFT_ENDING_OT_APPROVED"
-      ) {
-        handleShiftEnding(data);
-      } else if (data.type === "SHIFT_END_PAUSE") {
-        // Shift has ended — show controlled pause modal
-        setPauseData(data.data || data);
-        setPauseCountdown(120);
-        setPauseReason("");
-        setPauseError("");
-        setShowPauseModal(true);
-      } else if (data.type === "AUTO_CLOCK_OUT") {
-        setShowPauseModal(false);
-        setIsInExtension(false);
-        handleAutoClockOut();
-      }
-    });
-
-    return () => {
-      socket.off(`notification:${user.id}`);
-    };
-  }, [socket, user?.id]);
-
-  // Poll for unread SHIFT_ENDING notifications (fallback if socket event was missed)
-  useEffect(() => {
-    if (!user?.id) return;
-
-    const checkShiftEndNotifications = async () => {
-      // Only check if modal is not already showing/dismissed and there's an active session
-      if (showShiftEndModal || shiftEndDismissedRef.current) return;
-      if (!sessionData?.session || sessionData.session.status === "COMPLETED")
-        return;
-
-      try {
-        const response = await notificationService.getNotifications({
-          unreadOnly: "true",
-          limit: "5",
-        });
-        if (response.success && response.data?.notifications) {
-          const shiftNotif = response.data.notifications.find(
-            (n) =>
-              (n.type === "SHIFT_ENDING" ||
-                n.type === "SHIFT_ENDING_OT_APPROVED") &&
-              !n.isRead,
-          );
-          if (shiftNotif) {
-            setShiftEndData(shiftNotif.data || {});
-            setShowShiftEndModal(true);
-            // Mark it as read so we don't keep showing it
-            notificationService.markAsRead(shiftNotif.id).catch(() => {});
-          }
-        }
-      } catch (err) {
-        // Silent fail — this is a fallback mechanism
-      }
-    };
-
-    // Check immediately on mount and when session data changes
-    checkShiftEndNotifications();
-
-    // Poll every 30 seconds as a safety net
-    const pollInterval = setInterval(checkShiftEndNotifications, 30000);
-    return () => clearInterval(pollInterval);
-  }, [
-    user?.id,
-    sessionData?.session?.id,
-    sessionData?.session?.status,
-    showShiftEndModal,
-  ]);
-
-  // Controlled pause countdown timer
-  useEffect(() => {
-    if (!showPauseModal) return;
-    if (pauseCountdown <= 0) {
-      // Timeout expired — backend will auto-clock-out, refresh session
-      setShowPauseModal(false);
-      fetchWorkSessionData();
-      return;
-    }
-    const timer = setInterval(() => {
-      setPauseCountdown((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [showPauseModal, pauseCountdown]);
-
-  // Handle controlled pause response
-  const handlePauseResponse = async (action) => {
-    if (action === "CONTINUE_WORKING" && !pauseReason.trim()) {
-      setPauseError("Please provide a reason for continuing to work");
-      return;
-    }
-    try {
-      setPauseLoading(true);
-      setPauseError("");
-      await workSessionService.shiftEndResponse(action, pauseReason || null);
-      setShowPauseModal(false);
-      if (action === "CONTINUE_WORKING") {
-        setIsInExtension(true);
-      } else {
-        setIsInExtension(false);
-      }
-      fetchWorkSessionData();
-    } catch (err) {
-      setPauseError(err.error || err.message || "Failed to process response");
-    } finally {
-      setPauseLoading(false);
-    }
-  };
-
-  // Persist dismissed state so popup doesn't reappear on refresh (notification stays unread)
-  const dismissShiftEndPopup = () => {
-    shiftEndDismissedRef.current = true;
-    sessionStorage.setItem("shiftEndDismissed", "true");
-  };
-
-  // Mark notifications as read — only call when user takes real action (submits OT, accepts approved OT)
-  const markShiftEndNotificationsRead = async () => {
-    dismissShiftEndPopup();
-    try {
-      const response = await notificationService.getNotifications({
-        unreadOnly: "true",
-        limit: "10",
-      });
-      if (response.success && response.data?.notifications) {
-        response.data.notifications
-          .filter(
-            (n) =>
-              (n.type === "SHIFT_ENDING" ||
-                n.type === "SHIFT_ENDING_OT_APPROVED") &&
-              !n.isRead,
-          )
-          .forEach((n) => notificationService.markAsRead(n.id).catch(() => {}));
-      }
-    } catch {
-      // Silent fail
-    }
-  };
-
-  // Handle "Stay Clocked In" OT request submission
-  const handleShiftEndSubmit = async (e) => {
-    e.preventDefault();
-    setShiftEndError("");
-    setShiftEndSuccess("");
-
-    const minutes =
-      shiftEndForm.duration === "custom"
-        ? parseInt(shiftEndForm.customMinutes)
-        : parseInt(shiftEndForm.duration);
-
-    if (!minutes || minutes <= 0) {
-      setShiftEndError("Please select a duration");
-      return;
-    }
-    if (!shiftEndForm.reason.trim()) {
-      setShiftEndError("Please provide a reason");
-      return;
-    }
-
-    // Calculate estimated end time (current time + duration)
-    const endTime = new Date(Date.now() + minutes * 60000);
-    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, "0")}:${String(endTime.getMinutes()).padStart(2, "0")}`;
-    // estimatedEndTime is sent to backend in 24h format (HH:MM) — display uses formatTime12
-
-    try {
-      setShiftEndLoading(true);
-      await overtimeService.createOvertimeRequest({
-        type: "SHIFT_EXTENSION",
-        date: new Date().toISOString().split("T")[0],
-        requestedHours: minutes / 60,
-        reason: shiftEndForm.reason,
-        estimatedEndTime,
-        clientId: shiftEndData?.clientId,
-      });
-      setShiftEndSuccess(
-        "Overtime request submitted! You will stay clocked in.",
-      );
-      markShiftEndNotificationsRead();
       fetchOvertimeRequests();
-      setTimeout(() => {
-        setShowShiftEndModal(false);
-        setShiftEndSuccess("");
-        setShiftEndForm({ duration: "", customMinutes: "", reason: "" });
-      }, 2000);
-    } catch (err) {
-      setShiftEndError(
-        err.error || err.message || "Failed to submit overtime request",
-      );
-    } finally {
-      setShiftEndLoading(false);
-    }
-  };
+    };
+    window.addEventListener("session-updated", handleSessionUpdated);
+    return () =>
+      window.removeEventListener("session-updated", handleSessionUpdated);
+  }, [fetchWorkSessionData, fetchOvertimeRequests]);
 
   // Online colleagues
   const onlineColleagues = [
@@ -949,7 +744,6 @@ const EmployeeDashboard = () => {
     },
   ];
 
-
   // Toggle task status (TODO/IN_PROGRESS ↔ DONE)
   const handleTaskToggle = async (task) => {
     const newStatus = task.status === "DONE" ? "TODO" : "DONE";
@@ -964,21 +758,21 @@ const EmployeeDashboard = () => {
     } catch (err) {
       // Revert on failure
       setTodayTasks((prev) =>
-        prev.map((t) =>
-          t.id === task.id ? { ...t, status: task.status } : t,
-        ),
+        prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)),
       );
       setDoneTaskCount((prev) => prev - delta);
     }
   };
-
 
   // Weekly stats from API or defaults
   const hoursWorked = Math.round((weeklySummary?.totalWorkMinutes || 0) / 60);
   const hoursTarget = Math.round(
     (weeklySummary?.scheduledWeeklyMinutes || 2400) / 60,
   );
-  const productivity = hoursTarget > 0 ? Math.min(Math.round((hoursWorked / hoursTarget) * 100), 100) : 0;
+  const productivity =
+    hoursTarget > 0
+      ? Math.min(Math.round((hoursWorked / hoursTarget) * 100), 100)
+      : 0;
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -1005,7 +799,6 @@ const EmployeeDashboard = () => {
         return "text-blue-600 bg-blue-50";
     }
   };
-
 
   // Determine work status
   const isWorking = sessionData?.isWorking || false;
@@ -1038,10 +831,15 @@ const EmployeeDashboard = () => {
             )}
           </div>
           <div>
-            <p className="font-semibold text-gray-900 text-sm">{toastMessage.title}</p>
+            <p className="font-semibold text-gray-900 text-sm">
+              {toastMessage.title}
+            </p>
             <p className="text-xs text-gray-500">{toastMessage.description}</p>
           </div>
-          <button onClick={() => setShowComingSoon(false)} className="ml-2 text-gray-400 hover:text-gray-600">
+          <button
+            onClick={() => setShowComingSoon(false)}
+            className="ml-2 text-gray-400 hover:text-gray-600"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -1123,14 +921,27 @@ const EmployeeDashboard = () => {
                 </div>
 
                 {isWorking && (
-                  <div className={`text-center py-2 px-4 rounded-lg w-full ${isInExtension ? "bg-orange-500/20" : "bg-green-500/20"}`}>
-                    <p className={`text-xs ${isInExtension ? "text-orange-300" : "text-green-300"}`}>
-                      {isOnBreak ? "On Break" : isInExtension ? "Shift Extension" : "Active Session"}
+                  <div
+                    className={`text-center py-2 px-4 rounded-lg w-full ${isInExtension ? "bg-orange-500/20" : "bg-green-500/20"}`}
+                  >
+                    <p
+                      className={`text-xs ${isInExtension ? "text-orange-300" : "text-green-300"}`}
+                    >
+                      {isOnBreak
+                        ? "On Break"
+                        : isInExtension
+                          ? "Shift Extension"
+                          : "Active Session"}
                     </p>
                     <p className="text-2xl font-bold text-white font-mono">
                       {isOnBreak && sessionData?.session?.currentBreak
-                        ? formatDurationWithSeconds(sessionData.session.currentBreak.startTime)
-                        : formatDurationWithSeconds(sessionData?.session?.startTime, sessionData?.session?.breaks)}
+                        ? formatDurationWithSeconds(
+                            sessionData.session.currentBreak.startTime,
+                          )
+                        : formatDurationWithSeconds(
+                            sessionData?.session?.startTime,
+                            sessionData?.session?.breaks,
+                          )}
                     </p>
                   </div>
                 )}
@@ -1324,7 +1135,9 @@ const EmployeeDashboard = () => {
                   {doneTaskCount}
                 </p>
                 <p className="text-xs text-gray-500">Tasks Done</p>
-                <p className="text-xs text-gray-400 mt-2">of {totalTaskCount} total</p>
+                <p className="text-xs text-gray-400 mt-2">
+                  of {totalTaskCount} total
+                </p>
               </Card>
 
               <Card className="text-center">
@@ -1346,8 +1159,22 @@ const EmployeeDashboard = () => {
                   {productivity}%
                 </p>
                 <p className="text-xs text-gray-500">Productivity</p>
-                <Badge variant={productivity >= 80 ? "success" : productivity >= 50 ? "warning" : "danger"} size="xs" className="mt-2">
-                  {productivity >= 80 ? "On Track" : productivity >= 50 ? "Moderate" : "Needs Attention"}
+                <Badge
+                  variant={
+                    productivity >= 80
+                      ? "success"
+                      : productivity >= 50
+                        ? "warning"
+                        : "danger"
+                  }
+                  size="xs"
+                  className="mt-2"
+                >
+                  {productivity >= 80
+                    ? "On Track"
+                    : productivity >= 50
+                      ? "Moderate"
+                      : "Needs Attention"}
                 </Badge>
               </Card>
             </div>
@@ -1429,7 +1256,9 @@ const EmployeeDashboard = () => {
                   {/* Progress */}
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">Overall Progress</span>
+                      <span className="text-sm text-gray-600">
+                        Overall Progress
+                      </span>
                       <span className="text-sm font-semibold text-gray-900">
                         {doneTaskCount}/{totalTaskCount} done
                       </span>
@@ -1561,7 +1390,7 @@ const EmployeeDashboard = () => {
           </Card>
 
           {/* Today's Meetings */}
-       {/*    <Card>
+          {/*    <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -1631,7 +1460,7 @@ const EmployeeDashboard = () => {
         {/* Right Column - Team & Announcements */}
         <div className="space-y-6">
           {/* Announcements */}
-          <Card>
+          {/*      <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Bell className="w-5 h-5 text-accent" />
@@ -1639,7 +1468,7 @@ const EmployeeDashboard = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {/* TODO: Replace empty state with announcements.map when data is available
+            TODO: Replace empty state with announcements.map when data is available
               <div className="space-y-3">
                 {announcements.map((item) => (
                   <div
@@ -1683,13 +1512,13 @@ const EmployeeDashboard = () => {
                   </div>
                 ))}
               </div>
-              */}
+              
               <div className="text-center py-8">
                 <Bell className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-sm text-gray-500">No announcements yet</p>
               </div>
             </CardContent>
-          </Card>
+          </Card>*/}
 
           {/* Wellness Reminder */}
           <Card className="bg-gradient-to-br from-green-50 to-teal-50 border-green-100">
@@ -1714,7 +1543,12 @@ const EmployeeDashboard = () => {
                     Start 5-min Break
                   </Button>
                 ) : (
-                  <Button variant="success" size="sm" icon={Heart} onClick={triggerComingSoon}>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    icon={Heart}
+                    onClick={triggerComingSoon}
+                  >
                     Wellness Tips
                   </Button>
                 )}
@@ -1723,7 +1557,7 @@ const EmployeeDashboard = () => {
           </Card>
 
           {/* Achievement */}
-          <Card className="bg-gradient-to-br from-accent-50 to-yellow-50 border-accent-100">
+          {/* <Card className="bg-gradient-to-br from-accent-50 to-yellow-50 border-accent-100">
             <CardContent>
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-white shadow-lg flex items-center justify-center">
@@ -1740,7 +1574,7 @@ const EmployeeDashboard = () => {
                 </div>
               </div>
             </CardContent>
-          </Card>
+          </Card> */}
         </div>
       </div>
 
@@ -1767,82 +1601,102 @@ const EmployeeDashboard = () => {
           {weekSchedule.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-8 text-gray-400">
               <Calendar className="w-10 h-10 mb-2 text-gray-300" />
-              <p className="text-sm font-medium text-gray-500">You don't have a schedule assigned for this week</p>
-              <p className="text-xs text-gray-400 mt-1">Contact your admin to set up your schedule</p>
+              <p className="text-sm font-medium text-gray-500">
+                You don't have a schedule assigned for this week
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Contact your admin to set up your schedule
+              </p>
             </div>
           ) : (
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
-            {weekSchedule.map((daySchedule, index) => {
-              const dayDate = new Date(daySchedule.date + "T00:00:00");
-              const now = new Date();
-              const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-              const isToday = todayStart.getTime() === new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate()).getTime();
-              const isPast = dayDate < todayStart;
-              const isScheduled = daySchedule.isScheduled;
+            <div className="grid grid-cols-1 md:grid-cols-7 gap-3">
+              {weekSchedule.map((daySchedule, index) => {
+                const dayDate = new Date(daySchedule.date + "T00:00:00");
+                const now = new Date();
+                const todayStart = new Date(
+                  now.getFullYear(),
+                  now.getMonth(),
+                  now.getDate(),
+                );
+                const isToday =
+                  todayStart.getTime() ===
+                  new Date(
+                    dayDate.getFullYear(),
+                    dayDate.getMonth(),
+                    dayDate.getDate(),
+                  ).getTime();
+                const isPast = dayDate < todayStart;
+                const isScheduled = daySchedule.isScheduled;
 
-              // Check for approved shift extension on this day
-              const approvedExtension = myOvertimeRequests.find(
-                (ot) =>
-                  ot.type === "SHIFT_EXTENSION" &&
-                  ot.status === "APPROVED" &&
-                  ot.date?.split("T")[0] === daySchedule.date
-              );
+                // Check for approved shift extension on this day
+                const approvedExtension = myOvertimeRequests.find(
+                  (ot) =>
+                    ot.type === "SHIFT_EXTENSION" &&
+                    ot.status === "APPROVED" &&
+                    ot.date?.split("T")[0] === daySchedule.date,
+                );
 
-              return (
-                <div
-                  key={daySchedule.date || index}
-                  className={`relative p-3 rounded-xl text-center transition-all ${
-                    isToday
-                      ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
-                      : isPast && isScheduled
-                        ? "bg-green-50 border border-green-100"
-                        : !isScheduled
-                          ? "bg-gray-50 border border-gray-100 opacity-60"
-                          : "bg-gray-50 border border-gray-100"
-                  }`}
-                >
-                  {isToday && (
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2">
-                      <Badge variant="accent" size="xs">
-                        Today
-                      </Badge>
-                    </div>
-                  )}
-                  <p
-                    className={`text-sm font-medium ${
-                      isToday ? "text-primary-100" : "text-gray-500"
+                return (
+                  <div
+                    key={daySchedule.date || index}
+                    className={`relative p-3 rounded-xl text-center transition-all ${
+                      isToday
+                        ? "bg-gradient-to-br from-primary to-primary-dark text-white shadow-lg scale-105"
+                        : isPast && isScheduled
+                          ? "bg-green-50 border border-green-100"
+                          : !isScheduled
+                            ? "bg-gray-50 border border-gray-100 opacity-60"
+                            : "bg-gray-50 border border-gray-100"
                     }`}
                   >
-                    {daySchedule.dayName?.slice(0, 3)}
-                  </p>
-                  <p
-                    className={`text-2xl font-bold mt-1 ${
-                      isToday ? "text-white" : "text-gray-900"
-                    }`}
-                  >
-                    {dayDate.getDate()}
-                  </p>
-                  <p
-                    className={`text-xs mt-2 ${
-                      isToday ? "text-primary-100" : isScheduled ? "text-gray-600" : "text-gray-400"
-                    }`}
-                  >
-                    {isScheduled
-                      ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
-                      : "Off"}
-                  </p>
-                  {approvedExtension && isScheduled && (
-                    <span className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}>
-                      +{formatDuration(approvedExtension.requestedMinutes)} OT
-                    </span>
-                  )}
-                  {isPast && !isToday && isScheduled && (
-                    <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                    {isToday && (
+                      <div className="absolute -top-2 left-1/2 -translate-x-1/2">
+                        <Badge variant="accent" size="xs">
+                          Today
+                        </Badge>
+                      </div>
+                    )}
+                    <p
+                      className={`text-sm font-medium ${
+                        isToday ? "text-primary-100" : "text-gray-500"
+                      }`}
+                    >
+                      {daySchedule.dayName?.slice(0, 3)}
+                    </p>
+                    <p
+                      className={`text-2xl font-bold mt-1 ${
+                        isToday ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {dayDate.getDate()}
+                    </p>
+                    <p
+                      className={`text-xs mt-2 ${
+                        isToday
+                          ? "text-primary-100"
+                          : isScheduled
+                            ? "text-gray-600"
+                            : "text-gray-400"
+                      }`}
+                    >
+                      {isScheduled
+                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
+                        : "Off"}
+                    </p>
+                    {approvedExtension && isScheduled && (
+                      <span
+                        className={`text-[10px] font-medium ${isToday ? "text-green-200" : "text-green-600"}`}
+                      >
+                        +{formatDuration(approvedExtension.requestedMinutes)} OT
+                      </span>
+                    )}
+                    {isPast && !isToday && isScheduled && (
+                      <CheckCircle className="w-4 h-4 text-green-500 mx-auto mt-1" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
@@ -1985,7 +1839,8 @@ const EmployeeDashboard = () => {
                     />
                   </div>
                   <p className="col-span-2 text-xs text-gray-500">
-                    Specific time range for the extension (same fields as Off-Shift)
+                    Specific time range for the extension (same fields as
+                    Off-Shift)
                   </p>
                 </div>
               ) : (
@@ -2073,344 +1928,7 @@ const EmployeeDashboard = () => {
         </div>
       )}
 
-      {/* Shift End — Stay Clocked In Modal */}
-      {showShiftEndModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`p-2 rounded-xl ${shiftEndData?.hasApprovedOT ? "bg-green-100" : "bg-amber-100"}`}
-                >
-                  {shiftEndData?.hasApprovedOT ? (
-                    <CheckCircle className="w-6 h-6 text-green-600" />
-                  ) : (
-                    <AlertCircle className="w-6 h-6 text-amber-600" />
-                  )}
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    {shiftEndData?.hasApprovedOT
-                      ? "Approved Overtime"
-                      : "Shift Ending"}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    {shiftEndData?.hasApprovedOT
-                      ? "Do you want to use it?"
-                      : "Stay clocked in?"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  dismissShiftEndPopup();
-                  setShowShiftEndModal(false);
-                  setShiftEndError("");
-                  setShiftEndSuccess("");
-                  setShiftEndForm({
-                    duration: "",
-                    customMinutes: "",
-                    reason: "",
-                  });
-                }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {shiftEndData?.hasApprovedOT ? (
-              /* === Approved OT — Simple yes/no === */
-              <div className="p-6 space-y-4">
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-800 text-sm font-medium">
-                    You have approved overtime. Your shift ends at{" "}
-                    {formatTime12(shiftEndData?.shiftEnd)}. Would you like to stay clocked in
-                    and use your approved overtime?
-                  </p>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    loading={actionLoading}
-                    onClick={async () => {
-                      try {
-                        setActionLoading(true);
-                        await workSessionService.shiftEndResponse("STAY_CLOCKED_OUT", null);
-                        markShiftEndNotificationsRead();
-                        setShowShiftEndModal(false);
-                        setShiftEndForm({
-                          duration: "",
-                          customMinutes: "",
-                          reason: "",
-                        });
-                        await fetchWorkSessionData();
-                      } catch (err) {
-                        setError(err.error || err.message || "Failed to clock out");
-                      } finally {
-                        setActionLoading(false);
-                      }
-                    }}
-                    className="flex-1"
-                  >
-                    No, Clock Me Out
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="primary"
-                    loading={actionLoading}
-                    onClick={async () => {
-                      try {
-                        setActionLoading(true);
-                        await workSessionService.shiftEndResponse("CONTINUE_WORKING", "Using approved overtime");
-                        markShiftEndNotificationsRead();
-                        setShowShiftEndModal(false);
-                        setShiftEndForm({
-                          duration: "",
-                          customMinutes: "",
-                          reason: "",
-                        });
-                        setIsInExtension(true);
-                        await fetchWorkSessionData();
-                      } catch (err) {
-                        setError(err.error || err.message || "Failed to continue session");
-                      } finally {
-                        setActionLoading(false);
-                      }
-                    }}
-                    className="flex-1"
-                  >
-                    Yes, Stay Clocked In
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              /* === No approved OT — Full OT request form === */
-              <form onSubmit={handleShiftEndSubmit} className="p-6 space-y-4">
-                {/* Risk Warning */}
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-amber-800 text-sm font-medium">
-                    You will be automatically clocked out at the end of your
-                    shift. If you need overtime, request it now so your client
-                    has time to approve.
-                  </p>
-                </div>
-
-                {shiftEndError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                    <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                    <p className="text-red-700 text-sm">{shiftEndError}</p>
-                  </div>
-                )}
-
-                {shiftEndSuccess && (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                    <p className="text-green-700 text-sm">{shiftEndSuccess}</p>
-                  </div>
-                )}
-
-                {/* Duration Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    How long do you need?
-                  </label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { value: "15", label: "15 min" },
-                      { value: "30", label: "30 min" },
-                      { value: "60", label: "1 hour" },
-                      { value: "custom", label: "Custom" },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() =>
-                          setShiftEndForm({
-                            ...shiftEndForm,
-                            duration: opt.value,
-                          })
-                        }
-                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
-                          shiftEndForm.duration === opt.value
-                            ? "border-primary bg-primary-50 text-primary ring-2 ring-primary/20"
-                            : "border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Custom duration input */}
-                {shiftEndForm.duration === "custom" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Custom Duration (minutes)
-                    </label>
-                    <input
-                      type="number"
-                      min="5"
-                      max="480"
-                      placeholder="e.g., 45"
-                      value={shiftEndForm.customMinutes}
-                      onChange={(e) =>
-                        setShiftEndForm({
-                          ...shiftEndForm,
-                          customMinutes: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                      required
-                    />
-                  </div>
-                )}
-
-                {/* Reason */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reason <span className="text-red-500">*</span>
-                  </label>
-                  <textarea
-                    rows={3}
-                    placeholder="Why do you need to stay clocked in?"
-                    value={shiftEndForm.reason}
-                    onChange={(e) =>
-                      setShiftEndForm({
-                        ...shiftEndForm,
-                        reason: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
-                    required
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      dismissShiftEndPopup();
-                      setShowShiftEndModal(false);
-                      setShiftEndError("");
-                      setShiftEndSuccess("");
-                      setShiftEndForm({
-                        duration: "",
-                        customMinutes: "",
-                        reason: "",
-                      });
-                    }}
-                    className="flex-1"
-                  >
-                    No, I'm Good
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    loading={shiftEndLoading}
-                    disabled={!shiftEndForm.duration}
-                    className="flex-1"
-                  >
-                    Stay Clocked In
-                  </Button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Controlled Pause Modal — Shift has ended, choose to continue or stay clocked out */}
-      {showPauseModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-red-100">
-                  <Clock className="w-6 h-6 text-red-600" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Shift Has Ended
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    Scheduled end: {formatTime12(pauseData?.shiftEnd)}
-                  </p>
-                </div>
-              </div>
-              {/* Countdown badge */}
-              {/* <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-200 rounded-full">
-                <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                <span className="text-sm font-bold text-red-700 font-mono">
-                  {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
-                </span>
-              </div> */}
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                <p className="text-amber-800 text-sm font-medium">
-                  Your scheduled shift has ended. You will be automatically
-                  clocked out 
-                    {/*  if you don't respond within{" "}
-               <span className="font-bold">
-                    {Math.floor(pauseCountdown / 60)}:{String(pauseCountdown % 60).padStart(2, "0")}
-                  </span>. */}
-                </p>
-              </div>
-
-              {pauseError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <p className="text-red-700 text-sm">{pauseError}</p>
-                </div>
-              )}
-
-              {/* Reason field (required for continue working) */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for continuing <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Why do you need to continue working past your shift?"
-                  value={pauseReason}
-                  onChange={(e) => setPauseReason(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
-                />
-                <p className="text-xs text-gray-400 mt-1">
-                  Required if you choose to continue working
-                </p>
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => handlePauseResponse("STAY_CLOCKED_OUT")}
-                  loading={pauseLoading}
-                  className="flex-1"
-                >
-                  Stay Clocked Out
-                </Button>
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={() => handlePauseResponse("CONTINUE_WORKING")}
-                  loading={pauseLoading}
-                  className="flex-1 !bg-orange-600 hover:!bg-orange-700"
-                >
-                  Continue Working
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Shift End & Pause Modals now handled globally by ShiftModals component in DashboardLayout */}
 
       {/* Post-Shift Clock-In Warning Modal (overtime requested but not approved) */}
       {showPostShiftWarning && (
@@ -2422,7 +1940,9 @@ const EmployeeDashboard = () => {
                   <AlertCircle className="w-6 h-6 text-red-600" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">No Approved Overtime</h2>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    No Approved Overtime
+                  </h2>
                   <p className="text-sm text-gray-500">Your shift has ended</p>
                 </div>
               </div>
@@ -2439,7 +1959,9 @@ const EmployeeDashboard = () => {
                   No approved overtime. You may not get paid.
                 </p>
                 <p className="text-sm text-red-700">
-                  This requires special approval at client's discretion. Hours worked outside your schedule without prior overtime approval may not be compensated.
+                  This requires special approval at client's discretion. Hours
+                  worked outside your schedule without prior overtime approval
+                  may not be compensated.
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">
@@ -2614,7 +2136,8 @@ const EmployeeDashboard = () => {
                   You don't have a schedule assigned for today.
                 </p>
                 <p className="text-sm text-orange-700">
-                  All hours worked will be logged as Extra Time and require client approval before they are compensated.
+                  All hours worked will be logged as Extra Time and require
+                  client approval before they are compensated.
                 </p>
               </div>
               <p className="text-sm text-gray-600 mb-6">

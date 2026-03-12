@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import ImpersonationBanner from './ImpersonationBanner';
 import clientPortalService from '../../services/clientPortal.service';
+import ShiftModals from './ShiftModals';
 
 const OvertimeLoginBlocker = ({ onDismiss }) => {
   const navigate = useNavigate();
@@ -129,6 +130,9 @@ const DashboardLayout = ({
       {showOTBlocker && portalType === 'client' && (
         <OvertimeLoginBlocker onDismiss={handleDismissBlocker} />
       )}
+
+      {/* Global shift modals for employee portal */}
+      {portalType === 'employee' && <ShiftModals />}
 
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
