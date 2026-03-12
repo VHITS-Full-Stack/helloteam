@@ -1196,10 +1196,10 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
             ? 'Clock-out time correction'
             : isOvertime
               ? `${Math.round((tr.overtimeMinutes || 0) / 60 * 100) / 100}h overtime`
-              : `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours total`,
+              : `${Math.round((tr.totalMinutes || 0) / 60 * 100) / 100} hours total`,
           date: tr.date.toISOString().split('T')[0],
-          details: tr.adjustmentNotes || `${Math.round(((tr.totalMinutes || 0) + (tr.overtimeMinutes || 0)) / 60 * 100) / 100} hours`,
-          totalMinutes: (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0),
+          details: tr.adjustmentNotes || `${Math.round((tr.totalMinutes || 0) / 60 * 100) / 100} hours`,
+          totalMinutes: tr.totalMinutes || 0,
           submitted: tr.createdAt,
           submittedBy: isAdjustment ? 'System' : 'Employee',
           clientApproved: tr.approvedBy ? true : status === 'approved' ? true : undefined,
