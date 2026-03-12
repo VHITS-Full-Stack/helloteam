@@ -17,7 +17,7 @@ export const formatDuration = (minutes) => {
   return `${hrs}h ${mins}m`;
 };
 
-/** Convert "HH:MM" (24h) or "HH:MM AM/PM" to "h:MM AM/PM" (12h) */
+/** Convert "HH:MM" (24h) or "HH:MM AM/PM" to "h:MM AM/PM EST" (12h) */
 export const formatTime12 = (timeStr) => {
   if (!timeStr) return '';
   // Already 12h format — return as-is
@@ -27,7 +27,7 @@ export const formatTime12 = (timeStr) => {
     const [h, m] = timeStr.split(':').map(Number);
     const period = h >= 12 ? 'PM' : 'AM';
     const hour12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${hour12}:${String(m).padStart(2, '0')} ${period}`;
+    return `${hour12}:${String(m).padStart(2, '0')} ${period} EST`;
   }
   return timeStr;
 };

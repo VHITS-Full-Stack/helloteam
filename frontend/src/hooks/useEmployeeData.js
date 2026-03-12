@@ -4,6 +4,7 @@ import clientService from '../services/client.service';
 import groupService from '../services/group.service';
 import api from '../services/api';
 import scheduleService from '../services/schedule.service';
+import { formatTime12 } from '../utils/formatTime';
 
 /**
  * Custom hook for employee data fetching and state management
@@ -488,11 +489,7 @@ function useEmployeeDetail(id) {
 
   const formatTime = (timeStr) => {
     if (!timeStr) return '—';
-    const [hours, minutes] = timeStr.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const hour12 = hour % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
+    return formatTime12(timeStr);
   };
 
   const refresh = () => {

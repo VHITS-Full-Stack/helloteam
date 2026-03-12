@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, AlertCircle, RefreshCw } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
 import scheduleService from '../../services/schedule.service';
+import { formatTime12 } from '../../utils/formatTime';
 
 const Schedule = () => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -229,11 +230,7 @@ const Schedule = () => {
 
   const formatTime = (time) => {
     if (!time) return '--:--';
-    const [hours, minutes] = time.split(':');
-    const hour = parseInt(hours, 10);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+    return formatTime12(time);
   };
 
   const formatMinutesToHours = (minutes) => {

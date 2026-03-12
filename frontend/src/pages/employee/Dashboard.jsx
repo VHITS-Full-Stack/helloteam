@@ -60,8 +60,6 @@ import { formatTime12 } from "../../utils/formatTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
-// Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
-
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
