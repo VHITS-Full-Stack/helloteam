@@ -596,62 +596,62 @@ const Approvals = () => {
         /* Leave Requests */
         <Card padding="none">
           {approvals.length > 0 ? (
-            <Table>
+            <Table className="table-fixed">
               <TableHead>
                 <TableRow>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader>Type</TableHeader>
-                  <TableHeader>Description</TableHeader>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader>Days</TableHeader>
-                  <TableHeader>Submitted</TableHeader>
-                  {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
-                  {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
-                  {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
+                  <TableHeader className="w-[160px] !px-3">Employee</TableHeader>
+                  <TableHeader className="w-[100px] !px-3">Type</TableHeader>
+                  <TableHeader className="!px-3">Description</TableHeader>
+                  <TableHeader className="w-[110px] !px-3">Date</TableHeader>
+                  <TableHeader className="w-[60px] !px-3">Days</TableHeader>
+                  <TableHeader className="w-[140px] !px-3">Submitted</TableHeader>
+                  {activeTab === 'pending' && <TableHeader className="w-[180px] !px-3">Actions</TableHeader>}
+                  {activeTab === 'approved' && <TableHeader className="w-[140px] !px-3">Approved On</TableHeader>}
+                  {activeTab === 'rejected' && <TableHeader className="!px-3">Rejection Reason</TableHeader>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {approvals.map((item) => (
                   <TableRow key={`leave-${item.id}`}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
+                    <TableCell className="!px-3">
+                      <div className="flex items-center gap-2">
                         <Avatar name={item.employee} src={item.profilePhoto} size="sm" />
-                        <span className="font-medium">{item.employee}</span>
+                        <span className="font-medium text-sm truncate">{item.employee}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{getTypeBadge(item.type)}</TableCell>
-                    <TableCell className="!whitespace-normal max-w-[300px]">
+                    <TableCell className="!px-3">{getTypeBadge(item.type)}</TableCell>
+                    <TableCell className="!whitespace-normal !px-3">
                       <div>
-                        <p className="text-gray-900 line-clamp-2" title={item.description}>{item.description}</p>
+                        <p className="text-gray-900 text-sm line-clamp-2" title={item.description}>{item.description}</p>
                         {item.reason && (
                           <p className="text-xs text-gray-500 mt-1 line-clamp-2" title={item.reason}>Reason: {item.reason}</p>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{formatDate(item.date)}</TableCell>
-                    <TableCell>{item.days} day{item.days !== 1 ? 's' : ''}</TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-500">{formatDateTime(item.submittedAt)}</span>
+                    <TableCell className="!px-3">{formatDate(item.date)}</TableCell>
+                    <TableCell className="!px-3">{item.days} day{item.days !== 1 ? 's' : ''}</TableCell>
+                    <TableCell className="!px-3">
+                      <span className="text-xs text-gray-500">{formatDateTime(item.submittedAt)}</span>
                     </TableCell>
                     {activeTab === 'pending' && (
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="success" size="sm" icon={CheckCircle} onClick={() => handleApprove(item)} disabled={actionLoading}>
+                      <TableCell className="!px-3">
+                        <div className="flex gap-1.5">
+                          <Button variant="success" size="xs" icon={CheckCircle} onClick={() => handleApprove(item)} disabled={actionLoading}>
                             Approve
                           </Button>
-                          <Button variant="ghost" size="sm" icon={XCircle} onClick={() => handleReject(item)} disabled={actionLoading}>
+                          <Button variant="ghost" size="xs" icon={XCircle} onClick={() => handleReject(item)} disabled={actionLoading}>
                             Deny
                           </Button>
                         </div>
                       </TableCell>
                     )}
                     {activeTab === 'approved' && (
-                      <TableCell>
-                        <span className="text-sm text-green-600">{formatDateTime(item.approvedAt)}</span>
+                      <TableCell className="!px-3">
+                        <span className="text-xs text-green-600">{formatDateTime(item.approvedAt)}</span>
                       </TableCell>
                     )}
                     {activeTab === 'rejected' && (
-                      <TableCell className="!whitespace-normal max-w-[250px]">
+                      <TableCell className="!whitespace-normal !px-3">
                         <span className="text-sm text-red-600 line-clamp-2" title={item.rejectionReason}>{item.rejectionReason || '-'}</span>
                       </TableCell>
                     )}
@@ -677,11 +677,11 @@ const Approvals = () => {
         /* Overtime Requests tab */
         <Card padding="none">
           {overtimeRequests.length > 0 ? (
-            <Table>
+            <Table className="table-fixed">
               <TableHead>
                 <TableRow>
                   {activeTab === 'pending' && (
-                    <TableHeader className="w-12">
+                    <TableHeader className="w-10 !px-3">
                       <input
                         type="checkbox"
                         checked={selectedItems.length === selectableItems.length && selectableItems.length > 0}
@@ -690,22 +690,22 @@ const Approvals = () => {
                       />
                     </TableHeader>
                   )}
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader>Type</TableHeader>
-                  <TableHeader>Reason</TableHeader>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader>Hours</TableHeader>
-                  <TableHeader>Submitted</TableHeader>
-                  {activeTab === 'pending' && <TableHeader>Actions</TableHeader>}
-                  {activeTab === 'approved' && <TableHeader>Approved On</TableHeader>}
-                  {activeTab === 'rejected' && <TableHeader>Rejection Reason</TableHeader>}
+                  <TableHeader className="w-[160px] !px-3">Employee</TableHeader>
+                  <TableHeader className="w-[90px] !px-3">Type</TableHeader>
+                  <TableHeader className="!px-3">Reason</TableHeader>
+                  <TableHeader className="w-[110px] !px-3">Date</TableHeader>
+                  <TableHeader className="w-[80px] !px-3">Hours</TableHeader>
+                  <TableHeader className="w-[140px] !px-3">Submitted</TableHeader>
+                  {activeTab === 'pending' && <TableHeader className="w-[180px] !px-3">Actions</TableHeader>}
+                  {activeTab === 'approved' && <TableHeader className="w-[140px] !px-3">Approved On</TableHeader>}
+                  {activeTab === 'rejected' && <TableHeader className="!px-3">Rejection Reason</TableHeader>}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {overtimeRequests.map((request) => (
                   <TableRow key={request.id}>
                     {activeTab === 'pending' && (
-                      <TableCell>
+                      <TableCell className="!px-3">
                         <input
                           type="checkbox"
                           checked={selectedItems.includes(request.id)}
@@ -714,51 +714,51 @@ const Approvals = () => {
                         />
                       </TableCell>
                     )}
-                    <TableCell>
-                      <div className="flex items-center gap-3">
+                    <TableCell className="!px-3">
+                      <div className="flex items-center gap-2">
                         <Avatar
                           name={request.employee ? `${request.employee.firstName} ${request.employee.lastName}` : 'Unknown'}
                           src={request.employee?.profilePhoto}
                           size="sm"
                         />
-                        <span className="font-medium">
+                        <span className="font-medium text-sm truncate">
                           {request.employee ? `${request.employee.firstName} ${request.employee.lastName}` : 'Unknown'}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="!px-3">
                       <Badge variant={request.type === 'OFF_SHIFT' ? 'info' : 'secondary'} size="xs">
                         {request.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="!whitespace-normal max-w-[300px]">
-                      <p className="text-gray-900 line-clamp-2" title={request.reason}>{request.reason}</p>
+                    <TableCell className="!whitespace-normal !px-3">
+                      <p className="text-gray-900 text-sm line-clamp-2" title={request.reason}>{request.reason}</p>
                     </TableCell>
-                    <TableCell>{formatDate(request.date)}</TableCell>
-                    <TableCell>
+                    <TableCell className="!px-3">{formatDate(request.date)}</TableCell>
+                    <TableCell className="!px-3">
                       <Badge variant="warning">
                         {formatMinutesToHours(request.requestedMinutes)}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-gray-500">{formatDateTime(request.createdAt)}</span>
+                    <TableCell className="!px-3">
+                      <span className="text-xs text-gray-500">{formatDateTime(request.createdAt)}</span>
                     </TableCell>
                     {activeTab === 'pending' && (
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="success" size="sm" icon={CheckCircle} onClick={() => handleApprove(request)} disabled={actionLoading}>
+                      <TableCell className="!px-3">
+                        <div className="flex gap-1.5">
+                          <Button variant="success" size="xs" icon={CheckCircle} onClick={() => handleApprove(request)} disabled={actionLoading}>
                             Approve
                           </Button>
-                          <Button variant="ghost" size="sm" icon={XCircle} onClick={() => handleReject(request)} disabled={actionLoading}>
+                          <Button variant="ghost" size="xs" icon={XCircle} onClick={() => handleReject(request)} disabled={actionLoading}>
                             Reject
                           </Button>
                         </div>
                       </TableCell>
                     )}
                     {activeTab === 'approved' && (
-                      <TableCell>
+                      <TableCell className="!px-3">
                         <div>
-                          <span className="text-sm text-green-600">{formatDateTime(request.approvedAt)}</span>
+                          <span className="text-xs text-green-600">{formatDateTime(request.approvedAt)}</span>
                           {request.approver && (
                             <p className="text-xs text-gray-500">by {request.approver.name}</p>
                           )}
@@ -766,7 +766,7 @@ const Approvals = () => {
                       </TableCell>
                     )}
                     {activeTab === 'rejected' && (
-                      <TableCell className="!whitespace-normal max-w-[250px]">
+                      <TableCell className="!whitespace-normal !px-3">
                         <div>
                           <span className="text-sm text-red-600 line-clamp-2" title={request.rejectionReason}>{request.rejectionReason || '-'}</span>
                           {request.rejecter && (
