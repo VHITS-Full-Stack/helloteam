@@ -1530,7 +1530,7 @@ const EmployeeDashboard = () => {
                             {request.status}
                           </Badge>
                         </div>
-                        <p className="text-sm text-gray-500 truncate">
+                        <p className="text-sm text-gray-500 break-words">
                           {request.reason}
                         </p>
                         {request.status === "APPROVED" && request.approver && (
