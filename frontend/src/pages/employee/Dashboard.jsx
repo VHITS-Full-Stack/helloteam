@@ -1789,9 +1789,6 @@ const EmployeeDashboard = () => {
                   ot.status === "APPROVED" &&
                   ot.date?.split("T")[0] === daySchedule.date
               );
-              const displayEndTime = approvedExtension?.estimatedEndTime
-                ? approvedExtension.estimatedEndTime
-                : daySchedule.endTime;
 
               return (
                 <div
@@ -1833,7 +1830,7 @@ const EmployeeDashboard = () => {
                     }`}
                   >
                     {isScheduled
-                      ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(displayEndTime)}`
+                      ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
                       : "Off"}
                   </p>
                   {approvedExtension && isScheduled && (
