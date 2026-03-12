@@ -710,7 +710,7 @@ const TimeRecords = () => {
                           Regular
                         </th>
                         <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          OT
+                          Overtime
                           <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">
                             Ext / Off‑Shift
                           </span>
