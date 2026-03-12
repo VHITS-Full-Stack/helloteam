@@ -596,17 +596,17 @@ const Approvals = () => {
         /* Leave Requests */
         <Card padding="none">
           {approvals.length > 0 ? (
-            <Table className="table-fixed">
+            <Table>
               <TableHead>
                 <TableRow>
-                  <TableHeader className="w-[160px] !px-3">Employee</TableHeader>
-                  <TableHeader className="w-[100px] !px-3">Type</TableHeader>
+                  <TableHeader className="!px-3">Employee</TableHeader>
+                  <TableHeader className="!px-3">Type</TableHeader>
                   <TableHeader className="!px-3">Description</TableHeader>
-                  <TableHeader className="w-[110px] !px-3">Date</TableHeader>
-                  <TableHeader className="w-[60px] !px-3">Days</TableHeader>
-                  <TableHeader className="w-[140px] !px-3">Submitted</TableHeader>
-                  {activeTab === 'pending' && <TableHeader className="w-[180px] !px-3">Actions</TableHeader>}
-                  {activeTab === 'approved' && <TableHeader className="w-[140px] !px-3">Approved On</TableHeader>}
+                  <TableHeader className="!px-3">Date</TableHeader>
+                  <TableHeader className="!px-3">Days</TableHeader>
+                  <TableHeader className="!px-3">Submitted</TableHeader>
+                  {activeTab === 'pending' && <TableHeader className="!px-3">Actions</TableHeader>}
+                  {activeTab === 'approved' && <TableHeader className="!px-3">Approved On</TableHeader>}
                   {activeTab === 'rejected' && <TableHeader className="!px-3">Rejection Reason</TableHeader>}
                 </TableRow>
               </TableHead>
@@ -677,11 +677,11 @@ const Approvals = () => {
         /* Overtime Requests tab */
         <Card padding="none">
           {overtimeRequests.length > 0 ? (
-            <Table className="table-fixed">
+            <Table>
               <TableHead>
                 <TableRow>
                   {activeTab === 'pending' && (
-                    <TableHeader className="w-10 !px-3">
+                    <TableHeader className="!px-3 !w-10">
                       <input
                         type="checkbox"
                         checked={selectedItems.length === selectableItems.length && selectableItems.length > 0}
@@ -690,14 +690,14 @@ const Approvals = () => {
                       />
                     </TableHeader>
                   )}
-                  <TableHeader className="w-[160px] !px-3">Employee</TableHeader>
-                  <TableHeader className="w-[90px] !px-3">Type</TableHeader>
+                  <TableHeader className="!px-3">Employee</TableHeader>
+                  <TableHeader className="!px-3">Type</TableHeader>
                   <TableHeader className="!px-3">Reason</TableHeader>
-                  <TableHeader className="w-[110px] !px-3">Date</TableHeader>
-                  <TableHeader className="w-[80px] !px-3">Hours</TableHeader>
-                  <TableHeader className="w-[140px] !px-3">Submitted</TableHeader>
-                  {activeTab === 'pending' && <TableHeader className="w-[180px] !px-3">Actions</TableHeader>}
-                  {activeTab === 'approved' && <TableHeader className="w-[140px] !px-3">Approved On</TableHeader>}
+                  <TableHeader className="!px-3">Date</TableHeader>
+                  <TableHeader className="!px-3">Hours</TableHeader>
+                  <TableHeader className="!px-3">Submitted</TableHeader>
+                  {activeTab === 'pending' && <TableHeader className="!px-3">Actions</TableHeader>}
+                  {activeTab === 'approved' && <TableHeader className="!px-3">Approved On</TableHeader>}
                   {activeTab === 'rejected' && <TableHeader className="!px-3">Rejection Reason</TableHeader>}
                 </TableRow>
               </TableHead>
