@@ -1356,36 +1356,9 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const breakMinutes = computedBreakMinutes;
       const totalMinutes = sessionTotalMinutes - breakMinutes;
 
-      // Match OvertimeRequests to this session — find the closest OT by createdAt to session endTime
-      const sessionEnd = session.endTime;
-      const matchedOTEntries: typeof overtimeRequests = [];
-      if (sessionEnd) {
-        const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
-        // Find the OT request whose createdAt is closest to this session's endTime
-        let bestOT: typeof overtimeRequests[0] | null = null;
-        let bestDiff = Infinity;
-        for (const ot of sameDayOTs) {
-          const diff = Math.abs(ot.createdAt.getTime() - sessionEnd.getTime());
-          if (diff < bestDiff) {
-            bestDiff = diff;
-            bestOT = ot;
-          }
-        }
-        // Only match if within 5 minutes and this OT is closest to THIS session (not another)
-        if (bestOT && bestDiff < 300000) {
-          // Verify this session is also the closest session to this OT
-          const otTime = bestOT.createdAt.getTime();
-          const isClosest = sessions.every(other => {
-            if (!other.endTime || other.id === session.id) return true;
-            const otherDateKey = other.startTime.toISOString().split('T')[0];
-            if (otherDateKey !== sessionDateKey) return true;
-            return Math.abs(otTime - other.endTime.getTime()) >= bestDiff;
-          });
-          if (isClosest) {
-            matchedOTEntries.push(bestOT);
-          }
-        }
-      }
+      // Match OvertimeRequests to this session by date
+      const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
+      const matchedOTEntries: typeof overtimeRequests = [...sameDayOTs];
 
       const sessionOvertimeMinutes = matchedOTEntries.length > 0
         ? matchedOTEntries.reduce((sum, ot) => sum + ot.requestedMinutes, 0)
