@@ -25,6 +25,7 @@ import {
 } from '../../components/common';
 import clientPortalService from '../../services/clientPortal.service';
 import overtimeService from '../../services/overtime.service';
+import { formatTime12 } from '../../utils/formatTime';
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
@@ -364,17 +365,6 @@ const Approvals = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  // Convert "HH:MM" (24h UTC) to "h:MM AM/PM" in EST (UTC-5)
-  const formatTime12 = (timeStr) => {
-    if (!timeStr) return '';
-    const [h, m] = timeStr.split(':').map(Number);
-    // Convert UTC to EST (UTC-5)
-    let estH = h - 5;
-    if (estH < 0) estH += 24;
-    const period = estH >= 12 ? 'PM' : 'AM';
-    const hour12 = estH === 0 ? 12 : estH > 12 ? estH - 12 : estH;
-    return `${hour12}:${String(m).padStart(2, '0')} ${period} EST`;
-  };
 
   const selectableItems = activeType === 'leave'
     ? approvals

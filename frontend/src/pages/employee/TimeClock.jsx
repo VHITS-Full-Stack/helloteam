@@ -21,18 +21,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
-
-// Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
-const formatTime12 = (timeStr) => {
-  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
-  const [h, m] = timeStr.split(':').map(Number);
-  // Convert UTC to EST (UTC-5)
-  let estH = h - 5;
-  if (estH < 0) estH += 24;
-  const period = estH >= 12 ? 'PM' : 'AM';
-  const hour12 = estH === 0 ? 12 : estH > 12 ? estH - 12 : estH;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period} EST`;
-};
+import { formatTime12 } from '../../utils/formatTime';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());

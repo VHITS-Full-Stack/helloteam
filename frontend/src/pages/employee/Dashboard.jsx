@@ -56,20 +56,11 @@ import {
   playBreakStartSound,
   playBreakEndSound,
 } from "../../utils/sounds";
+import { formatTime12 } from "../../utils/formatTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
 // Convert "HH:MM" (24h) to "h:MM AM/PM" (12h)
-const formatTime12 = (timeStr) => {
-  if (!timeStr || !/^\d{1,2}:\d{2}$/.test(timeStr)) return timeStr || '';
-  const [h, m] = timeStr.split(':').map(Number);
-  // Convert UTC to EST (UTC-5)
-  let estH = h - 5;
-  if (estH < 0) estH += 24;
-  const period = estH >= 12 ? 'PM' : 'AM';
-  const hour12 = estH === 0 ? 12 : estH > 12 ? estH - 12 : estH;
-  return `${hour12}:${String(m).padStart(2, '0')} ${period} EST`;
-};
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
