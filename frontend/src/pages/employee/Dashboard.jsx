@@ -348,12 +348,12 @@ const EmployeeDashboard = () => {
     }
   }, []);
 
-  // Fetch this week's schedule
+  // Fetch this week's schedule (Sunday start — same as Schedule page)
   const fetchWeekSchedule = useCallback(async () => {
     try {
       const today = new Date();
       const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
+      startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
       const weekStartStr = startOfWeek.toISOString().split("T")[0];
       const res = await scheduleService.getMySchedule(weekStartStr);
       if (res.success && res.schedule) {
@@ -1778,16 +1778,14 @@ const EmployeeDashboard = () => {
               const now = new Date();
               const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
               const startOfWeek = new Date(todayStart);
-              startOfWeek.setDate(todayStart.getDate() - todayStart.getDay() + 1); // Monday
+              startOfWeek.setDate(todayStart.getDate() - todayStart.getDay()); // Sunday
 
-              return ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day, index) => {
+              return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day, index) => {
                 const dayDate = new Date(startOfWeek);
                 dayDate.setDate(startOfWeek.getDate() + index);
                 const isToday = todayStart.getTime() === new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate()).getTime();
                 const isPast = dayDate < todayStart;
-                // dayOfWeek: Monday=1 ... Sunday=0
-                const dayOfWeek = dayDate.getDay();
-                const daySchedule = weekSchedule.find((s) => s.dayOfWeek === dayOfWeek);
+                const daySchedule = weekSchedule.find((s) => s.date === dayDate.toISOString().split("T")[0]);
                 const isScheduled = daySchedule?.isScheduled;
 
                 // Check for approved shift extension on this day
