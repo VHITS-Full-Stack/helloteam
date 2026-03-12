@@ -432,13 +432,15 @@ const TimeRecords = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-100">
-                        <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-5 w-[140px]">Date</th>
+                        <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[150px]">Date</th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">Billing In / Out</th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[70px]">Break</th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[80px]">Regular</th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[100px]">Overtime</th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[100px]">Unapproved OT</th>
-                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-5 w-[120px]">Status</th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[110px]">Overtime</th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[120px]">
+                          <span className="whitespace-nowrap">Unapproved OT</span>
+                        </th>
+                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[120px]">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -460,15 +462,15 @@ const TimeRecords = () => {
                             key={rec.date}
                             className={`border-b border-gray-50 last:border-b-0 ${hasOT ? 'bg-orange-50/30' : 'hover:bg-gray-50/50'}`}
                           >
-                            <td className="py-2.5 px-5 text-sm">
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-gray-900">{dateLabel}</span>
+                            <td className="py-2.5 px-4 text-sm">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-gray-900 whitespace-nowrap">{dateLabel}</span>
                                 {rec.isLate && (
                                   <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">LATE</span>
                                 )}
                               </div>
                               {hasOT && (
-                                <span className="inline-block mt-0.5 text-[10px] font-semibold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded">
+                                <span className="inline-block mt-0.5 text-[10px] font-semibold text-orange-700 bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded whitespace-nowrap">
                                   Includes OT
                                 </span>
                               )}
@@ -514,14 +516,14 @@ const TimeRecords = () => {
                                   {approvedOTM > 0 ? (
                                     <div className="flex flex-col items-center gap-0.5">
                                       {approvedEntries.filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1">
+                                        <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
                                           <span className="text-purple-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">ext</span>
                                           <span className="text-[10px] text-green-600">✓</span>
                                         </span>
                                       ))}
                                       {approvedEntries.filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1">
+                                        <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
                                           <span className="text-orange-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">off</span>
                                           <span className="text-[10px] text-green-600">✓</span>
@@ -537,7 +539,7 @@ const TimeRecords = () => {
                                   {unapprovedOTMinutes > 0 ? (
                                     <div className="flex flex-col items-center gap-0.5">
                                       {unapprovedEntries.filter(ot => ot.type === 'SHIFT_EXTENSION').map((ot, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1">
+                                        <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
                                           <span className="text-purple-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">ext</span>
                                           <span className={`text-[10px] ${ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>
@@ -546,7 +548,7 @@ const TimeRecords = () => {
                                         </span>
                                       ))}
                                       {unapprovedEntries.filter(ot => ot.type === 'OFF_SHIFT').map((ot, i) => (
-                                        <span key={i} className="inline-flex items-center gap-1">
+                                        <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
                                           <span className="text-orange-600 font-medium">{formatHours(ot.requestedMinutes / 60)}</span>
                                           <span className="text-[10px] text-gray-400">off</span>
                                           <span className={`text-[10px] ${ot.status === 'REJECTED' ? 'text-red-500' : 'text-amber-500'}`}>

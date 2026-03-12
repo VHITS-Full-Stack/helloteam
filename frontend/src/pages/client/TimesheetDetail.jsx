@@ -730,7 +730,7 @@ const TimesheetDetail = () => {
                                         {shiftExtEntries.map((ot, i) => (
                                           <span
                                             key={`ext-${i}`}
-                                            className="inline-flex items-center gap-1"
+                                            className="inline-flex items-center gap-1 whitespace-nowrap"
                                           >
                                             <span className="text-purple-600 font-medium">
                                               {formatHours(
@@ -754,7 +754,7 @@ const TimesheetDetail = () => {
                                         {offShiftEntries.map((ot, i) => (
                                           <span
                                             key={`off-${i}`}
-                                            className="inline-flex items-center gap-1"
+                                            className="inline-flex items-center gap-1 whitespace-nowrap"
                                           >
                                             <span className="text-orange-600 font-medium">
                                               {formatHours(
