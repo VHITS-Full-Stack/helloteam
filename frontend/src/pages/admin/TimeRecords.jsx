@@ -338,7 +338,7 @@ const TimeRecords = () => {
           .filter(o => o.status === 'PENDING')
           .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
         const unapprovedOTHours = Math.round(pendingOTMinutes / 60 * 100) / 100;
-        const regularHours = Math.round((day.hours || 0) * 100) / 100;
+        const regularHours = Math.round((day.regularHours || day.hours || 0) * 100) / 100;
         rows.push([
           `"${emp.employee}"`,
           `"${emp.client}"`,
@@ -599,7 +599,7 @@ const TimeRecords = () => {
 
                       {/* Regular */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                        {day.hours != null ? formatHours(day.hours) : '-'}
+                        {day.regularHours != null ? formatHours(day.regularHours) : day.hours != null ? formatHours(day.hours) : '-'}
                       </td>
 
                       {/* OT */}
@@ -840,7 +840,7 @@ const TimeRecords = () => {
                 .filter(o => o.status === 'PENDING')
                 .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
               const unapprovedOTHours = unapprovedOTMinutes / 60;
-              const regularHours = selectedRecord.hours || 0;
+              const regularHours = selectedRecord.regularHours || selectedRecord.hours || 0;
               return (
                 <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
                   <div className="text-center">

@@ -784,7 +784,9 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       // Get actual overtime from OvertimeRequest entries
       const otKey = `${firstSession.employeeId}_${dateStr}`;
       const dayOTRequests = otRequestMap.get(otKey) || [];
-      const overtimeMinutes = dayOTRequests.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+      const overtimeMinutes = dayOTRequests
+        .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
+        .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
       const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
 
