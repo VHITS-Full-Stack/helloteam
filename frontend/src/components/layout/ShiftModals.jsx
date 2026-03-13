@@ -83,7 +83,7 @@ const ShiftModals = () => {
 
       try {
         // Check if there's an active session first
-        const sessionRes = await workSessionService.getSessionStatus();
+        const sessionRes = await workSessionService.getCurrentSession();
         if (!sessionRes.success || !sessionRes.session || sessionRes.session.status === 'COMPLETED') return;
 
         const response = await notificationService.getNotifications({

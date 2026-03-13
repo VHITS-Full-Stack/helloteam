@@ -133,7 +133,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: schedule=${schedule.endTime}, tz=${clientTimezone}, shiftEndUTC=${shiftEndUTC.toISOString()}, now=${now.toISOString()}, minutesUntilEnd=${minutesUntilEnd.toFixed(1)}`);
 
       // --- 30-minute warning (fires once around the 30-min mark) ---
-      if (minutesUntilEnd <= 30 && minutesUntilEnd > 28 && !session.shiftEndNotifiedAt) {
+      if (minutesUntilEnd <= 30 && minutesUntilEnd > 0 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
 
         // Check if employee already has an approved OT request for today
