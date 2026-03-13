@@ -1287,13 +1287,24 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
     });
 
     // Fetch time records for these sessions to get approval status
+    // Use client timezone to derive the correct date (e.g., 1:00 AM IST Mar 13 = Mar 12 in UTC but Mar 13 in client tz)
+    const sessionClientTz = clientAssignment?.client?.timezone || 'UTC';
+    const toClientDate = (dt: Date): Date => {
+      try {
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: sessionClientTz }).formatToParts(dt);
+        const y = parseInt(parts.find(p => p.type === 'year')?.value || '1970');
+        const m = parseInt(parts.find(p => p.type === 'month')?.value || '1') - 1;
+        const d = parseInt(parts.find(p => p.type === 'day')?.value || '1');
+        return new Date(Date.UTC(y, m, d));
+      } catch {
+        const fallback = new Date(dt);
+        fallback.setUTCHours(0, 0, 0, 0);
+        return fallback;
+      }
+    };
     const sessionDates = sessions
       .filter(s => s.startTime)
-      .map(s => {
-        const d = new Date(s.startTime);
-        d.setUTCHours(0, 0, 0, 0);
-        return d;
-      });
+      .map(s => toClientDate(s.startTime));
 
     const timeRecords = sessionDates.length > 0
       ? await prisma.timeRecord.findMany({
@@ -1337,10 +1348,14 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
     }
 
     // Fetch OvertimeRequests for this employee in the date range
+    // Expand range by ±1 day to account for timezone differences between UTC session dates
+    // and client-timezone OT request dates (e.g., 1:00 AM IST Mar 13 = Mar 12 UTC)
     const otDateFilter: any = {};
     if (sessionDates.length > 0) {
       const minDate = new Date(Math.min(...sessionDates.map(d => d.getTime())));
       const maxDate = new Date(Math.max(...sessionDates.map(d => d.getTime())));
+      minDate.setUTCDate(minDate.getUTCDate() - 1);
+      maxDate.setUTCDate(maxDate.getUTCDate() + 1);
       otDateFilter.gte = minDate;
       otDateFilter.lte = maxDate;
     }
@@ -1365,10 +1380,23 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         })
       : [];
 
+    // Helper: get YYYY-MM-DD in the client's timezone for a given Date
+    const getClientDateKey = (date: Date): string => {
+      try {
+        const parts = new Intl.DateTimeFormat('en-CA', { timeZone: sessionClientTz }).formatToParts(date);
+        const y = parts.find(p => p.type === 'year')?.value || '1970';
+        const m = parts.find(p => p.type === 'month')?.value || '01';
+        const d = parts.find(p => p.type === 'day')?.value || '01';
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      } catch {
+        return date.toISOString().split('T')[0];
+      }
+    };
+
     // Calculate work minutes for each session
     const sessionsWithStats = sessions.map(session => {
-      // Match time record by date
-      const sessionDateKey = session.startTime.toISOString().split('T')[0];
+      // Match time record by date — use client timezone date for matching
+      const sessionDateKey = getClientDateKey(session.startTime);
       const timeRecord = timeRecordMap.get(sessionDateKey);
 
       // Prefer TimeRecord data (authoritative) over session calculation
@@ -1392,9 +1420,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
       let matchedOTEntries: typeof overtimeRequests = [];
       try {
-        const clientTz = clientAssignment?.client?.timezone || 'UTC';
         // Validate timezone by attempting to use it
-        const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: clientTz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+        const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: sessionClientTz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
         const startParts = tzFormatter.formatToParts(session.startTime);
         const sessionStartH = parseInt(startParts.find(p => p.type === 'hour')?.value || '0');
         const sessionStartM = parseInt(startParts.find(p => p.type === 'minute')?.value || '0');
@@ -1430,7 +1457,7 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
             return ot.createdAt >= session.startTime && ot.createdAt <= new Date(session.endTime.getTime() + 5 * 60000);
           }
           // Fallback: if only one session on this day, assign all OTs to it
-          const sameDaySessions = sessions.filter(s => s.startTime.toISOString().split('T')[0] === sessionDateKey);
+          const sameDaySessions = sessions.filter(s => getClientDateKey(s.startTime) === sessionDateKey);
           return sameDaySessions.length === 1;
         });
       } catch (otMatchErr) {
