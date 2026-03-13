@@ -72,6 +72,7 @@ const EmployeeDashboard = () => {
   const [weeklySummary, setWeeklySummary] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [clockOutTime, setClockOutTime] = useState(null);
   const [error, setError] = useState(null);
 
   // Overtime request modal state
@@ -400,7 +401,7 @@ const EmployeeDashboard = () => {
   const formatDurationWithSeconds = (startTime, breaks) => {
     if (!startTime) return "00:00:00";
     const start = new Date(startTime);
-    const now = new Date();
+    const now = clockOutTime || new Date();
     let breakSeconds = 0;
     if (breaks && breaks.length > 0) {
       for (const brk of breaks) {
@@ -544,11 +545,13 @@ const EmployeeDashboard = () => {
   const handleClockOut = async () => {
     try {
       setActionLoading(true);
+      setClockOutTime(new Date());
       await workSessionService.clockOut();
       playClockOutSound();
       await fetchWorkSessionData();
     } catch (err) {
       setError(err.message || "Failed to clock out");
+      setClockOutTime(null);
     } finally {
       setActionLoading(false);
     }
