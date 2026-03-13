@@ -1109,6 +1109,38 @@ export const approveEmployeeKyc = async (req: AuthenticatedRequest, res: Respons
 };
 
 // Reject all employee KYC documents (admin) - kept for backwards compat
+// Resend onboarding email to employee
+export const resendOnboardingEmail = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const email = employee.personalEmail || employee.user?.email;
+    if (!email) {
+      res.status(400).json({ success: false, error: 'No email address found for this employee' });
+      return;
+    }
+
+    const onboardingToken = generateMagicLinkToken(employee.user.id, 'onboarding');
+    const onboardingUrl = `${config.frontendUrl}/employee/onboarding?token=${onboardingToken}`;
+    await sendEmployeeOnboardingEmail(email, employee.firstName, onboardingUrl);
+
+    res.json({ success: true, message: 'Onboarding email sent successfully' });
+  } catch (error) {
+    console.error('Resend onboarding email error:', error);
+    res.status(500).json({ success: false, error: 'Failed to send onboarding email' });
+  }
+};
+
 export const rejectEmployeeKyc = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;

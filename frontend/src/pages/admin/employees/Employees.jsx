@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
@@ -6,7 +7,9 @@ import {
   Eye,
   X,
   AlertCircle,
-  RefreshCw
+  CheckCircle,
+  RefreshCw,
+  Mail
 } from 'lucide-react';
 import {
   Card,
@@ -22,9 +25,19 @@ import {
   TableCell
 } from '../../../components/common';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
+import employeeService from '../../../services/employee.service';
 
 const Employees = () => {
   const navigate = useNavigate();
+  const [resendingId, setResendingId] = useState(null);
+  const [successMsg, setSuccessMsg] = useState('');
+
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
 
   const {
     employees,
@@ -116,6 +129,19 @@ const Employees = () => {
             <p className="text-sm text-red-600">{error}</p>
           </div>
           <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Success Alert */}
+      {successMsg && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-green-600">{successMsg}</p>
+          </div>
+          <button onClick={() => setSuccessMsg('')} className="text-green-400 hover:text-green-600">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -218,13 +244,41 @@ const Employees = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Link
-                      to={`/admin/employees/${employee.id}`}
-                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors inline-flex"
-                      title="View Details"
-                    >
-                      <Eye className="w-4 h-4 text-primary" />
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      {employee.onboardingStatus !== 'COMPLETED' && (
+                        <button
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              setResendingId(employee.id);
+                              const res = await employeeService.resendOnboardingEmail(employee.id);
+                              if (res.success) {
+                                setError('');
+                                setSuccessMsg('Onboarding email sent successfully');
+                              } else {
+                                setError(res.error || 'Failed to send email');
+                              }
+                            } catch (err) {
+                              setError(err.error || 'Failed to send email');
+                            } finally {
+                              setResendingId(null);
+                            }
+                          }}
+                          disabled={resendingId === employee.id}
+                          className="p-2 hover:bg-blue-50 rounded-lg transition-colors inline-flex"
+                          title="Resend Onboarding Email"
+                        >
+                          <Mail className={`w-4 h-4 text-blue-600 ${resendingId === employee.id ? 'animate-pulse' : ''}`} />
+                        </button>
+                      )}
+                      <Link
+                        to={`/admin/employees/${employee.id}`}
+                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors inline-flex"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4 text-primary" />
+                      </Link>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

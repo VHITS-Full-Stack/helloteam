@@ -108,6 +108,16 @@ const employeeService = {
     }
   },
 
+  // Resend onboarding email
+  resendOnboardingEmail: async (id) => {
+    try {
+      const response = await api.post(`/employees/${id}/resend-onboarding`);
+      return response;
+    } catch (error) {
+      throw { error: error.message || 'Failed to send onboarding email' };
+    }
+  },
+
   // Delete employee
   deleteEmployee: async (id) => {
     try {

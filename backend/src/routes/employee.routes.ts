@@ -14,6 +14,7 @@ import {
   rejectEmployeeKyc,
   reviewEmployeeDocument,
   finalizeKycReview,
+  resendOnboardingEmail,
 } from '../controllers/employee.controller';
 import { authenticate, requirePermission } from '../middleware/auth.middleware';
 import { PERMISSIONS } from '../config/permissions';
@@ -44,6 +45,9 @@ router.post('/:id/kyc/review', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), re
 router.post('/:id/kyc/finalize', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), finalizeKycReview);
 router.post('/:id/kyc/approve', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), approveEmployeeKyc);
 router.post('/:id/kyc/reject', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), rejectEmployeeKyc);
+
+// Resend onboarding email - requires employees.edit permission
+router.post('/:id/resend-onboarding', requirePermission(PERMISSIONS.EMPLOYEES.EDIT), resendOnboardingEmail);
 
 // Client assignment - requires employees.assign permission
 router.post('/:id/assign', requirePermission(PERMISSIONS.EMPLOYEES.ASSIGN), assignToClient);
