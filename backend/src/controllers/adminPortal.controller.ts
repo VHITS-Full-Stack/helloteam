@@ -768,12 +768,26 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const breakHours = Math.round(breakMins / 60 * 100) / 100;
       const recordStatus = isActive ? 'active' : 'pending';
 
-      // Get all OT requests for this employee on this date
+      // Get OT requests for this employee on this date, matched to this session
       const otKey = `${session.employeeId}_${dateStr}`;
-      const sessionOTEntries = otRequestMap.get(otKey) || [];
+      const sameDayOTs = otRequestMap.get(otKey) || [];
+      let sessionOTEntries: typeof sameDayOTs;
+      if (session.endTime) {
+        // Completed session — match OTs by createdAt (auto-created at clock-out)
+        const sessionEnd = session.endTime.getTime();
+        const sessionStart = session.startTime.getTime();
+        sessionOTEntries = sameDayOTs.filter(ot => {
+          if (!ot.createdAt) return false;
+          const otCreated = ot.createdAt.getTime();
+          return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
+        });
+      } else {
+        // Active session — show all same-day OTs
+        sessionOTEntries = sameDayOTs;
+      }
 
       const overtimeMinutes = sessionOTEntries
-        .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
+        .filter(ot => ot.status === 'APPROVED')
         .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
       const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((hours - overtimeHours) * 100) / 100;

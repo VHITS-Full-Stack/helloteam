@@ -1388,24 +1388,22 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const breakMinutes = computedBreakMinutes;
       const totalMinutes = sessionTotalMinutes - breakMinutes;
 
-      // Match OvertimeRequests to this specific session
+      // Match OvertimeRequests to this specific session using createdAt
       const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
-      const sameDaySessions = sessions.filter(s => s.startTime.toISOString().split('T')[0] === sessionDateKey);
       let matchedOTEntries: typeof overtimeRequests;
 
-      if (sameDaySessions.length <= 1) {
-        // Only one session this day — all OTs belong to it
-        matchedOTEntries = sameDayOTs;
-      } else {
-        // Multiple sessions — match by createdAt (OTs are auto-created at clock-out)
-        const sessionEnd = session.endTime ? session.endTime.getTime() : Date.now();
+      if (session.endTime) {
+        // Session is completed — match OTs by createdAt (OTs are auto-created at clock-out)
+        const sessionEnd = session.endTime.getTime();
         const sessionStart = session.startTime.getTime();
-        // Buffer: 2 min before session start, 10 min after session end
         matchedOTEntries = sameDayOTs.filter(ot => {
           if (!ot.createdAt) return false;
           const otCreated = ot.createdAt.getTime();
           return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
         });
+      } else {
+        // Active session — show all same-day OTs
+        matchedOTEntries = sameDayOTs;
       }
 
       const sessionOvertimeMinutes = matchedOTEntries.length > 0

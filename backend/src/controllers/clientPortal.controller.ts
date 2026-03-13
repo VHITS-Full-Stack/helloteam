@@ -1605,8 +1605,21 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
             : 0;
 
-          // All same-day OT requests shown for every session on that day
-          const sessionOTEntries = dayOTRequests;
+          // Match OT requests to this specific session using createdAt
+          let sessionOTEntries: typeof dayOTRequests;
+          if (session.endTime) {
+            // Completed session — match OTs by createdAt (auto-created at clock-out)
+            const sessionEnd = session.endTime.getTime();
+            const sessionStart = session.startTime.getTime();
+            sessionOTEntries = dayOTRequests.filter(ot => {
+              if (!ot.createdAt) return false;
+              const otCreated = ot.createdAt.getTime();
+              return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
+            });
+          } else {
+            // Active session — show all same-day OTs
+            sessionOTEntries = dayOTRequests;
+          }
 
           // Calculate overtime from OvertimeRequest entries
           const sessionOvertime = sessionOTEntries
