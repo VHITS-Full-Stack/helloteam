@@ -276,7 +276,7 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
       select: { email: true },
     });
 
-    // Create new work session
+    // Create new work session (store schedule times for shift-end job fallback)
     const workSession = await prisma.workSession.create({
       data: {
         employeeId: employee.id,
@@ -285,6 +285,8 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
         ipAddress: clientIp,
         arrivalStatus,
         lateMinutes,
+        scheduledStartTime: schedule?.startTime || null,
+        scheduledEndTime: schedule?.endTime || null,
       },
       include: {
         breaks: true,
@@ -438,7 +440,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
       const { dayOfWeek: clockOutDow } = getTimeInTimezone(clockOutTz, now);
 
-      const schedule = await prisma.schedule.findFirst({
+      let schedule = await prisma.schedule.findFirst({
         where: {
           employeeId: employee.id,
           dayOfWeek: clockOutDow,
@@ -452,13 +454,43 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         orderBy: { effectiveFrom: 'desc' },
       });
 
+      // Fallback: if no schedule found for clock-out day, try the session start day
+      // (handles timezone edge cases or late clock-outs past midnight)
+      if (!schedule) {
+        const { dayOfWeek: sessionDow } = getTimeInTimezone(clockOutTz, activeSession.startTime);
+        if (sessionDow !== clockOutDow) {
+          schedule = await prisma.schedule.findFirst({
+            where: {
+              employeeId: employee.id,
+              dayOfWeek: sessionDow,
+              isActive: true,
+              effectiveFrom: { lte: now },
+              OR: [
+                { effectiveTo: null },
+                { effectiveTo: { gte: now } },
+              ],
+            },
+            orderBy: { effectiveFrom: 'desc' },
+          });
+        }
+      }
+
+      // Final fallback: use schedule stored on the work session at clock-in time
+      if (!schedule && activeSession.scheduledStartTime && activeSession.scheduledEndTime) {
+        schedule = {
+          startTime: activeSession.scheduledStartTime,
+          endTime: activeSession.scheduledEndTime,
+          dayOfWeek: clockOutDow,
+        } as any;
+      }
+
       // Calculate early overtime (pre-schedule minutes) using proper timezone
       let earlyOvertimeMinutes = 0;
       let scheduledStart: Date | null = null;
       let scheduledEnd: Date | null = null;
 
       if (schedule?.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
-        scheduledStart = buildScheduleTimestamp(clockOutTz, schedule.startTime, now);
+        scheduledStart = buildScheduleTimestamp(clockOutTz, schedule.startTime, activeSession.startTime);
 
         // If employee clocked in before schedule start, those minutes are overtime
         if (activeSession.startTime < scheduledStart) {
@@ -469,7 +501,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       }
 
       if (schedule?.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
-        scheduledEnd = buildScheduleTimestamp(clockOutTz, schedule.endTime, now);
+        scheduledEnd = buildScheduleTimestamp(clockOutTz, schedule.endTime, activeSession.startTime);
       }
 
       // Detect Extra Time: session started AFTER scheduled end, or no schedule exists for the day

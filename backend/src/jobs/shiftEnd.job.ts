@@ -70,12 +70,14 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       const recordDate = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
 
       // Find the employee's schedule for today
-      const schedule = await prisma.schedule.findFirst({
+      // Use `now` (not midnight recordDate) for effectiveFrom comparison to avoid
+      // missing schedules whose effectiveFrom timestamp is between midnight and now.
+      let schedule = await prisma.schedule.findFirst({
         where: {
           employeeId: employee.id,
           dayOfWeek,
           isActive: true,
-          effectiveFrom: { lte: recordDate },
+          effectiveFrom: { lte: now },
           OR: [
             { effectiveTo: null },
             { effectiveTo: { gte: recordDate } },
@@ -85,10 +87,44 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           startTime: true,
           endTime: true,
         },
+        orderBy: { effectiveFrom: 'desc' },
       });
 
+      // Fallback: if no schedule found for current day, try the session start day
+      // (handles timezone edge cases where clock-in day differs from current day)
+      if (!schedule) {
+        const sessionDayOfWeek = getDayOfWeekInTimezone(clientTimezone, session.startTime);
+        if (sessionDayOfWeek !== dayOfWeek) {
+          schedule = await prisma.schedule.findFirst({
+            where: {
+              employeeId: employee.id,
+              dayOfWeek: sessionDayOfWeek,
+              isActive: true,
+              effectiveFrom: { lte: now },
+              OR: [
+                { effectiveTo: null },
+                { effectiveTo: { gte: recordDate } },
+              ],
+            },
+            select: {
+              startTime: true,
+              endTime: true,
+            },
+            orderBy: { effectiveFrom: 'desc' },
+          });
+        }
+      }
+
+      // Final fallback: use schedule stored on the work session at clock-in time
       if (!schedule || !schedule.endTime || !/^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
-        continue;
+        if (session.scheduledEndTime && /^\d{1,2}:\d{2}$/.test(session.scheduledEndTime)) {
+          schedule = {
+            startTime: session.scheduledStartTime || '',
+            endTime: session.scheduledEndTime,
+          };
+        } else {
+          continue;
+        }
       }
 
       const shiftEndUTC = buildScheduleTimestamp(clientTimezone, schedule.endTime, now);
