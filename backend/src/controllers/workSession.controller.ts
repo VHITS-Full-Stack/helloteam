@@ -1419,57 +1419,8 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const breakMinutes = computedBreakMinutes;
       const totalMinutes = sessionTotalMinutes - breakMinutes;
 
-      // Match OvertimeRequests to this session by date
-      const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
-      const sameDaySessions = sessions.filter(s => getClientDateKey(s.startTime) === sessionDateKey);
-      let matchedOTEntries: typeof overtimeRequests = [];
-
-      if (sameDaySessions.length <= 1) {
-        // Only one session on this day — assign all same-day OTs
-        matchedOTEntries = [...sameDayOTs];
-      } else {
-        // Multiple sessions on the same day — try to match OTs to this specific session
-        try {
-          const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: sessionClientTz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
-          const startParts = tzFormatter.formatToParts(session.startTime);
-          const sessionStartTotal = parseInt(startParts.find(p => p.type === 'hour')?.value || '0') * 60 +
-            parseInt(startParts.find(p => p.type === 'minute')?.value || '0');
-          const sessionEndTotal = session.endTime
-            ? (() => {
-                const endParts = tzFormatter.formatToParts(session.endTime);
-                return parseInt(endParts.find(p => p.type === 'hour')?.value || '0') * 60 +
-                  parseInt(endParts.find(p => p.type === 'minute')?.value || '0');
-              })()
-            : sessionStartTotal;
-
-          matchedOTEntries = sameDayOTs.filter(ot => {
-            // For OFF_SHIFT: match if session overlaps with the requested off-shift window
-            if (ot.type === 'OFF_SHIFT' && ot.requestedStartTime) {
-              const [otStartH, otStartM] = ot.requestedStartTime.split(':').map(Number);
-              const otStartTotal = otStartH * 60 + otStartM;
-              const otEndTotal = ot.requestedEndTime
-                ? (() => { const [h, m] = ot.requestedEndTime.split(':').map(Number); return h * 60 + m; })()
-                : otStartTotal + (ot.requestedMinutes || 0);
-              return sessionStartTotal >= otStartTotal - 30 && sessionStartTotal <= otEndTotal + 30;
-            }
-            // For SHIFT_EXTENSION: match to the session that was active around/after the shift end
-            if (ot.type === 'SHIFT_EXTENSION' && ot.estimatedEndTime) {
-              const [otEndH, otEndM] = ot.estimatedEndTime.split(':').map(Number);
-              const otEndTotal = otEndH * 60 + otEndM;
-              return sessionEndTotal >= otEndTotal - (ot.requestedMinutes || 0) - 30 && sessionStartTotal <= otEndTotal + 30;
-            }
-            // Match by createdAt within session time range
-            if (ot.createdAt && session.startTime && session.endTime) {
-              return ot.createdAt >= session.startTime && ot.createdAt <= new Date(session.endTime.getTime() + 5 * 60000);
-            }
-            // Default: include the OT (better to show than to hide)
-            return true;
-          });
-        } catch (otMatchErr) {
-          console.error('OT matching error for session', session.id, otMatchErr);
-          matchedOTEntries = [...sameDayOTs];
-        }
-      }
+      // Match all OvertimeRequests for the same date to this session
+      const matchedOTEntries = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
 
       const sessionOvertimeMinutes = matchedOTEntries.length > 0
         ? matchedOTEntries.reduce((sum, ot) => sum + ot.requestedMinutes, 0)

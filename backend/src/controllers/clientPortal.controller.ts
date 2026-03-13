@@ -1605,48 +1605,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
             : 0;
 
-          // Match OT requests to this specific session
-          let sessionOTEntries = dayOTRequests;
-          if (daySessions.length > 1) {
-            try {
-              const tz = clientTimezone;
-              const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
-              const startParts = tzFormatter.formatToParts(session.startTime);
-              const sessionStartTotal = parseInt(startParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
-                parseInt(startParts.find((p: any) => p.type === 'minute')?.value || '0');
-              const sessionEndTotal = session.endTime
-                ? (() => {
-                    const endParts = tzFormatter.formatToParts(session.endTime);
-                    return parseInt(endParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
-                      parseInt(endParts.find((p: any) => p.type === 'minute')?.value || '0');
-                  })()
-                : sessionStartTotal;
+          // All same-day OT requests shown for every session on that day
+          const sessionOTEntries = dayOTRequests;
 
-              sessionOTEntries = dayOTRequests.filter(ot => {
-                if (ot.type === 'OFF_SHIFT' && ot.requestedStartTime) {
-                  const [otStartH, otStartM] = ot.requestedStartTime.split(':').map(Number);
-                  const otStartTotal = otStartH * 60 + otStartM;
-                  const otEndTotal = ot.requestedEndTime
-                    ? (() => { const [h, m] = ot.requestedEndTime.split(':').map(Number); return h * 60 + m; })()
-                    : otStartTotal + (ot.requestedMinutes || 0);
-                  return sessionStartTotal >= otStartTotal - 30 && sessionStartTotal <= otEndTotal + 30;
-                }
-                if (ot.type === 'SHIFT_EXTENSION' && ot.estimatedEndTime) {
-                  const [otEndH, otEndM] = ot.estimatedEndTime.split(':').map(Number);
-                  const otEndTotal = otEndH * 60 + otEndM;
-                  return sessionEndTotal >= otEndTotal - (ot.requestedMinutes || 0) - 30 && sessionStartTotal <= otEndTotal + 30;
-                }
-                if (ot.createdAt && session.startTime && session.endTime) {
-                  return ot.createdAt >= session.startTime && ot.createdAt <= new Date(session.endTime.getTime() + 5 * 60000);
-                }
-                return true;
-              });
-            } catch {
-              sessionOTEntries = dayOTRequests;
-            }
-          }
-
-          // Calculate overtime from matched OvertimeRequest entries
+          // Calculate overtime from OvertimeRequest entries
           const sessionOvertime = sessionOTEntries
             .filter(ot => ot.status !== 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
