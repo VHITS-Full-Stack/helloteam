@@ -918,10 +918,10 @@ export const rejectTimeRecord = async (req: AuthenticatedRequest, res: Response)
     // Deny the overtime portion only — regular hours stay approved for invoicing.
     // Spec: Invoice includes Scheduled Time + Approved OT, excludes Unapproved/Denied OT.
     const denyUpdates: any = {};
-    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.shiftExtensionStatus) && (timeRecord.shiftExtensionMinutes || 0) > 0) {
       denyUpdates.shiftExtensionStatus = 'DENIED';
     }
-    if (timeRecord.extraTimeStatus === 'PENDING' || timeRecord.extraTimeStatus === 'UNAPPROVED') {
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.extraTimeStatus) && (timeRecord.extraTimeMinutes || 0) > 0) {
       denyUpdates.extraTimeStatus = 'DENIED';
     }
 
@@ -2058,11 +2058,13 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    // Bulk update
+    // Bulk update — deny overtime statuses and reject the record
     const result = await prisma.timeRecord.updateMany({
       where: { id: { in: recordIds }, clientId: client.id },
       data: {
-        status: 'REJECTED',
+        status: 'APPROVED',
+        shiftExtensionStatus: 'DENIED',
+        extraTimeStatus: 'DENIED',
       },
     });
 
