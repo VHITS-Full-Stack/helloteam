@@ -746,76 +746,89 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       timeRecordMap.set(key, tr);
     }
 
-    // Build daily records from work sessions + OvertimeRequests
+    // Build per-session records (each session = one row)
     const allRecords: any[] = [];
 
-    for (const [key, daySessions] of sessionsByEmpDate) {
-      // Sort sessions by startTime ascending to get first clock-in and last clock-out
-      daySessions.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
-
-      const firstSession = daySessions[0];
-      const lastSession = daySessions[daySessions.length - 1];
-      const emp = firstSession.employee;
-      const clientInfo = employeeClientMap.get(firstSession.employeeId);
+    for (const session of filteredSessions) {
+      const emp = session.employee;
+      const clientInfo = employeeClientMap.get(session.employeeId);
       const empTz = clientInfo?.timezone || 'America/New_York';
-      const dateStr = toTzDateStr(firstSession.startTime, empTz);
+      const dateStr = toTzDateStr(session.startTime, empTz);
 
-      let totalWorkMinutes = 0;
-      let totalBreakMins = 0;
-      let hasActive = false;
+      const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
+      const sessionMinutes = session.endTime
+        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
+        : 0;
+      const breakMins = session.totalBreakMinutes || 0;
+      const workMinutes = Math.max(0, sessionMinutes - breakMins);
 
-      for (const session of daySessions) {
-        if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
-        const sessionMinutes = session.endTime
-          ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
-          : 0;
-        const breakMins = session.totalBreakMinutes || 0;
-        totalWorkMinutes += Math.max(0, sessionMinutes - breakMins);
-        totalBreakMins += breakMins;
+      const clockIn = session.startTime;
+      const clockOut = session.endTime || null;
+      const hours = Math.round(workMinutes / 60 * 100) / 100;
+      const breakHours = Math.round(breakMins / 60 * 100) / 100;
+      const recordStatus = isActive ? 'active' : 'pending';
+
+      // Get all OT requests for this employee on this date
+      const otKey = `${session.employeeId}_${dateStr}`;
+      const dayOTRequests = otRequestMap.get(otKey) || [];
+
+      // Match OT requests to this specific session
+      const sameDaySessions = (sessionsByEmpDate.get(`${session.employeeId}_${dateStr}`) || []);
+      let sessionOTEntries = dayOTRequests;
+
+      if (sameDaySessions.length > 1) {
+        // Multiple sessions on same day — try to match OTs to this session
+        try {
+          const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: empTz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+          const startParts = tzFormatter.formatToParts(session.startTime);
+          const sessionStartTotal = parseInt(startParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
+            parseInt(startParts.find((p: any) => p.type === 'minute')?.value || '0');
+          const sessionEndTotal = session.endTime
+            ? (() => {
+                const endParts = tzFormatter.formatToParts(session.endTime);
+                return parseInt(endParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
+                  parseInt(endParts.find((p: any) => p.type === 'minute')?.value || '0');
+              })()
+            : sessionStartTotal;
+
+          sessionOTEntries = dayOTRequests.filter(ot => {
+            if (ot.type === 'OFF_SHIFT' && ot.requestedStartTime) {
+              const [otStartH, otStartM] = ot.requestedStartTime.split(':').map(Number);
+              const otStartTotal = otStartH * 60 + otStartM;
+              const otEndTotal = ot.requestedEndTime
+                ? (() => { const [h, m] = ot.requestedEndTime.split(':').map(Number); return h * 60 + m; })()
+                : otStartTotal + (ot.requestedMinutes || 0);
+              return sessionStartTotal >= otStartTotal - 30 && sessionStartTotal <= otEndTotal + 30;
+            }
+            if (ot.type === 'SHIFT_EXTENSION' && ot.estimatedEndTime) {
+              const [otEndH, otEndM] = ot.estimatedEndTime.split(':').map(Number);
+              const otEndTotal = otEndH * 60 + otEndM;
+              return sessionEndTotal >= otEndTotal - (ot.requestedMinutes || 0) - 30 && sessionStartTotal <= otEndTotal + 30;
+            }
+            if (ot.createdAt && session.startTime && session.endTime) {
+              return ot.createdAt >= session.startTime && ot.createdAt <= new Date(session.endTime.getTime() + 5 * 60000);
+            }
+            return true;
+          });
+        } catch {
+          sessionOTEntries = dayOTRequests;
+        }
       }
 
-      // Use raw datetimes so frontend can convert to EST as needed
-      const clockIn = firstSession.startTime; // Date object -> serialized as ISO
-      const clockOut = lastSession.endTime || null;
-      const hours = Math.round(totalWorkMinutes / 60 * 100) / 100;
-      const breakHours = Math.round(totalBreakMins / 60 * 100) / 100;
-      const recordStatus = hasActive ? 'active' : 'pending';
-
-      // Get actual overtime from OvertimeRequest entries
-      const otKey = `${firstSession.employeeId}_${dateStr}`;
-      const dayOTRequests = otRequestMap.get(otKey) || [];
-      const overtimeMinutes = dayOTRequests
+      const overtimeMinutes = sessionOTEntries
         .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
         .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
       const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
 
-      // Build individual session details
-      const sessionDetails = daySessions.map(session => {
-        const sessionMins = session.endTime
-          ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
-          : 0;
-        const breakMins = session.totalBreakMinutes || 0;
-        const workMins = Math.max(0, sessionMins - breakMins);
-        return {
-          id: session.id,
-          clockIn: session.startTime,
-          clockOut: session.endTime || null,
-          hours: Math.round(workMins / 60 * 100) / 100,
-          breakMinutes: breakMins,
-          status: session.status,
-          notes: session.notes || null,
-        };
-      });
-
       // Get billing data from TimeRecord
-      const trKey = `${firstSession.employeeId}_${dateStr}`;
+      const trKey = `${session.employeeId}_${dateStr}`;
       const dayTimeRecord = timeRecordMap.get(trKey);
 
       allRecords.push({
-        id: firstSession.id,
+        id: session.id,
         employee: `${emp.firstName} ${emp.lastName}`,
-        employeeId: firstSession.employeeId,
+        employeeId: session.employeeId,
         profilePhoto: emp.profilePhoto,
         client: clientInfo?.companyName || 'Unassigned',
         clientId: clientInfo?.clientId || null,
@@ -832,11 +845,19 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         overtimeHours,
         breaks: breakHours,
         status: dayTimeRecord?.status?.toLowerCase() || recordStatus,
-        notes: daySessions.map(s => s.notes).filter(Boolean).join('; ') || null,
-        arrivalStatus: firstSession.arrivalStatus || null,
-        lateMinutes: firstSession.lateMinutes || null,
-        sessions: sessionDetails,
-        overtimeEntries: dayOTRequests.map(ot => ({
+        notes: session.notes || null,
+        arrivalStatus: session.arrivalStatus || null,
+        lateMinutes: session.lateMinutes || null,
+        sessions: [{
+          id: session.id,
+          clockIn: session.startTime,
+          clockOut: session.endTime || null,
+          hours,
+          breakMinutes: breakMins,
+          status: session.status,
+          notes: session.notes || null,
+        }],
+        overtimeEntries: sessionOTEntries.map(ot => ({
           id: ot.id,
           type: ot.type,
           requestedMinutes: ot.requestedMinutes,
@@ -898,9 +919,13 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // Sort daily records by date ascending within each group
+    // Sort records by date ascending, then by clockIn within same date
     for (const group of groupedMap.values()) {
-      group.dailyRecords.sort((a: any, b: any) => a.date.localeCompare(b.date));
+      group.dailyRecords.sort((a: any, b: any) => {
+        const dateCmp = a.date.localeCompare(b.date);
+        if (dateCmp !== 0) return dateCmp;
+        return new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime();
+      });
       group.totalHours = Math.round(group.totalHours * 100) / 100;
       group.regularHours = Math.round(group.regularHours * 100) / 100;
       group.overtimeHours = Math.round(group.overtimeHours * 100) / 100;

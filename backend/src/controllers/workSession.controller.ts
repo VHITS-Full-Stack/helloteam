@@ -1347,23 +1347,26 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       timeRecordMap.set(dateKey, tr);
     }
 
-    // Fetch OvertimeRequests for this employee in the date range
-    // Expand range by ±1 day to account for timezone differences between UTC session dates
-    // and client-timezone OT request dates (e.g., 1:00 AM IST Mar 13 = Mar 12 UTC)
-    const otDateFilter: any = {};
-    if (sessionDates.length > 0) {
-      const minDate = new Date(Math.min(...sessionDates.map(d => d.getTime())));
-      const maxDate = new Date(Math.max(...sessionDates.map(d => d.getTime())));
-      minDate.setUTCDate(minDate.getUTCDate() - 1);
-      maxDate.setUTCDate(maxDate.getUTCDate() + 1);
-      otDateFilter.gte = minDate;
-      otDateFilter.lte = maxDate;
+    // Fetch OvertimeRequests using the same date range as the session query
+    // This matches the approach used in admin/client endpoints which work correctly
+    const otRangeFilter: any = {};
+    if (startDate) {
+      // Expand by 1 day before to handle timezone differences
+      const otStart = new Date(startDate as string);
+      otStart.setUTCDate(otStart.getUTCDate() - 1);
+      otRangeFilter.gte = otStart;
     }
-    const overtimeRequests = sessionDates.length > 0
+    if (endDate) {
+      // Expand by 1 day after to handle timezone differences
+      const otEnd = new Date(endDate as string);
+      otEnd.setUTCDate(otEnd.getUTCDate() + 1);
+      otRangeFilter.lte = otEnd;
+    }
+    const overtimeRequests = sessions.length > 0
       ? await prisma.overtimeRequest.findMany({
           where: {
             employeeId: employee.id,
-            date: otDateFilter,
+            ...(Object.keys(otRangeFilter).length > 0 ? { date: otRangeFilter } : {}),
           },
           select: {
             id: true,
@@ -1379,8 +1382,6 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
           orderBy: { createdAt: 'asc' },
         })
       : [];
-
-    console.log(`[getSessionHistory] employee=${employee.id}, tz=${sessionClientTz}, sessionDates=${sessionDates.map(d => d.toISOString())}, otCount=${overtimeRequests.length}, otDates=${overtimeRequests.map(ot => ot.date.toISOString().split('T')[0])}`);
 
     // Helper: get YYYY-MM-DD in the client's timezone for a given Date
     const getClientDateKey = (date: Date): string => {

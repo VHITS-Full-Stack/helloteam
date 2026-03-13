@@ -1585,97 +1585,131 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           continue;
         }
 
-        let sessionMinutes = 0;
-        let sessionBreakMinutes = 0;
-        let hasActive = false;
-        const now = new Date();
-        for (const session of daySessions) {
-          if (session.status === 'ACTIVE' || session.status === 'ON_BREAK') hasActive = true;
-          const breakMins = session.totalBreakMinutes || 0;
-          const endRef = session.endTime || (session.status === 'ACTIVE' || session.status === 'ON_BREAK' ? now : null);
-          const totalMins = endRef
-            ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
-            : 0;
-          sessionMinutes += totalMins;
-          sessionBreakMinutes += breakMins;
-        }
-
         // Look up the actual TimeRecord for this day to get approval status
         const trKey = `${empId}_${dateStr}`;
         const timeRecord = timeRecordMap.get(trKey);
-        // Prefer TimeRecord totalMinutes (authoritative) over session calculation
-        const dayMinutes = timeRecord ? (timeRecord.totalMinutes || sessionMinutes) : sessionMinutes;
         const dayOvertimeStatus = timeRecord ? timeRecord.status : null;
 
-        // Get individual OvertimeRequests for this employee+day
+        // Get all OvertimeRequests for this employee+day
         const otKey = `${empId}_${dateStr}`;
         const dayOTRequests = otRequestMap.get(otKey) || [];
 
-        // Calculate overtime from actual OvertimeRequest entries (exclude rejected)
-        const dayOvertime = dayOTRequests
-          .filter(ot => ot.status !== 'REJECTED')
-          .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-        const rejectedOTMinutes = dayOTRequests
-          .filter(ot => ot.status === 'REJECTED')
-          .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+        const now = new Date();
 
-        // Deduct rejected OT from total hours
-        const effectiveDayMinutes = Math.max(0, dayMinutes - rejectedOTMinutes);
-        const dayHours = Math.round((effectiveDayMinutes / 60) * 100) / 100;
-        empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + dayHours;
-        if (dayOvertime > 0) {
-          empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((dayOvertime / 60) * 100) / 100;
-        }
-        empData.totalMinutes += effectiveDayMinutes;
-        empData.overtimeMinutes += dayOvertime;
+        // Create one record per session (not grouped by day)
+        for (const session of daySessions) {
+          const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
+          const breakMins = session.totalBreakMinutes || 0;
+          const endRef = session.endTime || (isActive ? now : null);
+          const sessionMins = endRef
+            ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
+            : 0;
 
-        // Derive approved/pending/rejected from individual OvertimeRequest statuses
-        for (const ot of dayOTRequests) {
-          if (ot.status === 'APPROVED' || (ot.status as string) === 'AUTO_APPROVED') {
-            empData.approvedOvertimeMinutes += (ot.requestedMinutes || 0);
-          } else if (ot.status === 'PENDING') {
-            empData.unapprovedOvertimeMinutes += (ot.requestedMinutes || 0);
-          } else if (ot.status === 'REJECTED') {
-            empData.rejectedOvertimeMinutes += (ot.requestedMinutes || 0);
+          // Match OT requests to this specific session
+          let sessionOTEntries = dayOTRequests;
+          if (daySessions.length > 1) {
+            try {
+              const tz = clientTimezone;
+              const tzFormatter = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' });
+              const startParts = tzFormatter.formatToParts(session.startTime);
+              const sessionStartTotal = parseInt(startParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
+                parseInt(startParts.find((p: any) => p.type === 'minute')?.value || '0');
+              const sessionEndTotal = session.endTime
+                ? (() => {
+                    const endParts = tzFormatter.formatToParts(session.endTime);
+                    return parseInt(endParts.find((p: any) => p.type === 'hour')?.value || '0') * 60 +
+                      parseInt(endParts.find((p: any) => p.type === 'minute')?.value || '0');
+                  })()
+                : sessionStartTotal;
+
+              sessionOTEntries = dayOTRequests.filter(ot => {
+                if (ot.type === 'OFF_SHIFT' && ot.requestedStartTime) {
+                  const [otStartH, otStartM] = ot.requestedStartTime.split(':').map(Number);
+                  const otStartTotal = otStartH * 60 + otStartM;
+                  const otEndTotal = ot.requestedEndTime
+                    ? (() => { const [h, m] = ot.requestedEndTime.split(':').map(Number); return h * 60 + m; })()
+                    : otStartTotal + (ot.requestedMinutes || 0);
+                  return sessionStartTotal >= otStartTotal - 30 && sessionStartTotal <= otEndTotal + 30;
+                }
+                if (ot.type === 'SHIFT_EXTENSION' && ot.estimatedEndTime) {
+                  const [otEndH, otEndM] = ot.estimatedEndTime.split(':').map(Number);
+                  const otEndTotal = otEndH * 60 + otEndM;
+                  return sessionEndTotal >= otEndTotal - (ot.requestedMinutes || 0) - 30 && sessionStartTotal <= otEndTotal + 30;
+                }
+                if (ot.createdAt && session.startTime && session.endTime) {
+                  return ot.createdAt >= session.startTime && ot.createdAt <= new Date(session.endTime.getTime() + 5 * 60000);
+                }
+                return true;
+              });
+            } catch {
+              sessionOTEntries = dayOTRequests;
+            }
           }
+
+          // Calculate overtime from matched OvertimeRequest entries
+          const sessionOvertime = sessionOTEntries
+            .filter(ot => ot.status !== 'REJECTED')
+            .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+          const sessionRejectedOT = sessionOTEntries
+            .filter(ot => ot.status === 'REJECTED')
+            .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+          const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
+          const sessionHours = Math.round((effectiveSessionMinutes / 60) * 100) / 100;
+
+          empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + sessionHours;
+          if (sessionOvertime > 0) {
+            empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((sessionOvertime / 60) * 100) / 100;
+          }
+          empData.totalMinutes += effectiveSessionMinutes;
+          empData.overtimeMinutes += sessionOvertime;
+
+          for (const ot of sessionOTEntries) {
+            if (ot.status === 'APPROVED' || (ot.status as string) === 'AUTO_APPROVED') {
+              empData.approvedOvertimeMinutes += (ot.requestedMinutes || 0);
+            } else if (ot.status === 'PENDING') {
+              empData.unapprovedOvertimeMinutes += (ot.requestedMinutes || 0);
+            } else if (ot.status === 'REJECTED') {
+              empData.rejectedOvertimeMinutes += (ot.requestedMinutes || 0);
+            }
+          }
+
+          empData.records.push({
+            id: session.id,
+            timeRecordId: timeRecord ? timeRecord.id : null,
+            date,
+            clockIn: session.startTime,
+            clockOut: session.endTime || null,
+            scheduledStart: daySchedule?.startTime || null,
+            scheduledEnd: daySchedule?.endTime || null,
+            billingStart: timeRecord?.billingStart || null,
+            billingEnd: timeRecord?.billingEnd || null,
+            billingMinutes: timeRecord?.billingMinutes || 0,
+            isLate: timeRecord?.isLate || false,
+            totalMinutes: effectiveSessionMinutes,
+            breakMinutes: breakMins,
+            overtimeMinutes: sessionOvertime,
+            shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
+            shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
+            shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
+            extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
+            extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
+            status: isActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
+            overtimeStatus: sessionOvertime > 0 ? dayOvertimeStatus : null,
+            revisionReason: timeRecord?.revisionReason || null,
+            overtimeEntries: sessionOTEntries.map(ot => ({
+              id: ot.id,
+              type: ot.type,
+              requestedMinutes: ot.requestedMinutes,
+              requestedStartTime: ot.requestedStartTime,
+              requestedEndTime: ot.requestedEndTime,
+              estimatedEndTime: ot.estimatedEndTime,
+              status: ot.status,
+            })),
+          });
+
+          if (isActive) empData.hasActiveRecord = true;
+          if (sessionOvertime > 0) empData.hasOvertimeRecord = true;
         }
-
-        empData.records.push({
-          id: timeRecord ? timeRecord.id : daySessions[0].id,
-          timeRecordId: timeRecord ? timeRecord.id : null,
-          date,
-          clockIn: daySessions[0]?.startTime || null,
-          clockOut: daySessions[daySessions.length - 1]?.endTime || null,
-          scheduledStart: daySchedule?.startTime || null,
-          scheduledEnd: daySchedule?.endTime || null,
-          billingStart: timeRecord?.billingStart || null,
-          billingEnd: timeRecord?.billingEnd || null,
-          billingMinutes: timeRecord?.billingMinutes || 0,
-          isLate: timeRecord?.isLate || false,
-          totalMinutes: effectiveDayMinutes,
-          breakMinutes: timeRecord ? (timeRecord.breakMinutes || 0) : sessionBreakMinutes,
-          overtimeMinutes: dayOvertime,
-          shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
-          shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
-          shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
-          extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
-          extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
-          status: hasActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
-          overtimeStatus: dayOvertime > 0 ? dayOvertimeStatus : null,
-          revisionReason: timeRecord?.revisionReason || null,
-          overtimeEntries: dayOTRequests.map(ot => ({
-            id: ot.id,
-            type: ot.type,
-            requestedMinutes: ot.requestedMinutes,
-            requestedStartTime: ot.requestedStartTime,
-            requestedEndTime: ot.requestedEndTime,
-            estimatedEndTime: ot.estimatedEndTime,
-            status: ot.status,
-          })),
-        });
-
-        if (hasActive) empData.hasActiveRecord = true;
-        if (dayOvertime > 0) empData.hasOvertimeRecord = true;
       }
 
       if (empData.records.length > 0) {
