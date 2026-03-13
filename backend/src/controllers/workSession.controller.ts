@@ -2170,35 +2170,10 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
 
       res.json({ success: true, message: 'Session resumed. Shift extension time will be tracked as unapproved overtime.' });
     } else {
-      // STAY_CLOCKED_OUT — clock out at scheduled end time
-      // Find the schedule to get the exact shift end time
+      // STAY_CLOCKED_OUT — clock out now (or at pause time if session was paused)
       const now = new Date();
-      const clientAssignment = await prisma.clientEmployee.findFirst({
-        where: { employeeId: employee.id, isActive: true },
-        include: { client: { select: { timezone: true } } },
-      });
+      const clockOutTime = session.shiftEndPausedAt || now;
 
-      let clockOutTime = session.shiftEndPausedAt || now; // Default to pause time
-
-      if (clientAssignment?.client?.timezone) {
-        const tz = clientAssignment.client.timezone;
-        const dayOfWeek = parseInt(
-          new Intl.DateTimeFormat('en-US', { timeZone: tz, weekday: 'narrow' })
-            .formatToParts(now)
-            .find((p) => p.type === 'weekday')?.value === 'S' ? '0' : '1', // simplified
-          10
-        );
-
-        const schedule = await prisma.schedule.findFirst({
-          where: { employeeId: employee.id, isActive: true, dayOfWeek },
-        });
-
-        if (schedule?.endTime) {
-          clockOutTime = buildScheduleTimestamp(tz, schedule.endTime, now);
-        }
-      }
-
-      // End the session at scheduled end time
       const totalMs = clockOutTime.getTime() - session.startTime.getTime();
       const totalBreakMs = session.totalBreakMinutes * 60000;
       const totalWorkMinutes = Math.max(0, Math.round((totalMs - totalBreakMs) / 60000));
