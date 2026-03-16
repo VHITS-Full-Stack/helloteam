@@ -1,5 +1,6 @@
 import { Bell, Search, Menu, X, Check, Trash2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar } from '../common';
 import notificationService from '../../services/notification.service';
 
@@ -12,6 +13,7 @@ const Header = ({
   showSearch = true,
   actions
 }) => {
+  const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -305,7 +307,8 @@ const Header = ({
                             return;
                           }
                           if (notification.actionUrl) {
-                            window.location.href = notification.actionUrl;
+                            setShowNotifications(false);
+                            navigate(notification.actionUrl);
                           }
                         }}
                       >

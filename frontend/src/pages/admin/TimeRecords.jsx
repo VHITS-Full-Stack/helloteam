@@ -189,6 +189,8 @@ const TimeRecords = () => {
     switch (status) {
       case 'approved':
         return <Badge variant="success" size="xs">Approved</Badge>;
+      case 'auto_approved':
+        return <Badge variant="success" size="xs">Auto Approved</Badge>;
       case 'pending':
         return <Badge variant="warning" size="xs">Pending</Badge>;
       case 'active':
