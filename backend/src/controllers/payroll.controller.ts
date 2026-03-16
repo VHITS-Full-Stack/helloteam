@@ -1159,14 +1159,14 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
     // Convert to array with calculated fields including gross pay
     const employees = Object.values(employeeSummary).map((emp: any) => {
       const status = emp.pendingDays > 0 ? 'pending' : emp.rejectedDays > 0 ? 'flagged' : 'ready';
-      // Pay only for approved time: regular hours + approved OT
-      const totalHours = emp.totalMinutes / 60;
-      const overtimeHours = emp.overtimeMinutes / 60;
-      const regularHours = totalHours - overtimeHours;
+      // Round hours first, then calculate pay — what you display is what you bill
+      const totalHours = Math.round((emp.totalMinutes / 60) * 100) / 100;
+      const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
+      const regularHours = Math.round((totalHours - overtimeHours) * 100) / 100;
 
-      // Calculate gross pay (only approved time is payable)
-      const regularPay = regularHours * emp.hourlyRate;
-      const overtimePay = overtimeHours * emp.overtimeRate;
+      // Calculate gross pay from rounded hours
+      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
+      const overtimePay = Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
 
       // Apply adjustments (bonuses add, deductions subtract)
       const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
@@ -1177,18 +1177,18 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
         .filter((a: any) => a.type === 'DEDUCTION')
         .reduce((sum: number, a: any) => sum + a.amount, 0);
 
-      const grossPay = regularPay + overtimePay + totalBonuses - totalDeductions;
+      const grossPay = Math.round((regularPay + overtimePay + totalBonuses - totalDeductions) * 100) / 100;
 
       return {
         ...emp,
-        totalHours: Math.round(totalHours * 100) / 100,
-        overtimeHours: Math.round(overtimeHours * 100) / 100,
+        totalHours,
+        overtimeHours,
         approvedHours: Math.round(emp.approvedMinutes / 60 * 100) / 100,
         pendingHours: Math.round(emp.pendingMinutes / 60 * 100) / 100,
-        regularHours: Math.round(regularHours * 100) / 100,
-        regularPay: Math.round(regularPay * 100) / 100,
-        overtimePay: Math.round(overtimePay * 100) / 100,
-        grossPay: Math.round(grossPay * 100) / 100,
+        regularHours,
+        regularPay,
+        overtimePay,
+        grossPay,
         adjustments: empAdjustments,
         totalBonuses: Math.round(totalBonuses * 100) / 100,
         totalDeductions: Math.round(totalDeductions * 100) / 100,

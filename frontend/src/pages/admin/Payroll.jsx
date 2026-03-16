@@ -43,7 +43,7 @@ import payrollService from '../../services/payroll.service';
 const Payroll = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('employees');
 
   // Period selection
   const [periodStart, setPeriodStart] = useState('');
@@ -83,13 +83,23 @@ const Payroll = () => {
     const year = today.getFullYear();
     const month = today.getMonth();
 
-    if (dayOfMonth <= 15) {
-      setPeriodStart(new Date(year, month, 1).toISOString().split('T')[0]);
-      setPeriodEnd(new Date(year, month, 15).toISOString().split('T')[0]);
+    const pad = (n) => String(n).padStart(2, '0');
+    if (dayOfMonth <= 7) {
+      // Current period: 22nd (prev month) to 7th (current month)
+      const prevMonth = month === 0 ? 11 : month - 1;
+      const prevYear = month === 0 ? year - 1 : year;
+      setPeriodStart(`${prevYear}-${pad(prevMonth + 1)}-22`);
+      setPeriodEnd(`${year}-${pad(month + 1)}-07`);
+    } else if (dayOfMonth <= 21) {
+      // Current period: 8th to 21st (current month)
+      setPeriodStart(`${year}-${pad(month + 1)}-08`);
+      setPeriodEnd(`${year}-${pad(month + 1)}-21`);
     } else {
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      setPeriodStart(new Date(year, month, 16).toISOString().split('T')[0]);
-      setPeriodEnd(new Date(year, month, lastDay).toISOString().split('T')[0]);
+      // Current period: 22nd (current month) to 7th (next month)
+      const nextMonth = month === 11 ? 0 : month + 1;
+      const nextYear = month === 11 ? year + 1 : year;
+      setPeriodStart(`${year}-${pad(month + 1)}-22`);
+      setPeriodEnd(`${nextYear}-${pad(nextMonth + 1)}-07`);
     }
   }, []);
 
@@ -532,10 +542,10 @@ const Payroll = () => {
       <div className="border-b border-gray-200">
         <nav className="flex gap-4">
           {[
-            { id: 'overview', label: 'Client Overview', icon: Building2 },
+            // { id: 'overview', label: 'Client Overview', icon: Building2 },
             { id: 'employees', label: 'Employees', icon: Users },
             { id: 'unapproved', label: 'Pending Approval', icon: Clock, count: summary.totalUnapproved },
-            { id: 'disputed', label: 'Disputed', icon: AlertTriangle, count: summary.totalDisputed },
+            // { id: 'disputed', label: 'Disputed', icon: AlertTriangle, count: summary.totalDisputed },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -654,7 +664,7 @@ const Payroll = () => {
           </div>
 
           {/* Summary stats */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
+          {/* <div className="grid grid-cols-5 gap-4 mb-6">
             <div className="p-3 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-500">Ready</p>
               <p className="text-xl font-bold text-green-600">{totals.readyCount || 0}</p>
@@ -675,7 +685,7 @@ const Payroll = () => {
               <p className="text-sm text-green-600">Gross Pay</p>
               <p className="text-xl font-bold text-green-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
             </div>
-          </div>
+          </div> */}
 
           {employees.length > 0 ? (
             <Table>
@@ -690,7 +700,6 @@ const Payroll = () => {
                   <TableHeader className="text-right">Gross Pay</TableHeader>
                   <TableHeader>Status</TableHeader>
                   <TableHeader>Action</TableHeader>
-                  <TableHeader className="w-24"></TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
