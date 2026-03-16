@@ -91,7 +91,7 @@ const TimeRecords = () => {
     0,
   );
   const totalRegularHours = timeRecords.reduce(
-    (sum, r) => sum + (r.totalHours || 0),
+    (sum, r) => sum + (r.totalHours || 0) - ((r.approvedOvertimeHours || 0)),
     0,
   );
   const totalApprovedOT = timeRecords.reduce(
@@ -227,11 +227,12 @@ const TimeRecords = () => {
             timeZone: "UTC",
           });
           const totalM = rec.totalMinutes || 0;
+          const earlyM = rec.extraTimeMinutes || 0;
           const otEntries = rec.overtimeEntries || [];
-          const pendingOTM = otEntries
-            .filter((o) => o.status === "PENDING")
+          const approvedOTM = otEntries
+            .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
             .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-          const regularM = totalM;
+          const regularM = Math.max(0, totalM - earlyM - approvedOTM);
           return [
             emp.employee,
             dateLabel,
@@ -247,7 +248,7 @@ const TimeRecords = () => {
                 : "",
             formatHours((rec.breakMinutes || 0) / 60),
             formatHours(regularM / 60),
-            formatHours(otM / 60),
+            formatHours(approvedOTM / 60),
             rec.status,
           ];
         }),
@@ -641,6 +642,7 @@ const TimeRecords = () => {
                           status === "holiday";
                         const otEntries = rec.overtimeEntries || [];
                         const totalM = rec.totalMinutes || 0;
+                        const earlyM = rec.extraTimeMinutes || 0;
                         const approvedEntries = otEntries.filter(
                           (ot) =>
                             ot.status === "APPROVED" ||
@@ -658,7 +660,7 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = totalM;
+                        const regularM = Math.max(0, totalM - earlyM - approvedOTM);
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
@@ -901,6 +903,15 @@ const TimeRecords = () => {
                       status === "holiday";
                     const otEntries = rec.overtimeEntries || [];
                     const totalM = rec.totalMinutes || 0;
+                    const earlyM = rec.extraTimeMinutes || 0;
+                    const mobileApprovedOTEntries = otEntries.filter(
+                      (ot) =>
+                        ot.status === "APPROVED" || ot.status === "AUTO_APPROVED",
+                    );
+                    const mobileApprovedOTM = mobileApprovedOTEntries.reduce(
+                      (s, o) => s + (o.requestedMinutes || 0),
+                      0,
+                    );
                     const mobileUnapprovedEntries = otEntries.filter(
                       (ot) =>
                         ot.status === "PENDING" || ot.status === "REJECTED",
@@ -909,7 +920,7 @@ const TimeRecords = () => {
                       (s, o) => s + (o.requestedMinutes || 0),
                       0,
                     );
-                    const regularM = totalM;
+                    const regularM = Math.max(0, totalM - earlyM - mobileApprovedOTM);
                     const mobileApprovedEntries = otEntries.filter(
                       (ot) =>
                         ot.status === "APPROVED" ||

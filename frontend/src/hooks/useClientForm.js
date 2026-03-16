@@ -242,6 +242,7 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     formData,
     setFormData,
     groups,
+    setGroups,
     employees,
     isEdit,
     loading,

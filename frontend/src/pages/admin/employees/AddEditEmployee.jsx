@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft,
   AlertCircle,
   X,
   Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import {
   Card,
@@ -29,7 +31,16 @@ const AddEmployee = () => {
     submitting,
     handleSubmit,
     handleClientChange,
+    refreshClients,
   } = useEmployeeForm({ id, onSuccess: () => navigate('/admin/employees') });
+
+  const [refreshingClients, setRefreshingClients] = useState(false);
+
+  const handleRefreshClients = async () => {
+    setRefreshingClients(true);
+    await refreshClients();
+    setRefreshingClients(false);
+  };
 
   if (loading) {
     return (
@@ -147,9 +158,19 @@ const AddEmployee = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {!isEdit && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Assign to Client (Optional)
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Assign to Client (Optional)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleRefreshClients}
+                      className="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
+                      title="Refresh client list"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${refreshingClients ? 'animate-spin' : ''}`} />
+                    </button>
+                  </div>
                   <select
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                     value={formData.clientId}

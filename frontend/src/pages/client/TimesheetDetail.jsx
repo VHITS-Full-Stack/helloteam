@@ -230,7 +230,7 @@ const TimesheetDetail = () => {
   // Compute totals
   const totalHours = record?.totalHours ?? 0;
   const overtimeHours = record?.overtimeHours ?? 0;
-  const regularHours = totalHours;
+  const regularHours = Math.max(0, totalHours - approvedOTHours);
   const approvedOTHours = record?.approvedOvertimeHours ?? 0;
   const pendingOTHours = record?.unapprovedOvertimeHours ?? 0;
 
@@ -524,14 +524,18 @@ const TimesheetDetail = () => {
                 recStatus === "unpaid_leave" ||
                 recStatus === "holiday";
               const otEntries = rec?.overtimeEntries || [];
+              const earlyM = rec?.extraTimeMinutes || 0;
               const otM = rec.overtimeMinutes || 0;
+              const approvedOTM = otEntries
+                .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
+                .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
               const unapprovedOTM = Math.min(
                 totalM,
                 otEntries
                   .filter((o) => o.status === "PENDING")
                   .reduce((s, o) => s + (o.requestedMinutes || 0), 0),
               );
-              const regularM = totalM;
+              const regularM = Math.max(0, totalM - earlyM - approvedOTM);
               const shiftExtEntries = otEntries.filter((ot) => ot.type === "SHIFT_EXTENSION");
               const offShiftEntries = otEntries.filter((ot) => ot.type === "OFF_SHIFT");
               const hasOT = shiftExtEntries.length > 0 || offShiftEntries.length > 0;

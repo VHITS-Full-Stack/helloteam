@@ -13,6 +13,7 @@ import {
 import { Card, Button, Input, PhoneInput, Modal } from "../../../components/common";
 import { useClientForm } from "../../../hooks/useClientForm";
 import { getFederalHolidaysForYear } from "../../../utils/holidayCalculator";
+import groupService from "../../../services/group.service";
 
 const DEFAULT_PTO = {
   allowPaidLeave: false,
@@ -37,6 +38,7 @@ const AddClient = () => {
     formData,
     setFormData,
     groups,
+    setGroups,
     employees,
     isEdit,
     loading,
@@ -53,6 +55,37 @@ const AddClient = () => {
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
   const [ptoModalEmployee, setPtoModalEmployee] = useState(null);
+
+  // Add Group modal state
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [groupForm, setGroupForm] = useState({ name: '', description: '', billingRate: '' });
+  const [groupSubmitting, setGroupSubmitting] = useState(false);
+  const [groupError, setGroupError] = useState('');
+
+  const handleCreateGroup = async () => {
+    if (!groupForm.name.trim()) {
+      setGroupError('Group name is required');
+      return;
+    }
+    setGroupSubmitting(true);
+    setGroupError('');
+    try {
+      const response = await groupService.createGroup(groupForm);
+      if (response.success) {
+        const newGroup = response.data;
+        setGroups(prev => [...prev, newGroup]);
+        setFormData(prev => ({ ...prev, groupId: newGroup.id }));
+        setShowGroupModal(false);
+        setGroupForm({ name: '', description: '', billingRate: '' });
+      } else {
+        setGroupError(response.error || 'Failed to create group');
+      }
+    } catch (err) {
+      setGroupError(err.error || err.message || 'Failed to create group');
+    } finally {
+      setGroupSubmitting(false);
+    }
+  };
 
   const currentYear = new Date().getFullYear();
   const federalHolidaysList = getFederalHolidaysForYear(currentYear);
@@ -387,9 +420,19 @@ const AddClient = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Assign Group {isEdit ? "" : "(Optional)"}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Assign Group {isEdit ? "" : "(Optional)"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowGroupModal(true)}
+                    className="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Add new group"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
                 <select
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                   value={formData.groupId}
@@ -956,6 +999,68 @@ const AddClient = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Add Group Modal */}
+      <Modal
+        isOpen={showGroupModal}
+        onClose={() => {
+          setShowGroupModal(false);
+          setGroupForm({ name: '', description: '', billingRate: '' });
+          setGroupError('');
+        }}
+        title="Add New Group"
+        size="sm"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setShowGroupModal(false);
+                setGroupForm({ name: '', description: '', billingRate: '' });
+                setGroupError('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={handleCreateGroup}
+              disabled={groupSubmitting}
+            >
+              {groupSubmitting ? 'Creating...' : 'Create Group'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {groupError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {groupError}
+            </div>
+          )}
+          <Input
+            label="Group Name"
+            placeholder="Enter group name"
+            value={groupForm.name}
+            onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+            required
+          />
+          <Input
+            label="Description (Optional)"
+            placeholder="Enter description"
+            value={groupForm.description}
+            onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
+          />
+          <Input
+            label="Billing Rate (Optional)"
+            type="number"
+            placeholder="0.00"
+            value={groupForm.billingRate}
+            onChange={(e) => setGroupForm({ ...groupForm, billingRate: e.target.value })}
+          />
+        </div>
       </Modal>
     </div>
   );
