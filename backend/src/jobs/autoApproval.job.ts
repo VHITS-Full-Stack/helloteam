@@ -60,6 +60,11 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
         },
       });
 
+      console.log(`[Auto-Approval] Found ${pendingRecords.length} pending records for client ${policy.client.companyName} (OT filter: ${policy.overtimeRequiresApproval !== false})`);
+      for (const r of pendingRecords) {
+        console.log(`[Auto-Approval]   - Employee ${r.employee.firstName} ${r.employee.lastName}, date=${r.date.toISOString()}, overtimeMinutes=${r.overtimeMinutes}, actualStart=${r.actualStart?.toISOString()}, actualEnd=${r.actualEnd?.toISOString()}, scheduledEnd=${r.scheduledEnd?.toISOString()}`);
+      }
+
       if (pendingRecords.length === 0) continue;
 
       // Collect unique employee IDs to batch-fetch schedules
@@ -107,8 +112,13 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
             (s.effectiveTo === null || s.effectiveTo >= recordDate)
         );
 
+        console.log(`[Auto-Approval] Processing ${record.employee.firstName} ${record.employee.lastName}: recordDate=${recordDate.toISOString()}, dayOfWeek=${dayOfWeek}, employeeSchedules=${employeeSchedules.length}, matchingSchedule=${!!matchingSchedule}, scheduledEnd=${record.scheduledEnd?.toISOString()}`);
+
         // Must have a schedule (from Schedule model or on the time record itself)
-        if (!matchingSchedule && !record.scheduledEnd) continue;
+        if (!matchingSchedule && !record.scheduledEnd) {
+          console.log(`[Auto-Approval] SKIPPED ${record.employee.firstName} ${record.employee.lastName}: no matching schedule and no scheduledEnd`);
+          continue;
+        }
 
         // Determine the scheduled end time for this day
         let scheduledEndDateTime: Date | null = null;
@@ -127,11 +137,18 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
           scheduledEndTimeStr = `${String(record.scheduledEnd.getUTCHours()).padStart(2, '0')}:${String(record.scheduledEnd.getUTCMinutes()).padStart(2, '0')}`;
         }
 
-        if (!scheduledEndDateTime) continue;
+        if (!scheduledEndDateTime) {
+          console.log(`[Auto-Approval] SKIPPED ${record.employee.firstName} ${record.employee.lastName}: scheduledEndDateTime is null`);
+          continue;
+        }
 
         // Auto-approve after scheduledEnd + autoApproveMinutes
         const approvalTime = new Date(scheduledEndDateTime.getTime() + delayMs);
-        if (now < approvalTime) continue;
+        console.log(`[Auto-Approval] ${record.employee.firstName} ${record.employee.lastName}: scheduledEnd=${scheduledEndDateTime.toISOString()}, approvalTime=${approvalTime.toISOString()}, now=${now.toISOString()}, ready=${now >= approvalTime}`);
+        if (now < approvalTime) {
+          console.log(`[Auto-Approval] SKIPPED ${record.employee.firstName} ${record.employee.lastName}: not yet time (${Math.round((approvalTime.getTime() - now.getTime()) / 60000)} min remaining)`);
+          continue;
+        }
 
         toApprove.push({ record, scheduledEndTime: scheduledEndTimeStr });
       }
