@@ -379,11 +379,9 @@ const AddClient = () => {
                   Timezone
                 </label>
                 <select
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 cursor-not-allowed opacity-60"
                   value={formData.timezone}
-                  onChange={(e) =>
-                    setFormData({ ...formData, timezone: e.target.value })
-                  }
+                  disabled
                 >
                   <option value="America/New_York">Eastern Time</option>
                 </select>
