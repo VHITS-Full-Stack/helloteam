@@ -46,6 +46,15 @@ class ApiService {
           return data;
         }
 
+        // Handle session expired / unauthorized - redirect to login
+        if (response.status === 401) {
+          this.removeToken();
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('adminToken');
+          window.location.href = '/login';
+          return data;
+        }
+
         // Create an error with the message from the API
         const error = new Error(data.error || data.message || 'An error occurred');
         error.status = response.status;
@@ -126,6 +135,13 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          this.removeToken();
+          localStorage.removeItem('rememberMe');
+          localStorage.removeItem('adminToken');
+          window.location.href = '/login';
+          return data;
+        }
         const error = new Error(data.error || data.message || 'Upload failed');
         error.status = response.status;
         error.data = data;
