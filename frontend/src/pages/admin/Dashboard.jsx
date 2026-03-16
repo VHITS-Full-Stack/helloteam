@@ -236,7 +236,7 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Client Overview</h3>
             {clientOverview.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/clients')}>View All</Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/approvals')}>View All</Button>
             )}
           </div>
           <div className="divide-y divide-gray-100">
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
                   {client.issueCount > 0 && (
                     <button
                       className="text-sm text-primary font-medium hover:text-primary-dark flex-shrink-0 ml-4"
-                      onClick={() => navigate(`/admin/clients/${client.id}`)}
+                      onClick={() => navigate(`/admin/approvals`)}
                     >
                       View →
                     </button>
