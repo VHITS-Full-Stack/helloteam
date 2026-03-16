@@ -11,10 +11,12 @@ import {
   MessageSquare,
   RefreshCw
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Card, StatCard, Badge, Button, Avatar } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalEmployees: 0,
@@ -234,7 +236,7 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Client Overview</h3>
             {clientOverview.length > 0 && (
-              <Button variant="ghost" size="sm">View All</Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/admin/clients')}>View All</Button>
             )}
           </div>
           <div className="divide-y divide-gray-100">
@@ -282,7 +284,7 @@ const AdminDashboard = () => {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-            <Button variant="ghost" size="sm">View All</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/time-records')}>View All</Button>
           </div>
           <div className="space-y-3">
             {recentActivity.length > 0 ? (
