@@ -29,7 +29,10 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve local uploads in development (fallback when S3 is not configured)
 if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-  app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+  app.use('/uploads', (req, res, next) => {
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  }, express.static(path.join(__dirname, '..', 'uploads')));
 }
 
 // API routes

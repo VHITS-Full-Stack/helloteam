@@ -5,16 +5,23 @@ const AudioPlayer = ({ src, duration }) => {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [error, setError] = useState(false);
   const audioRef = useRef(null);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current) return;
     if (playing) {
       audioRef.current.pause();
+      setPlaying(false);
     } else {
-      audioRef.current.play();
+      try {
+        await audioRef.current.play();
+        setPlaying(true);
+      } catch (err) {
+        console.error('Audio playback failed:', err);
+        setError(true);
+      }
     }
-    setPlaying(!playing);
   };
 
   const handleTimeUpdate = () => {
@@ -43,8 +50,13 @@ const AudioPlayer = ({ src, duration }) => {
         src={src}
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
-        preload="metadata"
+        onError={(e) => {
+          console.error('Audio load error:', e.target.error);
+          setError(true);
+        }}
+        preload="auto"
       />
+      {error && <span className="text-[10px] text-red-400">Failed to load audio</span>}
       <button
         onClick={togglePlay}
         className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 hover:bg-white/30 transition-colors"

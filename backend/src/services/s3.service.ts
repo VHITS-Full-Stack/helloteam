@@ -318,11 +318,13 @@ export const uploadChatFile = async (
     const fileExtension = file.originalname.split('.').pop();
     const uniqueFilename = `chat-attachments/${uuidv4()}.${fileExtension}`;
 
+    const isInlineType = file.mimetype.startsWith('audio/') || file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/');
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: uniqueFilename,
       Body: file.buffer,
       ContentType: file.mimetype,
+      ContentDisposition: isInlineType ? 'inline' : `attachment; filename="${file.originalname}"`,
     });
 
     await s3Client.send(command);
@@ -330,6 +332,7 @@ export const uploadChatFile = async (
     const getCommand = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: uniqueFilename,
+      ResponseContentType: file.mimetype,
     });
     const url = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 });
 
