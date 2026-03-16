@@ -104,11 +104,14 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
         const dayOfWeek = recordDate.getUTCDay(); // 0-6
 
         // Find matching schedule for this employee on this day
+        // Use end-of-day for effectiveFrom comparison to handle schedules created today
+        // (effectiveFrom stores full timestamp, recordDate is midnight UTC)
+        const endOfRecordDate = new Date(recordDate.getTime() + 24 * 60 * 60 * 1000 - 1);
         const employeeSchedules = scheduleMap.get(record.employeeId) || [];
         const matchingSchedule = employeeSchedules.find(
           (s) =>
             s.dayOfWeek === dayOfWeek &&
-            s.effectiveFrom <= recordDate &&
+            s.effectiveFrom <= endOfRecordDate &&
             (s.effectiveTo === null || s.effectiveTo >= recordDate)
         );
 
