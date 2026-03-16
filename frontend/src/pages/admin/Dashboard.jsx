@@ -262,7 +262,10 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                   {client.issueCount > 0 && (
-                    <button className="text-sm text-primary font-medium hover:text-primary-dark flex-shrink-0 ml-4">
+                    <button
+                      className="text-sm text-primary font-medium hover:text-primary-dark flex-shrink-0 ml-4"
+                      onClick={() => navigate(`/admin/clients/${client.id}`)}
+                    >
                       View →
                     </button>
                   )}
