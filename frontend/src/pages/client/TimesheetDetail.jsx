@@ -230,8 +230,8 @@ const TimesheetDetail = () => {
   // Compute totals
   const totalHours = record?.totalHours ?? 0;
   const overtimeHours = record?.overtimeHours ?? 0;
-  const regularHours = Math.max(0, totalHours - approvedOTHours);
   const approvedOTHours = record?.approvedOvertimeHours ?? 0;
+  const regularHours = Math.max(0, totalHours - approvedOTHours);
   const pendingOTHours = record?.unapprovedOvertimeHours ?? 0;
 
   const getStatusBadge = (status, holidayName) => {
