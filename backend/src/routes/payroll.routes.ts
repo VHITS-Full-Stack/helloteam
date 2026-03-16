@@ -14,6 +14,9 @@ import {
   getPayrollExportData,
   getEmployeePayrollSummary,
   updatePayrollCutoff,
+  addPayrollAdjustment,
+  getPayrollAdjustments,
+  deletePayrollAdjustment,
 } from '../controllers/payroll.controller';
 
 const router = Router();
@@ -59,5 +62,10 @@ router.put('/:id/cutoff', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS'])
 
 // Send payroll reminders (admins only - typically called by a cron job)
 router.post('/send-reminders', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), sendPayrollReminders);
+
+// Payroll adjustments (bonus/deduction)
+router.get('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getPayrollAdjustments);
+router.post('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), addPayrollAdjustment);
+router.delete('/adjustments/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deletePayrollAdjustment);
 
 export default router;

@@ -20,6 +20,10 @@ import {
   TrendingUp,
   FileDown,
   Eye,
+  Plus,
+  Minus,
+  Trash2,
+  X,
 } from 'lucide-react';
 import {
   Card,
@@ -61,6 +65,16 @@ const Payroll = () => {
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [unlockReason, setUnlockReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Adjustment modal
+  const [showAdjustmentModal, setShowAdjustmentModal] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState('BONUS');
+  const [adjustmentEmployee, setAdjustmentEmployee] = useState(null);
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [adjustmentLoading, setAdjustmentLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  const [deleteAdjustmentId, setDeleteAdjustmentId] = useState(null);
 
   // Set default period to current biweekly
   useEffect(() => {
@@ -303,6 +317,69 @@ const Payroll = () => {
     }
   };
 
+  useEffect(() => {
+    if (successMsg) {
+      const timer = setTimeout(() => setSuccessMsg(''), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMsg]);
+
+  const openAdjustmentModal = (employee, type) => {
+    setAdjustmentEmployee(employee);
+    setAdjustmentType(type);
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    setShowAdjustmentModal(true);
+  };
+
+  const handleAddAdjustment = async () => {
+    if (!adjustmentEmployee || !adjustmentAmount || !adjustmentReason.trim()) return;
+
+    try {
+      setAdjustmentLoading(true);
+      const response = await payrollService.addAdjustment({
+        employeeId: adjustmentEmployee.employee.id,
+        type: adjustmentType,
+        amount: Number(adjustmentAmount),
+        reason: adjustmentReason.trim(),
+        periodStart,
+        periodEnd,
+      });
+
+      if (response.success) {
+        setShowAdjustmentModal(false);
+        setAdjustmentEmployee(null);
+        setAdjustmentAmount('');
+        setAdjustmentReason('');
+        setError('');
+        setSuccessMsg(response.message || `${adjustmentType === 'BONUS' ? 'Bonus' : 'Deduction'} added successfully`);
+        fetchData();
+      } else {
+        setError(response.error || 'Failed to add adjustment');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to add adjustment');
+    } finally {
+      setAdjustmentLoading(false);
+    }
+  };
+
+  const handleDeleteAdjustment = async () => {
+    if (!deleteAdjustmentId) return;
+    try {
+      const response = await payrollService.deleteAdjustment(deleteAdjustmentId);
+      if (response.success) {
+        setDeleteAdjustmentId(null);
+        setSuccessMsg('Adjustment deleted successfully');
+        fetchData();
+      } else {
+        setError(response.error || 'Failed to delete adjustment');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to delete adjustment');
+    }
+  };
+
   if (loading && !dashboardData) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -343,6 +420,18 @@ const Payroll = () => {
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <span>{error}</span>
           <button onClick={() => setError('')} className="ml-auto text-red-500 hover:text-red-700">&times;</button>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm text-green-600">{successMsg}</p>
+          </div>
+          <button onClick={() => setSuccessMsg('')} className="text-green-400 hover:text-green-600">
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
 
@@ -597,8 +686,11 @@ const Payroll = () => {
                   <TableHeader className="text-right">Regular Hours</TableHeader>
                   <TableHeader className="text-right">Overtime</TableHeader>
                   <TableHeader className="text-right">Rate</TableHeader>
+                  <TableHeader className="text-right">Adjustments</TableHeader>
                   <TableHeader className="text-right">Gross Pay</TableHeader>
                   <TableHeader>Status</TableHeader>
+                  <TableHeader>Action</TableHeader>
+                  <TableHeader className="w-24"></TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -634,6 +726,36 @@ const Payroll = () => {
                         <span className="text-gray-400 text-xs">Not set</span>
                       )}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {(emp.totalBonuses > 0 || emp.totalDeductions > 0) ? (
+                        <div className="space-y-1">
+                          {emp.totalBonuses > 0 && (
+                            <p className="text-xs text-green-600">+${emp.totalBonuses.toLocaleString()}</p>
+                          )}
+                          {emp.totalDeductions > 0 && (
+                            <p className="text-xs text-red-600">-${emp.totalDeductions.toLocaleString()}</p>
+                          )}
+                          {emp.adjustments?.length > 0 && (
+                            <div className="mt-1 space-y-0.5">
+                              {emp.adjustments.map((adj) => (
+                                <div key={adj.id} className="flex items-center gap-1 text-xs text-gray-400">
+                                  <span className="truncate max-w-[80px]" title={adj.reason}>{adj.reason}</span>
+                                  <button
+                                    onClick={() => setDeleteAdjustmentId(adj.id)}
+                                    className="p-0.5 hover:bg-red-50 rounded text-gray-300 hover:text-red-500"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right font-semibold text-green-600">
                       {emp.grossPay > 0 ? `$${emp.grossPay.toLocaleString()}` : '-'}
                     </TableCell>
@@ -644,6 +766,14 @@ const Payroll = () => {
                           <p className="text-xs text-gray-500 mt-1">{emp.note}</p>
                         )}
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => openAdjustmentModal(emp, 'BONUS')}
+                        className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+                      >
+                        Adjustment
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1054,6 +1184,108 @@ const Payroll = () => {
             />
           </div>
         </div>
+      </Modal>
+
+      {/* Adjustment Modal */}
+      <Modal
+        isOpen={showAdjustmentModal}
+        onClose={() => {
+          setShowAdjustmentModal(false);
+          setAdjustmentEmployee(null);
+        }}
+        title={`Add ${adjustmentType === 'BONUS' ? 'Bonus' : 'Deduction'}`}
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowAdjustmentModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant={adjustmentType === 'BONUS' ? 'primary' : 'danger'}
+              onClick={handleAddAdjustment}
+              disabled={adjustmentLoading || !adjustmentAmount || !adjustmentReason.trim()}
+            >
+              {adjustmentLoading ? 'Saving...' : `Add ${adjustmentType === 'BONUS' ? 'Bonus' : 'Deduction'}`}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {adjustmentEmployee && (
+            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+              <Avatar
+                name={`${adjustmentEmployee.employee.firstName} ${adjustmentEmployee.employee.lastName}`}
+                src={adjustmentEmployee.employee.profilePhoto}
+                size="sm"
+              />
+              <div>
+                <p className="font-medium text-gray-900">
+                  {adjustmentEmployee.employee.firstName} {adjustmentEmployee.employee.lastName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Period: {formatPeriodLabel(periodStart, periodEnd)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <label className="label">Type</label>
+            <select
+              className="input"
+              value={adjustmentType}
+              onChange={(e) => setAdjustmentType(e.target.value)}
+            >
+              <option value="BONUS">Bonus</option>
+              <option value="DEDUCTION">Deduction</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="label">Amount ($) *</label>
+            <input
+              type="number"
+              className="input"
+              value={adjustmentAmount}
+              onChange={(e) => setAdjustmentAmount(e.target.value)}
+              placeholder="0.00"
+              min="0.01"
+              step="0.01"
+            />
+          </div>
+
+          <div>
+            <label className="label">Reason *</label>
+            <textarea
+              className="input min-h-[80px] resize-none"
+              value={adjustmentReason}
+              onChange={(e) => setAdjustmentReason(e.target.value)}
+              placeholder={adjustmentType === 'BONUS' ? 'e.g., Performance bonus, Holiday bonus...' : 'e.g., Advance recovery, Equipment damage...'}
+            />
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete Adjustment Confirmation Modal */}
+      <Modal
+        isOpen={!!deleteAdjustmentId}
+        onClose={() => setDeleteAdjustmentId(null)}
+        title="Delete Adjustment"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteAdjustmentId(null)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={handleDeleteAdjustment}>
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-gray-600">
+          Are you sure you want to delete this adjustment? This action cannot be undone.
+        </p>
       </Modal>
     </div>
   );

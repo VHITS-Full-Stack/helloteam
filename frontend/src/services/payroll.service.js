@@ -124,6 +124,28 @@ const payrollService = {
     const response = await api.post('/payroll/send-reminders', { daysBeforeCutoff });
     return response;
   },
+
+  // Add payroll adjustment (bonus/deduction)
+  addAdjustment: async (data) => {
+    const response = await api.post('/payroll/adjustments', data);
+    return response;
+  },
+
+  // Get payroll adjustments
+  getAdjustments: async (params = {}) => {
+    const queryParams = new URLSearchParams();
+    if (params.employeeId) queryParams.append('employeeId', params.employeeId);
+    if (params.periodStart) queryParams.append('periodStart', params.periodStart);
+    if (params.periodEnd) queryParams.append('periodEnd', params.periodEnd);
+    const response = await api.get(`/payroll/adjustments?${queryParams.toString()}`);
+    return response;
+  },
+
+  // Delete payroll adjustment
+  deleteAdjustment: async (id) => {
+    const response = await api.delete(`/payroll/adjustments/${id}`);
+    return response;
+  },
 };
 
 export default payrollService;

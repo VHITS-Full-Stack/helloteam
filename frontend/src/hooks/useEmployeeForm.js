@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import employeeService from '../services/employee.service';
 import clientService from '../services/client.service';
 import groupService from '../services/group.service';
@@ -161,6 +161,17 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     }
   };
 
+  const refreshClients = useCallback(async () => {
+    try {
+      const clientsRes = await clientService.getClients({ limit: 100 });
+      if (clientsRes.success) {
+        setClients(clientsRes.data.clients);
+      }
+    } catch {
+      // silent refresh
+    }
+  }, []);
+
   return {
     formData,
     setFormData,
@@ -173,6 +184,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     submitting,
     handleSubmit,
     handleClientChange,
+    refreshClients,
   };
 };
 

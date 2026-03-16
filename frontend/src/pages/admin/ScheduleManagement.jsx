@@ -48,6 +48,8 @@ const ScheduleManagement = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [copyMenuOpen, setCopyMenuOpen] = useState(null);
+  const copyMenuRef = useRef(null);
 
   // Employee selection
   const [employees, setEmployees] = useState([]);
@@ -186,6 +188,35 @@ const ScheduleManagement = () => {
       };
       return newSchedule;
     });
+  };
+
+  // Close copy menu on outside click
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (copyMenuRef.current && !copyMenuRef.current.contains(e.target)) {
+        setCopyMenuOpen(null);
+      }
+    };
+    if (copyMenuOpen !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [copyMenuOpen]);
+
+  // Copy a day's schedule to another day or all days
+  const copyDayTo = (fromIndex, toIndex) => {
+    const source = weeklySchedule[fromIndex];
+    setWeeklySchedule(prev => {
+      if (toIndex === 'all') {
+        return prev.map((day, i) =>
+          i === fromIndex ? day : { ...day, startTime: source.startTime, endTime: source.endTime, isWorking: source.isWorking }
+        );
+      }
+      const newSchedule = [...prev];
+      newSchedule[toIndex] = { ...newSchedule[toIndex], startTime: source.startTime, endTime: source.endTime, isWorking: source.isWorking };
+      return newSchedule;
+    });
+    setCopyMenuOpen(null);
   };
 
   // Apply template (e.g., standard 9-5)
@@ -573,6 +604,42 @@ const ScheduleManagement = () => {
                         </Badge>
                       </div>
                     </>
+                  )}
+
+                  {/* Copy Day Button */}
+                  {weeklySchedule[index].isWorking && (
+                    <div className="relative ml-auto">
+                      <button
+                        onClick={() => setCopyMenuOpen(copyMenuOpen === index ? null : index)}
+                        className="p-1.5 text-gray-400 hover:text-primary hover:bg-white rounded-lg transition-colors"
+                        title={`Copy ${day.short} to...`}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                      {copyMenuOpen === index && (
+                        <div
+                          ref={copyMenuRef}
+                          className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-44"
+                        >
+                          <button
+                            onClick={() => copyDayTo(index, 'all')}
+                            className="w-full px-3 py-2 text-left text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                          >
+                            Copy to All Days
+                          </button>
+                          <div className="border-t border-gray-100 my-1" />
+                          {DAYS_OF_WEEK.filter(d => d.value !== day.value).map(targetDay => (
+                            <button
+                              key={targetDay.value}
+                              onClick={() => copyDayTo(index, targetDay.value)}
+                              className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                              Copy to {targetDay.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

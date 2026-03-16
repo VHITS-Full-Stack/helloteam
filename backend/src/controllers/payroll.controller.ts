@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import prisma from '../config/database';
-import { PayrollStatus } from '@prisma/client';
+import { PayrollStatus, AdjustmentType } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { notifyPayrollDeadline } from './notification.controller';
 import { sendPayrollReminderEmail } from '../services/email.service';
@@ -1122,6 +1122,40 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
       }
     });
 
+    // Fetch payroll adjustments for this period
+    // Use T12:00:00Z to avoid timezone date shifts with @db.Date fields
+    // Also use ±1 day range to catch old entries saved without the timezone fix
+    const pStart = new Date((periodStart as string) + 'T12:00:00Z');
+    const pEnd = new Date((periodEnd as string) + 'T12:00:00Z');
+    const adjustments = await prisma.payrollAdjustment.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        periodStart: {
+          gte: new Date(pStart.getTime() - 24 * 60 * 60 * 1000),
+          lte: new Date(pStart.getTime() + 24 * 60 * 60 * 1000),
+        },
+        periodEnd: {
+          gte: new Date(pEnd.getTime() - 24 * 60 * 60 * 1000),
+          lte: new Date(pEnd.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+    });
+
+    // Group adjustments by employee
+    const adjustmentsByEmployee: Record<string, any[]> = {};
+    adjustments.forEach((adj) => {
+      if (!adjustmentsByEmployee[adj.employeeId]) {
+        adjustmentsByEmployee[adj.employeeId] = [];
+      }
+      adjustmentsByEmployee[adj.employeeId].push({
+        id: adj.id,
+        type: adj.type,
+        amount: Number(adj.amount),
+        reason: adj.reason,
+        createdAt: adj.createdAt,
+      });
+    });
+
     // Convert to array with calculated fields including gross pay
     const employees = Object.values(employeeSummary).map((emp: any) => {
       const status = emp.pendingDays > 0 ? 'pending' : emp.rejectedDays > 0 ? 'flagged' : 'ready';
@@ -1133,7 +1167,17 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
       // Calculate gross pay (only approved time is payable)
       const regularPay = regularHours * emp.hourlyRate;
       const overtimePay = overtimeHours * emp.overtimeRate;
-      const grossPay = regularPay + overtimePay;
+
+      // Apply adjustments (bonuses add, deductions subtract)
+      const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
+      const totalBonuses = empAdjustments
+        .filter((a: any) => a.type === 'BONUS')
+        .reduce((sum: number, a: any) => sum + a.amount, 0);
+      const totalDeductions = empAdjustments
+        .filter((a: any) => a.type === 'DEDUCTION')
+        .reduce((sum: number, a: any) => sum + a.amount, 0);
+
+      const grossPay = regularPay + overtimePay + totalBonuses - totalDeductions;
 
       return {
         ...emp,
@@ -1145,6 +1189,9 @@ export const getEmployeePayrollSummary = async (req: AuthenticatedRequest, res: 
         regularPay: Math.round(regularPay * 100) / 100,
         overtimePay: Math.round(overtimePay * 100) / 100,
         grossPay: Math.round(grossPay * 100) / 100,
+        adjustments: empAdjustments,
+        totalBonuses: Math.round(totalBonuses * 100) / 100,
+        totalDeductions: Math.round(totalDeductions * 100) / 100,
         status,
         note: emp.pendingDays > 0 ? `${emp.pendingDays} day(s) pending approval` :
               emp.rejectedDays > 0 ? `${emp.rejectedDays} day(s) rejected` : undefined,
@@ -1217,5 +1264,116 @@ export const updatePayrollCutoff = async (req: AuthenticatedRequest, res: Respon
   } catch (error) {
     console.error('Update payroll cutoff error:', error);
     res.status(500).json({ success: false, error: 'Failed to update payroll cutoff' });
+  }
+};
+
+// Add payroll adjustment (bonus or deduction)
+export const addPayrollAdjustment = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { employeeId, type, amount, reason, periodStart, periodEnd } = req.body;
+
+    if (!employeeId || !type || !amount || !reason || !periodStart || !periodEnd) {
+      return res.status(400).json({
+        success: false,
+        error: 'Employee ID, type, amount, reason, period start and end are required',
+      });
+    }
+
+    if (!['BONUS', 'DEDUCTION'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Type must be BONUS or DEDUCTION',
+      });
+    }
+
+    if (Number(amount) <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Amount must be greater than 0',
+      });
+    }
+
+    const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
+    if (!employee) {
+      return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+
+    const adjustment = await prisma.payrollAdjustment.create({
+      data: {
+        employeeId,
+        type: type as AdjustmentType,
+        amount: Number(amount),
+        reason,
+        periodStart: new Date(periodStart + 'T12:00:00Z'),
+        periodEnd: new Date(periodEnd + 'T12:00:00Z'),
+        createdBy: req.user!.userId,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: adjustment,
+      message: `${type === 'BONUS' ? 'Bonus' : 'Deduction'} added successfully`,
+    });
+  } catch (error) {
+    console.error('Add payroll adjustment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to add payroll adjustment' });
+  }
+};
+
+// Get payroll adjustments for an employee in a period
+export const getPayrollAdjustments = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { employeeId, periodStart, periodEnd } = req.query;
+
+    const where: any = {};
+    if (employeeId) where.employeeId = employeeId as string;
+    if (periodStart && periodEnd) {
+      where.periodStart = new Date(periodStart as string);
+      where.periodEnd = new Date(periodEnd as string);
+    }
+
+    const adjustments = await prisma.payrollAdjustment.findMany({
+      where,
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: adjustments.map((a) => ({
+        ...a,
+        amount: Number(a.amount),
+      })),
+    });
+  } catch (error) {
+    console.error('Get payroll adjustments error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch payroll adjustments' });
+  }
+};
+
+// Delete payroll adjustment
+export const deletePayrollAdjustment = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const adjustment = await prisma.payrollAdjustment.findUnique({ where: { id } });
+    if (!adjustment) {
+      return res.status(404).json({ success: false, error: 'Adjustment not found' });
+    }
+
+    await prisma.payrollAdjustment.delete({ where: { id } });
+
+    res.json({
+      success: true,
+      message: 'Adjustment deleted successfully',
+    });
+  } catch (error) {
+    console.error('Delete payroll adjustment error:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete payroll adjustment' });
   }
 };

@@ -227,12 +227,12 @@ const TimeRecords = () => {
             timeZone: "UTC",
           });
           const totalM = rec.totalMinutes || 0;
-          const earlyM = rec.extraTimeMinutes || 0;
+          const billingM = rec.billingMinutes || 0;
           const otEntries = rec.overtimeEntries || [];
           const approvedOTM = otEntries
             .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
             .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-          const regularM = Math.max(0, totalM - earlyM - approvedOTM);
+          const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
           return [
             emp.employee,
             dateLabel,
@@ -642,7 +642,7 @@ const TimeRecords = () => {
                           status === "holiday";
                         const otEntries = rec.overtimeEntries || [];
                         const totalM = rec.totalMinutes || 0;
-                        const earlyM = rec.extraTimeMinutes || 0;
+                        const billingM = rec.billingMinutes || 0;
                         const approvedEntries = otEntries.filter(
                           (ot) =>
                             ot.status === "APPROVED" ||
@@ -660,7 +660,7 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = Math.max(0, totalM - earlyM - approvedOTM);
+                        const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
@@ -903,7 +903,7 @@ const TimeRecords = () => {
                       status === "holiday";
                     const otEntries = rec.overtimeEntries || [];
                     const totalM = rec.totalMinutes || 0;
-                    const earlyM = rec.extraTimeMinutes || 0;
+                    const billingM = rec.billingMinutes || 0;
                     const mobileApprovedOTEntries = otEntries.filter(
                       (ot) =>
                         ot.status === "APPROVED" || ot.status === "AUTO_APPROVED",
@@ -920,7 +920,7 @@ const TimeRecords = () => {
                       (s, o) => s + (o.requestedMinutes || 0),
                       0,
                     );
-                    const regularM = Math.max(0, totalM - earlyM - mobileApprovedOTM);
+                    const regularM = billingM > 0 ? Math.max(0, billingM - mobileApprovedOTM) : Math.max(0, totalM - mobileApprovedOTM);
                     const mobileApprovedEntries = otEntries.filter(
                       (ot) =>
                         ot.status === "APPROVED" ||

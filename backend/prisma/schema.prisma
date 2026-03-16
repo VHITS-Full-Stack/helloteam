@@ -233,8 +233,9 @@ model Employee {
   emergencyContacts EmergencyContact[]
   tasks             Task[]
   conversations     Conversation[]
-  autoApprovalLogs  AutoApprovalLog[]
-  rateChanges       RateChangeHistory[]
+  autoApprovalLogs    AutoApprovalLog[]
+  rateChanges         RateChangeHistory[]
+  payrollAdjustments  PayrollAdjustment[]
 
   @@map("employees")
 }
@@ -969,6 +970,29 @@ model PayrollPeriod {
   @@unique([clientId, periodStart, periodEnd])
   @@index([clientId, status])
   @@map("payroll_periods")
+}
+
+enum AdjustmentType {
+  BONUS
+  DEDUCTION
+}
+
+model PayrollAdjustment {
+  id          String         @id @default(uuid())
+  employeeId  String
+  type        AdjustmentType
+  amount      Decimal        @db.Decimal(10, 2)
+  reason      String
+  periodStart DateTime       @db.Date
+  periodEnd   DateTime       @db.Date
+  createdBy   String
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  employee    Employee       @relation(fields: [employeeId], references: [id])
+
+  @@index([employeeId, periodStart, periodEnd])
+  @@map("payroll_adjustments")
 }
 
 // ============================================
