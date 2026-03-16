@@ -25,30 +25,57 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [audioDuration, setAudioDuration] = useState(duration || 0);
+  const [loaded, setLoaded] = useState(false);
   const audioRef = useRef(null);
   const waveformBars = useMemo(() => generateWaveform(messageId || src), [messageId, src]);
   const barCount = waveformBars.length;
 
-  useEffect(() => {
-    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-      setAudioDuration(audioRef.current.duration);
-    }
-  }, []);
-
   const togglePlay = async () => {
-    if (!audioRef.current || error) return;
+    if (!audioRef.current) return;
+
     if (playing) {
       audioRef.current.pause();
       setPlaying(false);
+      return;
+    }
+
+    // Lazy load: set src only on first play
+    if (!loaded && src) {
+      setLoading(true);
+      audioRef.current.src = src;
+      audioRef.current.load();
+
+      try {
+        await new Promise((resolve, reject) => {
+          const onCanPlay = () => { cleanup(); resolve(); };
+          const onError = () => { cleanup(); reject(new Error('Failed to load')); };
+          const cleanup = () => {
+            audioRef.current?.removeEventListener('canplaythrough', onCanPlay);
+            audioRef.current?.removeEventListener('error', onError);
+          };
+          audioRef.current.addEventListener('canplaythrough', onCanPlay, { once: true });
+          audioRef.current.addEventListener('error', onError, { once: true });
+        });
+        setLoaded(true);
+        setLoading(false);
+        if (audioRef.current.duration && isFinite(audioRef.current.duration)) {
+          setAudioDuration(audioRef.current.duration);
+        }
+        await audioRef.current.play();
+        setPlaying(true);
+      } catch (err) {
+        console.error('Audio playback failed:', err);
+        setLoading(false);
+        // Don't permanently disable — allow retry
+      }
     } else {
       try {
         await audioRef.current.play();
         setPlaying(true);
       } catch (err) {
         console.error('Audio playback failed:', err);
-        setError(true);
       }
     }
   };
@@ -56,16 +83,10 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
     const dur = audioRef.current.duration;
-    if (!dur || isNaN(dur)) return;
+    if (!dur || !isFinite(dur)) return;
     const pct = (audioRef.current.currentTime / dur) * 100;
     setProgress(pct);
     setCurrentTime(audioRef.current.currentTime);
-  };
-
-  const handleLoadedMetadata = () => {
-    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
-      setAudioDuration(audioRef.current.duration);
-    }
   };
 
   const handleEnded = () => {
@@ -75,7 +96,7 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
   };
 
   const handleSeek = (e) => {
-    if (!audioRef.current || !audioRef.current.duration) return;
+    if (!audioRef.current || !audioRef.current.duration || !isFinite(audioRef.current.duration)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const pct = Math.max(0, Math.min(1, x / rect.width));
@@ -93,32 +114,28 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
 
   return (
     <div className="flex items-center gap-3 min-w-[220px] max-w-[280px]">
+      {/* Audio element — no src initially, loaded on first play */}
       <audio
         ref={audioRef}
-        src={src}
         onTimeUpdate={handleTimeUpdate}
-        onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
-        onError={(e) => {
-          console.error('Audio load error:', e.target.error);
-          setError(true);
-        }}
-        preload="auto"
+        preload="none"
       />
 
       {/* Play/Pause button */}
       <button
         onClick={togglePlay}
+        disabled={loading}
         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-          error
-            ? 'bg-red-100 text-red-400 cursor-not-allowed'
-            : isMine
-              ? 'bg-white/20 text-white hover:bg-white/30'
-              : 'bg-[#1a5c3a]/10 text-[#1a5c3a] hover:bg-[#1a5c3a]/20'
+          isMine
+            ? 'bg-white/20 text-white hover:bg-white/30'
+            : 'bg-[#1a5c3a]/10 text-[#1a5c3a] hover:bg-[#1a5c3a]/20'
         }`}
       >
-        {error ? (
-          <Mic className="w-4 h-4" />
+        {loading ? (
+          <div className={`w-4 h-4 border-2 rounded-full animate-spin ${
+            isMine ? 'border-white/30 border-t-white' : 'border-[#1a5c3a]/30 border-t-[#1a5c3a]'
+          }`} />
         ) : playing ? (
           <Pause className="w-4.5 h-4.5" />
         ) : (
@@ -128,42 +145,36 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
 
       {/* Waveform + time */}
       <div className="flex-1 min-w-0">
-        {error ? (
-          <span className="text-[11px] opacity-60">Failed to load audio</span>
-        ) : (
-          <>
-            {/* Waveform bars */}
+        {/* Waveform bars — always visible */}
+        <div
+          className="flex items-center gap-[2px] h-[28px] cursor-pointer"
+          onClick={handleSeek}
+        >
+          {waveformBars.map((height, i) => (
             <div
-              className="flex items-center gap-[2px] h-[28px] cursor-pointer"
-              onClick={handleSeek}
-            >
-              {waveformBars.map((height, i) => (
-                <div
-                  key={i}
-                  className={`rounded-full transition-colors duration-150 ${
-                    i < playedBarIndex
-                      ? isMine
-                        ? 'bg-white'
-                        : 'bg-[#1a5c3a]'
-                      : isMine
-                        ? 'bg-white/35'
-                        : 'bg-[#1a5c3a]/25'
-                  }`}
-                  style={{
-                    width: '2.5px',
-                    height: `${Math.round(height * 28)}px`,
-                    minHeight: '4px',
-                  }}
-                />
-              ))}
-            </div>
+              key={i}
+              className={`rounded-full transition-colors duration-150 ${
+                i < playedBarIndex
+                  ? isMine
+                    ? 'bg-white'
+                    : 'bg-[#1a5c3a]'
+                  : isMine
+                    ? 'bg-white/35'
+                    : 'bg-[#1a5c3a]/25'
+              }`}
+              style={{
+                width: '2.5px',
+                height: `${Math.round(height * 28)}px`,
+                minHeight: '4px',
+              }}
+            />
+          ))}
+        </div>
 
-            {/* Duration */}
-            <span className={`text-[10px] mt-0.5 block ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
-              {playing ? formatDuration(currentTime) : formatDuration(audioDuration || 0)}
-            </span>
-          </>
-        )}
+        {/* Duration */}
+        <span className={`text-[10px] mt-0.5 block ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+          {playing ? formatDuration(currentTime) : formatDuration(audioDuration || 0)}
+        </span>
       </div>
     </div>
   );
