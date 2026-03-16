@@ -9,7 +9,7 @@ const isS3Configured = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRE
 
 // Local uploads directory (fallback for development)
 const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
-const API_BASE_URL = `http://localhost:${process.env.PORT || 3000}`;
+const API_BASE_URL = process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
 // Initialize S3 client (only used when S3 is configured)
 const s3Client = isS3Configured
