@@ -235,7 +235,7 @@ const AdminDashboard = () => {
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Client Overview</h3>
-            {clientOverview.length > 0 && (
+            {clientOverview.some((c) => c.issueCount > 0) && (
               <Button variant="ghost" size="sm" onClick={() => navigate('/admin/approvals')}>View All</Button>
             )}
           </div>
@@ -264,7 +264,7 @@ const AdminDashboard = () => {
                   {client.issueCount > 0 && (
                     <button
                       className="text-sm text-primary font-medium hover:text-primary-dark flex-shrink-0 ml-4"
-                      onClick={() => navigate(`/admin/approvals`)}
+                      onClick={() => navigate(`/admin/approvals?clientId=${client.id}`)}
                     >
                       View →
                     </button>

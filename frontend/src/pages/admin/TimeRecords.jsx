@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Clock, Calendar, Download, Filter, Search, Building2, Edit, AlertCircle, RefreshCw, ChevronDown, ChevronRight, Coffee, Loader2, Users } from 'lucide-react';
 import {
   Card,
@@ -12,8 +13,9 @@ import clientService from '../../services/client.service';
 import { formatHours, formatDuration, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [selectedClient, setSelectedClient] = useState('all');
+  const [selectedClient, setSelectedClient] = useState(searchParams.get('clientId') || 'all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');

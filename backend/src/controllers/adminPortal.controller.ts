@@ -1126,6 +1126,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
   try {
     const status = (req.query.status as string) || 'pending';
     const type = req.query.type as string | undefined;
+    const clientId = req.query.clientId as string | undefined;
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
@@ -1149,6 +1150,9 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
 
     // Get time records
     let timeRecordWhere: any = { status: timeRecordStatus };
+    if (clientId) {
+      timeRecordWhere.clientId = clientId;
+    }
     if (type === 'time-adjustment') {
       timeRecordWhere.adjustmentNotes = { not: null };
     } else if (type === 'overtime') {

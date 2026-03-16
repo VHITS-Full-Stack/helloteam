@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   CheckCircle,
   XCircle,
@@ -26,9 +27,11 @@ import {
 import adminPortalService from '../../services/adminPortal.service';
 
 const Approvals = () => {
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('pending');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedClient, setSelectedClient] = useState(searchParams.get('clientId') || 'all');
   const [selectedItem, setSelectedItem] = useState(null);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -61,6 +64,9 @@ const Approvals = () => {
       if (selectedType !== 'all') {
         params.type = selectedType;
       }
+      if (selectedClient !== 'all') {
+        params.clientId = selectedClient;
+      }
 
       const response = await adminPortalService.getApprovals(params);
       if (response?.success) {
@@ -77,7 +83,7 @@ const Approvals = () => {
 
   useEffect(() => {
     fetchApprovals();
-  }, [activeTab, selectedType]);
+  }, [activeTab, selectedType, selectedClient]);
 
   const getTypeBadge = (type) => {
     switch (type) {
@@ -311,6 +317,14 @@ const Approvals = () => {
             <option value="time-adjustment">Adjustments</option>
             <option value="leave">Leave</option>
           </select>
+          {selectedClient !== 'all' && (
+            <button
+              className="text-sm text-primary hover:text-primary-dark font-medium"
+              onClick={() => setSelectedClient('all')}
+            >
+              Clear client filter ×
+            </button>
+          )}
         </div>
       </div>
 
