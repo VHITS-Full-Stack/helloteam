@@ -1708,18 +1708,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         status: emp.hasActiveRecord
           ? 'active'
           : (() => {
-              const today = new Date();
-              today.setHours(23, 59, 59, 999);
               const records = emp.records || [];
-              const nonLeaveStatuses = records
+              const scheduledStatuses = records
                 .filter((r: any) => r.status !== 'PAID_LEAVE' && r.status !== 'UNPAID_LEAVE' && r.status !== 'HOLIDAY')
-                .filter((r: any) => new Date(r.date) <= today); // Only past/today days
-              const statuses = nonLeaveStatuses.map((r: any) => r.status);
-              if (statuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
-              if (statuses.some((s: string) => s === 'REJECTED')) return 'rejected';
-              if (statuses.some((s: string) => s === 'PENDING' || s === 'NOT_STARTED')) return 'pending';
-              if (statuses.length > 0 && statuses.every((s: string) => s === 'AUTO_APPROVED')) return 'auto_approved';
-              if (statuses.length > 0 && statuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
+                .map((r: any) => r.status as string);
+              if (scheduledStatuses.some((s) => s === 'REVISION_REQUESTED')) return 'revision_requested';
+              if (scheduledStatuses.some((s) => s === 'REJECTED')) return 'rejected';
+              if (scheduledStatuses.some((s) => s === 'PENDING' || s === 'NOT_STARTED')) return 'pending';
+              if (scheduledStatuses.length > 0 && scheduledStatuses.every((s) => s === 'AUTO_APPROVED')) return 'auto_approved';
+              if (scheduledStatuses.length > 0 && scheduledStatuses.every((s) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
               return 'pending';
             })(),
       }))
