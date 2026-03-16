@@ -46,7 +46,7 @@ const SessionTimeoutModal = ({
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
 
       {/* Modal */}
-      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-6 animate-fade-in">
+      <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 p-8 animate-fade-in overflow-visible">
         {/* Icon */}
         <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Clock className="w-8 h-8 text-amber-600" />
@@ -69,23 +69,24 @@ const SessionTimeoutModal = ({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-2">
           <Button
             variant="outline"
             fullWidth
+            icon={LogOut}
             onClick={onLogout}
             disabled={loading}
           >
-            <LogOut className="w-4 h-4 mr-2" />
             Logout
           </Button>
           <Button
             variant="primary"
             fullWidth
+            icon={RefreshCw}
             onClick={onExtendSession}
             loading={loading}
+            className="whitespace-nowrap"
           >
-            <RefreshCw className="w-4 h-4 mr-2" />
             Continue Session
           </Button>
         </div>
