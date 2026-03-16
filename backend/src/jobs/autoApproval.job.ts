@@ -60,12 +60,29 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
         },
       });
 
-      console.log(`[Auto-Approval] Found ${pendingRecords.length} pending records for client ${policy.client.companyName} (OT filter: ${policy.overtimeRequiresApproval !== false})`);
-      for (const r of pendingRecords) {
-        console.log(`[Auto-Approval]   - Employee ${r.employee.firstName} ${r.employee.lastName}, date=${r.date.toISOString()}, overtimeMinutes=${r.overtimeMinutes}, actualStart=${r.actualStart?.toISOString()}, actualEnd=${r.actualEnd?.toISOString()}, scheduledEnd=${r.scheduledEnd?.toISOString()}`);
+      // Debug: also fetch ALL pending records without OT filter to see what's being excluded
+      const allPendingRecords = await prisma.timeRecord.findMany({
+        where: {
+          clientId: policy.clientId,
+          status: 'PENDING',
+          actualStart: { not: null },
+        },
+        include: {
+          employee: {
+            select: { id: true, firstName: true, lastName: true },
+          },
+        },
+      });
+      console.log(`[Auto-Approval] Found ${pendingRecords.length} pending records (with OT filter) and ${allPendingRecords.length} total pending records for client ${policy.client.companyName}`);
+      for (const r of allPendingRecords) {
+        console.log(`[Auto-Approval]   - ${r.employee.firstName} ${r.employee.lastName}, date=${r.date.toISOString()}, status=${r.status}, overtimeMinutes=${r.overtimeMinutes}, actualStart=${r.actualStart?.toISOString()}, actualEnd=${r.actualEnd?.toISOString()}`);
       }
 
-      if (pendingRecords.length === 0) continue;
+      if (pendingRecords.length === 0 && allPendingRecords.length === 0) continue;
+      if (pendingRecords.length === 0) {
+        console.log(`[Auto-Approval] All pending records have overtimeMinutes > 0, skipping`);
+        continue;
+      }
 
       // Collect unique employee IDs to batch-fetch schedules
       const employeeIds = [...new Set(pendingRecords.map((r) => r.employeeId))];
