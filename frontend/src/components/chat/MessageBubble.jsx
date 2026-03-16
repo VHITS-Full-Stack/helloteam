@@ -1,15 +1,44 @@
-import { useState, useRef } from 'react';
-import { Play, Pause, Download, FileText, Image } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { Play, Pause, Download, FileText, Image, Mic } from 'lucide-react';
 
-const AudioPlayer = ({ src, duration }) => {
+// Generate pseudo-random waveform bars from a seed (consistent per message)
+const generateWaveform = (seed, barCount = 40) => {
+  let hash = 0;
+  const str = String(seed || 'default');
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const bars = [];
+  for (let i = 0; i < barCount; i++) {
+    hash = ((hash << 5) - hash) + i;
+    hash |= 0;
+    const normalized = (Math.abs(hash) % 100) / 100;
+    // Create a natural waveform shape — higher in the middle
+    const positionFactor = 1 - Math.abs((i / barCount) - 0.5) * 1.2;
+    bars.push(Math.max(0.15, Math.min(1, normalized * 0.6 + positionFactor * 0.4)));
+  }
+  return bars;
+};
+
+const AudioPlayer = ({ src, duration, isMine, messageId }) => {
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [error, setError] = useState(false);
+  const [audioDuration, setAudioDuration] = useState(duration || 0);
   const audioRef = useRef(null);
+  const waveformBars = useMemo(() => generateWaveform(messageId || src), [messageId, src]);
+  const barCount = waveformBars.length;
+
+  useEffect(() => {
+    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+      setAudioDuration(audioRef.current.duration);
+    }
+  }, []);
 
   const togglePlay = async () => {
-    if (!audioRef.current) return;
+    if (!audioRef.current || error) return;
     if (playing) {
       audioRef.current.pause();
       setPlaying(false);
@@ -26,9 +55,17 @@ const AudioPlayer = ({ src, duration }) => {
 
   const handleTimeUpdate = () => {
     if (!audioRef.current) return;
-    const pct = (audioRef.current.currentTime / audioRef.current.duration) * 100;
+    const dur = audioRef.current.duration;
+    if (!dur || isNaN(dur)) return;
+    const pct = (audioRef.current.currentTime / dur) * 100;
     setProgress(pct);
     setCurrentTime(audioRef.current.currentTime);
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current && audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+      setAudioDuration(audioRef.current.duration);
+    }
   };
 
   const handleEnded = () => {
@@ -37,18 +74,30 @@ const AudioPlayer = ({ src, duration }) => {
     setCurrentTime(0);
   };
 
+  const handleSeek = (e) => {
+    if (!audioRef.current || !audioRef.current.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const pct = Math.max(0, Math.min(1, x / rect.width));
+    audioRef.current.currentTime = pct * audioRef.current.duration;
+  };
+
   const formatDuration = (seconds) => {
+    if (!seconds || !isFinite(seconds) || isNaN(seconds)) return '0:00';
     const m = Math.floor(seconds / 60);
     const s = Math.floor(seconds % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  const playedBarIndex = Math.floor((progress / 100) * barCount);
+
   return (
-    <div className="flex items-center gap-2 min-w-[180px]">
+    <div className="flex items-center gap-3 min-w-[220px] max-w-[280px]">
       <audio
         ref={audioRef}
         src={src}
         onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
         onError={(e) => {
           console.error('Audio load error:', e.target.error);
@@ -56,27 +105,65 @@ const AudioPlayer = ({ src, duration }) => {
         }}
         preload="auto"
       />
-      {error && <span className="text-[10px] text-red-400">Failed to load audio</span>}
+
+      {/* Play/Pause button */}
       <button
         onClick={togglePlay}
-        className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0 hover:bg-white/30 transition-colors"
+        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
+          error
+            ? 'bg-red-100 text-red-400 cursor-not-allowed'
+            : isMine
+              ? 'bg-white/20 text-white hover:bg-white/30'
+              : 'bg-[#1a5c3a]/10 text-[#1a5c3a] hover:bg-[#1a5c3a]/20'
+        }`}
       >
-        {playing ? (
-          <Pause className="w-4 h-4" />
+        {error ? (
+          <Mic className="w-4 h-4" />
+        ) : playing ? (
+          <Pause className="w-4.5 h-4.5" />
         ) : (
-          <Play className="w-4 h-4 ml-0.5" />
+          <Play className="w-4.5 h-4.5 ml-0.5" />
         )}
       </button>
-      <div className="flex-1">
-        <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-white/60 rounded-full transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <span className="text-[10px] opacity-70 mt-0.5 block">
-          {playing ? formatDuration(currentTime) : formatDuration(duration || 0)}
-        </span>
+
+      {/* Waveform + time */}
+      <div className="flex-1 min-w-0">
+        {error ? (
+          <span className="text-[11px] opacity-60">Failed to load audio</span>
+        ) : (
+          <>
+            {/* Waveform bars */}
+            <div
+              className="flex items-center gap-[2px] h-[28px] cursor-pointer"
+              onClick={handleSeek}
+            >
+              {waveformBars.map((height, i) => (
+                <div
+                  key={i}
+                  className={`rounded-full transition-colors duration-150 ${
+                    i < playedBarIndex
+                      ? isMine
+                        ? 'bg-white'
+                        : 'bg-[#1a5c3a]'
+                      : isMine
+                        ? 'bg-white/35'
+                        : 'bg-[#1a5c3a]/25'
+                  }`}
+                  style={{
+                    width: '2.5px',
+                    height: `${Math.round(height * 28)}px`,
+                    minHeight: '4px',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Duration */}
+            <span className={`text-[10px] mt-0.5 block ${isMine ? 'text-white/60' : 'text-gray-400'}`}>
+              {playing ? formatDuration(currentTime) : formatDuration(audioDuration || 0)}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
@@ -104,7 +191,12 @@ const MessageBubble = ({ message, isMine, senderName }) => {
     switch (message.messageType) {
       case 'AUDIO':
         return (
-          <AudioPlayer src={message.fileUrl} duration={message.audioDuration} />
+          <AudioPlayer
+            src={message.fileUrl}
+            duration={message.audioDuration}
+            isMine={isMine}
+            messageId={message.id}
+          />
         );
 
       case 'IMAGE':
