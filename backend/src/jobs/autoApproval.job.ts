@@ -46,7 +46,7 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
           clientId: policy.clientId,
           status: 'PENDING',
           actualStart: { not: null },
-          ...(policy.overtimeRequiresApproval !== false ? { OR: [{ overtimeMinutes: 0 }, { overtimeMinutes: null }] } : {}),
+          ...(policy.overtimeRequiresApproval !== false ? { overtimeMinutes: 0 } : {}),
         },
         include: {
           employee: {
