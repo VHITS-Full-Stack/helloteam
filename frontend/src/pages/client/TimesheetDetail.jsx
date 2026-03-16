@@ -524,7 +524,7 @@ const TimesheetDetail = () => {
                 recStatus === "unpaid_leave" ||
                 recStatus === "holiday";
               const otEntries = rec?.overtimeEntries || [];
-              const earlyM = rec?.extraTimeMinutes || 0;
+              const billingM = rec?.billingMinutes || 0;
               const otM = rec.overtimeMinutes || 0;
               const approvedOTM = otEntries
                 .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
@@ -535,7 +535,7 @@ const TimesheetDetail = () => {
                   .filter((o) => o.status === "PENDING")
                   .reduce((s, o) => s + (o.requestedMinutes || 0), 0),
               );
-              const regularM = Math.max(0, totalM - earlyM - approvedOTM);
+              const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
               const shiftExtEntries = otEntries.filter((ot) => ot.type === "SHIFT_EXTENSION");
               const offShiftEntries = otEntries.filter((ot) => ot.type === "OFF_SHIFT");
               const hasOT = shiftExtEntries.length > 0 || offShiftEntries.length > 0;

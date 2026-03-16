@@ -91,7 +91,7 @@ const TimeRecords = () => {
     0,
   );
   const totalRegularHours = timeRecords.reduce(
-    (sum, r) => sum + (r.totalHours || 0) - ((r.approvedOvertimeHours || 0)),
+    (sum, r) => sum + Math.max(0, (r.totalHours || 0) - (r.approvedOvertimeHours || 0)),
     0,
   );
   const totalApprovedOT = timeRecords.reduce(

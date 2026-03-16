@@ -1523,6 +1523,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         dailyHours: {} as Record<string, number>,
         dailyOvertimeHours: {} as Record<string, number>,
         totalMinutes: 0,
+        billingTotalMinutes: 0,
         overtimeMinutes: 0,
         approvedOvertimeMinutes: 0,
         unapprovedOvertimeMinutes: 0,
@@ -1629,13 +1630,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             .filter(ot => ot.status === 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
           const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
-          const sessionHours = Math.round((effectiveSessionMinutes / 60) * 100) / 100;
+          const sessionBillingMins = timeRecord?.billingMinutes || effectiveSessionMinutes;
+          const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
 
           empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + sessionHours;
           if (sessionOvertime > 0) {
             empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((sessionOvertime / 60) * 100) / 100;
           }
           empData.totalMinutes += effectiveSessionMinutes;
+          empData.billingTotalMinutes += (timeRecord?.billingMinutes || effectiveSessionMinutes);
           empData.overtimeMinutes += sessionOvertime;
 
           for (const ot of sessionOTEntries) {
@@ -1697,7 +1700,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       Array.from(employeeRecordsMap.values()).map(async (emp: any) => ({
         ...emp,
         profilePhoto: await refreshProfilePhotoUrl(emp.profilePhoto),
-        totalHours: Math.round((emp.totalMinutes / 60) * 100) / 100,
+        totalHours: Math.round((emp.billingTotalMinutes / 60) * 100) / 100,
         overtimeHours: Math.round((emp.overtimeMinutes / 60) * 100) / 100,
         approvedOvertimeHours: Math.round((emp.approvedOvertimeMinutes / 60) * 100) / 100,
         unapprovedOvertimeHours: Math.round((emp.unapprovedOvertimeMinutes / 60) * 100) / 100,
@@ -1725,7 +1728,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const summary = {
       totalEmployees: employeeWeeklyData.length,
       totalHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 100) / 100,
-      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.totalHours, 0) * 100) / 100,
+      regularHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + Math.max(0, e.totalHours - (e.approvedOvertimeHours || 0)), 0) * 100) / 100,
       overtimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + e.overtimeHours, 0) * 100) / 100,
       approvedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.approvedOvertimeHours || 0), 0) * 100) / 100,
       unapprovedOvertimeHours: Math.round(employeeWeeklyData.reduce((acc: number, e: any) => acc + (e.unapprovedOvertimeHours || 0), 0) * 100) / 100,
