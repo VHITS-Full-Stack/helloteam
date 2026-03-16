@@ -2197,6 +2197,109 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
         },
       });
 
+      // Create time record (was previously missing for STAY_CLOCKED_OUT)
+      const clientAssignments = await prisma.clientEmployee.findMany({
+        where: { employeeId: employee.id, isActive: true },
+        select: {
+          clientId: true,
+          client: { select: { timezone: true, clientPolicies: { select: { overtimeRequiresApproval: true } } } },
+        },
+      });
+
+      if (clientAssignments.length > 0) {
+        const clientTz = clientAssignments[0].client.timezone || 'UTC';
+        const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clientTz }));
+        const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
+
+        // Get schedule for billing calculation
+        const { dayOfWeek } = getTimeInTimezone(clientTz, clockOutTime);
+        let schedule = await prisma.schedule.findFirst({
+          where: {
+            employeeId: employee.id,
+            dayOfWeek,
+            isActive: true,
+            effectiveFrom: { lte: now },
+            OR: [{ effectiveTo: null }, { effectiveTo: { gte: today } }],
+          },
+          orderBy: { effectiveFrom: 'desc' },
+        });
+
+        // Fallback to session's stored schedule
+        if (!schedule && session.scheduledStartTime && session.scheduledEndTime) {
+          schedule = { startTime: session.scheduledStartTime, endTime: session.scheduledEndTime } as any;
+        }
+
+        let scheduledStart: Date | null = null;
+        let scheduledEnd: Date | null = null;
+        if (schedule?.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+          scheduledStart = buildScheduleTimestamp(clientTz, schedule.startTime, clockOutTime);
+        }
+        if (schedule?.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+          scheduledEnd = buildScheduleTimestamp(clientTz, schedule.endTime, clockOutTime);
+        }
+
+        for (const assignment of clientAssignments) {
+          try {
+            const existing = await prisma.timeRecord.findUnique({
+              where: {
+                employeeId_clientId_date: {
+                  employeeId: employee.id,
+                  clientId: assignment.clientId,
+                  date: today,
+                },
+              },
+            });
+
+            if (existing) {
+              const newTotal = existing.totalMinutes + totalWorkMinutes;
+              const newBreak = existing.breakMinutes + (session.totalBreakMinutes || 0);
+              const updActualStart = existing.actualStart || session.startTime;
+              const billingUpd = computeBillingTimes(updActualStart, clockOutTime, scheduledStart || existing.scheduledStart, scheduledEnd || existing.scheduledEnd);
+              const billingMinsUpd = Math.max(0, Math.floor((billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime()) / 60000) - newBreak);
+              await prisma.timeRecord.update({
+                where: { id: existing.id },
+                data: {
+                  actualEnd: clockOutTime,
+                  billingStart: billingUpd.billingStart,
+                  billingEnd: billingUpd.billingEnd,
+                  billingMinutes: billingMinsUpd,
+                  isLate: billingUpd.isLate,
+                  totalMinutes: newTotal,
+                  breakMinutes: newBreak,
+                  overtimeMinutes: 0,
+                  scheduledStart: scheduledStart || existing.scheduledStart,
+                  scheduledEnd: scheduledEnd || existing.scheduledEnd,
+                },
+              });
+            } else {
+              const billing = computeBillingTimes(session.startTime, clockOutTime, scheduledStart, scheduledEnd);
+              const billingMins = Math.max(0, Math.floor((billing.billingEnd.getTime() - billing.billingStart.getTime()) / 60000) - (session.totalBreakMinutes || 0));
+              await prisma.timeRecord.create({
+                data: {
+                  employeeId: employee.id,
+                  clientId: assignment.clientId,
+                  date: today,
+                  scheduledStart,
+                  scheduledEnd,
+                  actualStart: session.startTime,
+                  actualEnd: clockOutTime,
+                  billingStart: billing.billingStart,
+                  billingEnd: billing.billingEnd,
+                  billingMinutes: billingMins,
+                  isLate: billing.isLate,
+                  totalMinutes: totalWorkMinutes,
+                  breakMinutes: session.totalBreakMinutes || 0,
+                  overtimeMinutes: 0,
+                  status: 'PENDING',
+                },
+              });
+            }
+          } catch (trError) {
+            console.error(`[ShiftEndResponse] Failed to create time record for client ${assignment.clientId}:`, trError);
+          }
+        }
+      }
+
       res.json({ success: true, message: 'Clocked out at scheduled shift end time.' });
     }
   } catch (error) {
