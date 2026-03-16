@@ -237,8 +237,9 @@ const TimesheetDetail = () => {
   const getStatusBadge = (status, holidayName) => {
     switch (status) {
       case "approved":
-      case "auto_approved":
         return <Badge variant="success">Approved</Badge>;
+      case "auto_approved":
+        return <Badge variant="success">Auto Approved</Badge>;
       case "pending":
         return <Badge variant="warning">Pending</Badge>;
       case "active":

@@ -1713,6 +1713,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               if (nonLeaveStatuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
               if (nonLeaveStatuses.some((s: string) => s === 'REJECTED')) return 'rejected';
               if (nonLeaveStatuses.some((s: string) => s === 'PENDING')) return 'pending';
+              if (nonLeaveStatuses.length > 0 && nonLeaveStatuses.every((s: string) => s === 'AUTO_APPROVED')) return 'auto_approved';
               if (nonLeaveStatuses.length > 0 && nonLeaveStatuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
               return 'pending';
             })(),
