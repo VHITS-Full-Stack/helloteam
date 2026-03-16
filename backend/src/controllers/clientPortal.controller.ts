@@ -1708,13 +1708,18 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         status: emp.hasActiveRecord
           ? 'active'
           : (() => {
-              const statuses = (emp.records || []).map((r: any) => r.status);
-              const nonLeaveStatuses = statuses.filter((s: string) => s !== 'PAID_LEAVE' && s !== 'UNPAID_LEAVE' && s !== 'HOLIDAY' && s !== 'NOT_STARTED');
-              if (nonLeaveStatuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
-              if (nonLeaveStatuses.some((s: string) => s === 'REJECTED')) return 'rejected';
-              if (nonLeaveStatuses.some((s: string) => s === 'PENDING')) return 'pending';
-              if (nonLeaveStatuses.length > 0 && nonLeaveStatuses.every((s: string) => s === 'AUTO_APPROVED')) return 'auto_approved';
-              if (nonLeaveStatuses.length > 0 && nonLeaveStatuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
+              const today = new Date();
+              today.setHours(23, 59, 59, 999);
+              const records = emp.records || [];
+              const nonLeaveStatuses = records
+                .filter((r: any) => r.status !== 'PAID_LEAVE' && r.status !== 'UNPAID_LEAVE' && r.status !== 'HOLIDAY')
+                .filter((r: any) => new Date(r.date) <= today); // Only past/today days
+              const statuses = nonLeaveStatuses.map((r: any) => r.status);
+              if (statuses.some((s: string) => s === 'REVISION_REQUESTED')) return 'revision_requested';
+              if (statuses.some((s: string) => s === 'REJECTED')) return 'rejected';
+              if (statuses.some((s: string) => s === 'PENDING' || s === 'NOT_STARTED')) return 'pending';
+              if (statuses.length > 0 && statuses.every((s: string) => s === 'AUTO_APPROVED')) return 'auto_approved';
+              if (statuses.length > 0 && statuses.every((s: string) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
               return 'pending';
             })(),
       }))
