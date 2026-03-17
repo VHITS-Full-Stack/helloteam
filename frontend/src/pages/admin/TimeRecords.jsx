@@ -214,8 +214,9 @@ const TimeRecords = () => {
   // Format clock time to 12h display in client timezone when possible.
   // If `timeStr` is an ISO datetime string, convert to the given timezone.
   // If `timeStr` is HH:MM, convert to 12h with formatTime12.
-  const fmtTime = (timeStr, tz) => {
-    if (!timeStr) return '-';
+  const fmtTime = (timeInput, tz) => {
+    if (!timeInput) return '-';
+    const timeStr = typeof timeInput === 'string' ? timeInput : timeInput instanceof Date ? timeInput.toISOString() : String(timeInput);
     const timezone = tz || Intl.DateTimeFormat().resolvedOptions().timeZone;
     // ISO datetime (contains 'T' or 'Z' or full date)
     if (timeStr.includes('T') || timeStr.includes('Z') || /\d{4}-\d{2}-\d{2}/.test(timeStr)) {
