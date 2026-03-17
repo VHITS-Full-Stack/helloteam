@@ -234,7 +234,7 @@ const TimeRecords = () => {
           const approvedOTM = otEntries
             .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
             .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-          const regularM = Math.max(0, totalM - approvedOTM - unapprovedOTMinutes);
+          const regularM = totalM;
           return [
             emp.employee,
             dateLabel,
@@ -665,7 +665,7 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = Math.max(0, totalM - approvedOTM - unapprovedOTMinutes);
+                        const regularM = totalM;
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
