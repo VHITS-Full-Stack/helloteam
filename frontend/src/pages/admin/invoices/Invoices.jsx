@@ -822,12 +822,12 @@ const Invoices = () => {
                         <td className="px-3 py-2 text-sm text-gray-600 text-right">
                           {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(1) : '—'}
                         </td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right">
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right whitespace-nowrap">
                           {(() => {
                             const rates = item.rates || [];
                             if (rates.length === 0) return '—';
                             if (rates.length === 1) return `${formatCurrency(rates[0])}/hr`;
-                            return `${formatCurrency(rates[0])} - ${formatCurrency(rates[rates.length - 1])}/hr`;
+                            return `${formatCurrency(Math.min(...rates))}–${formatCurrency(Math.max(...rates))}/hr`;
                           })()}
                         </td>
                         <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
