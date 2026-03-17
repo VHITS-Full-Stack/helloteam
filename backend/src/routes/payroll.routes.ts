@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
+import { getMyPayslips, getMyPayslipDetail } from '../controllers/payslip.controller';
 import {
   getPayrollPeriods,
   createPayrollPeriod,
@@ -17,6 +18,8 @@ import {
   addPayrollAdjustment,
   getPayrollAdjustments,
   deletePayrollAdjustment,
+  getEmployeePayrollDetail,
+  triggerPayslipGeneration,
 } from '../controllers/payroll.controller';
 
 const router = Router();
@@ -42,6 +45,9 @@ router.get('/disputed', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'H
 // Get employee payroll summary for a period
 router.get('/employee-summary', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getEmployeePayrollSummary);
 
+// Get single employee payroll detail with daily records
+router.get('/employee-detail/:employeeId', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getEmployeePayrollDetail);
+
 // Get payroll export data
 router.get('/export', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'FINANCE']), getPayrollExportData);
 
@@ -60,6 +66,9 @@ router.put('/:id/unlock', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), unlockPayrol
 // Update payroll cutoff
 router.put('/:id/cutoff', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS']), updatePayrollCutoff);
 
+// Generate payslips for a period
+router.post('/generate-payslips', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), triggerPayslipGeneration);
+
 // Send payroll reminders (admins only - typically called by a cron job)
 router.post('/send-reminders', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), sendPayrollReminders);
 
@@ -67,5 +76,9 @@ router.post('/send-reminders', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), sendPay
 router.get('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getPayrollAdjustments);
 router.post('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), addPayrollAdjustment);
 router.delete('/adjustments/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deletePayrollAdjustment);
+
+// Employee payslips
+router.get('/payslips/my', getMyPayslips);
+router.get('/payslips/my/:id', getMyPayslipDetail);
 
 export default router;

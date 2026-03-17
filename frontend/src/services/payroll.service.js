@@ -141,6 +141,19 @@ const payrollService = {
     return response;
   },
 
+  // Get single employee payroll detail
+  getEmployeeDetail: async (employeeId, periodStart, periodEnd) => {
+    const params = new URLSearchParams({ periodStart, periodEnd });
+    const response = await api.get(`/payroll/employee-detail/${employeeId}?${params.toString()}`);
+    return response;
+  },
+
+  // Generate payslips for a period
+  generatePayslips: async (periodStart, periodEnd) => {
+    const response = await api.post('/payroll/generate-payslips', { periodStart, periodEnd });
+    return response;
+  },
+
   // Delete payroll adjustment
   deleteAdjustment: async (id) => {
     const response = await api.delete(`/payroll/adjustments/${id}`);

@@ -21,7 +21,8 @@ import {
   FolderOpen,
   ClipboardList,
   TrendingUp,
-  FileCheck
+  FileCheck,
+  Wallet
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -84,6 +85,7 @@ const Sidebar = ({
     { to: '/employee/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/employee/time-records', icon: FileText, label: 'Time Records' },
     { to: '/employee/leave', icon: Calendar, label: 'Leave Requests' },
+    { to: '/employee/payslips', icon: Wallet, label: 'Payslips' },
     { to: '/employee/tasks', icon: ClipboardList, label: 'Tasks' },
     { to: '/employee/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/employee/support', icon: MessageSquare, label: 'Support' },

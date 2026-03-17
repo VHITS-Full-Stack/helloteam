@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   DollarSign,
   Download,
@@ -42,6 +43,7 @@ import {
 import payrollService from '../../services/payroll.service';
 
 const Payroll = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('employees');
@@ -50,6 +52,8 @@ const Payroll = () => {
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [employeeSearch, setEmployeeSearch] = useState('');
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
 
   // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
@@ -318,6 +322,8 @@ const Payroll = () => {
     switch (status) {
       case 'ready':
         return <Badge variant="success">Ready</Badge>;
+      case 'completed':
+        return <Badge variant="primary">Completed</Badge>;
       case 'pending':
         return <Badge variant="warning">Pending</Badge>;
       case 'flagged':
@@ -410,20 +416,52 @@ const Payroll = () => {
   };
 
   const handleFinalizePeriod = async () => {
-    if (!selectedPeriod) return;
-
     try {
       setActionLoading(true);
-      const response = await payrollService.finalizePeriod(selectedPeriod.id);
+
+      // If a specific period is selected (from Clients tab), finalize that
+      if (selectedPeriod) {
+        const response = await payrollService.finalizePeriod(selectedPeriod.id);
+        if (response.success) {
+          const msgs = [];
+          if (response.payslips?.generated > 0) {
+            msgs.push(`Payroll finalized. ${response.payslips.generated} payslip(s) generated.`);
+          } else {
+            msgs.push('Payroll period finalized.');
+          }
+          if (response.warnings?.length > 0) {
+            msgs.push(...response.warnings);
+          }
+          setSuccessMsg(msgs.join(' '));
+          setShowProcessModal(false);
+          setSelectedPeriod(null);
+          fetchData();
+        } else {
+          setError(response.error || 'Failed to finalize period');
+        }
+        return;
+      }
+
+      // Otherwise, generate payslips for the current period dates
+      const response = await payrollService.generatePayslips(periodStart, periodEnd);
       if (response.success) {
+        const msgs = [];
+        if (response.data?.generated > 0) {
+          msgs.push(`${response.data.generated} payslip(s) generated for employees.`);
+        } else {
+          msgs.push('No payslips to generate (no approved records found).');
+        }
+        if (response.data?.warnings?.length > 0) {
+          msgs.push(...response.data.warnings);
+        }
+        setSuccessMsg(msgs.join(' '));
         setShowProcessModal(false);
-        setSelectedPeriod(null);
         fetchData();
       } else {
-        setError(response.error || 'Failed to finalize period');
+        setError(response.error || 'Failed to process payroll');
       }
     } catch (err) {
-      setError(err.message || 'Failed to finalize period');
+      setError(err.message || 'Failed to process payroll');
     } finally {
       setActionLoading(false);
     }
@@ -520,8 +558,13 @@ const Payroll = () => {
           <Button variant="outline" icon={Download} onClick={() => setShowExportModal(true)}>
             Export
           </Button>
-          <Button variant="primary" icon={Send} onClick={() => setShowProcessModal(true)}>
-            Process Payroll
+          <Button
+            variant={totals.payrollProcessed ? 'outline' : 'primary'}
+            icon={totals.payrollProcessed ? CheckCircle : Send}
+            onClick={() => !totals.payrollProcessed && setShowProcessModal(true)}
+            disabled={totals.payrollProcessed}
+          >
+            {totals.payrollProcessed ? 'Payroll Processed' : 'Process Payroll'}
           </Button>
         </div>
       </div>
@@ -568,46 +611,50 @@ const Payroll = () => {
               <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
-          <div className="relative">
-            <select
-              className="appearance-none border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-sm text-gray-700 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
-              value={selectedClient}
-              onChange={(e) => setSelectedClient(e.target.value)}
-            >
-              <option value="">All Clients</option>
-              {clients.map((client) => (
-                <option key={client.clientId} value={client.clientId}>
-                  {client.companyName}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
         </div>
 
         {/* Summary Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-            <p className="text-2xl font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toLocaleString()}</p>
-            <p className="text-xs text-green-600 font-medium mt-1">Total Hours</p>
-          </div>
-          <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-            <p className="text-2xl font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toLocaleString()}</p>
-            <p className="text-xs text-orange-600 font-medium mt-1">Total Overtime</p>
-          </div>
-          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-            <p className="text-2xl font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toLocaleString()}</p>
-            <p className="text-xs text-blue-600 font-medium mt-1">Approved Hours</p>
-          </div>
-          <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-            <p className="text-2xl font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toLocaleString()}</p>
-            <p className="text-xs text-yellow-600 font-medium mt-1">Pending Hours</p>
-          </div>
-          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-            <p className="text-2xl font-bold text-emerald-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
-            <p className="text-xs text-emerald-600 font-medium mt-1">Gross Pay</p>
-          </div>
-        </div>
+        {(() => {
+          const totalBonuses = employees.reduce((sum, e) => sum + (e.totalBonuses || 0), 0);
+          const totalDeductions = employees.reduce((sum, e) => sum + (e.totalDeductions || 0), 0);
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <p className="text-2xl font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toLocaleString()}</p>
+                <p className="text-xs text-green-600 font-medium mt-1">Total Hours</p>
+              </div>
+              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                <p className="text-2xl font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toLocaleString()}</p>
+                <p className="text-xs text-orange-600 font-medium mt-1">Overtime</p>
+              </div>
+              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <p className="text-2xl font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toLocaleString()}</p>
+                <p className="text-xs text-blue-600 font-medium mt-1">Approved</p>
+              </div>
+              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                <p className="text-2xl font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toLocaleString()}</p>
+                <p className="text-xs text-yellow-600 font-medium mt-1">Pending</p>
+              </div>
+              <div className="rounded-xl p-4 border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-lg font-bold text-teal-700">+${Math.round(totalBonuses * 100 / 100).toLocaleString()}</p>
+                    <p className="text-[10px] text-teal-600 font-medium">Bonuses</p>
+                  </div>
+                  <div className="w-px h-8 bg-gray-200"></div>
+                  <div>
+                    <p className="text-lg font-bold text-red-700">-${Math.round(totalDeductions * 100 / 100).toLocaleString()}</p>
+                    <p className="text-[10px] text-red-600 font-medium">Deductions</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+                <p className="text-2xl font-bold text-emerald-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
+                <p className="text-xs text-emerald-600 font-medium mt-1">Gross Pay</p>
+              </div>
+            </div>
+          );
+        })()}
       </Card>
 
       {/* Tabs */}
@@ -719,31 +766,14 @@ const Payroll = () => {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Employee Payroll Details</h3>
+            <input
+              type="text"
+              placeholder="Search employee..."
+              value={employeeSearch}
+              onChange={(e) => setEmployeeSearch(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
           </div>
-
-          {/* Summary stats */}
-          {/* <div className="grid grid-cols-5 gap-4 mb-6">
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Ready</p>
-              <p className="text-xl font-bold text-green-600">{totals.readyCount || 0}</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Pending</p>
-              <p className="text-xl font-bold text-yellow-600">{totals.pendingCount || 0}</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Flagged</p>
-              <p className="text-xl font-bold text-red-600">{totals.flaggedCount || 0}</p>
-            </div>
-            <div className="p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Total Hours</p>
-              <p className="text-xl font-bold text-gray-900">{totals.totalHours || 0}h</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <p className="text-sm text-green-600">Gross Pay</p>
-              <p className="text-xl font-bold text-green-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
-            </div>
-          </div> */}
 
           {employees.length > 0 ? (
             <Table>
@@ -761,8 +791,12 @@ const Payroll = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {employees.map((emp) => (
-                  <TableRow key={emp.employee.id}>
+                {employees.filter((emp) => {
+                  if (!employeeSearch.trim()) return true;
+                  const name = `${emp.employee.firstName} ${emp.employee.lastName}`.toLowerCase();
+                  return name.includes(employeeSearch.toLowerCase().trim());
+                }).map((emp) => (
+                  <TableRow key={emp.employee.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(`/admin/payroll/employee/${emp.employee.id}?periodStart=${periodStart}&periodEnd=${periodEnd}`)}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
@@ -807,7 +841,7 @@ const Payroll = () => {
                                 </span>
                               </div>
                               <button
-                                onClick={() => setDeleteAdjustmentId(adj.id)}
+                                onClick={(e) => { e.stopPropagation(); setDeleteAdjustmentId(adj.id); }}
                                 className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 flex-shrink-0"
                                 title="Delete"
                               >
@@ -832,12 +866,16 @@ const Payroll = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <button
-                        onClick={() => openAdjustmentModal(emp, 'BONUS')}
-                        className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
-                      >
-                        Adjustment
-                      </button>
+                      {emp.status !== 'completed' ? (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAdjustmentModal(emp, 'BONUS'); }}
+                          className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+                        >
+                          Adjustment
+                        </button>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1239,6 +1277,9 @@ const Payroll = () => {
                   {summary.totalUnapproved > 0 && summary.totalDisputed > 0 && ', '}
                   {summary.totalDisputed > 0 && `${summary.totalDisputed} disputed records`}
                   . These will be excluded from this payroll run.
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  Any pending OT approved after finalization will be adjusted in the next payroll period.
                 </p>
               </div>
             </div>

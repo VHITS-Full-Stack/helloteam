@@ -16,6 +16,7 @@ const TimeClock = lazy(() => import('../pages/employee/TimeClock'));
 const Schedule = lazy(() => import('../pages/employee/Schedule'));
 const TimeRecords = lazy(() => import('../pages/employee/TimeRecords'));
 const LeaveRequests = lazy(() => import('../pages/employee/Leave'));
+const EmployeePayslips = lazy(() => import('../pages/employee/Payslips'));
 const Support = lazy(() => import('../pages/employee/Support'));
 const EmployeeTasks = lazy(() => import('../pages/employee/Tasks'));
 const EmployeeChat = lazy(() => import('../pages/employee/Chat'));
@@ -54,6 +55,7 @@ const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
 const Payroll = lazy(() => import('../pages/admin/Payroll'));
+const PayrollEmployeeDetail = lazy(() => import('../pages/admin/PayrollEmployeeDetail'));
 const AdminInvoices = lazy(() => import('../pages/admin/invoices/Invoices'));
 const AdminSettings = lazy(() => import('../pages/admin/Settings'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile'));
@@ -158,6 +160,7 @@ const AppRoutes = () => {
           <Route path="schedule" element={<Schedule />} />
           <Route path="time-records" element={<TimeRecords />} />
           <Route path="leave" element={<LeaveRequests />} />
+          <Route path="payslips" element={<EmployeePayslips />} />
           <Route path="tasks" element={<EmployeeTasks />} />
           <Route path="chat" element={<EmployeeChat />} />
           <Route path="support" element={<Support />} />
@@ -212,6 +215,7 @@ const AppRoutes = () => {
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="payroll" element={<Payroll />} />
+          <Route path="payroll/employee/:employeeId" element={<PayrollEmployeeDetail />} />
           <Route path="invoices" element={<AdminInvoices />} />
           <Route path="billing-history" element={<BillingHistory />} />
           <Route path="reports" element={<AdminAnalytics />} />
