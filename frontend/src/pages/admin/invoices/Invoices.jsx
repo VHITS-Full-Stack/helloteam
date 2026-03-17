@@ -14,6 +14,7 @@ import {
   Play,
   Loader2,
   Download,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Card,
@@ -401,59 +402,73 @@ const Invoices = () => {
       {/* Filters */}
       <Card padding="sm">
         <div className="flex flex-col sm:flex-row gap-3">
-          <select
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
-          >
-            <option value="all">All Status</option>
-            <option value="DRAFT">Draft</option>
-            <option value="SENT">Sent</option>
-            <option value="PAID">Paid</option>
-            <option value="OVERDUE">Overdue</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-          <select
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm flex-1"
-          >
-            <option value="all">All Clients</option>
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.companyName}</option>
-            ))}
-          </select>
-          <select
-            value={filterYear}
-            onChange={(e) => setFilterYear(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
-          >
-            <option value="all">All Years</option>
-            <option value="2026">2026</option>
-          </select>
-          <select
-            value={filterMonth}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            className="px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
-          >
-            <option value="all">All Months</option>
-            {[
-              { value: 1, label: 'January' },
-              { value: 2, label: 'February' },
-              { value: 3, label: 'March' },
-              { value: 4, label: 'April' },
-              { value: 5, label: 'May' },
-              { value: 6, label: 'June' },
-              { value: 7, label: 'July' },
-              { value: 8, label: 'August' },
-              { value: 9, label: 'September' },
-              { value: 10, label: 'October' },
-              { value: 11, label: 'November' },
-              { value: 12, label: 'December' },
-            ].map(m => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="appearance-none pr-9 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+            >
+              <option value="all">All Status</option>
+              <option value="DRAFT">Draft</option>
+              <option value="SENT">Sent</option>
+              <option value="PAID">Paid</option>
+              <option value="OVERDUE">Overdue</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <div className="relative flex-1">
+            <select
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              className="appearance-none pr-9 w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+            >
+              <option value="all">All Clients</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.companyName}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={filterYear}
+              onChange={(e) => setFilterYear(e.target.value)}
+              className="appearance-none pr-9 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+            >
+              <option value="all">All Years</option>
+              {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={filterMonth}
+              onChange={(e) => setFilterMonth(e.target.value)}
+              className="appearance-none pr-9 px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+            >
+              <option value="all">All Months</option>
+              {[
+                { value: 1, label: 'January' },
+                { value: 2, label: 'February' },
+                { value: 3, label: 'March' },
+                { value: 4, label: 'April' },
+                { value: 5, label: 'May' },
+                { value: 6, label: 'June' },
+                { value: 7, label: 'July' },
+                { value: 8, label: 'August' },
+                { value: 9, label: 'September' },
+                { value: 10, label: 'October' },
+                { value: 11, label: 'November' },
+                { value: 12, label: 'December' },
+              ].map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
       </Card>
 
@@ -481,6 +496,7 @@ const Invoices = () => {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rate</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
@@ -504,6 +520,14 @@ const Invoices = () => {
                       {Number(invoice.overtimeHours) > 0 && (
                         <p className="text-xs text-orange-500">+{Number(invoice.overtimeHours).toFixed(1)} OT</p>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {(() => {
+                        const rates = [...new Set((invoice.lineItems || []).map(li => Number(li.rate)))].filter(r => r > 0);
+                        if (rates.length === 0) return <span className="text-sm text-gray-400">-</span>;
+                        if (rates.length === 1) return <p className="text-sm text-gray-600">{formatCurrency(rates[0])}/hr</p>;
+                        return <p className="text-sm text-gray-600">{formatCurrency(Math.min(...rates))} - {formatCurrency(Math.max(...rates))}/hr</p>;
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.total, invoice.currency)}</p>
@@ -667,31 +691,37 @@ const Invoices = () => {
             {/* Client Selection */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
-              <select
-                value={generateClientId}
-                onChange={(e) => setGenerateClientId(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="all">All Clients</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={generateClientId}
+                  onChange={(e) => setGenerateClientId(e.target.value)}
+                  className="appearance-none pr-9 w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             {generateFrequency === 'monthly' ? (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-                  <select
-                    value={generateMonth}
-                    onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  >
-                    {monthNames.map((name, i) => (
-                      <option key={i + 1} value={i + 1}>{name}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={generateMonth}
+                      onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
+                      className="appearance-none pr-9 w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                    >
+                      {monthNames.map((name, i) => (
+                        <option key={i + 1} value={i + 1}>{name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
@@ -778,6 +808,7 @@ const Invoices = () => {
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Employees</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Hours</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Rate</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Est. Amount</th>
                     </tr>
                   </thead>
@@ -790,6 +821,14 @@ const Invoices = () => {
                         <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.totalHours).toFixed(1)}</td>
                         <td className="px-3 py-2 text-sm text-gray-600 text-right">
                           {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(1) : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right">
+                          {(() => {
+                            const rates = item.rates || [];
+                            if (rates.length === 0) return '—';
+                            if (rates.length === 1) return `${formatCurrency(rates[0])}/hr`;
+                            return `${formatCurrency(rates[0])} - ${formatCurrency(rates[rates.length - 1])}/hr`;
+                          })()}
                         </td>
                         <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
                           {formatCurrency(item.estimatedTotal, item.currency)}
@@ -908,7 +947,7 @@ const Invoices = () => {
                             )}
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(1)}</td>
-                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours).toFixed(1)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours || 0).toFixed(1)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}/hr</td>
                           <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.amount)}</td>
                         </tr>

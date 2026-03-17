@@ -386,6 +386,7 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
         where,
         include: {
           client: { select: { companyName: true, contactPerson: true } },
+          lineItems: { select: { rate: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,

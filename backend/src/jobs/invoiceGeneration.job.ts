@@ -129,7 +129,10 @@ const generateInvoiceForClient = async (
     },
     include: {
       employee: {
-        select: { id: true, firstName: true, lastName: true },
+        select: {
+          id: true, firstName: true, lastName: true, billingRate: true,
+          groupAssignments: { select: { groupId: true, group: { select: { billingRate: true } } } },
+        },
       },
     },
   });
@@ -146,7 +149,10 @@ const generateInvoiceForClient = async (
     },
     include: {
       employee: {
-        select: { id: true, firstName: true, lastName: true },
+        select: {
+          id: true, firstName: true, lastName: true, billingRate: true,
+          groupAssignments: { select: { groupId: true, group: { select: { billingRate: true } } } },
+        },
       },
     },
   });
@@ -181,6 +187,8 @@ const generateInvoiceForClient = async (
         totalMinutes: 0,
         overtimeMinutes: 0,
       });
+      // Build rate for this employee using full priority chain
+      buildRateForEmployee(record.employeeId, record.employee);
     }
     const agg = employeeAgg.get(key)!;
 
@@ -211,13 +219,41 @@ const generateInvoiceForClient = async (
     : 0;
   const currency = policy?.currency || 'USD';
 
-  // Build per-employee rate lookup from ClientEmployee overrides
+  // Fetch client-group billing rates
+  const clientGroupRecords = await prisma.clientGroup.findMany({
+    where: { clientId: client.id },
+    select: { groupId: true, billingRate: true },
+  });
+  const clientGroupRateMap = new Map(
+    clientGroupRecords.map((cg) => [cg.groupId, cg.billingRate ? Number(cg.billingRate) : null])
+  );
+
+  // Build per-employee rate lookup using same priority as payroll:
+  // assignment override > employee billing rate > client-group rate > group rate > client default
   const empRateMap = new Map<string, { hourlyRate: number; overtimeRate: number }>();
-  for (const ce of client.employees) {
-    const hr = ce.hourlyRate ? Number(ce.hourlyRate) : defaultHourlyRate;
-    const otr = ce.overtimeRate ? Number(ce.overtimeRate) : hr > 0 ? hr * 1.5 : defaultOTRate;
-    empRateMap.set(ce.employeeId, { hourlyRate: hr, overtimeRate: otr });
-  }
+  const buildRateForEmployee = (empId: string, employee: any) => {
+    const ce = client.employees.find((e: any) => e.employeeId === empId);
+    const employeeBillingRate = employee?.billingRate ? Number(employee.billingRate) : null;
+    const groupAssignment = employee?.groupAssignments?.[0];
+    const clientGroupBillingRate = groupAssignment?.groupId
+      ? clientGroupRateMap.get(groupAssignment.groupId) ?? null
+      : null;
+    const groupBillingRate = groupAssignment?.group?.billingRate
+      ? Number(groupAssignment.group.billingRate)
+      : null;
+
+    const hr = ce?.hourlyRate ? Number(ce.hourlyRate)
+      : employeeBillingRate ? employeeBillingRate
+      : clientGroupBillingRate ? clientGroupBillingRate
+      : groupBillingRate ? groupBillingRate
+      : defaultHourlyRate;
+
+    const otr = ce?.overtimeRate ? Number(ce.overtimeRate)
+      : hr > 0 ? hr * 1.5
+      : defaultOTRate;
+
+    empRateMap.set(empId, { hourlyRate: hr, overtimeRate: otr });
+  };
 
   let subtotal = 0;
   let totalHoursAll = 0;
@@ -243,7 +279,7 @@ const generateInvoiceForClient = async (
     const regularHours = Math.round((totalHours - otHours) * 100) / 100;
     const lineAmount = regularHours * rates.hourlyRate + otHours * rates.overtimeRate;
 
-    totalHoursAll += regularHours;
+    totalHoursAll += totalHours;
     totalOTHoursAll += otHours;
     subtotal += lineAmount;
 
@@ -256,7 +292,7 @@ const generateInvoiceForClient = async (
     lineItemsData.push({
       employeeId: empId,
       employeeName: agg.employeeName,
-      hours: regularHours,
+      hours: totalHours,
       overtimeHours: otHours,
       rate: rates.hourlyRate,
       overtimeRate: rates.overtimeRate,
@@ -583,6 +619,7 @@ export interface InvoicePreviewItem {
   totalHours: number;
   overtimeHours: number;
   estimatedTotal: number;
+  rates: number[];
   lateOtRecords: number;
   currency: string;
 }
@@ -608,7 +645,14 @@ const previewInvoiceForClient = async (
       date: { gte: periodStart, lte: periodEnd },
       invoiceId: null,
     },
-    include: { employee: { select: { id: true, firstName: true, lastName: true } } },
+    include: {
+      employee: {
+        select: {
+          id: true, firstName: true, lastName: true, billingRate: true,
+          groupAssignments: { select: { groupId: true, group: { select: { billingRate: true } } } },
+        },
+      },
+    },
   });
 
   const lateApprovedOT = await prisma.timeRecord.findMany({
@@ -619,13 +663,20 @@ const previewInvoiceForClient = async (
       invoiceId: null,
       date: { lt: periodStart },
     },
+    include: {
+      employee: {
+        select: {
+          id: true, firstName: true, lastName: true, billingRate: true,
+          groupAssignments: { select: { groupId: true, group: { select: { billingRate: true } } } },
+        },
+      },
+    },
   });
 
   const allRecords = [...timeRecords, ...lateApprovedOT];
   if (allRecords.length === 0) return null;
 
   // Aggregate using TimeRecord's own shiftExtension/extraTime fields
-  // to determine approved OT (instead of relying on overtimeRequest records).
   const employeeIds = new Set<string>();
   let totalMinutes = 0;
   let otMinutes = 0;
@@ -633,7 +684,6 @@ const previewInvoiceForClient = async (
   for (const record of allRecords) {
     employeeIds.add(record.employeeId);
 
-    // Calculate approved OT directly from the TimeRecord's own fields
     let approvedOT = 0;
     if ((record as any).shiftExtensionStatus === 'APPROVED') {
       approvedOT += (record as any).shiftExtensionMinutes || 0;
@@ -649,6 +699,7 @@ const previewInvoiceForClient = async (
   }
 
   // Calculate estimated total using per-employee rates
+  // Rate priority: assignment override > employee billing rate > client-group rate > group rate > client default
   const policy = client.clientPolicies;
   const defaultHourlyRate = policy ? Number(policy.defaultHourlyRate) : 0;
   const defaultOTRate = policy
@@ -657,11 +708,45 @@ const previewInvoiceForClient = async (
       : defaultHourlyRate * 1.5
     : 0;
 
+  // Fetch client-group billing rates
+  const clientGroupRecords = await prisma.clientGroup.findMany({
+    where: { clientId: client.id },
+    select: { groupId: true, billingRate: true },
+  });
+  const clientGroupRateMap = new Map(
+    clientGroupRecords.map((cg) => [cg.groupId, cg.billingRate ? Number(cg.billingRate) : null])
+  );
+
+  // Build employee rate map from time records (has employee billing rate info)
   const empRateMap = new Map<string, { hourlyRate: number; overtimeRate: number }>();
-  for (const ce of client.employees) {
-    const hr = ce.hourlyRate ? Number(ce.hourlyRate) : defaultHourlyRate;
-    const otr = ce.overtimeRate ? Number(ce.overtimeRate) : hr > 0 ? hr * 1.5 : defaultOTRate;
-    empRateMap.set(ce.employeeId, { hourlyRate: hr, overtimeRate: otr });
+  const employeeMap = new Map<string, any>();
+  for (const record of allRecords) {
+    if (!employeeMap.has(record.employeeId)) {
+      employeeMap.set(record.employeeId, (record as any).employee);
+    }
+  }
+  for (const [empId, employee] of employeeMap) {
+    const ce = client.employees.find((e: any) => e.employeeId === empId);
+    const employeeBillingRate = employee?.billingRate ? Number(employee.billingRate) : null;
+    const groupAssignment = employee?.groupAssignments?.[0];
+    const clientGroupBillingRate = groupAssignment?.groupId
+      ? clientGroupRateMap.get(groupAssignment.groupId) ?? null
+      : null;
+    const groupBillingRate = groupAssignment?.group?.billingRate
+      ? Number(groupAssignment.group.billingRate)
+      : null;
+
+    const hr = ce?.hourlyRate ? Number(ce.hourlyRate)
+      : employeeBillingRate ? employeeBillingRate
+      : clientGroupBillingRate ? clientGroupBillingRate
+      : groupBillingRate ? groupBillingRate
+      : defaultHourlyRate;
+
+    const otr = ce?.overtimeRate ? Number(ce.overtimeRate)
+      : hr > 0 ? hr * 1.5
+      : defaultOTRate;
+
+    empRateMap.set(empId, { hourlyRate: hr, overtimeRate: otr });
   }
 
   // Per-employee aggregation for accurate rate calculation
@@ -683,19 +768,26 @@ const previewInvoiceForClient = async (
   }
 
   let estimatedTotal = 0;
+  const ratesUsed: number[] = [];
   for (const [empId, agg] of empAgg) {
     const rates = empRateMap.get(empId) || { hourlyRate: defaultHourlyRate, overtimeRate: defaultOTRate };
-    const regularMin = agg.totalMin - agg.otMin;
-    estimatedTotal += (regularMin / 60) * rates.hourlyRate + (agg.otMin / 60) * rates.overtimeRate;
+    if (rates.hourlyRate > 0 && !ratesUsed.includes(rates.hourlyRate)) {
+      ratesUsed.push(rates.hourlyRate);
+    }
+    const totalHrs = Math.round((agg.totalMin / 60) * 100) / 100;
+    const otHrs = Math.round((agg.otMin / 60) * 100) / 100;
+    const regularHrs = Math.round((totalHrs - otHrs) * 100) / 100;
+    estimatedTotal += regularHrs * rates.hourlyRate + otHrs * rates.overtimeRate;
   }
 
   return {
     clientName: client.companyName,
     invoiceNumber,
     employeeCount: employeeIds.size,
-    totalHours: Math.round(((totalMinutes - otMinutes) / 60) * 100) / 100,
+    totalHours: Math.round((totalMinutes / 60) * 100) / 100,
     overtimeHours: Math.round((otMinutes / 60) * 100) / 100,
     estimatedTotal: Math.round(estimatedTotal * 100) / 100,
+    rates: ratesUsed.sort((a, b) => a - b),
     lateOtRecords: lateApprovedOT.length,
     currency: policy?.currency || 'USD',
   };
