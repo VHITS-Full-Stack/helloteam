@@ -13,6 +13,7 @@ import {
   Trash2,
   AlertTriangle,
   Eye,
+  ChevronDown,
 } from 'lucide-react';
 import { Card, Button, Badge, Modal } from '../../components/common';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -621,53 +622,62 @@ const Settings = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">Default Timezone</label>
-                      <select
-                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                        value={generalSettings.defaultTimezone}
-                        disabled={!isSuperAdmin}
-                        onChange={(e) => setGeneralSettings(prev => ({
-                          ...prev,
-                          defaultTimezone: e.target.value
-                        }))}
-                      >
-                        <option value="America/New_York">America/New_York (ET)</option>
-                        <option value="America/Chicago">America/Chicago (CT)</option>
-                        <option value="America/Denver">America/Denver (MT)</option>
-                        <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                          value={generalSettings.defaultTimezone}
+                          disabled={!isSuperAdmin}
+                          onChange={(e) => setGeneralSettings(prev => ({
+                            ...prev,
+                            defaultTimezone: e.target.value
+                          }))}
+                        >
+                          <option value="America/New_York">America/New_York (ET)</option>
+                          <option value="America/Chicago">America/Chicago (CT)</option>
+                          <option value="America/Denver">America/Denver (MT)</option>
+                          <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
                       <label className="label">Date Format</label>
-                      <select
-                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                        value={generalSettings.dateFormat}
-                        disabled={!isSuperAdmin}
-                        onChange={(e) => setGeneralSettings(prev => ({
-                          ...prev,
-                          dateFormat: e.target.value
-                        }))}
-                      >
-                        <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                        <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                        <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                          value={generalSettings.dateFormat}
+                          disabled={!isSuperAdmin}
+                          onChange={(e) => setGeneralSettings(prev => ({
+                            ...prev,
+                            dateFormat: e.target.value
+                          }))}
+                        >
+                          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="label">Work Week Start</label>
-                      <select
-                        className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                        value={generalSettings.workWeekStart}
-                        disabled={!isSuperAdmin}
-                        onChange={(e) => setGeneralSettings(prev => ({
-                          ...prev,
-                          workWeekStart: e.target.value
-                        }))}
-                      >
-                        <option value="Sunday">Sunday</option>
-                        <option value="Monday">Monday</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                          value={generalSettings.workWeekStart}
+                          disabled={!isSuperAdmin}
+                          onChange={(e) => setGeneralSettings(prev => ({
+                            ...prev,
+                            workWeekStart: e.target.value
+                          }))}
+                        >
+                          <option value="Sunday">Sunday</option>
+                          <option value="Monday">Monday</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
                       <label className="label">Default Overtime Threshold</label>
@@ -688,19 +698,22 @@ const Settings = () => {
                   </div>
                   <div>
                     <label className="label">Payroll Periods</label>
-                    <select
-                      className={`input ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                      value={generalSettings.payrollPeriod}
-                      disabled={!isSuperAdmin}
-                      onChange={(e) => setGeneralSettings(prev => ({
-                        ...prev,
-                        payrollPeriod: e.target.value
-                      }))}
-                    >
-                      <option value="Bi-weekly">Bi-weekly (1st-15th, 16th-End)</option>
-                      <option value="Weekly">Weekly</option>
-                      <option value="Monthly">Monthly</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                        value={generalSettings.payrollPeriod}
+                        disabled={!isSuperAdmin}
+                        onChange={(e) => setGeneralSettings(prev => ({
+                          ...prev,
+                          payrollPeriod: e.target.value
+                        }))}
+                      >
+                        <option value="Bi-weekly">Bi-weekly (1st-15th, 16th-End)</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1131,18 +1144,21 @@ const Settings = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="label">Role *</label>
-                    <select
-                      className="input"
-                      value={adminUserFormData.role}
-                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, role: e.target.value }))}
-                    >
-                      <option value="SUPER_ADMIN">Super Admin</option>
-                      <option value="ADMIN">Admin</option>
-                      <option value="OPERATIONS">Operations</option>
-                      <option value="HR">HR</option>
-                      <option value="FINANCE">Finance</option>
-                      <option value="SUPPORT">Support</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        className="input appearance-none pr-9"
+                        value={adminUserFormData.role}
+                        onChange={(e) => setAdminUserFormData(prev => ({ ...prev, role: e.target.value }))}
+                      >
+                        <option value="SUPER_ADMIN">Super Admin</option>
+                        <option value="ADMIN">Admin</option>
+                        <option value="OPERATIONS">Operations</option>
+                        <option value="HR">HR</option>
+                        <option value="FINANCE">Finance</option>
+                        <option value="SUPPORT">Support</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                   <div>
                     <label className="label">Department</label>
@@ -1159,18 +1175,21 @@ const Settings = () => {
                 {roles.length > 0 && (
                   <div>
                     <label className="label">Dynamic Role (Optional)</label>
-                    <select
-                      className="input"
-                      value={adminUserFormData.roleId}
-                      onChange={(e) => setAdminUserFormData(prev => ({ ...prev, roleId: e.target.value }))}
-                    >
-                      <option value="">-- Select Dynamic Role --</option>
-                      {roles.map(role => (
-                        <option key={role.id} value={role.id}>
-                          {role.displayName}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        className="input appearance-none pr-9"
+                        value={adminUserFormData.roleId}
+                        onChange={(e) => setAdminUserFormData(prev => ({ ...prev, roleId: e.target.value }))}
+                      >
+                        <option value="">-- Select Dynamic Role --</option>
+                        {roles.map(role => (
+                          <option key={role.id} value={role.id}>
+                            {role.displayName}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                     <p className="text-xs text-gray-400 mt-1">
                       Dynamic roles provide granular permissions beyond the base role
                     </p>
@@ -1329,19 +1348,22 @@ const Settings = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Minimum password length</span>
-                        <select
-                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={securitySettings.minPasswordLength}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setSecuritySettings(prev => ({
-                            ...prev,
-                            minPasswordLength: parseInt(e.target.value)
-                          }))}
-                        >
-                          <option value={8}>8</option>
-                          <option value={10}>10</option>
-                          <option value={12}>12</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            className={`input w-32 appearance-none pr-9 text-center ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                            value={securitySettings.minPasswordLength}
+                            disabled={!isSuperAdmin}
+                            onChange={(e) => setSecuritySettings(prev => ({
+                              ...prev,
+                              minPasswordLength: parseInt(e.target.value)
+                            }))}
+                          >
+                            <option value={8}>8</option>
+                            <option value={10}>10</option>
+                            <option value={12}>12</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Require special characters</span>
@@ -1361,20 +1383,23 @@ const Settings = () => {
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Password expiry (days)</span>
-                        <select
-                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={securitySettings.passwordExpiryDays}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setSecuritySettings(prev => ({
-                            ...prev,
-                            passwordExpiryDays: parseInt(e.target.value)
-                          }))}
-                        >
-                          <option value={30}>30</option>
-                          <option value={60}>60</option>
-                          <option value={90}>90</option>
-                          <option value={0}>Never</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            className={`input w-32 appearance-none pr-9 text-center ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                            value={securitySettings.passwordExpiryDays}
+                            disabled={!isSuperAdmin}
+                            onChange={(e) => setSecuritySettings(prev => ({
+                              ...prev,
+                              passwordExpiryDays: parseInt(e.target.value)
+                            }))}
+                          >
+                            <option value={30}>30</option>
+                            <option value={60}>60</option>
+                            <option value={90}>90</option>
+                            <option value={0}>Never</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -1384,20 +1409,23 @@ const Settings = () => {
                     <div className="space-y-4">
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Session timeout (minutes)</span>
-                        <select
-                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={securitySettings.sessionTimeoutMinutes}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setSecuritySettings(prev => ({
-                            ...prev,
-                            sessionTimeoutMinutes: parseInt(e.target.value)
-                          }))}
-                        >
-                          <option value={15}>15</option>
-                          <option value={30}>30</option>
-                          <option value={60}>60</option>
-                          <option value={120}>120</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            className={`input w-32 appearance-none pr-9 text-center ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
+                            value={securitySettings.sessionTimeoutMinutes}
+                            disabled={!isSuperAdmin}
+                            onChange={(e) => setSecuritySettings(prev => ({
+                              ...prev,
+                              sessionTimeoutMinutes: parseInt(e.target.value)
+                            }))}
+                          >
+                            <option value={15}>15</option>
+                            <option value={30}>30</option>
+                            <option value={60}>60</option>
+                            <option value={120}>120</option>
+                          </select>
+                          <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
                       </div>
                       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
                         <span className="text-gray-700">Enforce 2FA for admins</span>

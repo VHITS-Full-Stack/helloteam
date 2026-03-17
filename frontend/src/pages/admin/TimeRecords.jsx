@@ -471,29 +471,35 @@ const TimeRecords = () => {
 
           <div className="h-6 w-px bg-gray-200" />
 
-          <select
-            className="input text-sm"
-            style={{ width: '11rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-          >
-            {clients.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              className="input text-sm appearance-none pr-9"
+              style={{ width: '11rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
 
-          <select
-            className="input text-sm"
-            style={{ width: '9rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
-            value={selectedStatus}
-            onChange={(e) => setSelectedStatus(e.target.value)}
-          >
-            <option value="all">All Status</option>
-            <option value="approved">Approved</option>
-            <option value="pending">Pending</option>
-            <option value="active">Active</option>
-            <option value="adjusted">Adjusted</option>
-          </select>
+          <div className="relative">
+            <select
+              className="input text-sm appearance-none pr-9"
+              style={{ width: '9rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="active">Active</option>
+              <option value="adjusted">Adjusted</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
         </div>
       </Card>
 

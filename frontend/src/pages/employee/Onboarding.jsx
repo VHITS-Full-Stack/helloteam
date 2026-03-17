@@ -16,6 +16,7 @@ import {
   FileText,
   X,
   Check,
+  ChevronDown,
 } from "lucide-react";
 import { PhoneInput } from "../../components/common";
 import employeeOnboardingService from "../../services/employeeOnboarding.service";
@@ -798,22 +799,25 @@ const Onboarding = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Relationship <span className="text-red-500">*</span>
                           </label>
-                          <select
-                            value={contact.relationship}
-                            onChange={(e) => {
-                              updateContact(i, "relationship", e.target.value);
-                              if (e.target.value !== "Other")
-                                updateContact(i, "customRelationship", "");
-                            }}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
-                          >
-                            <option value="">Select...</option>
-                            {RELATIONSHIPS.map((r) => (
-                              <option key={r} value={r}>
-                                {r}
-                              </option>
-                            ))}
-                          </select>
+                          <div className="relative">
+                            <select
+                              value={contact.relationship}
+                              onChange={(e) => {
+                                updateContact(i, "relationship", e.target.value);
+                                if (e.target.value !== "Other")
+                                  updateContact(i, "customRelationship", "");
+                              }}
+                              className="appearance-none pr-9 w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm"
+                            >
+                              <option value="">Select...</option>
+                              {RELATIONSHIPS.map((r) => (
+                                <option key={r} value={r}>
+                                  {r}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
                           {contact.relationship === "Other" && (
                             <input
                               type="text"
@@ -895,19 +899,22 @@ const Onboarding = () => {
                     )}
                   </div>
                   <div className="mb-3">
-                    <select
-                      value={idType}
-                      onChange={(e) => setIdType(e.target.value)}
-                      disabled={isDocApproved}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
-                    >
-                      <option value="">Select ID type...</option>
-                      {govIdTypes.map((t) => (
-                        <option key={t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={idType}
+                        onChange={(e) => setIdType(e.target.value)}
+                        disabled={isDocApproved}
+                        className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
+                      >
+                        <option value="">Select ID type...</option>
+                        {govIdTypes.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                   {!idFile && !existingIdUrl ? (
                     <div
@@ -993,19 +1000,22 @@ const Onboarding = () => {
                     )}
                   </div>
                   <div className="mb-3">
-                    <select
-                      value={id2Type}
-                      onChange={(e) => setId2Type(e.target.value)}
-                      disabled={isDocApproved}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
-                    >
-                      <option value="">Select ID type...</option>
-                      {govIdTypes.map((t) => (
-                        <option key={t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={id2Type}
+                        onChange={(e) => setId2Type(e.target.value)}
+                        disabled={isDocApproved}
+                        className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
+                      >
+                        <option value="">Select ID type...</option>
+                        {govIdTypes.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                   {!id2File && !existingId2Url ? (
                     <div
@@ -1095,19 +1105,22 @@ const Onboarding = () => {
                     document with your address
                   </p>
                   <div className="mb-3">
-                    <select
-                      value={proofType}
-                      onChange={(e) => setProofType(e.target.value)}
-                      disabled={isDocApproved}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
-                    >
-                      <option value="">Select document type...</option>
-                      {proofOfAddressTypes.map((t) => (
-                        <option key={t.id} value={t.name}>
-                          {t.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={proofType}
+                        onChange={(e) => setProofType(e.target.value)}
+                        disabled={isDocApproved}
+                        className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
+                      >
+                        <option value="">Select document type...</option>
+                        {proofOfAddressTypes.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </div>
                   {!proofFile && !existingProofUrl ? (
                     <div

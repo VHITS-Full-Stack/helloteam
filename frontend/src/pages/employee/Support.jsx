@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageSquare, Send, Phone, Mail, Clock, ChevronRight, HelpCircle, FileText, AlertCircle } from 'lucide-react';
+import { MessageSquare, Send, Phone, Mail, Clock, ChevronDown, ChevronRight, HelpCircle, FileText, AlertCircle } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
 
 const Support = () => {
@@ -136,13 +136,16 @@ const Support = () => {
             </div>
             <div>
               <label className="label">Category</label>
-              <select className="input">
-                <option>Time & Attendance</option>
-                <option>Leave & Schedule</option>
-                <option>Technical Issue</option>
-                <option>Payroll Question</option>
-                <option>Other</option>
-              </select>
+              <div className="relative">
+                <select className="input appearance-none pr-9">
+                  <option>Time & Attendance</option>
+                  <option>Leave & Schedule</option>
+                  <option>Technical Issue</option>
+                  <option>Payroll Question</option>
+                  <option>Other</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="label">Message</label>

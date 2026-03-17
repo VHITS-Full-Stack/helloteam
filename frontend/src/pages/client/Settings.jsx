@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Building2, Users, Bell, Shield, Globe, Clock, Save, AlertCircle, Check, Loader2 } from 'lucide-react';
+import { Building2, Users, Bell, Shield, Globe, Clock, Save, AlertCircle, Check, Loader2, ChevronDown } from 'lucide-react';
 import { Card, Button, Badge } from '../../components/common';
 import clientPortalService from '../../services/clientPortal.service';
 
@@ -385,17 +385,20 @@ const Settings = () => {
                           <label className="block text-sm font-medium text-gray-700 mb-2">
                             Paid Leave Type
                           </label>
-                          <select
-                            className="input"
-                            value={policies.paidLeaveType || ''}
-                            onChange={(e) => handlePolicyChange('paidLeaveType', e.target.value || null)}
-                          >
-                            <option value="">Select type</option>
-                            <option value="fixed">Fixed Annual Days</option>
+                          <div className="relative">
+                            <select
+                              className="input appearance-none pr-9"
+                              value={policies.paidLeaveType || ''}
+                              onChange={(e) => handlePolicyChange('paidLeaveType', e.target.value || null)}
+                            >
+                              <option value="">Select type</option>
+                              <option value="fixed">Fixed Annual Days</option>
                               <option value="fixed-half-yearly">Fixed Half-Yearly</option>
-                            <option value="accrued">Accrued Monthly</option>
-                            <option value="milestone">Milestone Based</option>
-                          </select>
+                              <option value="accrued">Accrued Monthly</option>
+                              <option value="milestone">Milestone Based</option>
+                            </select>
+                            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                          </div>
                         </div>
 
                         <div className="p-4 bg-gray-50 rounded-xl">
@@ -579,37 +582,46 @@ const Settings = () => {
               <div className="space-y-4">
                 <div>
                   <label className="label">Date Format</label>
-                  <select
-                    className="input"
-                    value={preferences.dateFormat}
-                    onChange={(e) => handlePreferenceChange('dateFormat', e.target.value)}
-                  >
-                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="input appearance-none pr-9"
+                      value={preferences.dateFormat}
+                      onChange={(e) => handlePreferenceChange('dateFormat', e.target.value)}
+                    >
+                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="label">Time Format</label>
-                  <select
-                    className="input"
-                    value={preferences.timeFormat}
-                    onChange={(e) => handlePreferenceChange('timeFormat', e.target.value)}
-                  >
-                    <option value="12-hour">12-hour (AM/PM)</option>
-                    <option value="24-hour">24-hour</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="input appearance-none pr-9"
+                      value={preferences.timeFormat}
+                      onChange={(e) => handlePreferenceChange('timeFormat', e.target.value)}
+                    >
+                      <option value="12-hour">12-hour (AM/PM)</option>
+                      <option value="24-hour">24-hour</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="label">Work Week Start</label>
-                  <select
-                    className="input"
-                    value={preferences.workWeekStart}
-                    onChange={(e) => handlePreferenceChange('workWeekStart', e.target.value)}
-                  >
-                    <option value="Sunday">Sunday</option>
-                    <option value="Monday">Monday</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="input appearance-none pr-9"
+                      value={preferences.workWeekStart}
+                      onChange={(e) => handlePreferenceChange('workWeekStart', e.target.value)}
+                    >
+                      <option value="Sunday">Sunday</option>
+                      <option value="Monday">Monday</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="label">Default Overtime Threshold</label>

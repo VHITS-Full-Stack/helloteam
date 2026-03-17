@@ -825,8 +825,17 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
             id: true,
             firstName: true,
             lastName: true,
+            billingRate: true,
             user: {
               select: { email: true },
+            },
+            groupAssignments: {
+              select: {
+                groupId: true,
+                group: {
+                  select: { billingRate: true },
+                },
+              },
             },
           },
         },
@@ -840,12 +849,92 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
       orderBy: [{ date: 'asc' }, { employee: { lastName: 'asc' } }],
     });
 
+    // Fetch client policies and assignments for rate calculation
+    const clientIds = [...new Set(records.map((r) => r.clientId))];
+    const employeeIds = [...new Set(records.map((r) => r.employeeId))];
+
+    const [clientPolicies, assignments, clientGroupRecords] = await Promise.all([
+      prisma.clientPolicy.findMany({ where: { clientId: { in: clientIds } } }),
+      prisma.clientEmployee.findMany({
+        where: { clientId: { in: clientIds }, employeeId: { in: employeeIds }, isActive: true },
+      }),
+      prisma.clientGroup.findMany({
+        where: { clientId: { in: clientIds } },
+        select: { clientId: true, groupId: true, billingRate: true },
+      }),
+    ]);
+
+    const policyMap = new Map(clientPolicies.map((p) => [p.clientId, p]));
+    const assignmentMap = new Map(assignments.map((a) => [`${a.clientId}-${a.employeeId}`, a]));
+    const clientGroupRateMap = new Map(
+      clientGroupRecords.map((cg) => [`${cg.clientId}-${cg.groupId}`, cg.billingRate ? Number(cg.billingRate) : null])
+    );
+
+    // Fetch payroll adjustments for this period
+    const pStart = new Date((periodStart as string) + 'T12:00:00Z');
+    const pEnd = new Date((periodEnd as string) + 'T12:00:00Z');
+    const adjustments = await prisma.payrollAdjustment.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        periodStart: {
+          gte: new Date(pStart.getTime() - 24 * 60 * 60 * 1000),
+          lte: new Date(pStart.getTime() + 24 * 60 * 60 * 1000),
+        },
+        periodEnd: {
+          gte: new Date(pEnd.getTime() - 24 * 60 * 60 * 1000),
+          lte: new Date(pEnd.getTime() + 24 * 60 * 60 * 1000),
+        },
+      },
+    });
+
+    const adjustmentsByEmployee: Record<string, any[]> = {};
+    adjustments.forEach((adj) => {
+      if (!adjustmentsByEmployee[adj.employeeId]) {
+        adjustmentsByEmployee[adj.employeeId] = [];
+      }
+      adjustmentsByEmployee[adj.employeeId].push(adj);
+    });
+
     // Group by employee
     const employeeData: Record<string, any> = {};
 
     records.forEach((record) => {
       const empId = record.employeeId;
       if (!employeeData[empId]) {
+        // Calculate rate
+        const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
+        const policy = policyMap.get(record.clientId);
+        const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
+        const groupAssignment = record.employee.groupAssignments?.[0];
+        const clientGroupBillingRate = groupAssignment?.groupId
+          ? clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null
+          : null;
+        const groupBillingRate = groupAssignment?.group?.billingRate
+          ? Number(groupAssignment.group.billingRate)
+          : null;
+
+        const hourlyRate = assignment?.hourlyRate
+          ? Number(assignment.hourlyRate)
+          : employeeBillingRate
+            ? employeeBillingRate
+            : clientGroupBillingRate
+              ? clientGroupBillingRate
+              : groupBillingRate
+                ? groupBillingRate
+                : policy?.defaultHourlyRate
+                  ? Number(policy.defaultHourlyRate)
+                  : 0;
+
+        let overtimeRate = assignment?.overtimeRate
+          ? Number(assignment.overtimeRate)
+          : policy?.defaultOvertimeRate
+            ? Number(policy.defaultOvertimeRate)
+            : 0;
+
+        if (overtimeRate === 0 && hourlyRate > 0) {
+          overtimeRate = hourlyRate * 1.5;
+        }
+
         employeeData[empId] = {
           employeeId: empId,
           firstName: record.employee.firstName,
@@ -859,6 +948,8 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
           overtimeMinutes: 0,
           breakMinutes: 0,
           workDays: 0,
+          hourlyRate,
+          overtimeRate,
         };
       }
 
@@ -885,14 +976,39 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
       employeeData[empId].workDays += 1;
     });
 
-    // Convert to array and calculate hours
-    const exportData = Object.values(employeeData).map((emp: any) => ({
-      ...emp,
-      totalHours: Math.round(emp.totalMinutes / 60 * 100) / 100,
-      regularHours: Math.round(emp.regularMinutes / 60 * 100) / 100,
-      overtimeHours: Math.round(emp.overtimeMinutes / 60 * 100) / 100,
-      breakHours: Math.round(emp.breakMinutes / 60 * 100) / 100,
-    }));
+    // Convert to array and calculate hours, pay, and adjustments
+    const exportData = Object.values(employeeData).map((emp: any) => {
+      const totalHours = Math.round(emp.totalMinutes / 60 * 100) / 100;
+      const regularHours = Math.round(emp.regularMinutes / 60 * 100) / 100;
+      const overtimeHours = Math.round(emp.overtimeMinutes / 60 * 100) / 100;
+      const breakHours = Math.round(emp.breakMinutes / 60 * 100) / 100;
+
+      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
+      const overtimePay = Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
+
+      const empAdjustments = adjustmentsByEmployee[emp.employeeId] || [];
+      const totalBonuses = Math.round(
+        empAdjustments.filter((a: any) => a.type === 'BONUS').reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100
+      ) / 100;
+      const totalDeductions = Math.round(
+        empAdjustments.filter((a: any) => a.type === 'DEDUCTION').reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100
+      ) / 100;
+
+      const grossPay = Math.round((regularPay + overtimePay + totalBonuses - totalDeductions) * 100) / 100;
+
+      return {
+        ...emp,
+        totalHours,
+        regularHours,
+        overtimeHours,
+        breakHours,
+        regularPay,
+        overtimePay,
+        totalBonuses,
+        totalDeductions,
+        grossPay,
+      };
+    });
 
     // Calculate totals
     const totals = {
@@ -902,10 +1018,13 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
       overtimeHours: Math.round(exportData.reduce((sum, e) => sum + e.overtimeHours, 0) * 100) / 100,
       breakHours: Math.round(exportData.reduce((sum, e) => sum + e.breakHours, 0) * 100) / 100,
       totalRecords: records.length,
+      totalGrossPay: Math.round(exportData.reduce((sum, e) => sum + e.grossPay, 0) * 100) / 100,
+      totalBonuses: Math.round(exportData.reduce((sum, e) => sum + e.totalBonuses, 0) * 100) / 100,
+      totalDeductions: Math.round(exportData.reduce((sum, e) => sum + e.totalDeductions, 0) * 100) / 100,
     };
 
     if (format === 'csv') {
-      // Generate CSV
+      // Generate CSV with full payroll data
       const csvHeaders = [
         'Employee ID',
         'First Name',
@@ -913,23 +1032,42 @@ export const getPayrollExportData = async (req: AuthenticatedRequest, res: Respo
         'Email',
         'Client',
         'Work Days',
-        'Total Hours',
         'Regular Hours',
         'Overtime Hours',
+        'Total Hours',
         'Break Hours',
+        'Hourly Rate',
+        'Overtime Rate',
+        'Regular Pay',
+        'Overtime Pay',
+        'Bonuses',
+        'Deductions',
+        'Gross Pay',
       ];
+
+      const escapeCsv = (val: any) => {
+        const str = String(val ?? '');
+        return str.includes(',') || str.includes('"') ? `"${str.replace(/"/g, '""')}"` : str;
+      };
 
       const csvRows = exportData.map((emp) => [
         emp.employeeId,
-        emp.firstName,
-        emp.lastName,
-        emp.email,
-        emp.client,
+        escapeCsv(emp.firstName),
+        escapeCsv(emp.lastName),
+        escapeCsv(emp.email),
+        escapeCsv(emp.client),
         emp.workDays,
-        emp.totalHours,
         emp.regularHours,
         emp.overtimeHours,
+        emp.totalHours,
         emp.breakHours,
+        emp.hourlyRate,
+        emp.overtimeRate,
+        emp.regularPay,
+        emp.overtimePay,
+        emp.totalBonuses,
+        emp.totalDeductions,
+        emp.grossPay,
       ]);
 
       const csv = [csvHeaders.join(','), ...csvRows.map((row) => row.join(','))].join('\n');

@@ -5,6 +5,7 @@ import {
   AlertCircle,
   CheckCircle,
   XCircle,
+  ChevronDown,
   ChevronRight,
   Plus,
   X,
@@ -516,17 +517,20 @@ const Leave = () => {
             {/* Filter */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium text-gray-900">Request History</h3>
-              <select
-                value={historyFilter}
-                onChange={(e) => setHistoryFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-              >
-                <option value="all">All Status</option>
-                <option value="PENDING">Pending</option>
-                <option value="APPROVED_BY_CLIENT">Client Approved</option>
-                <option value="APPROVED">Approved</option>
-                <option value="REJECTED">Rejected</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={historyFilter}
+                  onChange={(e) => setHistoryFilter(e.target.value)}
+                  className="appearance-none pr-9 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="all">All Status</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="APPROVED_BY_CLIENT">Client Approved</option>
+                  <option value="APPROVED">Approved</option>
+                  <option value="REJECTED">Rejected</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             {/* History List */}

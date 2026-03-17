@@ -10,6 +10,7 @@ import {
   Users,
   RefreshCw,
   RotateCcw,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Card,
@@ -306,17 +307,20 @@ const Approvals = () => {
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <Filter className="w-5 h-5 text-gray-400" />
-          <select
-            className="input w-40"
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-          >
-            <option value="all">All Types</option>
-            <option value="timesheet">Timesheet</option>
-            <option value="overtime">Overtime</option>
-            <option value="time-adjustment">Adjustments</option>
-            <option value="leave">Leave</option>
-          </select>
+          <div className="relative">
+            <select
+              className="input w-40 appearance-none pr-9"
+              value={selectedType}
+              onChange={(e) => setSelectedType(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="timesheet">Timesheet</option>
+              <option value="overtime">Overtime</option>
+              <option value="time-adjustment">Adjustments</option>
+              <option value="leave">Leave</option>
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
           {selectedClient !== 'all' && (
             <button
               className="text-sm text-primary hover:text-primary-dark font-medium"

@@ -242,16 +242,19 @@ const TimeAdjustments = () => {
             <div className="flex flex-wrap items-end gap-4 pt-4 border-t">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="input"
-                >
-                  <option value="">All Status</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="APPROVED">Approved</option>
-                  <option value="REJECTED">Rejected</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="input appearance-none pr-9"
+                  >
+                    <option value="">All Status</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="APPROVED">Approved</option>
+                    <option value="REJECTED">Rejected</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
@@ -273,15 +276,18 @@ const TimeAdjustments = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Adjustments</label>
-                <select
-                  value={hasAdjustmentsFilter}
-                  onChange={(e) => setHasAdjustmentsFilter(e.target.value)}
-                  className="input"
-                >
-                  <option value="">All Records</option>
-                  <option value="true">Has Adjustments</option>
-                  <option value="false">No Adjustments</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={hasAdjustmentsFilter}
+                    onChange={(e) => setHasAdjustmentsFilter(e.target.value)}
+                    className="input appearance-none pr-9"
+                  >
+                    <option value="">All Records</option>
+                    <option value="true">Has Adjustments</option>
+                    <option value="false">No Adjustments</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
               <Button
                 variant="ghost"

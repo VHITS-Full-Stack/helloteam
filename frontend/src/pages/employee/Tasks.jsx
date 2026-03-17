@@ -23,6 +23,7 @@ import {
   FileText,
   CalendarDays,
   GripVertical,
+  ChevronDown,
   ClipboardList,
   User,
   Edit2,
@@ -407,13 +408,16 @@ const Tasks = () => {
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
           />
         </div>
-        <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-          <option value="">All Priority</option>
-          <option value="LOW">Low</option>
-          <option value="MEDIUM">Medium</option>
-          <option value="HIGH">High</option>
-          <option value="URGENT">Urgent</option>
-        </select>
+        <div className="relative">
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="appearance-none pr-9 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+            <option value="">All Priority</option>
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            <option value="URGENT">Urgent</option>
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
 
         {/* View Switcher */}
         <div className="flex items-center p-1 bg-gray-100 rounded-lg">
@@ -557,15 +561,18 @@ const Tasks = () => {
                     </span>
                   </TableCell>
                   <TableCell onClick={e => e.stopPropagation()}>
-                    <select
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task, e.target.value)}
-                      className={`text-xs font-medium rounded-lg px-2 py-1 border-0 cursor-pointer ${STATUS_CONFIG[task.status].color}`}
-                    >
-                      <option value="TODO">To Do</option>
-                      <option value="IN_PROGRESS">In Progress</option>
-                      <option value="DONE">Done</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task, e.target.value)}
+                        className={`appearance-none pr-9 text-xs font-medium rounded-lg px-2 py-1 border-0 cursor-pointer ${STATUS_CONFIG[task.status].color}`}
+                      >
+                        <option value="TODO">To Do</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="DONE">Done</option>
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    </div>
                   </TableCell>
                   <TableCell>
                     <span className={`text-sm ${isOverdue(task) ? 'text-red-500 font-medium' : 'text-gray-600'}`}>
@@ -758,12 +765,15 @@ const Tasks = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select value={editForm.priority} onChange={(e) => setEditForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
+              <div className="relative">
+                <select value={editForm.priority} onChange={(e) => setEditForm(f => ({ ...f, priority: e.target.value }))} className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
@@ -795,12 +805,15 @@ const Tasks = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
-              <select value={createForm.priority} onChange={(e) => setCreateForm(f => ({ ...f, priority: e.target.value }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
-                <option value="LOW">Low</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="HIGH">High</option>
-                <option value="URGENT">Urgent</option>
-              </select>
+              <div className="relative">
+                <select value={createForm.priority} onChange={(e) => setCreateForm(f => ({ ...f, priority: e.target.value }))} className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500">
+                  <option value="LOW">Low</option>
+                  <option value="MEDIUM">Medium</option>
+                  <option value="HIGH">High</option>
+                  <option value="URGENT">Urgent</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>

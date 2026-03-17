@@ -551,25 +551,31 @@ const LeavePolicy = () => {
                   className="input pl-10 w-full"
                 />
               </div>
-              <select
-                value={balanceClientFilter}
-                onChange={(e) => setBalanceClientFilter(e.target.value)}
-                className="input"
-              >
-                <option value="all">All Clients</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
-              <select
-                value={balanceYear}
-                onChange={(e) => setBalanceYear(parseInt(e.target.value, 10))}
-                className="input"
-              >
-                {[2024, 2025, 2026, 2027].map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={balanceClientFilter}
+                  onChange={(e) => setBalanceClientFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              <div className="relative">
+                <select
+                  value={balanceYear}
+                  onChange={(e) => setBalanceYear(parseInt(e.target.value, 10))}
+                  className="input appearance-none pr-9"
+                >
+                  {[2024, 2025, 2026, 2027].map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             {loading ? (
@@ -697,27 +703,33 @@ const LeavePolicy = () => {
                   className="input pl-10 w-full"
                 />
               </div>
-              <select
-                value={approvalStatusFilter}
-                onChange={(e) => setApprovalStatusFilter(e.target.value)}
-                className="input"
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="client-approved">Client Approved</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <select
-                value={approvalClientFilter}
-                onChange={(e) => setApprovalClientFilter(e.target.value)}
-                className="input"
-              >
-                <option value="all">All Clients</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={approvalStatusFilter}
+                  onChange={(e) => setApprovalStatusFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="all">All Status</option>
+                  <option value="pending">Pending</option>
+                  <option value="client-approved">Client Approved</option>
+                  <option value="approved">Approved</option>
+                  <option value="rejected">Rejected</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              <div className="relative">
+                <select
+                  value={approvalClientFilter}
+                  onChange={(e) => setApprovalClientFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="all">All Clients</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
               {selectedRequests.length > 0 && (
                 <Button
                   variant="primary"
@@ -884,17 +896,20 @@ const LeavePolicy = () => {
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement Type</label>
-                  <select
-                    value={policyForm.paidLeaveEntitlementType || 'NONE'}
-                    onChange={(e) => setPolicyForm({ ...policyForm, paidLeaveEntitlementType: e.target.value })}
-                    className="input w-full"
-                  >
-                    <option value="NONE">None</option>
-                    <option value="FIXED">Fixed Yearly Allocation</option>
-                    <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly Allocation</option>
-                    <option value="ACCRUED">Monthly Accrual</option>
-                    <option value="MILESTONE">Milestone Based</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={policyForm.paidLeaveEntitlementType || 'NONE'}
+                      onChange={(e) => setPolicyForm({ ...policyForm, paidLeaveEntitlementType: e.target.value })}
+                      className="input w-full appearance-none pr-9"
+                    >
+                      <option value="NONE">None</option>
+                      <option value="FIXED">Fixed Yearly Allocation</option>
+                      <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly Allocation</option>
+                      <option value="ACCRUED">Monthly Accrual</option>
+                      <option value="MILESTONE">Milestone Based</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
 
                 {policyForm.paidLeaveEntitlementType === 'FIXED' && (
@@ -1030,16 +1045,19 @@ const LeavePolicy = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Holiday Type</label>
-                  <select
-                    value={policyForm.paidHolidayType || 'federal'}
-                    onChange={(e) => setPolicyForm({ ...policyForm, paidHolidayType: e.target.value })}
-                    className="input w-full"
-                  >
-                    <option value="federal">Federal Holidays</option>
-                    <option value="state">State Holidays</option>
-                    <option value="company">Company Specific</option>
-                    <option value="custom">Custom</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={policyForm.paidHolidayType || 'federal'}
+                      onChange={(e) => setPolicyForm({ ...policyForm, paidHolidayType: e.target.value })}
+                      className="input w-full appearance-none pr-9"
+                    >
+                      <option value="federal">Federal Holidays</option>
+                      <option value="state">State Holidays</option>
+                      <option value="company">Company Specific</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1153,16 +1171,19 @@ const LeavePolicy = () => {
             {/* Adjustment Form */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Adjustment Type</label>
-              <select
-                value={adjustForm.adjustmentType}
-                onChange={(e) => setAdjustForm({ ...adjustForm, adjustmentType: e.target.value })}
-                className="input w-full"
-              >
-                <option value="ADD">Add Days</option>
-                <option value="DEDUCT">Deduct Days</option>
-                <option value="CARRYOVER">Add Carryover</option>
-                <option value="RESET">Reset Balance</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={adjustForm.adjustmentType}
+                  onChange={(e) => setAdjustForm({ ...adjustForm, adjustmentType: e.target.value })}
+                  className="input w-full appearance-none pr-9"
+                >
+                  <option value="ADD">Add Days</option>
+                  <option value="DEDUCT">Deduct Days</option>
+                  <option value="CARRYOVER">Add Carryover</option>
+                  <option value="RESET">Reset Balance</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
 
             <div>
@@ -1202,25 +1223,31 @@ const LeavePolicy = () => {
         <Card padding="md">
           {/* Filters & Add Button */}
           <div className="flex flex-wrap items-center gap-4 mb-4">
-            <select
-              value={holidayClientFilter}
-              onChange={(e) => setHolidayClientFilter(e.target.value)}
-              className="input"
-            >
-              <option value="all">All Clients</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.companyName}</option>
-              ))}
-            </select>
-            <select
-              value={holidayYear}
-              onChange={(e) => setHolidayYear(parseInt(e.target.value, 10))}
-              className="input"
-            >
-              {[2024, 2025, 2026, 2027].map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={holidayClientFilter}
+                onChange={(e) => setHolidayClientFilter(e.target.value)}
+                className="input appearance-none pr-9"
+              >
+                <option value="all">All Clients</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.companyName}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            <div className="relative">
+              <select
+                value={holidayYear}
+                onChange={(e) => setHolidayYear(parseInt(e.target.value, 10))}
+                className="input appearance-none pr-9"
+              >
+                {[2024, 2025, 2026, 2027].map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
             <Button variant="primary" icon={Plus} onClick={handleAddHoliday}>
               Add Holiday
             </Button>
@@ -1299,16 +1326,19 @@ const LeavePolicy = () => {
           {!editingHoliday && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Client <span className="text-red-500">*</span></label>
-              <select
-                value={holidayForm.clientId}
-                onChange={(e) => setHolidayForm({ ...holidayForm, clientId: e.target.value })}
-                className="input w-full"
-              >
-                <option value="">Select Client</option>
-                {clients.map(c => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  value={holidayForm.clientId}
+                  onChange={(e) => setHolidayForm({ ...holidayForm, clientId: e.target.value })}
+                  className="input w-full appearance-none pr-9"
+                >
+                  <option value="">Select Client</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.companyName}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           )}
           <div>

@@ -12,7 +12,8 @@ import {
   Coffee,
   UserX,
   Mail,
-  Calendar
+  Calendar,
+  ChevronDown
 } from 'lucide-react';
 import {
   Card,
@@ -202,16 +203,19 @@ const Workforce = () => {
             />
           </div>
           <div className="flex gap-2">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white"
-            >
-              <option value="all">All Status</option>
-              <option value="working">Working</option>
-              <option value="break">On Break</option>
-              <option value="offline">Offline</option>
-            </select>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-white appearance-none pr-9"
+              >
+                <option value="all">All Status</option>
+                <option value="working">Working</option>
+                <option value="break">On Break</option>
+                <option value="offline">Offline</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
         </div>
       </Card>

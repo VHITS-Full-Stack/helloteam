@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Loader2,
   ChevronRight,
+  ChevronDown,
   TrendingUp,
   FileDown,
   Eye,
@@ -76,32 +77,133 @@ const Payroll = () => {
   const [successMsg, setSuccessMsg] = useState('');
   const [deleteAdjustmentId, setDeleteAdjustmentId] = useState(null);
 
-  // Set default period to current biweekly
-  useEffect(() => {
+  // Generate list of semi-monthly pay periods (current + 12 months back)
+  const generatePayPeriods = () => {
+    const periods = [];
     const today = new Date();
     const dayOfMonth = today.getDate();
-    const year = today.getFullYear();
-    const month = today.getMonth();
-
     const pad = (n) => String(n).padStart(2, '0');
+
+    // Determine the latest period boundary
+    let startYear = today.getFullYear();
+    let startMonth = today.getMonth(); // 0-indexed
+
+    // Build periods from current forward to the latest applicable, then backwards
+    // We'll generate from the most recent period going back ~24 periods (~12 months)
+    let periodsToGenerate = 12;
+
+    // Figure out the current/latest period
+    let curYear, curMonth, curHalf;
     if (dayOfMonth <= 7) {
-      // Current period: 22nd (prev month) to 7th (current month)
-      const prevMonth = month === 0 ? 11 : month - 1;
-      const prevYear = month === 0 ? year - 1 : year;
-      setPeriodStart(`${prevYear}-${pad(prevMonth + 1)}-22`);
-      setPeriodEnd(`${year}-${pad(month + 1)}-07`);
+      // We're in the 22nd-7th period
+      curYear = startYear;
+      curMonth = startMonth; // the month of the 7th
+      curHalf = 'first'; // 22nd(prev)-7th(this)
     } else if (dayOfMonth <= 21) {
-      // Current period: 8th to 21st (current month)
-      setPeriodStart(`${year}-${pad(month + 1)}-08`);
-      setPeriodEnd(`${year}-${pad(month + 1)}-21`);
+      // We're in the 8th-21st period
+      curYear = startYear;
+      curMonth = startMonth;
+      curHalf = 'second'; // 8th-21st
     } else {
-      // Current period: 22nd (current month) to 7th (next month)
-      const nextMonth = month === 11 ? 0 : month + 1;
-      const nextYear = month === 11 ? year + 1 : year;
-      setPeriodStart(`${year}-${pad(month + 1)}-22`);
-      setPeriodEnd(`${nextYear}-${pad(nextMonth + 1)}-07`);
+      // We're in the 22nd-7th(next) period
+      curYear = startYear;
+      curMonth = startMonth;
+      curHalf = 'third'; // 22nd(this)-7th(next)
     }
-  }, []);
+
+    // Helper to add a period
+    const addPeriod = (pStart, pEnd, label) => {
+      periods.push({ start: pStart, end: pEnd, label });
+    };
+
+    // Add the next upcoming period at top
+    if (curHalf === 'first') {
+      // Next is 8th-21st of current month
+      const pStart = `${curYear}-${pad(curMonth + 1)}-08`;
+      const pEnd = `${curYear}-${pad(curMonth + 1)}-21`;
+      const label = `${pad(curMonth + 1)}/08 - ${pad(curMonth + 1)}/21, ${curYear}`;
+      addPeriod(pStart, pEnd, label);
+    } else if (curHalf === 'second') {
+      // Next is 22nd of current month to 7th of next month
+      const nextM = curMonth === 11 ? 0 : curMonth + 1;
+      const nextY = curMonth === 11 ? curYear + 1 : curYear;
+      const pStart = `${curYear}-${pad(curMonth + 1)}-22`;
+      const pEnd = `${nextY}-${pad(nextM + 1)}-07`;
+      const label = `${pad(curMonth + 1)}/22 - ${pad(nextM + 1)}/07, ${nextY}`;
+      addPeriod(pStart, pEnd, label);
+    } else {
+      // Next is 8th-21st of next month
+      const nextM = curMonth === 11 ? 0 : curMonth + 1;
+      const nextY = curMonth === 11 ? curYear + 1 : curYear;
+      const pStart = `${nextY}-${pad(nextM + 1)}-08`;
+      const pEnd = `${nextY}-${pad(nextM + 1)}-21`;
+      const label = `${pad(nextM + 1)}/08 - ${pad(nextM + 1)}/21, ${nextY}`;
+      addPeriod(pStart, pEnd, label);
+    }
+
+    // Walk backwards from current period
+    let y = curYear;
+    let m = curMonth; // 0-indexed
+    let half = curHalf;
+
+    for (let i = 0; i < periodsToGenerate; i++) {
+      if (half === 'third') {
+        // 22nd of m to 7th of m+1
+        const nextM = m === 11 ? 0 : m + 1;
+        const nextY = m === 11 ? y + 1 : y;
+        const pStart = `${y}-${pad(m + 1)}-22`;
+        const pEnd = `${nextY}-${pad(nextM + 1)}-07`;
+        const label = `${pad(m + 1)}/22 - ${pad(nextM + 1)}/07, ${nextY}`;
+        addPeriod(pStart, pEnd, label);
+        // Move to previous half: 8th-21st of same month
+        half = 'second';
+      } else if (half === 'second') {
+        // 8th to 21st of m
+        const pStart = `${y}-${pad(m + 1)}-08`;
+        const pEnd = `${y}-${pad(m + 1)}-21`;
+        const label = `${pad(m + 1)}/08 - ${pad(m + 1)}/21, ${y}`;
+        addPeriod(pStart, pEnd, label);
+        // Move to previous half: 22nd(prev)-7th(this)
+        half = 'first';
+      } else {
+        // first: 22nd of (m-1) to 7th of m
+        const prevM = m === 0 ? 11 : m - 1;
+        const prevY = m === 0 ? y - 1 : y;
+        const pStart = `${prevY}-${pad(prevM + 1)}-22`;
+        const pEnd = `${y}-${pad(m + 1)}-07`;
+        const label = `${pad(prevM + 1)}/22 - ${pad(m + 1)}/07, ${y}`;
+        addPeriod(pStart, pEnd, label);
+        // Move to previous half: 8th-21st of prev month
+        m = prevM;
+        y = prevY;
+        half = 'second';
+      }
+    }
+
+    return periods;
+  };
+
+  const payPeriods = generatePayPeriods();
+  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState('1'); // index 1 = current period (0 = next upcoming)
+
+  // Set default period to current period
+  useEffect(() => {
+    if (payPeriods.length > 1) {
+      setPeriodStart(payPeriods[1].start);
+      setPeriodEnd(payPeriods[1].end);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle period dropdown change
+  const handlePeriodChange = (e) => {
+    const idx = e.target.value;
+    setSelectedPeriodIdx(idx);
+    const period = payPeriods[parseInt(idx)];
+    if (period) {
+      setPeriodStart(period.start);
+      setPeriodEnd(period.end);
+    }
+  };
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -446,97 +548,67 @@ const Payroll = () => {
       )}
 
       {/* Period Selector */}
-      <Card className="bg-gradient-to-r from-primary-600 to-primary-800 text-white">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <p className="text-primary-200 text-sm">Payroll Period</p>
-            <div className="flex items-center gap-3 mt-2">
-              <Calendar className="w-5 h-5" />
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white font-medium"
-                  value={periodStart}
-                  onChange={(e) => setPeriodStart(e.target.value)}
-                />
-                <span>to</span>
-                <input
-                  type="date"
-                  className="bg-white/10 border border-white/20 rounded-lg px-3 py-2 text-white font-medium"
-                  value={periodEnd}
-                  onChange={(e) => setPeriodEnd(e.target.value)}
-                />
-              </div>
+      <Card>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-gray-500" />
+            <span className="text-sm font-medium text-gray-600">Report Dates:</span>
+            <div className="relative">
+              <select
+                className="appearance-none border border-gray-300 rounded-lg pl-4 pr-9 py-2 text-sm font-medium text-gray-800 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={selectedPeriodIdx}
+                onChange={handlePeriodChange}
+              >
+                {payPeriods.map((period, idx) => (
+                  <option key={idx} value={idx}>
+                    {period.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            <div>
-              <p className="text-primary-200 text-sm">Employees</p>
-              <p className="text-2xl font-bold">{summary.totalEmployees || 0}</p>
-            </div>
-            <div>
-              <p className="text-primary-200 text-sm">Total Hours</p>
-              <p className="text-2xl font-bold">{summary.totalHours || 0}h</p>
-            </div>
-            <div>
-              <p className="text-primary-200 text-sm">Overtime</p>
-              <p className="text-2xl font-bold">{summary.overtimeHours || 0}h</p>
-            </div>
-            <div>
-              <p className="text-primary-200 text-sm">Approved</p>
-              <p className="text-2xl font-bold">{summary.approvedHours || 0}h</p>
-            </div>
+          <div className="relative">
+            <select
+              className="appearance-none border border-gray-300 rounded-lg pl-3 pr-9 py-2 text-sm text-gray-700 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              <option value="">All Clients</option>
+              {clients.map((client) => (
+                <option key={client.clientId} value={client.clientId}>
+                  {client.companyName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Summary Stats Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+            <p className="text-2xl font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toLocaleString()}</p>
+            <p className="text-xs text-green-600 font-medium mt-1">Total Hours</p>
+          </div>
+          <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+            <p className="text-2xl font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toLocaleString()}</p>
+            <p className="text-xs text-orange-600 font-medium mt-1">Total Overtime</p>
+          </div>
+          <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+            <p className="text-2xl font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toLocaleString()}</p>
+            <p className="text-xs text-blue-600 font-medium mt-1">Approved Hours</p>
+          </div>
+          <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+            <p className="text-2xl font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toLocaleString()}</p>
+            <p className="text-xs text-yellow-600 font-medium mt-1">Pending Hours</p>
+          </div>
+          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
+            <p className="text-2xl font-bold text-emerald-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
+            <p className="text-xs text-emerald-600 font-medium mt-1">Gross Pay</p>
           </div>
         </div>
       </Card>
-
-      {/* Readiness Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.readyClients || 0}</p>
-              <p className="text-sm text-gray-500">Ready Clients</p>
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.warningClients || 0}</p>
-              <p className="text-sm text-gray-500">Warning</p>
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.criticalClients || 0}</p>
-              <p className="text-sm text-gray-500">Critical</p>
-            </div>
-          </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Clock className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalUnapproved || 0}</p>
-              <p className="text-sm text-gray-500">Pending Approval</p>
-            </div>
-          </div>
-        </Card>
-      </div>
 
       {/* Tabs */}
       <div className="border-b border-gray-200">
@@ -647,20 +719,6 @@ const Payroll = () => {
         <Card>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Employee Payroll Details</h3>
-            <div className="flex items-center gap-2">
-              <select
-                className="input text-sm py-1.5"
-                value={selectedClient}
-                onChange={(e) => setSelectedClient(e.target.value)}
-              >
-                <option value="">All Clients</option>
-                {clients.map((client) => (
-                  <option key={client.clientId} value={client.clientId}>
-                    {client.companyName}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
 
           {/* Summary stats */}
@@ -693,13 +751,13 @@ const Payroll = () => {
                 <TableRow>
                   <TableHeader>Employee</TableHeader>
                   <TableHeader>Client</TableHeader>
-                  <TableHeader className="text-right">Regular Hours</TableHeader>
-                  <TableHeader className="text-right">Overtime</TableHeader>
-                  <TableHeader className="text-right">Rate</TableHeader>
-                  <TableHeader className="text-right">Adjustments</TableHeader>
-                  <TableHeader className="text-right">Gross Pay</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                  <TableHeader>Action</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Regular Hours</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Overtime</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Rate</TableHeader>
+                  <TableHeader className="whitespace-nowrap">Adjustments</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Gross Pay</TableHeader>
+                  <TableHeader className="text-center">Status</TableHeader>
+                  <TableHeader className="text-center">Action</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -720,55 +778,52 @@ const Payroll = () => {
                     <TableCell>
                       <span className="text-gray-600">{emp.client?.companyName || '-'}</span>
                     </TableCell>
-                    <TableCell className="text-right">{emp.regularHours}h</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center whitespace-nowrap">{emp.regularHours}h</TableCell>
+                    <TableCell className="text-center">
                       {emp.overtimeHours > 0 ? (
                         <span className="text-orange-600 font-medium">{emp.overtimeHours}h</span>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center">
                       {emp.hourlyRate > 0 ? (
                         <span className="text-gray-600">${emp.hourlyRate}/hr</span>
                       ) : (
                         <span className="text-gray-400 text-xs">Not set</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      {(emp.totalBonuses > 0 || emp.totalDeductions > 0) ? (
-                        <div className="space-y-1">
-                          {emp.totalBonuses > 0 && (
-                            <p className="text-xs text-green-600">+${emp.totalBonuses.toLocaleString()}</p>
-                          )}
-                          {emp.totalDeductions > 0 && (
-                            <p className="text-xs text-red-600">-${emp.totalDeductions.toLocaleString()}</p>
-                          )}
-                          {emp.adjustments?.length > 0 && (
-                            <div className="mt-1 space-y-0.5">
-                              {emp.adjustments.map((adj) => (
-                                <div key={adj.id} className="flex items-center gap-1 text-xs text-gray-400">
-                                  <span className="truncate max-w-[80px]" title={adj.reason}>{adj.reason}</span>
-                                  <button
-                                    onClick={() => setDeleteAdjustmentId(adj.id)}
-                                    className="p-0.5 hover:bg-red-50 rounded text-gray-300 hover:text-red-500"
-                                    title="Delete"
-                                  >
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ))}
+                    <TableCell>
+                      {emp.adjustments?.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {emp.adjustments.map((adj) => (
+                            <div key={adj.id} className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm font-semibold ${adj.type === 'BONUS' ? 'text-green-600' : 'text-red-600'}`}>
+                                  {adj.type === 'BONUS' ? '+' : '-'}${adj.amount.toLocaleString()}
+                                </span>
+                                <span className="text-xs text-gray-400 truncate max-w-[100px]" title={adj.reason}>
+                                  {adj.reason}
+                                </span>
+                              </div>
+                              <button
+                                onClick={() => setDeleteAdjustmentId(adj.id)}
+                                className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 flex-shrink-0"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
-                          )}
+                          ))}
                         </div>
                       ) : (
                         <span className="text-gray-400">-</span>
                       )}
                     </TableCell>
-                    <TableCell className="text-right font-semibold text-green-600">
+                    <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
                       {emp.grossPay > 0 ? `$${emp.grossPay.toLocaleString()}` : '-'}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <div>
                         {getStatusBadge(emp.status)}
                         {emp.note && (
@@ -776,7 +831,7 @@ const Payroll = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="text-center">
                       <button
                         onClick={() => openAdjustmentModal(emp, 'BONUS')}
                         className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
@@ -1157,14 +1212,18 @@ const Payroll = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Total Employees</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalEmployees || 0}</p>
+              <p className="text-sm text-gray-500">Employees</p>
+              <p className="text-2xl font-bold text-gray-900">{totals.totalEmployees || employees.length || 0}</p>
             </div>
             <div className="p-4 bg-gray-50 rounded-xl">
               <p className="text-sm text-gray-500">Total Hours</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.totalHours || 0}h</p>
+              <p className="text-2xl font-bold text-gray-900">{totals.totalHours || summary.totalHours || 0}h</p>
+            </div>
+            <div className="p-4 bg-green-50 rounded-xl">
+              <p className="text-sm text-green-600">Gross Pay</p>
+              <p className="text-2xl font-bold text-green-700">${(totals.totalGrossPay || 0).toLocaleString()}</p>
             </div>
           </div>
 
@@ -1240,14 +1299,17 @@ const Payroll = () => {
 
           <div>
             <label className="label">Type</label>
-            <select
-              className="input"
-              value={adjustmentType}
-              onChange={(e) => setAdjustmentType(e.target.value)}
-            >
-              <option value="BONUS">Bonus</option>
-              <option value="DEDUCTION">Deduction</option>
-            </select>
+            <div className="relative">
+              <select
+                className="input appearance-none pr-9"
+                value={adjustmentType}
+                onChange={(e) => setAdjustmentType(e.target.value)}
+              >
+                <option value="BONUS">Bonus</option>
+                <option value="DEDUCTION">Deduction</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
           </div>
 
           <div>

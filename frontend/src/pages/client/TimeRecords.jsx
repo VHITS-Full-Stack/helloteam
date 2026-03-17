@@ -15,6 +15,7 @@ import {
   RotateCcw,
   Calendar,
   TrendingUp,
+  ChevronDown,
 } from "lucide-react";
 import { Card, Button, Badge, Avatar } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
@@ -486,17 +487,20 @@ const TimeRecords = () => {
             </Button>
           </div>
           <div className="flex items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="input py-2"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="revision_requested">Revision Requested</option>
-            </select>
+            <div className="relative">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="input py-2 appearance-none pr-9"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="revision_requested">Revision Requested</option>
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
               <input

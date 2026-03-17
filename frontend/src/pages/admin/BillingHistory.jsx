@@ -343,17 +343,20 @@ const BillingHistory = () => {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Rate Type</label>
-              <select
-                value={rateTypeFilter}
-                onChange={(e) => setRateTypeFilter(e.target.value)}
-                className="input"
-              >
-                <option value="">All Types</option>
-                <option value="BILLING_RATE">Billing Rate</option>
-                <option value="PAYABLE_RATE">Payable Rate</option>
-                <option value="HOURLY_RATE">Hourly Rate</option>
-                <option value="OVERTIME_RATE">Overtime Rate</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={rateTypeFilter}
+                  onChange={(e) => setRateTypeFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="">All Types</option>
+                  <option value="BILLING_RATE">Billing Rate</option>
+                  <option value="PAYABLE_RATE">Payable Rate</option>
+                  <option value="HOURLY_RATE">Hourly Rate</option>
+                  <option value="OVERTIME_RATE">Overtime Rate</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">From Date</label>

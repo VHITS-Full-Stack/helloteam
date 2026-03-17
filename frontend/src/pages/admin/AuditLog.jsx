@@ -229,36 +229,42 @@ const AuditLog = () => {
           <div className="flex flex-wrap items-end gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
-              <select
-                value={actionFilter}
-                onChange={(e) => setActionFilter(e.target.value)}
-                className="input"
-              >
-                <option value="">All Actions</option>
-                <option value="CREATE">Create</option>
-                <option value="UPDATE">Update</option>
-                <option value="DELETE">Delete</option>
-                <option value="APPROVE">Approve</option>
-                <option value="REJECT">Reject</option>
-                <option value="ADJUSTMENT">Adjustment</option>
-                <option value="LOGIN">Login</option>
-                <option value="LOGOUT">Logout</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={actionFilter}
+                  onChange={(e) => setActionFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="">All Actions</option>
+                  <option value="CREATE">Create</option>
+                  <option value="UPDATE">Update</option>
+                  <option value="DELETE">Delete</option>
+                  <option value="APPROVE">Approve</option>
+                  <option value="REJECT">Reject</option>
+                  <option value="ADJUSTMENT">Adjustment</option>
+                  <option value="LOGIN">Login</option>
+                  <option value="LOGOUT">Logout</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Entity Type</label>
-              <select
-                value={entityTypeFilter}
-                onChange={(e) => setEntityTypeFilter(e.target.value)}
-                className="input"
-              >
-                <option value="">All Types</option>
-                <option value="TimeRecord">Time Records</option>
-                <option value="LeaveRequest">Leave Requests</option>
-                <option value="Employee">Employees</option>
-                <option value="Client">Clients</option>
-                <option value="User">Users</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={entityTypeFilter}
+                  onChange={(e) => setEntityTypeFilter(e.target.value)}
+                  className="input appearance-none pr-9"
+                >
+                  <option value="">All Types</option>
+                  <option value="TimeRecord">Time Records</option>
+                  <option value="LeaveRequest">Leave Requests</option>
+                  <option value="Employee">Employees</option>
+                  <option value="Client">Clients</option>
+                  <option value="User">Users</option>
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>

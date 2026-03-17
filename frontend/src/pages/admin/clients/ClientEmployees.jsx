@@ -12,6 +12,7 @@ import {
   Search,
   RefreshCw,
   Sun,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Card,
@@ -498,32 +499,38 @@ const ClientEmployees = () => {
               {/* Allow Paid Leave */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Leave</label>
-                <select
-                  value={ptoFormData.ptoAllowPaidLeave}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidLeave: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">Use client default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ptoFormData.ptoAllowPaidLeave}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidLeave: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="">Use client default</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               {/* Entitlement Type */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement Type</label>
-                <select
-                  value={ptoFormData.ptoEntitlementType}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoEntitlementType: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">Use client default</option>
-                  <option value="NONE">None</option>
-                  <option value="FIXED">Fixed Yearly</option>
-                  <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly</option>
-                  <option value="ACCRUED">Monthly Accrual</option>
-                  <option value="MILESTONE">Milestone Based</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ptoFormData.ptoEntitlementType}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoEntitlementType: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="">Use client default</option>
+                    <option value="NONE">None</option>
+                    <option value="FIXED">Fixed Yearly</option>
+                    <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly</option>
+                    <option value="ACCRUED">Monthly Accrual</option>
+                    <option value="MILESTONE">Milestone Based</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               {/* Conditional: Annual Days (for FIXED / FIXED_HALF_YEARLY) */}
@@ -588,15 +595,18 @@ const ClientEmployees = () => {
               {/* Allow Unpaid Leave */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Leave</label>
-                <select
-                  value={ptoFormData.ptoAllowUnpaidLeave}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidLeave: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">Use client default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ptoFormData.ptoAllowUnpaidLeave}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidLeave: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="">Use client default</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               {/* Holiday Settings Divider */}
@@ -607,29 +617,35 @@ const ClientEmployees = () => {
               {/* Allow Paid Holidays */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Holidays</label>
-                <select
-                  value={ptoFormData.ptoAllowPaidHolidays}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidHolidays: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">Use client default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ptoFormData.ptoAllowPaidHolidays}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidHolidays: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="">Use client default</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               {/* Allow Unpaid Holidays */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Holidays</label>
-                <select
-                  value={ptoFormData.ptoAllowUnpaidHolidays}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidHolidays: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="">Use client default</option>
-                  <option value="true">Yes</option>
-                  <option value="false">No</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={ptoFormData.ptoAllowUnpaidHolidays}
+                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidHolidays: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="">Use client default</option>
+                    <option value="true">Yes</option>
+                    <option value="false">No</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             </div>
 

@@ -9,6 +9,7 @@ import {
   Search,
   Settings,
   Sun,
+  ChevronDown,
 } from "lucide-react";
 import { Card, Button, Input, PhoneInput, Modal } from "../../../components/common";
 import { useClientForm } from "../../../hooks/useClientForm";
@@ -386,16 +387,19 @@ const AddClient = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Status
                   </label>
-                  <select
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }
-                  >
-                    <option value="ACTIVE">Active</option>
-                    <option value="INACTIVE">Inactive</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                      value={formData.status}
+                      onChange={(e) =>
+                        setFormData({ ...formData, status: e.target.value })
+                      }
+                    >
+                      <option value="ACTIVE">Active</option>
+                      <option value="INACTIVE">Inactive</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 </div>
               )}
             </div>
@@ -411,13 +415,16 @@ const AddClient = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Timezone
                 </label>
-                <select
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 cursor-not-allowed opacity-60"
-                  value={formData.timezone}
-                  disabled
-                >
-                  <option value="America/New_York">Eastern Time</option>
-                </select>
+                <div className="relative">
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 cursor-not-allowed opacity-60 appearance-none pr-9"
+                    value={formData.timezone}
+                    disabled
+                  >
+                    <option value="America/New_York">Eastern Time</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
@@ -433,22 +440,25 @@ const AddClient = () => {
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
-                <select
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                  value={formData.groupId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, groupId: e.target.value })
-                  }
-                >
-                  <option value="">
-                    {isEdit ? "No group" : "Select a group"}
-                  </option>
-                  {groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
+                <div className="relative">
+                  <select
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                    value={formData.groupId}
+                    onChange={(e) =>
+                      setFormData({ ...formData, groupId: e.target.value })
+                    }
+                  >
+                    <option value="">
+                      {isEdit ? "No group" : "Select a group"}
                     </option>
-                  ))}
-                </select>
+                    {groups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
                 <p className="text-xs text-gray-400 mt-1">
                   All employees in the selected group will be assigned to this
                   client
@@ -459,20 +469,23 @@ const AddClient = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Agreement Type
                   </label>
-                  <select
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                    value={formData.agreementType}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        agreementType: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="WEEKLY">Weekly</option>
-                    <option value="BI_WEEKLY">Bi-Weekly</option>
-                    <option value="MONTHLY">Monthly</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                      value={formData.agreementType}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          agreementType: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="WEEKLY">Weekly</option>
+                      <option value="BI_WEEKLY">Bi-Weekly</option>
+                      <option value="MONTHLY">Monthly</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                   <p className="text-xs text-gray-400 mt-1">
                     Client must sign this agreement before accessing the portal
                   </p>
@@ -710,24 +723,27 @@ const AddClient = () => {
                   <div className="mt-3 space-y-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Holiday Type</label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                        value={formData.paidHolidayType}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          const extras = val === 'custom' && formData.customHolidays.length === 0
-                            ? { customHolidays: [{ date: '', name: '' }], numberOfPaidHolidays: 1 }
-                            : val === 'custom'
-                              ? { numberOfPaidHolidays: formData.customHolidays.length }
-                              : val === 'federal'
-                                ? { numberOfPaidHolidays: formData.selectedFederalHolidays?.length || 0 }
-                                : {};
-                          syncHolidayToEmployees({ paidHolidayType: val, ...extras });
-                        }}
-                      >
-                        <option value="federal">Federal Holidays</option>
-                        <option value="custom">Custom</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                          value={formData.paidHolidayType}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            const extras = val === 'custom' && formData.customHolidays.length === 0
+                              ? { customHolidays: [{ date: '', name: '' }], numberOfPaidHolidays: 1 }
+                              : val === 'custom'
+                                ? { numberOfPaidHolidays: formData.customHolidays.length }
+                                : val === 'federal'
+                                  ? { numberOfPaidHolidays: formData.selectedFederalHolidays?.length || 0 }
+                                  : {};
+                            syncHolidayToEmployees({ paidHolidayType: val, ...extras });
+                          }}
+                        >
+                          <option value="federal">Federal Holidays</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
 
                     {/* Federal Holiday Checklist */}
@@ -873,17 +889,20 @@ const AddClient = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                >
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
-                  <option value="AUD">AUD</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR</option>
+                    <option value="GBP">GBP</option>
+                    <option value="CAD">CAD</option>
+                    <option value="AUD">AUD</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             </div>
           </div> */}
@@ -929,16 +948,19 @@ const AddClient = () => {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Leave Type</label>
-                      <select
-                        className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                        value={ptoModalAssignment.paidLeaveType}
-                        onChange={(e) => updateEmployeeField(ptoModalEmployee, 'paidLeaveType', e.target.value)}
-                      >
-                        <option value="fixed">Fixed Annual</option>
-                        <option value="fixed-half-yearly">Fixed Half-Yearly</option>
-                        <option value="accrued">Accrued</option>
-                        <option value="milestone">Milestone Based</option>
-                      </select>
+                      <div className="relative">
+                        <select
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                          value={ptoModalAssignment.paidLeaveType}
+                          onChange={(e) => updateEmployeeField(ptoModalEmployee, 'paidLeaveType', e.target.value)}
+                        >
+                          <option value="fixed">Fixed Annual</option>
+                          <option value="fixed-half-yearly">Fixed Half-Yearly</option>
+                          <option value="accrued">Accrued</option>
+                          <option value="milestone">Milestone Based</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
