@@ -187,8 +187,6 @@ const generateInvoiceForClient = async (
         totalMinutes: 0,
         overtimeMinutes: 0,
       });
-      // Build rate for this employee using full priority chain
-      buildRateForEmployee(record.employeeId, record.employee);
     }
     const agg = employeeAgg.get(key)!;
 
@@ -254,6 +252,13 @@ const generateInvoiceForClient = async (
 
     empRateMap.set(empId, { hourlyRate: hr, overtimeRate: otr });
   };
+
+  // Build rates for all employees found in records
+  for (const record of allRecords) {
+    if (!empRateMap.has(record.employeeId)) {
+      buildRateForEmployee(record.employeeId, record.employee);
+    }
+  }
 
   let subtotal = 0;
   let totalHoursAll = 0;
