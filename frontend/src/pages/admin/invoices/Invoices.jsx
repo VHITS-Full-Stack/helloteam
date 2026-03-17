@@ -797,46 +797,65 @@ const Invoices = () => {
               </div>
             )}
 
-            {/* Per-client preview table */}
+            {/* Per-client preview with employee line items */}
             {previewData?.preview?.length > 0 ? (
-              <div className="overflow-x-auto border border-gray-200 rounded-xl">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50 border-b border-gray-200">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Client</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-gray-500">Invoice #</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Employees</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Hours</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Rate</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Est. Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {previewData.preview.map((item, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-sm text-gray-900">{item.clientName}</td>
-                        <td className="px-3 py-2 text-sm text-gray-600">{item.invoiceNumber}</td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{item.employeeCount}</td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.totalHours).toFixed(2)}</td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                          {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(2) : '—'}
-                        </td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right whitespace-nowrap">
-                          {(() => {
-                            const rates = item.rates || [];
-                            if (rates.length === 0) return '—';
-                            if (rates.length === 1) return `${formatCurrency(rates[0])}/hr`;
-                            return `${formatCurrency(Math.min(...rates))}–${formatCurrency(Math.max(...rates))}/hr`;
-                          })()}
-                        </td>
-                        <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
-                          {formatCurrency(item.estimatedTotal, item.currency)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {previewData.preview.map((item, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-xl overflow-hidden">
+                    {/* Client header */}
+                    <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{item.clientName}</p>
+                        <p className="text-xs text-gray-500">{item.invoiceNumber}</p>
+                      </div>
+                      <div className="flex items-center gap-4 text-right">
+                        <div>
+                          <p className="text-xs text-gray-400">Hours</p>
+                          <p className="text-sm font-semibold text-gray-900">{Number(item.totalHours).toFixed(2)}</p>
+                        </div>
+                        {Number(item.overtimeHours) > 0 && (
+                          <div>
+                            <p className="text-xs text-orange-400">OT</p>
+                            <p className="text-sm font-semibold text-orange-600">{Number(item.overtimeHours).toFixed(2)}</p>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs text-gray-400">Est. Amount</p>
+                          <p className="text-sm font-bold text-gray-900">{formatCurrency(item.estimatedTotal, item.currency)}</p>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Employee line items */}
+                    {item.lineItems?.length > 0 && (
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Employee</th>
+                            <th className="text-right px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Hours</th>
+                            <th className="text-right px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">OT</th>
+                            <th className="text-right px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Rate</th>
+                            <th className="text-right px-4 py-1.5 text-[10px] font-semibold text-gray-400 uppercase">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {item.lineItems.map((li, liIdx) => (
+                            <tr key={liIdx} className="hover:bg-gray-50/50">
+                              <td className="px-4 py-2 text-sm text-gray-900">{li.employeeName}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(li.hours).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-sm text-right">
+                                {Number(li.overtimeHours) > 0
+                                  ? <span className="text-orange-600">{Number(li.overtimeHours).toFixed(2)}</span>
+                                  : <span className="text-gray-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}/hr</td>
+                              <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{formatCurrency(li.amount)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="p-6 text-center bg-gray-50 rounded-xl">

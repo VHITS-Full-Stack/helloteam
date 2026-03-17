@@ -774,8 +774,19 @@ const previewInvoiceForClient = async (
     empAgg.set(record.employeeId, agg);
   }
 
+  // Build employee name map
+  const empNameMap = new Map<string, string>();
+  for (const record of allRecords) {
+    if (!empNameMap.has(record.employeeId) && (record as any).employee) {
+      const emp = (record as any).employee;
+      empNameMap.set(record.employeeId, `${emp.firstName} ${emp.lastName}`);
+    }
+  }
+
   let estimatedTotal = 0;
   const ratesUsed: number[] = [];
+  const lineItems: { employeeName: string; hours: number; overtimeHours: number; rate: number; overtimeRate: number; amount: number }[] = [];
+
   for (const [empId, agg] of empAgg) {
     const rates = empRateMap.get(empId) || { hourlyRate: defaultHourlyRate, overtimeRate: defaultOTRate };
     if (rates.hourlyRate > 0 && !ratesUsed.includes(rates.hourlyRate)) {
@@ -784,7 +795,19 @@ const previewInvoiceForClient = async (
     const totalHrs = Math.round((agg.totalMin / 60) * 100) / 100;
     const otHrs = Math.round((agg.otMin / 60) * 100) / 100;
     const regularHrs = Math.round((totalHrs - otHrs) * 100) / 100;
-    estimatedTotal += Math.round(regularHrs * rates.hourlyRate * 100) / 100 + Math.round(otHrs * rates.overtimeRate * 100) / 100;
+    const regularPay = Math.round(regularHrs * rates.hourlyRate * 100) / 100;
+    const overtimePay = Math.round(otHrs * rates.overtimeRate * 100) / 100;
+    const lineAmount = regularPay + overtimePay;
+    estimatedTotal += lineAmount;
+
+    lineItems.push({
+      employeeName: empNameMap.get(empId) || 'Unknown',
+      hours: totalHrs,
+      overtimeHours: otHrs,
+      rate: rates.hourlyRate,
+      overtimeRate: rates.overtimeRate,
+      amount: Math.round(lineAmount * 100) / 100,
+    });
   }
 
   return {
@@ -795,6 +818,7 @@ const previewInvoiceForClient = async (
     overtimeHours: Math.round((otMinutes / 60) * 100) / 100,
     estimatedTotal: Math.round(estimatedTotal * 100) / 100,
     rates: ratesUsed.sort((a, b) => a - b),
+    lineItems,
     lateOtRecords: lateApprovedOT.length,
     currency: policy?.currency || 'USD',
   };
