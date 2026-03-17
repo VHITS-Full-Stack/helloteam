@@ -516,9 +516,9 @@ const Invoices = () => {
                       <p className="text-sm text-gray-600">{formatPeriod(invoice.periodStart)}</p>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <p className="text-sm text-gray-900">{Number(invoice.totalHours || 0).toFixed(1)}</p>
+                      <p className="text-sm text-gray-900">{Number(invoice.totalHours || 0).toFixed(2)}</p>
                       {Number(invoice.overtimeHours) > 0 && (
-                        <p className="text-xs text-orange-500">+{Number(invoice.overtimeHours).toFixed(1)} OT</p>
+                        <p className="text-xs text-orange-500">+{Number(invoice.overtimeHours).toFixed(2)} OT</p>
                       )}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -787,7 +787,7 @@ const Invoices = () => {
                   <p className="text-xs text-blue-600">Clients</p>
                 </div>
                 <div className="bg-green-50 rounded-xl p-3 text-center">
-                  <p className="text-2xl font-bold text-green-700">{Number(previewData.summary.totalHours || 0).toFixed(1)}</p>
+                  <p className="text-2xl font-bold text-green-700">{Number(previewData.summary.totalHours || 0).toFixed(2)}</p>
                   <p className="text-xs text-green-600">Total Hours</p>
                 </div>
                 <div className="bg-purple-50 rounded-xl p-3 text-center">
@@ -818,9 +818,9 @@ const Invoices = () => {
                         <td className="px-3 py-2 text-sm text-gray-900">{item.clientName}</td>
                         <td className="px-3 py-2 text-sm text-gray-600">{item.invoiceNumber}</td>
                         <td className="px-3 py-2 text-sm text-gray-600 text-right">{item.employeeCount}</td>
-                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.totalHours).toFixed(1)}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.totalHours).toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                          {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(1) : '—'}
+                          {Number(item.overtimeHours) > 0 ? Number(item.overtimeHours).toFixed(2) : '—'}
                         </td>
                         <td className="px-3 py-2 text-sm text-gray-600 text-right whitespace-nowrap">
                           {(() => {
@@ -946,8 +946,8 @@ const Invoices = () => {
                               <p className="text-xs text-orange-500 mt-0.5">{item.notes}</p>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(1)}</td>
-                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours || 0).toFixed(1)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}/hr</td>
                           <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.amount)}</td>
                         </tr>
@@ -956,8 +956,8 @@ const Invoices = () => {
                     <tfoot>
                       <tr className="bg-gray-50 border-t border-gray-200">
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900">Total</td>
-                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.totalHours).toFixed(1)}</td>
-                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.overtimeHours).toFixed(1)}</td>
+                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.totalHours).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.overtimeHours).toFixed(2)}</td>
                         <td className="px-3 py-2"></td>
                         <td className="px-3 py-2 text-sm font-bold text-gray-900 text-right">{formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</td>
                       </tr>

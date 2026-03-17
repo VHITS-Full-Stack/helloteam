@@ -282,7 +282,9 @@ const generateInvoiceForClient = async (
     const totalHours = Math.round((agg.totalMinutes / 60) * 100) / 100;
     const otHours = Math.round((agg.overtimeMinutes / 60) * 100) / 100;
     const regularHours = Math.round((totalHours - otHours) * 100) / 100;
-    const lineAmount = regularHours * rates.hourlyRate + otHours * rates.overtimeRate;
+    const regularPay = Math.round(regularHours * rates.hourlyRate * 100) / 100;
+    const overtimePay = Math.round(otHours * rates.overtimeRate * 100) / 100;
+    const lineAmount = regularPay + overtimePay;
 
     totalHoursAll += totalHours;
     totalOTHoursAll += otHours;
@@ -782,7 +784,7 @@ const previewInvoiceForClient = async (
     const totalHrs = Math.round((agg.totalMin / 60) * 100) / 100;
     const otHrs = Math.round((agg.otMin / 60) * 100) / 100;
     const regularHrs = Math.round((totalHrs - otHrs) * 100) / 100;
-    estimatedTotal += regularHrs * rates.hourlyRate + otHrs * rates.overtimeRate;
+    estimatedTotal += Math.round(regularHrs * rates.hourlyRate * 100) / 100 + Math.round(otHrs * rates.overtimeRate * 100) / 100;
   }
 
   return {
