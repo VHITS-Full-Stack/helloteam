@@ -98,7 +98,7 @@ const payrollService = {
     if (clientId) params.append('clientId', clientId);
 
     const token = localStorage.getItem('token');
-    const response = await fetch(`${api.defaults.baseURL}/payroll/export?${params.toString()}`, {
+    const response = await fetch(`${api.baseUrl}/payroll/export?${params.toString()}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

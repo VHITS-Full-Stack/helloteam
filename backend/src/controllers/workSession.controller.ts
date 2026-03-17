@@ -1366,30 +1366,42 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       : [];
 
     // Calculate work minutes for each session
+    // Count sessions per day to detect multi-session days
+    const sessionsPerDay: Record<string, number> = {};
+    for (const s of sessions) {
+      const dk = s.startTime.toISOString().split('T')[0];
+      sessionsPerDay[dk] = (sessionsPerDay[dk] || 0) + 1;
+    }
+
     const sessionsWithStats = sessions.map(session => {
       // Match time record by date
       const sessionDateKey = session.startTime.toISOString().split('T')[0];
       const timeRecord = timeRecordMap.get(sessionDateKey);
+      const isMultiSession = (sessionsPerDay[sessionDateKey] || 0) > 1;
 
-      // Calculate break minutes from actual break records (more reliable than totalBreakMinutes for active sessions)
+      // Calculate break minutes from actual break records
       const computedBreakMinutes = (session.breaks || []).reduce((total: number, brk: any) => {
         if (brk.endTime) {
           return total + (brk.durationMinutes || Math.round((new Date(brk.endTime).getTime() - new Date(brk.startTime).getTime()) / 60000));
         }
-        // Ongoing break — count time so far
         return total + Math.round((Date.now() - new Date(brk.startTime).getTime()) / 60000);
       }, 0);
 
       const breakMinutes = computedBreakMinutes;
 
-      // Use TimeRecord's stored totalMinutes (source of truth) when available
-      const totalMinutes = timeRecord?.totalMinutes ?? (() => {
+      // Calculate per-session minutes
+      const sessionCalcMinutes = (() => {
         if (!session.endTime) return 0;
         const rawMs = session.endTime.getTime() - session.startTime.getTime();
         const fullMin = Math.floor(rawMs / 60000);
         const remSec = Math.floor((rawMs % 60000) / 1000);
         return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes;
       })();
+
+      // Use TimeRecord only for single-session days; for multi-session days use per-session calc
+      const totalMinutes = (!isMultiSession && timeRecord?.totalMinutes)
+        ? timeRecord.totalMinutes
+        : sessionCalcMinutes;
 
       // Match OvertimeRequests to this specific session using createdAt
       const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
