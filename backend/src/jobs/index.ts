@@ -57,7 +57,7 @@ export const initializeJobs = (io: Server): void => {
   console.log('[Jobs] Payroll deadline reminder scheduled (daily, 09:30 UTC)');
 
   // Payroll auto-generation: runs on 7th and 21st at midnight EST (05:00 UTC)
-  // 7th: creates period for 1st-15th, 21st: creates period for 16th-end of month
+  // 7th: creates period for 22nd(prev)-7th, 21st: creates period for 8th-21st
   cron.schedule('0 5 7,21 * *', async () => {
     await runPayrollGeneration(io);
   });

@@ -5,8 +5,8 @@ import { createNotification } from '../controllers/notification.controller';
 /**
  * Auto-generate payroll periods on the 7th and 21st of each month at midnight EST.
  *
- * - 7th: Creates payroll period for 1st–15th of the current month
- * - 21st: Creates payroll period for 16th–last day of the current month
+ * - 7th: Creates payroll period for 22nd (prev month) – 7th (current month)
+ * - 21st: Creates payroll period for 8th – 21st (current month)
  *
  * Only creates periods for active clients that don't already have one for that date range.
  */
