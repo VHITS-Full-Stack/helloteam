@@ -234,7 +234,7 @@ const TimeRecords = () => {
           const approvedOTM = otEntries
             .filter((o) => o.status === "APPROVED" || o.status === "AUTO_APPROVED")
             .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-          const regularM = totalM;
+          const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
           return [
             emp.employee,
             dateLabel,
@@ -633,6 +633,9 @@ const TimeRecords = () => {
                             </span>
                           </span>
                         </th>
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[80px]">
+                          Total
+                        </th>
                         <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[120px]">
                           Status
                         </th>
@@ -665,7 +668,7 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = totalM;
+                        const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
@@ -703,7 +706,7 @@ const TimeRecords = () => {
 
                             {isLeaveOrHoliday ? (
                               <td
-                                colSpan={5}
+                                colSpan={6}
                                 className="py-2.5 px-3 text-center"
                               >
                                 {getStatusBadge(status)}
@@ -885,6 +888,18 @@ const TimeRecords = () => {
                                     <span className="text-gray-300">—</span>
                                   )}
                                 </td>
+
+                                <td className="py-2.5 px-3 text-center text-sm">
+                                  <span
+                                    className={
+                                      (regularM + approvedOTM) > 0
+                                        ? "font-bold text-blue-700"
+                                        : "text-gray-300"
+                                    }
+                                  >
+                                    {formatHours((regularM + approvedOTM) / 60)}
+                                  </span>
+                                </td>
                               </>
                             )}
 
@@ -1001,6 +1016,11 @@ const TimeRecords = () => {
                               <span className="text-gray-700 font-medium">
                                 Reg: {formatHours(regularM / 60)}
                               </span>
+                              {mobileApprovedOTM > 0 && (
+                                <span className="text-blue-700 font-bold">
+                                  Total: {formatHours((regularM + mobileApprovedOTM) / 60)}
+                                </span>
+                              )}
                               {mobileApprovedEntries.map((ot, i) => (
                                 <span
                                   key={`a-${i}`}
