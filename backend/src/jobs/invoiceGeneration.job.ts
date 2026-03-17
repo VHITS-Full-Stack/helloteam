@@ -640,17 +640,16 @@ const previewInvoiceForClient = async (
   periodEnd: Date,
   invoiceNumber: string,
 ): Promise<InvoicePreviewItem | null> => {
-  // Skip if invoice already exists
+  // Check if invoice already exists
   const existing = await prisma.invoice.findUnique({ where: { invoiceNumber } });
-  if (existing) return null;
 
-  // Same queries as generateInvoiceForClient
+  // For preview, show all approved records (including already invoiced)
   const timeRecords = await prisma.timeRecord.findMany({
     where: {
       clientId: client.id,
       status: { in: ['APPROVED', 'AUTO_APPROVED'] },
       date: { gte: periodStart, lte: periodEnd },
-      invoiceId: null,
+      ...(existing ? {} : { invoiceId: null }),
     },
     include: {
       employee: {
@@ -821,6 +820,7 @@ const previewInvoiceForClient = async (
     lineItems,
     lateOtRecords: lateApprovedOT.length,
     currency: policy?.currency || 'USD',
+    alreadyExists: !!existing,
   };
 };
 

@@ -805,7 +805,14 @@ const Invoices = () => {
                     {/* Client header */}
                     <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-200">
                       <div>
-                        <p className="text-sm font-semibold text-gray-900">{item.clientName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-900">{item.clientName}</p>
+                          {item.alreadyExists && (
+                            <span className="text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                              Already Generated
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-gray-500">{item.invoiceNumber}</p>
                       </div>
                       <div className="flex items-center gap-4 text-right">
