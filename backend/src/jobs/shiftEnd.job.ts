@@ -355,7 +355,7 @@ async function autoClockOut(
     });
 
     // Calculate total work time
-    const totalWorkMinutes = Math.round(
+    const totalWorkMinutes = Math.floor(
       (endTime.getTime() - session.startTime.getTime()) / 60000
     ) - totalBreakMinutes;
 
