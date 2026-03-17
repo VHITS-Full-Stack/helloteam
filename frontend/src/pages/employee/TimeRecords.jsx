@@ -801,30 +801,32 @@ const TimeRecords = () => {
 
                               {/* Billing In / Out */}
                               <td className="py-3 px-2 text-center">
-                                {session.billingStart && session.billingEnd ? (
-                                  <div className="text-sm font-medium text-blue-700">
-                                    {formatTime(session.billingStart)}
-                                    <span className="text-blue-300 mx-1">
-                                      –
-                                    </span>
-                                    {(() => {
-                                      const approvedOTMins = (session.overtimeEntries || [])
-                                        .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
-                                        .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-                                      if (approvedOTMins > 0) {
-                                        const adjustedEnd = new Date(new Date(session.billingEnd).getTime() + approvedOTMins * 60000);
-                                        return formatTime(adjustedEnd);
-                                      }
-                                      return formatTime(session.billingEnd);
-                                    })()}
-                                  </div>
-                                ) : isActiveSession(session) ? (
-                                  <span className="text-xs text-gray-400 italic">
-                                    In progress
-                                  </span>
-                                ) : (
-                                  <span className="text-gray-300">&mdash;</span>
-                                )}
+                                {(() => {
+                                  const otEntries = session.overtimeEntries || [];
+                                  const hasOffShift = otEntries.some(ot => ot.type === 'OFF_SHIFT');
+                                  // For off-shift sessions, show actual times instead of billing
+                                  const displayStart = hasOffShift && session.startTime ? session.startTime : session.billingStart;
+                                  const displayEnd = hasOffShift && session.endTime ? session.endTime : session.billingEnd;
+
+                                  if (displayStart && displayEnd) {
+                                    const approvedExtMins = otEntries
+                                      .filter(ot => (ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') && ot.type === 'SHIFT_EXTENSION')
+                                      .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                                    return (
+                                      <div className="text-sm font-medium text-blue-700">
+                                        {formatTime(displayStart)}
+                                        <span className="text-blue-300 mx-1">–</span>
+                                        {approvedExtMins > 0
+                                          ? formatTime(new Date(new Date(displayEnd).getTime() + approvedExtMins * 60000))
+                                          : formatTime(displayEnd)}
+                                      </div>
+                                    );
+                                  }
+                                  if (isActiveSession(session)) {
+                                    return <span className="text-xs text-gray-400 italic">In progress</span>;
+                                  }
+                                  return <span className="text-gray-300">&mdash;</span>;
+                                })()}
                               </td>
 
                               {/* Break */}
