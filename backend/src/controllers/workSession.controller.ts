@@ -1371,11 +1371,6 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const sessionDateKey = session.startTime.toISOString().split('T')[0];
       const timeRecord = timeRecordMap.get(sessionDateKey);
 
-      // Prefer TimeRecord data (authoritative) over session calculation
-      const sessionTotalMinutes = session.endTime
-        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000)
-        : 0;
-
       // Calculate break minutes from actual break records (more reliable than totalBreakMinutes for active sessions)
       const computedBreakMinutes = (session.breaks || []).reduce((total: number, brk: any) => {
         if (brk.endTime) {
@@ -1386,7 +1381,15 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       }, 0);
 
       const breakMinutes = computedBreakMinutes;
-      const totalMinutes = sessionTotalMinutes - breakMinutes;
+
+      // Use TimeRecord's stored totalMinutes (source of truth) when available
+      const totalMinutes = timeRecord?.totalMinutes ?? (() => {
+        if (!session.endTime) return 0;
+        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        const fullMin = Math.floor(rawMs / 60000);
+        const remSec = Math.floor((rawMs % 60000) / 1000);
+        return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes;
+      })();
 
       // Match OvertimeRequests to this specific session using createdAt
       const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);

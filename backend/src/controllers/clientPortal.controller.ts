@@ -1609,7 +1609,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || (isActive ? now : null);
-          const sessionMins = (() => {
+          // Use TimeRecord's stored totalMinutes (source of truth) when available
+          const sessionMins = timeRecord?.totalMinutes ?? (() => {
             if (!endRef) return 0;
             const rawMs = endRef.getTime() - session.startTime.getTime();
             const fullMin = Math.floor(rawMs / 60000);
