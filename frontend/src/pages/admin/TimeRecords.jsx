@@ -582,17 +582,29 @@ const TimeRecords = () => {
 
                       {/* Billing In/Out */}
                       <td className="px-4 py-3 whitespace-nowrap text-sm">
-                        {day.billingStart && day.billingEnd ? (
-                          <span className="text-blue-700 font-medium">
-                            {fmtTime(day.billingStart, empRecord.clientTimezone)}
-                            <span className="text-blue-300 mx-1">–</span>
-                            {fmtTime(day.billingEnd, empRecord.clientTimezone)}
-                          </span>
-                        ) : day.status === 'active' ? (
-                          <span className="text-gray-400 italic">In progress</span>
-                        ) : (
-                          <span className="text-gray-300">—</span>
-                        )}
+                        {(() => {
+                          const otEntries = day.overtimeEntries || [];
+                          const hasOffShift = otEntries.some(ot => ot.type === 'OFF_SHIFT');
+                          const displayStart = hasOffShift && day.clockIn ? day.clockIn : day.billingStart;
+                          const displayEnd = hasOffShift && day.clockOut ? day.clockOut : day.billingEnd;
+
+                          if (displayStart && displayEnd) {
+                            const approvedExtMins = otEntries
+                              .filter(ot => (ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') && ot.type === 'SHIFT_EXTENSION')
+                              .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                            return (
+                              <span className="text-blue-700 font-medium">
+                                {fmtTime(displayStart, empRecord.clientTimezone)}
+                                <span className="text-blue-300 mx-1">–</span>
+                                {approvedExtMins > 0
+                                  ? fmtTime(new Date(new Date(displayEnd).getTime() + approvedExtMins * 60000), empRecord.clientTimezone)
+                                  : fmtTime(displayEnd, empRecord.clientTimezone)}
+                              </span>
+                            );
+                          }
+                          if (day.status === 'active') return <span className="text-gray-400 italic">In progress</span>;
+                          return <span className="text-gray-300">—</span>;
+                        })()}
                       </td>
 
                       {/* Break */}
