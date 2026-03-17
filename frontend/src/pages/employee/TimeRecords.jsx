@@ -807,7 +807,16 @@ const TimeRecords = () => {
                                     <span className="text-blue-300 mx-1">
                                       –
                                     </span>
-                                    {formatTime(session.billingEnd)}
+                                    {(() => {
+                                      const approvedOTMins = (session.overtimeEntries || [])
+                                        .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
+                                        .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                                      if (approvedOTMins > 0) {
+                                        const adjustedEnd = new Date(new Date(session.billingEnd).getTime() + approvedOTMins * 60000);
+                                        return formatTime(adjustedEnd);
+                                      }
+                                      return formatTime(session.billingEnd);
+                                    })()}
                                   </div>
                                 ) : isActiveSession(session) ? (
                                   <span className="text-xs text-gray-400 italic">
@@ -1128,7 +1137,16 @@ const TimeRecords = () => {
                               </p>
                               {session.billingEnd ? (
                                 <span className="text-sm font-semibold text-blue-700">
-                                  {formatTime(session.billingEnd)}
+                                  {(() => {
+                                    const approvedOTMins = (session.overtimeEntries || [])
+                                      .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
+                                      .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                                    if (approvedOTMins > 0) {
+                                      const adjustedEnd = new Date(new Date(session.billingEnd).getTime() + approvedOTMins * 60000);
+                                      return formatTime(adjustedEnd);
+                                    }
+                                    return formatTime(session.billingEnd);
+                                  })()}
                                 </span>
                               ) : isActiveSession(session) ? (
                                 <span className="text-xs text-gray-400 italic">
@@ -1558,7 +1576,15 @@ const TimeRecords = () => {
                   </p>
                   <p className="font-semibold text-blue-700 mt-1">
                     {selectedSession.billingStart && selectedSession.billingEnd
-                      ? `${formatTime(selectedSession.billingStart)} - ${formatTime(selectedSession.billingEnd)}`
+                      ? (() => {
+                          const approvedOTMins = (selectedSession.overtimeEntries || [])
+                            .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
+                            .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+                          const endTime = approvedOTMins > 0
+                            ? new Date(new Date(selectedSession.billingEnd).getTime() + approvedOTMins * 60000)
+                            : selectedSession.billingEnd;
+                          return `${formatTime(selectedSession.billingStart)} - ${formatTime(endTime)}`;
+                        })()
                       : isActiveSession(selectedSession)
                         ? "In Progress"
                         : "—"}
