@@ -756,18 +756,24 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const dateStr = toTzDateStr(session.startTime, empTz);
 
       const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
-      const sessionMinutes = (() => {
+
+      const clockIn = session.startTime;
+      const clockOut = session.endTime || null;
+
+      // Get billing data from TimeRecord
+      const trKey = `${session.employeeId}_${dateStr}`;
+      const dayTimeRecord = timeRecordMap.get(trKey);
+
+      // Use TimeRecord's stored minutes (source of truth) when available
+      const breakMins = dayTimeRecord?.breakMinutes ?? (session.totalBreakMinutes || 0);
+      const workMinutes = dayTimeRecord?.totalMinutes ?? (() => {
         if (!session.endTime) return 0;
         const rawMs = session.endTime.getTime() - session.startTime.getTime();
         const fullMin = Math.floor(rawMs / 60000);
         const remSec = Math.floor((rawMs % 60000) / 1000);
-        return remSec >= 30 ? fullMin + 1 : fullMin;
+        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - (session.totalBreakMinutes || 0));
       })();
-      const breakMins = session.totalBreakMinutes || 0;
-      const workMinutes = Math.max(0, sessionMinutes - breakMins);
 
-      const clockIn = session.startTime;
-      const clockOut = session.endTime || null;
       const hours = Math.round(workMinutes / 60 * 100) / 100;
       const breakHours = Math.round(breakMins / 60 * 100) / 100;
       const recordStatus = isActive ? 'active' : 'pending';
@@ -795,10 +801,6 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
       const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
-
-      // Get billing data from TimeRecord
-      const trKey = `${session.employeeId}_${dateStr}`;
-      const dayTimeRecord = timeRecordMap.get(trKey);
 
       allRecords.push({
         id: session.id,
