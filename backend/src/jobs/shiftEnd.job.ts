@@ -355,9 +355,10 @@ async function autoClockOut(
     });
 
     // Calculate total work time
-    const totalWorkMinutes = Math.floor(
-      (endTime.getTime() - session.startTime.getTime()) / 60000
-    ) - totalBreakMinutes;
+    const rawMs = endTime.getTime() - session.startTime.getTime();
+    const fullMinutes = Math.floor(rawMs / 60000);
+    const remainingSeconds = Math.floor((rawMs % 60000) / 1000);
+    const totalWorkMinutes = (remainingSeconds >= 30 ? fullMinutes + 1 : fullMinutes) - totalBreakMinutes;
 
     const today = new Date(Date.UTC(endTime.getFullYear(), endTime.getMonth(), endTime.getDate()));
 
@@ -399,7 +400,10 @@ async function autoClockOut(
         const updSchedStart = scheduledStart || existing.scheduledStart;
         const updSchedEnd = scheduledEnd || existing.scheduledEnd;
         const billingUpd = computeBillingTimes(updActualStart, endTime, updSchedStart, updSchedEnd);
-        const billingMinsUpd = Math.max(0, Math.floor((billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime()) / 60000) - newBreak);
+        const billingRawMsUpd = billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime();
+        const billingFullMinUpd = Math.floor(billingRawMsUpd / 60000);
+        const billingRemSecUpd = Math.floor((billingRawMsUpd % 60000) / 1000);
+        const billingMinsUpd = Math.max(0, (billingRemSecUpd >= 30 ? billingFullMinUpd + 1 : billingFullMinUpd) - newBreak);
         await prisma.timeRecord.update({
           where: { id: existing.id },
           data: {
@@ -417,7 +421,10 @@ async function autoClockOut(
         });
       } else {
         const billingNew = computeBillingTimes(session.startTime, endTime, scheduledStart, scheduledEnd);
-        const billingMinsNew = Math.max(0, Math.floor((billingNew.billingEnd.getTime() - billingNew.billingStart.getTime()) / 60000) - totalBreakMinutes);
+        const billingRawMsNew = billingNew.billingEnd.getTime() - billingNew.billingStart.getTime();
+        const billingFullMinNew = Math.floor(billingRawMsNew / 60000);
+        const billingRemSecNew = Math.floor((billingRawMsNew % 60000) / 1000);
+        const billingMinsNew = Math.max(0, (billingRemSecNew >= 30 ? billingFullMinNew + 1 : billingFullMinNew) - totalBreakMinutes);
         await prisma.timeRecord.create({
           data: {
             employeeId: employee.id,

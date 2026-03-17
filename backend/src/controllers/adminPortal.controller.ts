@@ -756,9 +756,13 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const dateStr = toTzDateStr(session.startTime, empTz);
 
       const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
-      const sessionMinutes = session.endTime
-        ? Math.floor((session.endTime.getTime() - session.startTime.getTime()) / 60000)
-        : 0;
+      const sessionMinutes = (() => {
+        if (!session.endTime) return 0;
+        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        const fullMin = Math.floor(rawMs / 60000);
+        const remSec = Math.floor((rawMs % 60000) / 1000);
+        return remSec >= 30 ? fullMin + 1 : fullMin;
+      })();
       const breakMins = session.totalBreakMinutes || 0;
       const workMinutes = Math.max(0, sessionMinutes - breakMins);
 

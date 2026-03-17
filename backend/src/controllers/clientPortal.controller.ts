@@ -1193,12 +1193,19 @@ const syncClientTimeRecords = async (clientId: string, employeeIds: string[], da
 
       if (existingRecord) continue;
 
-      const totalMinutes = session.endTime
-        ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 60000) - (session.totalBreakMinutes || 0)
-        : 0;
+      const totalMinutes = (() => {
+        if (!session.endTime) return 0;
+        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        const fullMin = Math.floor(rawMs / 60000);
+        const remSec = Math.floor((rawMs % 60000) / 1000);
+        return (remSec >= 30 ? fullMin + 1 : fullMin) - (session.totalBreakMinutes || 0);
+      })();
 
       const syncBilling = computeBillingTimes(session.startTime, session.endTime!, null, null);
-      const syncBillingMins = Math.max(0, Math.floor((syncBilling.billingEnd.getTime() - syncBilling.billingStart.getTime()) / 60000) - (session.totalBreakMinutes || 0));
+      const syncBillingRawMs = syncBilling.billingEnd.getTime() - syncBilling.billingStart.getTime();
+      const syncBillingFullMin = Math.floor(syncBillingRawMs / 60000);
+      const syncBillingRemSec = Math.floor((syncBillingRawMs % 60000) / 1000);
+      const syncBillingMins = Math.max(0, (syncBillingRemSec >= 30 ? syncBillingFullMin + 1 : syncBillingFullMin) - (session.totalBreakMinutes || 0));
       await prisma.timeRecord.create({
         data: {
           employeeId: session.employeeId,
@@ -1602,9 +1609,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || (isActive ? now : null);
-          const sessionMins = endRef
-            ? Math.round((endRef.getTime() - session.startTime.getTime()) / 60000) - breakMins
-            : 0;
+          const sessionMins = (() => {
+            if (!endRef) return 0;
+            const rawMs = endRef.getTime() - session.startTime.getTime();
+            const fullMin = Math.floor(rawMs / 60000);
+            const remSec = Math.floor((rawMs % 60000) / 1000);
+            return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins;
+          })();
 
           // Match OT requests to this specific session using createdAt
           let sessionOTEntries: typeof dayOTRequests;
