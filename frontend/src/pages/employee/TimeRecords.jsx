@@ -847,18 +847,11 @@ const TimeRecords = () => {
                               {(() => {
                                 const otEntries = session.overtimeEntries || [];
                                 const totalM = session.totalMinutes || 0;
-                                // Subtract only pending OT from regular hours
-                                // Approved/auto-approved OT is included in regular hours
-                                const unapprovedOTM = Math.min(
-                                  totalM,
-                                  otEntries
-                                    .filter((o) => o.status === "PENDING")
-                                    .reduce(
-                                      (s, o) => s + (o.requestedMinutes || 0),
-                                      0,
-                                    ),
+                                const allOTM = otEntries.reduce(
+                                  (s, o) => s + (o.requestedMinutes || 0),
+                                  0,
                                 );
-                                const regularM = totalM;
+                                const regularM = Math.max(0, totalM - allOTM);
                                 const shiftExtM = otEntries
                                   .filter((o) => o.type === "SHIFT_EXTENSION")
                                   .reduce(
@@ -1188,13 +1181,11 @@ const TimeRecords = () => {
                               {(() => {
                                 const otEntries = session.overtimeEntries || [];
                                 const totalM = session.totalMinutes || 0;
-                                const unapprovedOTM = otEntries
-                                  .filter((o) => o.status === "PENDING")
-                                  .reduce(
-                                    (s, o) => s + (o.requestedMinutes || 0),
-                                    0,
-                                  );
-                                const regularM = totalM;
+                                const allOTM = otEntries.reduce(
+                                  (s, o) => s + (o.requestedMinutes || 0),
+                                  0,
+                                );
+                                const regularM = Math.max(0, totalM - allOTM);
                                 return isActiveSession(session) ? (
                                   <span className="text-sm font-bold text-green-600">
                                     In Progress
