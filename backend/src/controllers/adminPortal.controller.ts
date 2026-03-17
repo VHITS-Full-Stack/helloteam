@@ -1140,7 +1140,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     // Map query status to TimeRecord ApprovalStatus
     const timeRecordStatusMap: { [key: string]: ApprovalStatus | ApprovalStatus[] } = {
       pending: ApprovalStatus.PENDING,
-      approved: ApprovalStatus.APPROVED,
+      approved: [ApprovalStatus.APPROVED, ApprovalStatus.AUTO_APPROVED],
       rejected: ApprovalStatus.REJECTED,
       revision_requested: ApprovalStatus.REVISION_REQUESTED,
     };
@@ -1155,7 +1155,9 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     const leaveStatus = leaveStatusMap[status] || LeaveStatus.PENDING;
 
     // Get time records
-    let timeRecordWhere: any = { status: timeRecordStatus };
+    let timeRecordWhere: any = {
+      status: Array.isArray(timeRecordStatus) ? { in: timeRecordStatus } : timeRecordStatus,
+    };
     if (clientId) {
       timeRecordWhere.clientId = clientId;
     }
@@ -1194,19 +1196,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         take: type === 'leave' ? limit : 10,
       }) : [],
       (!type || type === 'overtime-request') ? prisma.overtimeRequest.findMany({
-        where: { status: otStatus },
-        include: {
-          employee: {
-            select: {
-              firstName: true, lastName: true, profilePhoto: true,
-              clientAssignments: {
-                where: { isActive: true },
-                include: { client: { select: { companyName: true } } },
-                take: 1,
-              },
-            },
-          },
-        },
+        where: { status: otStatus as any },
         orderBy: { createdAt: 'desc' },
         skip: type === 'overtime-request' ? skip : 0,
         take: type === 'overtime-request' ? limit : 10,
@@ -1269,16 +1259,19 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     );
     approvals.push(...leaveApprovals);
 
-    // Process overtime requests
+    // Process overtime requests (no relations, look up employee/client separately)
     const otApprovals = await Promise.all(
       (overtimeRequests as any[]).map(async (ot) => {
-        const clientName = ot.employee?.clientAssignments?.[0]?.client?.companyName || 'N/A';
+        const [emp, cli] = await Promise.all([
+          prisma.employee.findUnique({ where: { id: ot.employeeId }, select: { firstName: true, lastName: true, profilePhoto: true } }),
+          prisma.client.findUnique({ where: { id: ot.clientId }, select: { companyName: true } }),
+        ]);
         return {
           id: ot.id,
           type: 'overtime-request',
-          employee: `${ot.employee.firstName} ${ot.employee.lastName}`,
-          profilePhoto: await refreshProfilePhotoUrl(ot.employee.profilePhoto),
-          client: clientName,
+          employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown',
+          profilePhoto: await refreshProfilePhotoUrl(emp?.profilePhoto || null),
+          client: cli?.companyName || 'N/A',
           description: `${ot.type === 'SHIFT_EXTENSION' ? 'Shift Extension' : 'Off-Shift'} OT Request`,
           date: ot.date.toISOString().split('T')[0],
           details: `${formatDuration(ot.requestedMinutes || 0)} ${ot.type === 'SHIFT_EXTENSION' ? 'ext' : 'off-shift'}`,
@@ -1318,21 +1311,36 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       prisma.timeRecord.count({ where: { status: 'REVISION_REQUESTED' } }),
     ]);
 
-    const [leaveCount, otCount] = await Promise.all([
+    const today = new Date(new Date().setHours(0, 0, 0, 0));
+    const [leaveCount, otPendingCount, approvedLeaveCount, approvedOtCount, rejectedLeaveCount, rejectedOtCount] = await Promise.all([
       prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
       prisma.overtimeRequest.count({ where: { status: 'PENDING' } }),
+      prisma.leaveRequest.count({ where: { status: 'APPROVED' } }),
+      prisma.overtimeRequest.count({ where: { status: 'APPROVED' } }),
+      prisma.leaveRequest.count({ where: { status: 'REJECTED' } }),
+      prisma.overtimeRequest.count({ where: { status: 'REJECTED' } }),
     ]);
+
+    // Total approved time records (APPROVED + AUTO_APPROVED)
+    const totalApprovedTimeRecords = await prisma.timeRecord.count({
+      where: { status: { in: ['APPROVED', 'AUTO_APPROVED'] } },
+    });
+    const totalRejectedTimeRecords = await prisma.timeRecord.count({
+      where: { status: 'REJECTED' },
+    });
 
     res.json({
       success: true,
       data: {
         approvals,
         stats: {
-          pending: pendingCount + leaveCount + otCount,
+          pending: pendingCount + leaveCount + otPendingCount,
           clientApproved: clientApprovedCount,
           approvedToday: approvedTodayCount,
           rejectedToday: rejectedTodayCount,
           revisionRequested: revisionRequestedCount,
+          approved: totalApprovedTimeRecords + approvedLeaveCount + approvedOtCount,
+          rejected: totalRejectedTimeRecords + rejectedLeaveCount + rejectedOtCount,
         },
         pagination: {
           page,

@@ -105,8 +105,8 @@ const Approvals = () => {
   const tabs = [
     { id: 'pending', label: 'Pending', count: stats.pending },
     { id: 'revision_requested', label: 'Revision Requested', count: stats.revisionRequested },
-    { id: 'approved', label: 'Approved', count: stats.approvedToday },
-    { id: 'rejected', label: 'Rejected', count: stats.rejectedToday },
+    { id: 'approved', label: 'Approved', count: stats.approved ?? stats.approvedToday },
+    { id: 'rejected', label: 'Rejected', count: stats.rejected ?? stats.rejectedToday },
   ];
 
   const handleApprove = (item) => {
