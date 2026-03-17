@@ -26,6 +26,7 @@ import {
   TableCell
 } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
+import overtimeService from '../../services/overtime.service';
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
@@ -152,6 +153,8 @@ const Approvals = () => {
       let response;
       if (selectedItem.type === 'leave') {
         response = await adminPortalService.approveLeaveRequest(selectedItem.id);
+      } else if (selectedItem.type === 'overtime-request') {
+        response = await overtimeService.approveOvertimeRequest(selectedItem.id);
       } else {
         response = await adminPortalService.approveTimeRecord(selectedItem.id);
       }
@@ -174,6 +177,8 @@ const Approvals = () => {
       let response;
       if (selectedItem.type === 'leave') {
         response = await adminPortalService.rejectLeaveRequest(selectedItem.id, rejectionReason);
+      } else if (selectedItem.type === 'overtime-request') {
+        response = await overtimeService.rejectOvertimeRequest(selectedItem.id, rejectionReason);
       } else {
         response = await adminPortalService.rejectTimeRecord(selectedItem.id, rejectionReason);
       }
@@ -316,6 +321,7 @@ const Approvals = () => {
               <option value="all">All Types</option>
               <option value="timesheet">Timesheet</option>
               <option value="overtime">Overtime</option>
+              <option value="overtime-request">OT Requests</option>
               <option value="time-adjustment">Adjustments</option>
               <option value="leave">Leave</option>
             </select>
