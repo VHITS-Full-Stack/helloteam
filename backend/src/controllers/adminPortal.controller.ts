@@ -764,14 +764,14 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const trKey = `${session.employeeId}_${dateStr}`;
       const dayTimeRecord = timeRecordMap.get(trKey);
 
-      // Use TimeRecord's stored minutes (source of truth) when available
-      const breakMins = dayTimeRecord?.breakMinutes ?? (session.totalBreakMinutes || 0);
-      const workMinutes = dayTimeRecord?.totalMinutes ?? (() => {
+      // Always calculate per-session (admin shows per-session rows, same day can have multiple)
+      const breakMins = session.totalBreakMinutes || 0;
+      const workMinutes = (() => {
         if (!session.endTime) return 0;
         const rawMs = session.endTime.getTime() - session.startTime.getTime();
         const fullMin = Math.floor(rawMs / 60000);
         const remSec = Math.floor((rawMs % 60000) / 1000);
-        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - (session.totalBreakMinutes || 0));
+        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
       })();
 
       const hours = Math.round(workMinutes / 60 * 100) / 100;
