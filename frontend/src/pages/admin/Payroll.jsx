@@ -58,8 +58,8 @@ const Payroll = () => {
   // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
   const [employeeSummary, setEmployeeSummary] = useState(null);
-  const [unapprovedRecords, setUnapprovedRecords] = useState([]);
-  const [disputedRecords, setDisputedRecords] = useState([]);
+  // const [unapprovedRecords, setUnapprovedRecords] = useState([]);
+  // const [disputedRecords, setDisputedRecords] = useState([]);
   const [periods, setPeriods] = useState([]);
 
   // Modals
@@ -246,51 +246,48 @@ const Payroll = () => {
     }
   }, [periodStart, periodEnd, selectedClient]);
 
-  // Fetch unapproved records when tab changes
-  const fetchUnapproved = useCallback(async () => {
-    if (!periodStart || !periodEnd) return;
+  // // Fetch unapproved records when tab changes
+  // const fetchUnapproved = useCallback(async () => {
+  //   if (!periodStart || !periodEnd) return;
+  //   try {
+  //     const response = await payrollService.getUnapprovedRecords({
+  //       periodStart,
+  //       periodEnd,
+  //       clientId: selectedClient || undefined,
+  //     });
+  //     if (response.success) {
+  //       setUnapprovedRecords(response.data?.records || []);
+  //     }
+  //   } catch (err) {
+  //     console.error("Error fetching unapproved records:", err);
+  //   }
+  // }, [periodStart, periodEnd, selectedClient]);
 
-    try {
-      const response = await payrollService.getUnapprovedRecords({
-        periodStart,
-        periodEnd,
-        clientId: selectedClient || undefined,
-      });
-
-      if (response.success) {
-        setUnapprovedRecords(response.data?.records || []);
-      }
-    } catch (err) {
-      console.error("Error fetching unapproved records:", err);
-    }
-  }, [periodStart, periodEnd, selectedClient]);
-
-  // Fetch disputed records
-  const fetchDisputed = useCallback(async () => {
-    try {
-      const response = await payrollService.getDisputedRecords({
-        clientId: selectedClient || undefined,
-      });
-
-      if (response.success) {
-        setDisputedRecords(response.data?.records || []);
-      }
-    } catch (err) {
-      console.error("Error fetching disputed records:", err);
-    }
-  }, [selectedClient]);
+  // // Fetch disputed records
+  // const fetchDisputed = useCallback(async () => {
+  //   try {
+  //     const response = await payrollService.getDisputedRecords({
+  //       clientId: selectedClient || undefined,
+  //     });
+  //     if (response.success) {
+  //       setDisputedRecords(response.data?.records || []);
+  //     }
+  //   } catch (err) {
+  //     console.error("Error fetching disputed records:", err);
+  //   }
+  // }, [selectedClient]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (activeTab === "unapproved") {
-      fetchUnapproved();
-    } else if (activeTab === "disputed") {
-      fetchDisputed();
-    }
-  }, [activeTab, fetchUnapproved, fetchDisputed]);
+  // useEffect(() => {
+  //   if (activeTab === "unapproved") {
+  //     fetchUnapproved();
+  //   } else if (activeTab === "disputed") {
+  //     fetchDisputed();
+  //   }
+  // }, [activeTab, fetchUnapproved, fetchDisputed]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
@@ -768,12 +765,12 @@ const Payroll = () => {
           {[
             // { id: 'overview', label: 'Client Overview', icon: Building2 },
             { id: "employees", label: "Employees", icon: Users },
-            {
-              id: "unapproved",
-              label: "Pending Approval",
-              icon: Clock,
-              count: summary.totalUnapproved,
-            },
+            // {
+            //   id: "unapproved",
+            //   label: "Pending Approval",
+            //   icon: Clock,
+            //   count: summary.totalUnapproved,
+            // },
             // { id: 'disputed', label: 'Disputed', icon: AlertTriangle, count: summary.totalDisputed },
           ].map((tab) => (
             <button
@@ -1069,7 +1066,7 @@ const Payroll = () => {
         </Card>
       )}
 
-      {activeTab === "unapproved" && (
+      {/* {activeTab === "unapproved" && (
         <Card>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Pending Time Approvals
@@ -1130,9 +1127,9 @@ const Payroll = () => {
             </div>
           )}
         </Card>
-      )}
+      )} */}
 
-      {activeTab === "disputed" && (
+      {/* {activeTab === "disputed" && (
         <Card>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
             Disputed Time Records
@@ -1205,7 +1202,7 @@ const Payroll = () => {
             </div>
           )}
         </Card>
-      )}
+      )} */}
 
       {/* Payroll History */}
       {periods.length > 0 && (
