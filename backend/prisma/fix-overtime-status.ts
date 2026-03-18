@@ -32,19 +32,24 @@ async function fixOvertimeStatus() {
   let fixed = 0;
 
   for (const ot of approvedOTRequests) {
-    // Find matching TimeRecord that still has unapproved OT status
+    // Find matching TimeRecord that needs fixing (unapproved OT status OR still AUTO_APPROVED)
     const whereClause: any = {
       employeeId: ot.employeeId,
       clientId: ot.clientId,
       date: ot.date,
+      OR: [] as any[],
     };
 
     if (ot.type === 'SHIFT_EXTENSION') {
-      whereClause.shiftExtensionMinutes = { gt: 0 };
-      whereClause.shiftExtensionStatus = { in: ['PENDING', 'UNAPPROVED', 'NONE'] };
+      whereClause.OR.push(
+        { shiftExtensionMinutes: { gt: 0 }, shiftExtensionStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] } },
+        { shiftExtensionMinutes: { gt: 0 }, status: 'AUTO_APPROVED' },
+      );
     } else if (ot.type === 'OFF_SHIFT') {
-      whereClause.extraTimeMinutes = { gt: 0 };
-      whereClause.extraTimeStatus = { in: ['PENDING', 'UNAPPROVED', 'NONE'] };
+      whereClause.OR.push(
+        { extraTimeMinutes: { gt: 0 }, extraTimeStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] } },
+        { extraTimeMinutes: { gt: 0 }, status: 'AUTO_APPROVED' },
+      );
     }
 
     const timeRecord = await prisma.timeRecord.findFirst({ where: whereClause });
@@ -55,6 +60,11 @@ async function fixOvertimeStatus() {
         updateData.shiftExtensionStatus = 'APPROVED';
       } else if (ot.type === 'OFF_SHIFT') {
         updateData.extraTimeStatus = 'APPROVED';
+      }
+
+      // Client approved the OT, so overall status should be APPROVED too
+      if (timeRecord.status === 'AUTO_APPROVED' || timeRecord.status === 'PENDING') {
+        updateData.status = 'APPROVED';
       }
 
       await prisma.timeRecord.update({

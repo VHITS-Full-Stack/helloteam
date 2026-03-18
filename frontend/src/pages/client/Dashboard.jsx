@@ -47,7 +47,14 @@ const ClientDashboard = () => {
   const [rejectReason, setRejectReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [currentTime, setCurrentTime] = useState(new Date());
   const fetchingRef = useRef(false);
+
+  // Live EST clock
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const fetchDashboardData = useCallback(async (showRefresh = false) => {
     if (fetchingRef.current) return;
@@ -165,6 +172,22 @@ const ClientDashboard = () => {
           <p className="text-gray-500">
             Here's what's happening with your team today.
           </p>
+          <div className="flex items-center gap-2 mt-1">
+            <Clock size={14} className="text-gray-400" />
+            <span className="text-sm font-bold text-gray-500">
+              {currentTime.toLocaleString('en-US', {
+                timeZone: 'America/New_York',
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true,
+              })}{' '}
+              EST
+            </span>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button
