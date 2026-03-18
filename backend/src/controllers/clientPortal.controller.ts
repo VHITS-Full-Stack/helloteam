@@ -1345,14 +1345,21 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     });
 
     // Build session lookup: employeeId_dateStr -> session[]
-    // Use client timezone for date grouping to correctly detect multi-session days
-    const toTzDateStr = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: clientTimezone });
     const sessionsByEmpDate = new Map<string, typeof sessions>();
     for (const session of sessions) {
-      const dateStr = toTzDateStr(session.startTime);
+      const dateStr = toLocalDateStr(session.startTime);
       const key = `${session.employeeId}_${dateStr}`;
       if (!sessionsByEmpDate.has(key)) sessionsByEmpDate.set(key, []);
       sessionsByEmpDate.get(key)!.push(session);
+    }
+    // Also group by client timezone for multi-session detection
+    const toTzDateStr = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: clientTimezone });
+    const sessionsByEmpTzDate = new Map<string, typeof sessions>();
+    for (const session of sessions) {
+      const dateStr = toTzDateStr(session.startTime);
+      const key = `${session.employeeId}_${dateStr}`;
+      if (!sessionsByEmpTzDate.has(key)) sessionsByEmpTzDate.set(key, []);
+      sessionsByEmpTzDate.get(key)!.push(session);
     }
 
     // Track unique employees — include all assigned employees (not just those with sessions)
@@ -1405,7 +1412,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Build TimeRecord lookup: employeeId_dateStr -> timeRecord
     const timeRecordMap = new Map<string, typeof timeRecords[0]>();
     for (const tr of timeRecords) {
-      const dateStr = toTzDateStr(tr.date);
+      const dateStr = toLocalDateStr(tr.date);
       const key = `${tr.employeeId}_${dateStr}`;
       timeRecordMap.set(key, tr);
     }
@@ -1436,7 +1443,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // OvertimeRequest.date is also stored as UTC midnight
     const otRequestMap = new Map<string, typeof overtimeRequests>();
     for (const ot of overtimeRequests) {
-      const dateStr = toTzDateStr(ot.date);
+      const dateStr = toLocalDateStr(ot.date);
       const key = `${ot.employeeId}_${dateStr}`;
       if (!otRequestMap.has(key)) otRequestMap.set(key, []);
       otRequestMap.get(key)!.push(ot);
@@ -1505,10 +1512,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const getLeaveForDate = (empId: string, date: Date): { leaveType: string } | null => {
       const leaves = leaveByEmployee.get(empId);
       if (!leaves) return null;
-      const dateStr = toTzDateStr(date);
+      const dateStr = toLocalDateStr(date);
       for (const leave of leaves) {
-        const leaveStart = toTzDateStr(leave.startDate);
-        const leaveEnd = toTzDateStr(leave.endDate);
+        const leaveStart = toLocalDateStr(leave.startDate);
+        const leaveEnd = toLocalDateStr(leave.endDate);
         if (dateStr >= leaveStart && dateStr <= leaveEnd) {
           return { leaveType: leave.leaveType };
         }
@@ -1528,7 +1535,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Build holiday lookup: dateStr -> holiday name
     const holidayMap = new Map<string, string>();
     for (const h of clientHolidays) {
-      holidayMap.set(toTzDateStr(h.date), h.name);
+      holidayMap.set(toLocalDateStr(h.date), h.name);
     }
 
     // Generate weekly data per employee
@@ -1559,7 +1566,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       for (const date of allDates) {
         const dayOfWeek = date.getUTCDay();
         const dayKey = dayNames[dayOfWeek];
-        const dateStr = toTzDateStr(date);
+        const dateStr = toLocalDateStr(date);
         const sessionKey = `${empId}_${dateStr}`;
         const daySessions = sessionsByEmpDate.get(sessionKey);
 
@@ -1679,13 +1686,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
 
+          // Use timezone-based grouping to detect multi-session days
+          const tzDateKey = `${empId}_${toTzDateStr(session.startTime)}`;
+          const tzDaySessions = sessionsByEmpTzDate.get(tzDateKey) || daySessions;
+          const isMultiSessionDay = tzDaySessions.length > 1;
+
           // Determine if this session is purely off-shift OT (no regular hours)
-          // A session is off-shift if it has OT entries that are all OFF_SHIFT type
           const hasSessionOT = sessionOTEntries.length > 0;
           const isOffShiftOnly = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
           // Fallback: if sessionOTEntries didn't match but day has off-shift OT and this session has overtime
-          const isOffShiftFallback = !hasSessionOT && daySessions.length > 1 && sessionOvertime === 0 ? false :
-            (!hasSessionOT && daySessions.length > 1 && dayOTRequests.some(ot => ot.type === 'OFF_SHIFT') && sessionOvertime > 0);
+          const isOffShiftFallback = !hasSessionOT && isMultiSessionDay && sessionOvertime > 0 && dayOTRequests.some(ot => ot.type === 'OFF_SHIFT');
 
           empData.records.push({
             id: session.id,
@@ -1711,7 +1721,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               const baseStatus = dayOvertimeStatus || 'PENDING';
               // If record is APPROVED due to OT approval, check per-session:
               // Sessions without OT were auto-approved, sessions with OT were client-approved
-              if (baseStatus === 'APPROVED' && daySessions.length > 1 && dayOTRequests.length > 0) {
+              if (baseStatus === 'APPROVED' && isMultiSessionDay && dayOTRequests.length > 0) {
                 const thisSessionHasOT = hasSessionOT || isOffShiftFallback;
                 if (!thisSessionHasOT) return 'AUTO_APPROVED';
               }
