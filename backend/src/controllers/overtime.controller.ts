@@ -479,9 +479,16 @@ export const rejectOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
     });
 
     if (existingTimeRecord) {
+      const updateData: any = { [statusField]: 'DENIED' };
+      // If the TimeRecord is still PENDING, approve the regular hours (only OT is denied)
+      if (existingTimeRecord.status === 'PENDING') {
+        updateData.status = 'APPROVED';
+        updateData.approvedBy = userId;
+        updateData.approvedAt = new Date();
+      }
       await prisma.timeRecord.update({
         where: { id: existingTimeRecord.id },
-        data: { [statusField]: 'DENIED' },
+        data: updateData,
       });
     }
 

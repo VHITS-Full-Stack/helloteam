@@ -435,9 +435,12 @@ const ClientDashboard = () => {
                     {item.description}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
-                    {typeof item.date === "string"
-                      ? item.date
-                      : new Date(item.date).toLocaleDateString()}
+                    {new Date(item.date).toLocaleDateString("en-US", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </p>
                   {item.type !== "leave" && (
                     <div className="flex gap-2 mt-3">
