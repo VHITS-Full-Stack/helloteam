@@ -1717,7 +1717,7 @@ export const getEmployeePayrollDetail = async (
             },
           },
         },
-        client: { select: { id: true, companyName: true } },
+        client: { select: { id: true, companyName: true, timezone: true } },
       },
       orderBy: { date: "asc" },
     });
@@ -1891,7 +1891,7 @@ export const getEmployeePayrollDetail = async (
           lastName: employee.lastName,
           profilePhoto: employee.profilePhoto,
         },
-        client: { id: client.id, companyName: client.companyName },
+        client: { id: client.id, companyName: client.companyName, timezone: client.timezone || null },
         period: { start: periodStart, end: periodEnd },
         rates: { hourlyRate, overtimeRate },
         summary: {

@@ -57,12 +57,14 @@ const PayrollEmployeeDetail = () => {
     });
   };
 
+  const clientTimezone = data?.client?.timezone || 'America/New_York';
   const formatTime = (dateStr) => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleTimeString("en-US", {
       hour: "numeric",
       minute: "2-digit",
       hour12: true,
+      timeZone: clientTimezone,
     });
   };
 
