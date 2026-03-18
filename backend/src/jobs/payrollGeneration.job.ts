@@ -52,7 +52,7 @@ export const runPayrollGeneration = async (io?: Server): Promise<void> => {
     // Get all active clients (those with at least one active employee assignment)
     const activeClients = await prisma.client.findMany({
       where: {
-        clientEmployees: {
+        employees: {
           some: { isActive: true },
         },
       },

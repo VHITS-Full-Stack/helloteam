@@ -627,8 +627,17 @@ export interface InvoicePreviewItem {
   overtimeHours: number;
   estimatedTotal: number;
   rates: number[];
+  lineItems: {
+    employeeName: string;
+    hours: number;
+    overtimeHours: number;
+    rate: number;
+    overtimeRate: number;
+    amount: number;
+  }[];
   lateOtRecords: number;
   currency: string;
+  alreadyExists: boolean;
 }
 
 /**

@@ -832,10 +832,10 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
 
     // Also update shiftExtensionStatus / extraTimeStatus on the time record if unapproved
     const statusUpdates: any = {};
-    if (timeRecord.shiftExtensionStatus === 'PENDING' || timeRecord.shiftExtensionStatus === 'UNAPPROVED') {
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.shiftExtensionStatus) && (timeRecord.shiftExtensionMinutes || 0) > 0) {
       statusUpdates.shiftExtensionStatus = 'APPROVED';
     }
-    if (timeRecord.extraTimeStatus === 'PENDING' || timeRecord.extraTimeStatus === 'UNAPPROVED') {
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.extraTimeStatus) && (timeRecord.extraTimeMinutes || 0) > 0) {
       statusUpdates.extraTimeStatus = 'APPROVED';
     }
     if (Object.keys(statusUpdates).length > 0) {
@@ -1996,22 +1996,22 @@ export const bulkApproveTimeRecords = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
-    // Verify all records belong to this client
+    // Verify all records belong to this client (allow approving PENDING or AUTO_APPROVED records)
     const records = await prisma.timeRecord.findMany({
-      where: { id: { in: recordIds }, clientId: client.id, status: 'PENDING' },
+      where: { id: { in: recordIds }, clientId: client.id, status: { in: ['PENDING', 'AUTO_APPROVED'] } },
     });
 
     if (records.length !== recordIds.length) {
       res.status(400).json({
         success: false,
-        error: 'Some records not found or not pending',
+        error: 'Some records not found or not in approvable state',
         found: records.length,
         requested: recordIds.length,
       });
       return;
     }
 
-    // Bulk update
+    // Bulk update — approve records and cascade to overtime status fields
     const result = await prisma.timeRecord.updateMany({
       where: { id: { in: recordIds }, clientId: client.id },
       data: {
@@ -2020,6 +2020,40 @@ export const bulkApproveTimeRecords = async (req: AuthenticatedRequest, res: Res
         approvedAt: new Date(),
       },
     });
+
+    // Cascade approval to shiftExtensionStatus / extraTimeStatus for records with unapproved OT
+    for (const record of records) {
+      const statusUpdates: any = {};
+      if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.shiftExtensionStatus) && (record.shiftExtensionMinutes || 0) > 0) {
+        statusUpdates.shiftExtensionStatus = 'APPROVED';
+      }
+      if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.extraTimeStatus) && (record.extraTimeMinutes || 0) > 0) {
+        statusUpdates.extraTimeStatus = 'APPROVED';
+      }
+      if (Object.keys(statusUpdates).length > 0) {
+        await prisma.timeRecord.update({
+          where: { id: record.id },
+          data: statusUpdates,
+        });
+      }
+    }
+
+    // Also approve any matching OvertimeRequest records
+    for (const record of records) {
+      await prisma.overtimeRequest.updateMany({
+        where: {
+          employeeId: record.employeeId,
+          clientId: record.clientId,
+          date: record.date,
+          status: 'PENDING',
+        },
+        data: {
+          status: 'APPROVED',
+          approvedBy: userId,
+          approvedAt: new Date(),
+        },
+      });
+    }
 
     res.json({
       success: true,
@@ -2055,13 +2089,13 @@ export const bulkRejectTimeRecords = async (req: AuthenticatedRequest, res: Resp
 
     // Verify all records belong to this client and are overtime only
     const records = await prisma.timeRecord.findMany({
-      where: { id: { in: recordIds }, clientId: client.id, status: 'PENDING' },
+      where: { id: { in: recordIds }, clientId: client.id, status: { in: ['PENDING', 'AUTO_APPROVED'] } },
     });
 
     if (records.length !== recordIds.length) {
       res.status(400).json({
         success: false,
-        error: 'Some records not found or not pending',
+        error: 'Some records not found or not in actionable state',
       });
       return;
     }

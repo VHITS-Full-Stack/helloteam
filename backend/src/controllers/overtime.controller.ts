@@ -370,23 +370,26 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
       },
     });
 
-    // If there's already a PENDING time record with overtime for this date, auto-approve it
+    // If there's a time record with overtime for this date, cascade the approval
     const existingTimeRecord = await prisma.timeRecord.findFirst({
       where: {
         employeeId: request.employeeId,
         clientId: request.clientId,
         date: request.date,
-        status: 'PENDING',
+        status: { in: ['PENDING', 'AUTO_APPROVED', 'APPROVED'] },
         overtimeMinutes: { gt: 0 },
       },
     });
 
     if (existingTimeRecord) {
-      const updateData: any = {
-        status: 'APPROVED',
-        approvedBy: userId,
-        approvedAt: new Date(),
-      };
+      const updateData: any = {};
+
+      // Only update the overall status if not already approved
+      if (existingTimeRecord.status === 'PENDING') {
+        updateData.status = 'APPROVED';
+        updateData.approvedBy = userId;
+        updateData.approvedAt = new Date();
+      }
 
       // Cascade approval to the relevant status field on TimeRecord
       if (request.type === 'SHIFT_EXTENSION') {
@@ -395,10 +398,12 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
         updateData.extraTimeStatus = 'APPROVED';
       }
 
-      await prisma.timeRecord.update({
-        where: { id: existingTimeRecord.id },
-        data: updateData,
-      });
+      if (Object.keys(updateData).length > 0) {
+        await prisma.timeRecord.update({
+          where: { id: existingTimeRecord.id },
+          data: updateData,
+        });
+      }
     }
 
     // Notify the employee
