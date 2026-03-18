@@ -272,16 +272,7 @@ const PayrollEmployeeDetail = () => {
                         <span>
                           {formatTime(rec.billingStart)}
                           <span className="text-gray-300 mx-1">–</span>
-                          {(() => {
-                            if (rec.approvedOTMinutes > 0) {
-                              const adj = new Date(
-                                new Date(rec.billingEnd).getTime() +
-                                  rec.approvedOTMinutes * 60000,
-                              );
-                              return formatTime(adj);
-                            }
-                            return formatTime(rec.billingEnd);
-                          })()}
+                          {formatTime(rec.billingEnd)}
                         </span>
                       ) : (
                         "—"
