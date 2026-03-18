@@ -1686,21 +1686,32 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
 
-          // Use timezone-based grouping to detect multi-session days
-          const tzSessionDateStr = toTzDateStr(session.startTime);
-          const tzDateKey = `${empId}_${tzSessionDateStr}`;
-          const tzDaySessions = sessionsByEmpTzDate.get(tzDateKey) || [];
-          const isMultiSessionDay = tzDaySessions.length > 1 || (daySessions && daySessions.length > 1);
-
-          // Also check OT requests using TZ date (they might be on a different UTC date)
-          const allTzDayOTs = overtimeRequests.filter(ot => toTzDateStr(ot.date) === tzSessionDateStr && ot.employeeId === empId);
-          const dayHasOffShiftOT = dayOTRequests.some(ot => ot.type === 'OFF_SHIFT') || allTzDayOTs.some(ot => ot.type === 'OFF_SHIFT');
-
-          // Determine if this session is purely off-shift OT (no regular hours)
+          // Detect if this session is an off-shift OT session
+          // Method 1: matched OT entries are all OFF_SHIFT
           const hasSessionOT = sessionOTEntries.length > 0;
-          const isOffShiftOnly = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
-          // Fallback: if sessionOTEntries didn't match but day has off-shift OT and this session has overtime
-          const isOffShiftFallback = !hasSessionOT && isMultiSessionDay && sessionOvertime > 0 && dayHasOffShiftOT;
+          const isOffShiftByOT = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
+
+          // Method 2: session has overtime but starts AFTER the scheduled end time
+          // This catches cases where OT matching by createdAt fails
+          const isOffShiftBySchedule = (() => {
+            if (!daySchedule?.endTime || !session.startTime) return false;
+            const [endH, endM] = daySchedule.endTime.split(':').map(Number);
+            const sessionStartLocal = new Date(session.startTime.toLocaleString('en-US', { timeZone: clientTimezone }));
+            const sessionStartHour = sessionStartLocal.getHours();
+            const sessionStartMin = sessionStartLocal.getMinutes();
+            const sessionStartTotalMin = sessionStartHour * 60 + sessionStartMin;
+            const schedEndTotalMin = endH * 60 + endM;
+            // Session starts after or at schedule end — it's off-shift
+            return sessionStartTotalMin >= schedEndTotalMin && sessionOvertime > 0;
+          })();
+
+          // Method 3: TimeRecord has approved extraTime (off-shift) and this session has no billing overlap
+          const isOffShiftByTimeRecord = timeRecord &&
+            (timeRecord.extraTimeStatus === 'APPROVED' || timeRecord.extraTimeStatus === 'PENDING') &&
+            (timeRecord.extraTimeMinutes || 0) > 0 &&
+            sessionOvertime > 0;
+
+          const isOffShiftOnly = isOffShiftByOT || isOffShiftBySchedule || !!isOffShiftByTimeRecord;
 
           empData.records.push({
             id: session.id,
@@ -1712,7 +1723,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             scheduledEnd: daySchedule?.endTime || null,
             billingStart: timeRecord?.billingStart || null,
             billingEnd: timeRecord?.billingEnd || null,
-            billingMinutes: (isOffShiftOnly || isOffShiftFallback) ? 0 : (timeRecord?.billingMinutes || 0),
+            billingMinutes: isOffShiftOnly ? 0 : (timeRecord?.billingMinutes || 0),
             isLate: timeRecord?.isLate || false,
             totalMinutes: effectiveSessionMinutes,
             breakMinutes: breakMins,
@@ -1725,10 +1736,14 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             status: isActive ? 'ACTIVE' : (() => {
               const baseStatus = dayOvertimeStatus || 'PENDING';
               // If record is APPROVED due to OT approval, check per-session:
-              // Sessions without OT were auto-approved, sessions with OT were client-approved
-              if (baseStatus === 'APPROVED' && isMultiSessionDay && (dayOTRequests.length > 0 || allTzDayOTs.length > 0)) {
-                const thisSessionHasOT = hasSessionOT || isOffShiftFallback;
-                if (!thisSessionHasOT) return 'AUTO_APPROVED';
+              // Off-shift sessions keep APPROVED, non-OT sessions show AUTO_APPROVED
+              if (baseStatus === 'APPROVED' && !isOffShiftOnly && sessionOvertime === 0) {
+                // This session has no OT — check if the TimeRecord has approved OT (meaning OT was on another session)
+                const trHasApprovedOT = timeRecord && (
+                  (timeRecord.extraTimeStatus === 'APPROVED' && (timeRecord.extraTimeMinutes || 0) > 0) ||
+                  (timeRecord.shiftExtensionStatus === 'APPROVED' && (timeRecord.shiftExtensionMinutes || 0) > 0)
+                );
+                if (trHasApprovedOT) return 'AUTO_APPROVED';
               }
               return baseStatus;
             })(),
