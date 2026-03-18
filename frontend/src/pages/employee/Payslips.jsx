@@ -269,30 +269,50 @@ const Payslips = () => {
           </div>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {payslips.map((slip) => (
-            <Card key={slip.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => loadDetail(slip)}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="p-2.5 bg-emerald-50 rounded-lg">
-                    <DollarSign className="w-5 h-5 text-emerald-600" />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-900">{formatPeriod(slip.periodStart, slip.periodEnd)}</p>
-                    <p className="text-sm text-gray-500">{slip.clientName} &middot; {slip.workDays} days &middot; {slip.totalHours}h</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-emerald-700">${slip.grossPay.toLocaleString()}</p>
-                    <p className="text-xs text-gray-400">Gross Pay</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300" />
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <Card padding="none">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Period</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Client</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Days</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Hours</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">OT</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Gross Pay</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {payslips.map((slip) => (
+                  <tr
+                    key={slip.id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => loadDetail(slip)}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-gray-900">{formatPeriod(slip.periodStart, slip.periodEnd)}</p>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{slip.clientName}</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 text-center">{slip.workDays}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-gray-900 text-center">{slip.totalHours}h</td>
+                    <td className="px-4 py-3 text-sm text-center">
+                      {slip.overtimeHours > 0
+                        ? <span className="text-orange-600 font-medium">{slip.overtimeHours}h</span>
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-sm font-bold text-emerald-700">${slip.grossPay.toLocaleString()}</span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <ChevronRight className="w-4 h-4 text-gray-300" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       )}
     </div>
   );
