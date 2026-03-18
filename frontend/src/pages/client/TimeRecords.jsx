@@ -732,16 +732,7 @@ const TimeRecords = () => {
                                       <span className="text-gray-300 mx-1">
                                         –
                                       </span>
-                                      {(() => {
-                                        const approvedOTMins = (rec.overtimeEntries || [])
-                                          .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
-                                          .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-                                        if (approvedOTMins > 0) {
-                                          const adjustedEnd = new Date(new Date(rec.billingEnd).getTime() + approvedOTMins * 60000);
-                                          return formatClockTime(adjustedEnd, clientTimezone);
-                                        }
-                                        return formatClockTime(rec.billingEnd, clientTimezone);
-                                      })()}
+                                      {formatClockTime(rec.billingEnd, clientTimezone)}
                                     </span>
                                   ) : rec.clockIn ? (
                                     <span className="text-gray-600">
@@ -1004,16 +995,7 @@ const TimeRecords = () => {
                                     clientTimezone,
                                   )}{" "}
                                   –{" "}
-                                  {(() => {
-                                    const approvedOTMins = (rec.overtimeEntries || [])
-                                      .filter(ot => ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED')
-                                      .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-                                    if (approvedOTMins > 0) {
-                                      const adjustedEnd = new Date(new Date(rec.billingEnd).getTime() + approvedOTMins * 60000);
-                                      return formatClockTime(adjustedEnd, clientTimezone);
-                                    }
-                                    return formatClockTime(rec.billingEnd, clientTimezone);
-                                  })()}
+                                  {formatClockTime(rec.billingEnd, clientTimezone)}
                                 </span>
                               ) : rec.clockIn ? (
                                 <span>
