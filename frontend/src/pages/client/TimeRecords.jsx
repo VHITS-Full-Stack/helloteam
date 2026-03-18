@@ -700,7 +700,7 @@ const TimeRecords = () => {
                                 <span className="text-gray-900 whitespace-nowrap">
                                   {dateLabel}
                                 </span>
-                                {rec.isLate && (
+                                {rec.isLate && (rec.regularMinutes > 0 || !hasOT) && (
                                   <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
                                     LATE
                                   </span>
@@ -971,7 +971,7 @@ const TimeRecords = () => {
                               <span className="text-sm font-medium text-gray-900">
                                 {dateLabel}
                               </span>
-                              {rec.isLate && (
+                              {rec.isLate && (rec.regularMinutes > 0 || !hasOT) && (
                                 <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
                                   LATE
                                 </span>
