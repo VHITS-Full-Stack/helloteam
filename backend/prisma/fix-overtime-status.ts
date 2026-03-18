@@ -62,8 +62,8 @@ async function fixOvertimeStatus() {
         updateData.extraTimeStatus = 'APPROVED';
       }
 
-      // Client approved the OT, so overall status should be APPROVED too
-      if (timeRecord.status === 'AUTO_APPROVED' || timeRecord.status === 'PENDING') {
+      // Only change overall status if PENDING (auto-approved records keep their status)
+      if (timeRecord.status === 'PENDING') {
         updateData.status = 'APPROVED';
       }
 
