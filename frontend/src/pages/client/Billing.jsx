@@ -36,9 +36,28 @@ const Billing = () => {
     fetchBilling();
   }, [fetchBilling]);
 
+  const [payingId, setPayingId] = useState(null);
+
+  const handleMarkPaid = async (invoiceId) => {
+    setPayingId(invoiceId);
+    try {
+      const response = await clientPortalService.markInvoicePaid(invoiceId);
+      if (response.success) {
+        fetchBilling();
+      } else {
+        setError(response.error || 'Failed to mark as paid');
+      }
+    } catch (err) {
+      setError(err.error || err.message || 'Failed to mark as paid');
+    } finally {
+      setPayingId(null);
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'PAID': return <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Paid</span>;
+      case 'CLIENT_PAID': return <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-700">Paid</span>;
       case 'SENT': return <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-blue-100 text-blue-700">Sent</span>;
       case 'OVERDUE': return <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">Overdue</span>;
       case 'CANCELLED': return <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-700">Declined</span>;
@@ -234,8 +253,8 @@ const Billing = () => {
                       <p className="text-sm font-semibold text-primary-600">{invoice.invoiceNumber}</p>
                       <p className="text-xs text-gray-400">{formatDate(invoice.periodStart)}</p>
                     </div>
-                    {invoice.status === 'PAID'
-                      ? getStatusBadge('PAID')
+                    {(invoice.status === 'PAID' || invoice.status === 'CLIENT_PAID')
+                      ? getStatusBadge(invoice.status)
                       : invoice.status === 'CANCELLED'
                         ? getStatusBadge('CANCELLED')
                         : <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">Pending</span>
@@ -248,12 +267,18 @@ const Billing = () => {
                       {formatCurrency(invoice.total, invoice.currency)}
                     </p>
                     <div className="flex items-center gap-2">
-                      {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && invoice.status !== 'DRAFT' && (
+                      {(invoice.status === 'SENT' || invoice.status === 'OVERDUE') && (
                         <button
-                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                          onClick={() => handleMarkPaid(invoice.id)}
+                          disabled={payingId === invoice.id}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
                         >
-                          <DollarSign className="w-3.5 h-3.5" />
-                          Pay Now
+                          {payingId === invoice.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <DollarSign className="w-3.5 h-3.5" />
+                          )}
+                          {payingId === invoice.id ? 'Processing...' : 'Pay Now'}
                         </button>
                       )}
                       <button

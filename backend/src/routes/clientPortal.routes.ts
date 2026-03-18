@@ -32,6 +32,7 @@ import {
   getClientInvoices,
   getClientInvoiceById,
   downloadClientInvoicePdf,
+  clientMarkInvoicePaid,
 } from '../controllers/invoice.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
@@ -133,6 +134,9 @@ router.get('/invoices/:invoiceId/pdf', downloadClientInvoicePdf);
 
 // Get single invoice detail
 router.get('/invoices/:invoiceId', getClientInvoiceById);
+
+// Client marks invoice as paid
+router.post('/invoices/:invoiceId/mark-paid', clientMarkInvoicePaid);
 
 // ============================================
 // SETTINGS ROUTES

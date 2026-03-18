@@ -126,6 +126,12 @@ const clientPortalService = {
     window.URL.revokeObjectURL(url);
   },
 
+  // Mark invoice as paid (client side)
+  markInvoicePaid: async (invoiceId) => {
+    const response = await api.post(`/client-portal/invoices/${invoiceId}/mark-paid`);
+    return response;
+  },
+
   // Settings APIs
   getSettings: async () => {
     const response = await api.get('/client-portal/settings');

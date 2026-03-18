@@ -836,6 +836,61 @@ export const getClientInvoiceById = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+// Client marks invoice as paid
+export const clientMarkInvoicePaid = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    const invoiceId = req.params.invoiceId as string;
+
+    const client = await prisma.client.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, clientId: client.id },
+    });
+
+    if (!invoice) {
+      res.status(404).json({ success: false, error: 'Invoice not found' });
+      return;
+    }
+
+    if (invoice.status === 'PAID' || invoice.status === 'CLIENT_PAID') {
+      res.status(400).json({ success: false, error: 'Invoice is already marked as paid' });
+      return;
+    }
+
+    if (invoice.status !== 'SENT' && invoice.status !== 'OVERDUE') {
+      res.status(400).json({ success: false, error: 'Invoice cannot be paid in its current status' });
+      return;
+    }
+
+    const updated = await prisma.invoice.update({
+      where: { id: invoiceId },
+      data: {
+        status: 'CLIENT_PAID',
+        clientPaidAt: new Date(),
+        clientPaidBy: userId,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Invoice marked as paid. Awaiting admin confirmation.',
+      data: updated,
+    });
+  } catch (error) {
+    console.error('Client mark invoice paid error:', error);
+    res.status(500).json({ success: false, error: 'Failed to mark invoice as paid' });
+  }
+};
+
 // ============================================
 // PDF DOWNLOAD ENDPOINTS
 // ============================================

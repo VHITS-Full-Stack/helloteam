@@ -293,7 +293,8 @@ const Invoices = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'PAID': return <Badge variant="success">Paid</Badge>;
+      case 'PAID': return <Badge variant="success">Confirmed Paid</Badge>;
+      case 'CLIENT_PAID': return <Badge variant="warning">Payment Received</Badge>;
       case 'SENT': return <Badge variant="info">Sent</Badge>;
       case 'OVERDUE': return <Badge variant="warning">Overdue</Badge>;
       case 'CANCELLED': return <Badge variant="danger">Cancelled</Badge>;
@@ -399,7 +400,8 @@ const Invoices = () => {
                 <option value="all">All Status</option>
                 <option value="DRAFT">Draft</option>
                 <option value="SENT">Sent</option>
-                <option value="PAID">Paid</option>
+                <option value="CLIENT_PAID">Payment Received</option>
+                <option value="PAID">Confirmed Paid</option>
                 <option value="OVERDUE">Overdue</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
@@ -554,6 +556,16 @@ const Invoices = () => {
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </>
+                        )}
+                        {invoice.status === 'CLIENT_PAID' && (
+                          <button
+                            onClick={() => setMarkPaidInvoiceId(invoice.id)}
+                            className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-lg transition-colors animate-pulse"
+                            title="Confirm Payment Received"
+                            disabled={updatingId === invoice.id}
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                          </button>
                         )}
                         {invoice.status === 'SENT' && (
                           <button
@@ -1007,6 +1019,17 @@ const Invoices = () => {
                     Mark as Sent
                   </Button>
                 </>
+              )}
+              {selectedInvoice.status === 'CLIENT_PAID' && (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={CheckCircle}
+                  onClick={() => { setMarkPaidInvoiceId(selectedInvoice.id); setShowDetailModal(false); }}
+                  loading={updatingId === selectedInvoice.id}
+                >
+                  Confirm Payment
+                </Button>
               )}
               {selectedInvoice.status === 'SENT' && (
                 <Button
