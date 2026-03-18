@@ -384,9 +384,8 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
     if (existingTimeRecord) {
       const updateData: any = {};
 
-      // Only update the overall status if it's PENDING (not yet approved at all)
-      // If AUTO_APPROVED, keep it — the regular hours were auto-approved, only OT is client-approved
-      if (existingTimeRecord.status === 'PENDING') {
+      // Update the overall status to APPROVED (client is actively approving OT)
+      if (existingTimeRecord.status === 'PENDING' || existingTimeRecord.status === 'AUTO_APPROVED') {
         updateData.status = 'APPROVED';
         updateData.approvedBy = userId;
         updateData.approvedAt = new Date();
