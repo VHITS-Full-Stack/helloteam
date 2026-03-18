@@ -1702,7 +1702,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
             extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
-            status: isActive ? 'ACTIVE' : (isOffShiftOnly && dayOvertimeStatus === 'APPROVED' ? 'APPROVED' : (dayOvertimeStatus || 'PENDING')),
+            status: isActive ? 'ACTIVE' : (() => {
+              const baseStatus = dayOvertimeStatus || 'PENDING';
+              // If this session has no OT but other sessions on the same day do,
+              // and the record was upgraded to APPROVED because of OT, show AUTO_APPROVED for this session
+              if (baseStatus === 'APPROVED' && sessionOTEntries.length === 0 && daySessions.length > 1) {
+                const otherSessionsHaveOT = dayOTRequests.length > 0;
+                if (otherSessionsHaveOT) return 'AUTO_APPROVED';
+              }
+              return baseStatus;
+            })(),
             overtimeStatus: sessionOvertime > 0 ? dayOvertimeStatus : null,
             revisionReason: timeRecord?.revisionReason || null,
             overtimeEntries: sessionOTEntries.map(ot => ({

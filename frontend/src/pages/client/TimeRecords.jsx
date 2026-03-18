@@ -676,7 +676,7 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = billingM > 0 ? billingM : Math.max(0, totalM - approvedOTM);
+                        const regularM = billingM > 0 ? Math.max(0, billingM - approvedOTM) : Math.max(0, totalM - approvedOTM);
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
