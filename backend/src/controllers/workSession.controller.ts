@@ -1426,6 +1426,17 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         : 0;
       const workMinutes = totalMinutes - sessionOvertimeMinutes;
 
+      // Per-session status: if multiple sessions on a day and record is APPROVED due to OT,
+      // sessions without OT should show AUTO_APPROVED
+      const perSessionStatus = (() => {
+        const baseStatus = timeRecord?.status || null;
+        if (baseStatus === 'APPROVED' && isMultiSession && sameDayOTs.length > 0) {
+          const thisSessionHasOT = matchedOTEntries.length > 0 || sessionOvertimeMinutes > 0;
+          if (!thisSessionHasOT) return 'AUTO_APPROVED';
+        }
+        return baseStatus;
+      })();
+
       return {
         ...session,
         totalMinutes,
@@ -1439,7 +1450,7 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         billingMinutes: timeRecord?.billingMinutes || 0,
         isLate: timeRecord?.isLate || false,
         client: clientAssignment?.client || null,
-        approvalStatus: timeRecord?.status || null,
+        approvalStatus: perSessionStatus,
         approvedAt: timeRecord?.approvedAt || null,
         timeRecordId: timeRecord?.id || null,
         revisionReason: timeRecord?.revisionReason || null,
