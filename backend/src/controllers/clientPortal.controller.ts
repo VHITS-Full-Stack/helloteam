@@ -1352,15 +1352,6 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       if (!sessionsByEmpDate.has(key)) sessionsByEmpDate.set(key, []);
       sessionsByEmpDate.get(key)!.push(session);
     }
-    // Also group by client timezone for multi-session detection
-    const toTzDateStr = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: clientTimezone });
-    const sessionsByEmpTzDate = new Map<string, typeof sessions>();
-    for (const session of sessions) {
-      const dateStr = toTzDateStr(session.startTime);
-      const key = `${session.employeeId}_${dateStr}`;
-      if (!sessionsByEmpTzDate.has(key)) sessionsByEmpTzDate.set(key, []);
-      sessionsByEmpTzDate.get(key)!.push(session);
-    }
 
     // Track unique employees — include all assigned employees (not just those with sessions)
     const employeeWhere: any = { id: { in: employeeIds } };
@@ -1665,18 +1656,32 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             .filter(ot => ot.status === 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
           const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
-          const sessionOvertimeMinutes = Math.min(sessionOvertime, effectiveSessionMinutes);
+
+          // If OT matching by createdAt failed but TimeRecord has off-shift/extension OT,
+          // detect which session is the OT session by matching minutes.
+          let sessionOvertimeMinutes = Math.min(sessionOvertime, effectiveSessionMinutes);
+          if (sessionOvertimeMinutes === 0 && timeRecord) {
+            const trExtraOT = (timeRecord.extraTimeMinutes || 0);
+            const trExtOT = (timeRecord.shiftExtensionMinutes || 0);
+            if (trExtraOT > 0 && Math.abs(effectiveSessionMinutes - trExtraOT) <= 2) {
+              // This session's duration matches the off-shift OT minutes — it's the OT session
+              sessionOvertimeMinutes = effectiveSessionMinutes;
+            } else if (trExtOT > 0 && Math.abs(effectiveSessionMinutes - trExtOT) <= 2) {
+              // This session's duration matches the shift extension OT minutes
+              sessionOvertimeMinutes = effectiveSessionMinutes;
+            }
+          }
           const sessionRegularMinutes = Math.max(0, effectiveSessionMinutes - sessionOvertimeMinutes);
           const sessionBillingMins = timeRecord?.billingMinutes || effectiveSessionMinutes;
           const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
 
           empData.dailyHours[dayKey] = (empData.dailyHours[dayKey] || 0) + sessionHours;
-          if (sessionOvertime > 0) {
-            empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((sessionOvertime / 60) * 100) / 100;
+          if (sessionOvertimeMinutes > 0) {
+            empData.dailyOvertimeHours[dayKey] = (empData.dailyOvertimeHours[dayKey] || 0) + Math.round((sessionOvertimeMinutes / 60) * 100) / 100;
           }
           empData.totalMinutes += effectiveSessionMinutes;
           empData.billingTotalMinutes += (timeRecord?.billingMinutes || effectiveSessionMinutes);
-          empData.overtimeMinutes += sessionOvertime;
+          empData.overtimeMinutes += sessionOvertimeMinutes;
 
           for (const ot of sessionOTEntries) {
             if (ot.status === 'APPROVED' || (ot.status as string) === 'AUTO_APPROVED') {
@@ -1688,35 +1693,6 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
 
-          // Detect if this session is an off-shift OT session
-          // Method 1: matched OT entries are all OFF_SHIFT
-          const hasSessionOT = sessionOTEntries.length > 0;
-          const isOffShiftByOT = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
-
-          // Method 2: session has overtime but starts AFTER the scheduled end time
-          // This catches cases where OT matching by createdAt fails
-          const isOffShiftBySchedule = (() => {
-            if (!daySchedule?.endTime || !session.startTime) return false;
-            const [endH, endM] = daySchedule.endTime.split(':').map(Number);
-            const sessionStartLocal = new Date(session.startTime.toLocaleString('en-US', { timeZone: clientTimezone }));
-            const sessionStartHour = sessionStartLocal.getHours();
-            const sessionStartMin = sessionStartLocal.getMinutes();
-            const sessionStartTotalMin = sessionStartHour * 60 + sessionStartMin;
-            const schedEndTotalMin = endH * 60 + endM;
-            // Session starts after or at schedule end — it's off-shift
-            return sessionStartTotalMin >= schedEndTotalMin && sessionOvertime > 0;
-          })();
-
-          // Method 3: Check using TZ-based session grouping — if not the first session and TR has off-shift OT
-          const tzSessKey = `${empId}_${toTzDateStr(session.startTime)}`;
-          const tzDaySessions = sessionsByEmpTzDate.get(tzSessKey) || [];
-          const allDaySessions = tzDaySessions.length > 1 ? tzDaySessions : (daySessions && daySessions.length > 1 ? daySessions : []);
-          const isNotFirstSession = allDaySessions.length > 1 && allDaySessions.indexOf(session) > 0;
-          const trHasOffShiftOT = timeRecord && (timeRecord.extraTimeMinutes || 0) > 0;
-          const isOffShiftByPosition = isNotFirstSession && trHasOffShiftOT;
-
-          const isOffShiftOnly = isOffShiftByOT || isOffShiftBySchedule || !!isOffShiftByPosition;
-
           empData.records.push({
             id: session.id,
             timeRecordId: timeRecord ? timeRecord.id : null,
@@ -1725,9 +1701,9 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             clockOut: session.endTime || null,
             scheduledStart: daySchedule?.startTime || null,
             scheduledEnd: daySchedule?.endTime || null,
-            billingStart: timeRecord?.billingStart || null,
-            billingEnd: timeRecord?.billingEnd || null,
-            billingMinutes: timeRecord?.billingMinutes || 0,
+            billingStart: session.startTime,
+            billingEnd: session.endTime || null,
+            billingMinutes: sessionRegularMinutes,
             regularMinutes: sessionRegularMinutes,
             isLate: timeRecord?.isLate || false,
             totalMinutes: effectiveSessionMinutes,
