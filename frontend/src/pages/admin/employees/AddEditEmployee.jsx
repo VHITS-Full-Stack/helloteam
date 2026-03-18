@@ -215,10 +215,10 @@ const AddEmployee = () => {
             </div>
           </div>
 
-          {/* Rates */}
+          {/* Rates & Deduction */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Rates</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Rates & Deduction</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Input
                 label="Payable Rate ($/hr)"
                 type="number"
@@ -238,6 +238,15 @@ const AddEmployee = () => {
                 value={formData.billingRate}
                 onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
                 required
+              />
+              <Input
+                label="Deduction ($)"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 50.00"
+                value={formData.deduction}
+                onChange={(e) => setFormData({ ...formData, deduction: e.target.value })}
               />
             </div>
           </div>

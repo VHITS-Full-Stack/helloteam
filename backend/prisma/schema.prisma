@@ -192,6 +192,7 @@ model Employee {
   terminationDate  DateTime?
   payableRate      Decimal?         @db.Decimal(10, 2)
   billingRate      Decimal?         @db.Decimal(10, 2)
+  deduction        Decimal?         @default(0) @db.Decimal(10, 2)
   onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
   personalEmail    String?
   kycStatus        KycStatus        @default(PENDING)

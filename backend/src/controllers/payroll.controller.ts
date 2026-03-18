@@ -1378,6 +1378,7 @@ export const getEmployeePayrollSummary = async (
             lastName: true,
             profilePhoto: true,
             billingRate: true,
+            deduction: true,
             groupAssignments: {
               select: {
                 groupId: true,
@@ -1596,9 +1597,11 @@ export const getEmployeePayrollSummary = async (
       const totalBonuses = empAdjustments
         .filter((a: any) => a.type === "BONUS")
         .reduce((sum: number, a: any) => sum + a.amount, 0);
-      const totalDeductions = empAdjustments
+      const adjustmentDeductions = empAdjustments
         .filter((a: any) => a.type === "DEDUCTION")
         .reduce((sum: number, a: any) => sum + a.amount, 0);
+      const employeeDeduction = emp.employee.deduction ? Number(emp.employee.deduction) : 0;
+      const totalDeductions = adjustmentDeductions + employeeDeduction;
 
       const grossPay =
         Math.round(
@@ -1616,6 +1619,7 @@ export const getEmployeePayrollSummary = async (
         overtimePay,
         grossPay,
         adjustments: empAdjustments,
+        employeeDeduction,
         totalBonuses: Math.round(totalBonuses * 100) / 100,
         totalDeductions: Math.round(totalDeductions * 100) / 100,
         status,
@@ -1709,6 +1713,7 @@ export const getEmployeePayrollDetail = async (
             lastName: true,
             profilePhoto: true,
             billingRate: true,
+            deduction: true,
             groupAssignments: {
               select: {
                 groupId: true,
@@ -1965,12 +1970,15 @@ export const getEmployeePayrollDetail = async (
           .filter((a) => a.type === "BONUS")
           .reduce((sum, a) => sum + Number(a.amount), 0) * 100,
       ) / 100;
-    const totalDeductions =
+    const adjustmentDeductions =
       Math.round(
         adjustments
           .filter((a) => a.type === "DEDUCTION")
           .reduce((sum, a) => sum + Number(a.amount), 0) * 100,
       ) / 100;
+    // Include employee's fixed deduction from their profile
+    const employeeDeduction = employee.deduction ? Number(employee.deduction) : 0;
+    const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
     const grossPay =
       Math.round(
         (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
@@ -2002,6 +2010,7 @@ export const getEmployeePayrollDetail = async (
           overtimePay,
           totalBonuses,
           totalDeductions,
+          employeeDeduction,
           grossPay,
         },
         adjustments: adjustments.map((a) => ({

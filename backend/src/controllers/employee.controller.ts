@@ -307,6 +307,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       clientId,
       payableRate,
       billingRate,
+      deduction,
     } = req.body;
 
     // Validate required fields
@@ -363,6 +364,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           hireDate: hireDate ? new Date(hireDate) : null,
           payableRate: payableRate !== undefined && payableRate !== '' ? parseFloat(payableRate) : null,
           billingRate: billingRate !== undefined && billingRate !== '' ? parseFloat(billingRate) : null,
+          deduction: deduction !== undefined && deduction !== '' ? parseFloat(deduction) : 0,
         },
         include: {
           user: {
@@ -429,6 +431,7 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
       status,
       payableRate,
       billingRate,
+      deduction,
     } = req.body;
 
     // Check if employee exists
@@ -489,6 +492,7 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
           ...(hireDate && { hireDate: new Date(hireDate) }),
           ...(payableRate !== undefined && { payableRate: payableRate !== '' ? parseFloat(payableRate) : null }),
           ...(billingRate !== undefined && { billingRate: billingRate !== '' ? parseFloat(billingRate) : null }),
+          ...(deduction !== undefined && { deduction: deduction !== '' ? parseFloat(deduction) : 0 }),
         },
         include: {
           user: {

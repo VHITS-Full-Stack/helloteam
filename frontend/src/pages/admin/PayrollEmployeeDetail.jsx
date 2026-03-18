@@ -400,6 +400,18 @@ const PayrollEmployeeDetail = () => {
               </span>
             </div>
           ))}
+          {s.employeeDeduction > 0 && (
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-50/50">
+              <div className="w-0.5 h-6 rounded-full bg-red-500"></div>
+              <span className="text-sm text-red-700 flex-1">
+                Fixed Deduction
+                <span className="text-xs text-gray-400 ml-1">(per pay period)</span>
+              </span>
+              <span className="text-sm font-semibold w-20 text-right text-red-700">
+                -${s.employeeDeduction.toLocaleString()}
+              </span>
+            </div>
+          )}
           <div className="border-t border-dashed border-gray-300 mt-2 pt-2">
             <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50 rounded-lg">
               <div className="w-0.5 h-6 bg-emerald-600 rounded-full"></div>

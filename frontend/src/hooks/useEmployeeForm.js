@@ -33,6 +33,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     groupId: '',
     payableRate: '',
     billingRate: '',
+    deduction: '',
   });
 
   const filterGroupsByClient = (groups, clientId) => {
@@ -95,6 +96,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
               clientId: '',
               payableRate: emp.payableRate ?? '',
               billingRate: emp.billingRate ?? '',
+              deduction: emp.deduction ?? '',
             });
           } else {
             setError('Employee not found');
