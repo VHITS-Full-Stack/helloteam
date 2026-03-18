@@ -1778,7 +1778,23 @@ export const getEmployeePayrollDetail = async (
         : 0;
     if (overtimeRate === 0 && hourlyRate > 0) overtimeRate = hourlyRate * 1.5;
 
-    // Build daily records
+    // Fetch work sessions for per-session breakdown
+    const sessions = await prisma.workSession.findMany({
+      where: {
+        employeeId,
+        status: { in: ['COMPLETED', 'ACTIVE', 'ON_BREAK'] },
+        startTime: { gte: startDate, lte: new Date(endDate.getTime() + 86400000) },
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    // Build TimeRecord lookup by date
+    const trByDate = new Map<string, typeof records[0]>();
+    for (const r of records) {
+      trByDate.set(r.date.toISOString().split('T')[0], r);
+    }
+
+    // Build daily records — per session
     let totalRegularMinutes = 0;
     let totalOvertimeMinutes = 0;
     let totalApprovedMinutes = 0;
@@ -1786,60 +1802,138 @@ export const getEmployeePayrollDetail = async (
     let approvedDays = 0;
     let pendingDays = 0;
     let rejectedDays = 0;
+    const countedDates = new Set<string>();
 
-    const dailyRecords = records.map((record) => {
-      let approvedOTMinutes = 0;
-      if (record.shiftExtensionStatus === "APPROVED")
-        approvedOTMinutes += record.shiftExtensionMinutes || 0;
-      if (record.extraTimeStatus === "APPROVED")
-        approvedOTMinutes += record.extraTimeMinutes || 0;
+    const dailyRecords: any[] = [];
 
-      const deniedOTMinutes = Math.max(
-        0,
-        (record.overtimeMinutes || 0) - approvedOTMinutes,
-      );
-      const isApproved =
-        record.status === "APPROVED" || record.status === "AUTO_APPROVED";
-      const payableMinutes = isApproved
-        ? Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes)
-        : 0;
-      const regularMinutes = payableMinutes - approvedOTMinutes;
+    // If there are sessions, build per-session records
+    if (sessions.length > 0) {
+      for (const session of sessions) {
+        const dateKey = session.startTime.toISOString().split('T')[0];
+        const record = trByDate.get(dateKey);
+        if (!record) continue;
 
-      if (isApproved) {
-        totalRegularMinutes += regularMinutes;
-        totalOvertimeMinutes += approvedOTMinutes;
-        totalApprovedMinutes += payableMinutes;
-        approvedDays++;
-      } else if (record.status === "PENDING") {
-        totalPendingMinutes += record.totalMinutes || 0;
-        pendingDays++;
-      } else if (record.status === "REJECTED") {
-        rejectedDays++;
+        const isApproved = record.status === 'APPROVED' || record.status === 'AUTO_APPROVED';
+
+        // Calculate per-session minutes from clock times
+        const breakMins = session.totalBreakMinutes || 0;
+        const sessionMins = (() => {
+          if (!session.endTime) return 0;
+          const rawMs = session.endTime.getTime() - session.startTime.getTime();
+          const fullMin = Math.floor(rawMs / 60000);
+          const remSec = Math.floor((rawMs % 60000) / 1000);
+          return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
+        })();
+
+        // Detect off-shift OT by matching session duration with TimeRecord extraTimeMinutes
+        let sessionOTMinutes = 0;
+        const trExtraOT = record.extraTimeMinutes || 0;
+        const trExtOT = record.shiftExtensionMinutes || 0;
+        if (trExtraOT > 0 && Math.abs(sessionMins - trExtraOT) <= 2) {
+          sessionOTMinutes = sessionMins;
+        } else if (trExtOT > 0 && Math.abs(sessionMins - trExtOT) <= 2) {
+          sessionOTMinutes = sessionMins;
+        }
+        const sessionRegularMins = Math.max(0, sessionMins - sessionOTMinutes);
+
+        // Per-session status
+        const sessionStatus = (() => {
+          if (isApproved && sessionOTMinutes === 0) {
+            const trHasApprovedOT =
+              (record.extraTimeStatus === 'APPROVED' && trExtraOT > 0) ||
+              (record.shiftExtensionStatus === 'APPROVED' && trExtOT > 0);
+            if (trHasApprovedOT) return 'AUTO_APPROVED';
+          }
+          return record.status;
+        })();
+
+        // Count totals (only once per date)
+        if (!countedDates.has(dateKey)) {
+          countedDates.add(dateKey);
+          let approvedOTMins = 0;
+          if (record.shiftExtensionStatus === 'APPROVED') approvedOTMins += record.shiftExtensionMinutes || 0;
+          if (record.extraTimeStatus === 'APPROVED') approvedOTMins += record.extraTimeMinutes || 0;
+          const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMins);
+          const payable = isApproved ? Math.max(0, (record.totalMinutes || 0) - deniedOT) : 0;
+          const regular = payable - approvedOTMins;
+
+          if (isApproved) {
+            totalRegularMinutes += regular;
+            totalOvertimeMinutes += approvedOTMins;
+            totalApprovedMinutes += payable;
+            approvedDays++;
+          } else if (record.status === 'PENDING') {
+            totalPendingMinutes += record.totalMinutes || 0;
+            pendingDays++;
+          } else if (record.status === 'REJECTED') {
+            rejectedDays++;
+          }
+        }
+
+        dailyRecords.push({
+          date: record.date,
+          status: sessionStatus,
+          billingStart: session.startTime,
+          billingEnd: session.endTime || null,
+          totalMinutes: sessionMins,
+          billingMinutes: sessionRegularMins,
+          breakMinutes: breakMins,
+          overtimeMinutes: sessionOTMinutes,
+          approvedOTMinutes: sessionOTMinutes,
+          regularMinutes: sessionRegularMins,
+          payableMinutes: isApproved ? sessionMins : 0,
+          isLate: sessionOTMinutes > 0 ? false : record.isLate,
+          shiftExtensionStatus: record.shiftExtensionStatus,
+          shiftExtensionMinutes: record.shiftExtensionMinutes || 0,
+          extraTimeStatus: record.extraTimeStatus,
+          extraTimeMinutes: record.extraTimeMinutes || 0,
+        });
       }
+    }
 
-      return {
-        date: record.date,
-        status: record.status,
-        scheduledStart: record.scheduledStart,
-        scheduledEnd: record.scheduledEnd,
-        actualStart: record.actualStart,
-        actualEnd: record.actualEnd,
-        billingStart: record.billingStart,
-        billingEnd: record.billingEnd,
-        totalMinutes: record.totalMinutes || 0,
-        billingMinutes: record.billingMinutes || 0,
-        breakMinutes: record.breakMinutes || 0,
-        overtimeMinutes: record.overtimeMinutes || 0,
-        approvedOTMinutes,
-        regularMinutes: isApproved ? regularMinutes : 0,
-        payableMinutes,
-        isLate: record.isLate,
-        shiftExtensionStatus: record.shiftExtensionStatus,
-        shiftExtensionMinutes: record.shiftExtensionMinutes || 0,
-        extraTimeStatus: record.extraTimeStatus,
-        extraTimeMinutes: record.extraTimeMinutes || 0,
-      };
-    });
+    // Fallback: if no sessions found, use TimeRecord directly
+    if (dailyRecords.length === 0) {
+      for (const record of records) {
+        let approvedOTMinutes = 0;
+        if (record.shiftExtensionStatus === 'APPROVED') approvedOTMinutes += record.shiftExtensionMinutes || 0;
+        if (record.extraTimeStatus === 'APPROVED') approvedOTMinutes += record.extraTimeMinutes || 0;
+        const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
+        const isApproved = record.status === 'APPROVED' || record.status === 'AUTO_APPROVED';
+        const payableMinutes = isApproved ? Math.max(0, (record.totalMinutes || 0) - deniedOT) : 0;
+        const regularMinutes = payableMinutes - approvedOTMinutes;
+
+        if (isApproved) {
+          totalRegularMinutes += regularMinutes;
+          totalOvertimeMinutes += approvedOTMinutes;
+          totalApprovedMinutes += payableMinutes;
+          approvedDays++;
+        } else if (record.status === 'PENDING') {
+          totalPendingMinutes += record.totalMinutes || 0;
+          pendingDays++;
+        } else if (record.status === 'REJECTED') {
+          rejectedDays++;
+        }
+
+        dailyRecords.push({
+          date: record.date,
+          status: record.status,
+          billingStart: record.billingStart,
+          billingEnd: record.billingEnd,
+          totalMinutes: record.totalMinutes || 0,
+          billingMinutes: record.billingMinutes || 0,
+          breakMinutes: record.breakMinutes || 0,
+          overtimeMinutes: record.overtimeMinutes || 0,
+          approvedOTMinutes,
+          regularMinutes: isApproved ? regularMinutes : 0,
+          payableMinutes,
+          isLate: record.isLate,
+          shiftExtensionStatus: record.shiftExtensionStatus,
+          shiftExtensionMinutes: record.shiftExtensionMinutes || 0,
+          extraTimeStatus: record.extraTimeStatus,
+          extraTimeMinutes: record.extraTimeMinutes || 0,
+        });
+      }
+    }
 
     // Calculate pay
     const regularHours = Math.round((totalRegularMinutes / 60) * 100) / 100;
