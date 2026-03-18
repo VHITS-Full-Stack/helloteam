@@ -268,38 +268,52 @@ const ClientDashboard = () => {
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="overflow-x-auto pb-2">
-        <div className="grid grid-cols-5 gap-4 min-w-[700px]">
-          <StatCard
-            title="Total Employees"
-            value={stats.totalEmployees}
-            icon={Users}
-          />
-          <StatCard
-            title="Active Now"
-            value={stats.activeNow}
-            icon={Activity}
-            description={`${stats.workingNow} working, ${stats.onBreakNow} on break`}
-          />
-          <StatCard
-            title="Pending Approvals"
-            value={stats.pendingApprovals}
-            icon={AlertCircle}
-            description="Action required"
-          />
-          <StatCard
-            title="Weekly Hours"
-            value={stats.weeklyHours}
-            icon={Clock}
-            description="Total logged"
-          />
-          <StatCard
-            title="Monthly Billing"
-            value={formatCurrency(stats.monthlyBilling)}
-            icon={DollarSign}
-            description="Estimated"
-          />
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-900">{stats.totalEmployees}</p>
+            <p className="text-xs text-gray-500">Employees</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Activity className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-green-700">{stats.activeNow}</p>
+            <p className="text-xs text-green-600">{stats.workingNow} working{stats.onBreakNow > 0 ? `, ${stats.onBreakNow} break` : ''}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <AlertCircle className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-amber-700">{stats.pendingApprovals}</p>
+            <p className="text-xs text-amber-600">Pending Approvals</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Clock className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-blue-700">{stats.weeklyHours}</p>
+            <p className="text-xs text-blue-600">Weekly Hours</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-purple-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <DollarSign className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-purple-700">{formatCurrency(stats.monthlyBilling)}</p>
+            <p className="text-xs text-purple-600">Monthly Billing</p>
+          </div>
         </div>
       </div>
 

@@ -173,11 +173,16 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
     });
 
     const weeklyMinutes = weeklyTimeRecords.reduce((acc, tr) => {
-      return acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
+      return acc + (tr.totalMinutes || 0);
     }, 0);
     const weeklyHours = Math.round(weeklyMinutes / 60);
 
-    // Calculate estimated monthly billing (placeholder - would be based on rates)
+    // Calculate estimated monthly billing using actual client rate
+    const clientPolicy = await prisma.clientPolicy.findUnique({
+      where: { clientId },
+      select: { defaultHourlyRate: true, defaultOvertimeRate: true },
+    });
+
     const monthlyTimeRecords = await prisma.timeRecord.findMany({
       where: {
         clientId,
@@ -193,13 +198,17 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
       },
     });
 
-    const monthlyMinutes = monthlyTimeRecords.reduce((acc, tr) => {
-      return acc + (tr.totalMinutes || 0) + (tr.overtimeMinutes || 0);
-    }, 0);
+    const defaultRate = clientPolicy?.defaultHourlyRate ? Number(clientPolicy.defaultHourlyRate) : 0;
+    const otRate = clientPolicy?.defaultOvertimeRate ? Number(clientPolicy.defaultOvertimeRate) : defaultRate * 1.5;
 
-    // Placeholder hourly rate - in production this would come from client policies
-    const hourlyRate = 35;
-    const monthlyBilling = Math.round((monthlyMinutes / 60) * hourlyRate);
+    let monthlyBilling = 0;
+    for (const tr of monthlyTimeRecords) {
+      const totalMins = tr.totalMinutes || 0;
+      const otMins = tr.overtimeMinutes || 0;
+      const regularMins = Math.max(0, totalMins - otMins);
+      monthlyBilling += (regularMins / 60) * defaultRate + (otMins / 60) * otRate;
+    }
+    monthlyBilling = Math.round(monthlyBilling);
 
     res.json({
       success: true,
