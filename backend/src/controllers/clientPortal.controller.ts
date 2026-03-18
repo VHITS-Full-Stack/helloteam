@@ -1687,15 +1687,20 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           }
 
           // Use timezone-based grouping to detect multi-session days
-          const tzDateKey = `${empId}_${toTzDateStr(session.startTime)}`;
-          const tzDaySessions = sessionsByEmpTzDate.get(tzDateKey) || daySessions;
-          const isMultiSessionDay = tzDaySessions.length > 1;
+          const tzSessionDateStr = toTzDateStr(session.startTime);
+          const tzDateKey = `${empId}_${tzSessionDateStr}`;
+          const tzDaySessions = sessionsByEmpTzDate.get(tzDateKey) || [];
+          const isMultiSessionDay = tzDaySessions.length > 1 || (daySessions && daySessions.length > 1);
+
+          // Also check OT requests using TZ date (they might be on a different UTC date)
+          const allTzDayOTs = overtimeRequests.filter(ot => toTzDateStr(ot.date) === tzSessionDateStr && ot.employeeId === empId);
+          const dayHasOffShiftOT = dayOTRequests.some(ot => ot.type === 'OFF_SHIFT') || allTzDayOTs.some(ot => ot.type === 'OFF_SHIFT');
 
           // Determine if this session is purely off-shift OT (no regular hours)
           const hasSessionOT = sessionOTEntries.length > 0;
           const isOffShiftOnly = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
           // Fallback: if sessionOTEntries didn't match but day has off-shift OT and this session has overtime
-          const isOffShiftFallback = !hasSessionOT && isMultiSessionDay && sessionOvertime > 0 && dayOTRequests.some(ot => ot.type === 'OFF_SHIFT');
+          const isOffShiftFallback = !hasSessionOT && isMultiSessionDay && sessionOvertime > 0 && dayHasOffShiftOT;
 
           empData.records.push({
             id: session.id,
@@ -1721,7 +1726,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               const baseStatus = dayOvertimeStatus || 'PENDING';
               // If record is APPROVED due to OT approval, check per-session:
               // Sessions without OT were auto-approved, sessions with OT were client-approved
-              if (baseStatus === 'APPROVED' && isMultiSessionDay && dayOTRequests.length > 0) {
+              if (baseStatus === 'APPROVED' && isMultiSessionDay && (dayOTRequests.length > 0 || allTzDayOTs.length > 0)) {
                 const thisSessionHasOT = hasSessionOT || isOffShiftFallback;
                 if (!thisSessionHasOT) return 'AUTO_APPROVED';
               }
