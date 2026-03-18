@@ -570,338 +570,122 @@ const Payroll = () => {
   const employees = employeeSummary?.employees || [];
   const totals = employeeSummary?.totals || {};
 
+  const totalBonuses = employees.reduce((sum, e) => sum + (e.totalBonuses || 0), 0);
+  const totalDeductions = employees.reduce((sum, e) => sum + (e.totalDeductions || 0), 0);
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-5 animate-fade-in">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Payroll</h2>
-          <p className="text-gray-500">Process and manage employee payroll</p>
+          <h2 className="text-xl font-bold text-gray-900">Payroll</h2>
+          <p className="text-sm text-gray-500">Process and manage employee payroll</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            icon={RefreshCw}
-            onClick={fetchData}
-            disabled={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="outline"
-            icon={Download}
-            onClick={() => setShowExportModal(true)}
-          >
+        <div className="flex items-center gap-2">
+          {/* Period Selector */}
+          <span className="text-sm text-gray-500">Report Dates:</span>
+          <div className="relative">
+            <select
+              className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-gray-700 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+              value={selectedPeriodIdx}
+              onChange={handlePeriodChange}
+            >
+              {payPeriods.map((period, idx) => (
+                <option key={idx} value={idx}>{period.label}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <Button variant="ghost" size="sm" icon={RefreshCw} onClick={fetchData} disabled={loading} />
+          <Button variant="outline" size="sm" icon={Download} onClick={() => setShowExportModal(true)}>
             Export
           </Button>
           <Button
             variant={totals.payrollProcessed ? "outline" : "primary"}
+            size="sm"
             icon={totals.payrollProcessed ? CheckCircle : Send}
-            onClick={() =>
-              !totals.payrollProcessed && setShowProcessModal(true)
-            }
+            onClick={() => !totals.payrollProcessed && setShowProcessModal(true)}
             disabled={totals.payrollProcessed}
           >
-            {totals.payrollProcessed ? "Payroll Processed" : "Process Payroll"}
+            {totals.payrollProcessed ? "Processed" : "Process Payroll"}
           </Button>
         </div>
       </div>
 
-      {/* Error Alert */}
+      {/* Error / Success */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-5 h-5 flex-shrink-0" />
-          <span>{error}</span>
-          <button
-            onClick={() => setError("")}
-            className="ml-auto text-red-500 hover:text-red-700"
-          >
-            &times;
+        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+          <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+          <span className="text-sm text-red-700 flex-1">{error}</span>
+          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
-
       {successMsg && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm text-green-600">{successMsg}</p>
-          </div>
-          <button
-            onClick={() => setSuccessMsg("")}
-            className="text-green-400 hover:text-green-600"
-          >
-            <X className="w-4 h-4" />
+        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+          <span className="text-sm text-green-700 flex-1">{successMsg}</span>
+          <button onClick={() => setSuccessMsg("")} className="text-green-400 hover:text-green-600">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* Period Selector */}
-      <Card>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-5 h-5 text-gray-500" />
-            <span className="text-sm font-medium text-gray-600">
-              Report Dates:
-            </span>
-            <div className="relative">
-              <select
-                className="appearance-none border border-gray-300 rounded-lg pl-4 pr-9 py-2 text-sm font-medium text-gray-800 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                value={selectedPeriodIdx}
-                onChange={handlePeriodChange}
-              >
-                {payPeriods.map((period, idx) => (
-                  <option key={idx} value={idx}>
-                    {period.label}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
+      {/* Stats Pills */}
+      <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+          <Clock className="w-3.5 h-3.5 text-green-500" />
+          <span className="text-sm text-green-600">Hours</span>
+          <span className="text-sm font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toLocaleString()}</span>
         </div>
-
-        {/* Summary Stats Grid */}
-        {(() => {
-          const totalBonuses = employees.reduce(
-            (sum, e) => sum + (e.totalBonuses || 0),
-            0,
-          );
-          const totalDeductions = employees.reduce(
-            (sum, e) => sum + (e.totalDeductions || 0),
-            0,
-          );
-          return (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="bg-green-50 rounded-xl p-4 border border-green-200">
-                <p className="text-2xl font-bold text-green-700">
-                  {(
-                    totals.totalHours ||
-                    summary.totalHours ||
-                    0
-                  ).toLocaleString()}
-                </p>
-                <p className="text-xs text-green-600 font-medium mt-1">
-                  Total Hours
-                </p>
-              </div>
-              <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
-                <p className="text-2xl font-bold text-orange-700">
-                  {(
-                    totals.overtimeHours ||
-                    summary.overtimeHours ||
-                    0
-                  ).toLocaleString()}
-                </p>
-                <p className="text-xs text-orange-600 font-medium mt-1">
-                  Overtime
-                </p>
-              </div>
-              <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                <p className="text-2xl font-bold text-blue-700">
-                  {(
-                    totals.approvedHours ||
-                    summary.approvedHours ||
-                    0
-                  ).toLocaleString()}
-                </p>
-                <p className="text-xs text-blue-600 font-medium mt-1">
-                  Approved
-                </p>
-              </div>
-              <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
-                <p className="text-2xl font-bold text-yellow-700">
-                  {(
-                    totals.pendingHours ||
-                    summary.pendingHours ||
-                    0
-                  ).toLocaleString()}
-                </p>
-                <p className="text-xs text-yellow-600 font-medium mt-1">
-                  Pending
-                </p>
-              </div>
-              <div className="rounded-xl p-4 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-lg font-bold text-teal-700">
-                      +$
-                      {Math.round((totalBonuses * 100) / 100).toLocaleString()}
-                    </p>
-                    <p className="text-[10px] text-teal-600 font-medium">
-                      Bonuses
-                    </p>
-                  </div>
-                  <div className="w-px h-8 bg-gray-200"></div>
-                  <div>
-                    <p className="text-lg font-bold text-red-700">
-                      -$
-                      {Math.round(
-                        (totalDeductions * 100) / 100,
-                      ).toLocaleString()}
-                    </p>
-                    <p className="text-[10px] text-red-600 font-medium">
-                      Deductions
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-200">
-                <p className="text-2xl font-bold text-emerald-700">
-                  ${(totals.totalGrossPay || 0).toLocaleString()}
-                </p>
-                <p className="text-xs text-emerald-600 font-medium mt-1">
-                  Gross Pay
-                </p>
-              </div>
-            </div>
-          );
-        })()}
-      </Card>
-
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex gap-4">
-          {[
-            // { id: 'overview', label: 'Client Overview', icon: Building2 },
-            { id: "employees", label: "Employees", icon: Users },
-            // {
-            //   id: "unapproved",
-            //   label: "Pending Approval",
-            //   icon: Clock,
-            //   count: summary.totalUnapproved,
-            // },
-            // { id: 'disputed', label: 'Disputed', icon: AlertTriangle, count: summary.totalDisputed },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 border-b-2 font-medium transition-colors ${
-                activeTab === tab.id
-                  ? "border-primary text-primary"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <tab.icon className="w-4 h-4" />
-              {tab.label}
-              {tab.count > 0 && (
-                <span className="ml-1 px-2 py-0.5 bg-red-100 text-red-600 text-xs rounded-full">
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
-        </nav>
+        {(totals.overtimeHours || summary.overtimeHours || 0) > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
+            <span className="text-sm text-orange-600">OT</span>
+            <span className="text-sm font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toLocaleString()}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+          <span className="text-sm text-blue-600">Approved</span>
+          <span className="text-sm font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toLocaleString()}</span>
+        </div>
+        {(totals.pendingHours || summary.pendingHours || 0) > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-lg">
+            <span className="text-sm text-yellow-600">Pending</span>
+            <span className="text-sm font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toLocaleString()}</span>
+          </div>
+        )}
+        {totalBonuses > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
+            <span className="text-sm text-teal-600">Bonuses</span>
+            <span className="text-sm font-bold text-teal-700">+${Math.round(totalBonuses).toLocaleString()}</span>
+          </div>
+        )}
+        {totalDeductions > 0 && (
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
+            <span className="text-sm text-red-600">Deductions</span>
+            <span className="text-sm font-bold text-red-700">-${Math.round(totalDeductions).toLocaleString()}</span>
+          </div>
+        )}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
+          <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+          <span className="text-sm text-emerald-600">Gross Pay</span>
+          <span className="text-sm font-bold text-emerald-700">${(totals.totalGrossPay || 0).toLocaleString()}</span>
+        </div>
       </div>
 
-      {/* Tab Content */}
-      {activeTab === "overview" && (
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Client Payroll Status
-          </h3>
-          {clients.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Client</TableHeader>
-                  <TableHeader className="text-right">Employees</TableHeader>
-                  <TableHeader className="text-right">Total Hours</TableHeader>
-                  <TableHeader className="text-right">Approved</TableHeader>
-                  <TableHeader className="text-right">Pending</TableHeader>
-                  <TableHeader className="text-right">Overtime</TableHeader>
-                  <TableHeader>Readiness</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                  <TableHeader />
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {clients.map((client) => (
-                  <TableRow key={client.clientId}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
-                          <Building2 className="w-4 h-4 text-primary" />
-                        </div>
-                        <span className="font-medium text-gray-900">
-                          {client.companyName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {client.employeeCount}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {client.totalHours}h
-                    </TableCell>
-                    <TableCell className="text-right text-green-600">
-                      {client.approvedHours}h
-                    </TableCell>
-                    <TableCell className="text-right text-yellow-600">
-                      {client.pendingHours}h
-                    </TableCell>
-                    <TableCell className="text-right text-orange-600">
-                      {client.overtimeHours}h
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getReadinessBadge(client.readiness)}
-                        <span className="text-xs text-gray-500">
-                          {client.approvedPercentage}%
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {client.isLocked ? (
-                        <Badge
-                          variant="warning"
-                          className="flex items-center gap-1"
-                        >
-                          <Lock className="w-3 h-3" /> Locked
-                        </Badge>
-                      ) : (
-                        <Badge variant="default">Open</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedClient(client.clientId);
-                          setActiveTab("employees");
-                        }}
-                      >
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Building2 className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No client data for this period</p>
-            </div>
-          )}
-        </Card>
-      )}
-
-      {activeTab === "employees" && (
-        <Card>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Employee Payroll Details
-            </h3>
-            <input
-              type="text"
-              placeholder="Search employee..."
-              value={employeeSearch}
-              onChange={(e) => setEmployeeSearch(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 w-64 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
-          </div>
+      {/* Employee Table */}
+      <Card padding="none">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h3 className="text-sm font-semibold text-gray-700">Employees</h3>
+          <input
+            type="text"
+            placeholder="Search employee..."
+            value={employeeSearch}
+            onChange={(e) => setEmployeeSearch(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 w-56 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+        </div>
 
           {employees.length > 0 ? (
             <Table>
@@ -1063,8 +847,7 @@ const Payroll = () => {
               <p>No employee data for this period</p>
             </div>
           )}
-        </Card>
-      )}
+      </Card>
 
       {/* {activeTab === "unapproved" && (
         <Card>
