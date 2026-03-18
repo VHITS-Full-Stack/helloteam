@@ -1677,6 +1677,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
 
+          // Determine if this session is purely off-shift OT (no regular hours)
+          const isOffShiftOnly = sessionOTEntries.length > 0 &&
+            sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT') &&
+            daySessions.length > 1; // Multiple sessions on same day means separate shifts
+
           empData.records.push({
             id: session.id,
             timeRecordId: timeRecord ? timeRecord.id : null,
@@ -1687,7 +1692,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             scheduledEnd: daySchedule?.endTime || null,
             billingStart: timeRecord?.billingStart || null,
             billingEnd: timeRecord?.billingEnd || null,
-            billingMinutes: timeRecord?.billingMinutes || 0,
+            billingMinutes: isOffShiftOnly ? 0 : (timeRecord?.billingMinutes || 0),
             isLate: timeRecord?.isLate || false,
             totalMinutes: effectiveSessionMinutes,
             breakMinutes: breakMins,
@@ -1697,7 +1702,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
             extraTimeStatus: timeRecord?.extraTimeStatus || 'NONE',
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
-            status: isActive ? 'ACTIVE' : (dayOvertimeStatus || 'PENDING'),
+            status: isActive ? 'ACTIVE' : (isOffShiftOnly && dayOvertimeStatus === 'APPROVED' ? 'APPROVED' : (dayOvertimeStatus || 'PENDING')),
             overtimeStatus: sessionOvertime > 0 ? dayOvertimeStatus : null,
             revisionReason: timeRecord?.revisionReason || null,
             overtimeEntries: sessionOTEntries.map(ot => ({
