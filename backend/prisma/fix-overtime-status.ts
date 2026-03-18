@@ -6,6 +6,9 @@
  *
  * 2. When client approves OT, the overall status should change to APPROVED.
  *
+ * 3. TimeRecords with NO OT that were auto-approved but got changed to APPROVED
+ *    by bulk approve — revert these back to AUTO_APPROVED.
+ *
  * Usage: npx ts-node prisma/fix-overtime-status.ts
  */
 import { PrismaClient } from '@prisma/client';
@@ -70,18 +73,90 @@ async function fixOvertimeStatus() {
       });
 
       fixed++;
-      console.log(`[OT Status] Fixed TimeRecord ${timeRecord.id} (date: ${ot.date.toISOString().split('T')[0]}, type: ${ot.type})`);
+      console.log(`[OT Fix] Fixed TimeRecord ${timeRecord.id} (date: ${ot.date.toISOString().split('T')[0]}, type: ${ot.type})`);
     }
   }
 
-  console.log(`\nFixed ${fixed} time records out of ${approvedOTRequests.length} approved overtime requests.`);
+  console.log(`\n[OT Fix] Fixed ${fixed} time records`);
+  return fixed;
+}
+
+async function fixAutoApprovedNoOT() {
+  // Find records that were originally auto-approved (have AutoApprovalLog)
+  // but got changed to APPROVED, and have NO overtime.
+  // These should be reverted to AUTO_APPROVED.
+  const autoApprovalLogs = await prisma.autoApprovalLog.findMany({
+    select: { employeeId: true, clientId: true, recordDate: true },
+  });
+
+  console.log(`\nFound ${autoApprovalLogs.length} auto-approval logs`);
+
+  let fixed = 0;
+
+  for (const log of autoApprovalLogs) {
+    const timeRecord = await prisma.timeRecord.findFirst({
+      where: {
+        employeeId: log.employeeId,
+        clientId: log.clientId,
+        date: log.recordDate,
+        status: 'APPROVED',
+        // No approved OT — meaning the client didn't approve any OT for this record
+        overtimeMinutes: { equals: 0 },
+      },
+    });
+
+    if (timeRecord) {
+      await prisma.timeRecord.update({
+        where: { id: timeRecord.id },
+        data: { status: 'AUTO_APPROVED' },
+      });
+
+      fixed++;
+      console.log(`[No-OT Fix] Reverted TimeRecord ${timeRecord.id} to AUTO_APPROVED (date: ${log.recordDate.toISOString().split('T')[0]})`);
+    }
+  }
+
+  // Also handle records with OT but where OT was NOT approved by client
+  // (OT is still pending/unapproved, so the bulk approve shouldn't have changed the status)
+  for (const log of autoApprovalLogs) {
+    const timeRecord = await prisma.timeRecord.findFirst({
+      where: {
+        employeeId: log.employeeId,
+        clientId: log.clientId,
+        date: log.recordDate,
+        status: 'APPROVED',
+        overtimeMinutes: { gt: 0 },
+        // OT is still not approved — meaning client didn't approve OT, only bulk approved the record
+        shiftExtensionStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] },
+        extraTimeStatus: { in: ['PENDING', 'UNAPPROVED', 'NONE'] },
+      },
+    });
+
+    if (timeRecord) {
+      await prisma.timeRecord.update({
+        where: { id: timeRecord.id },
+        data: { status: 'AUTO_APPROVED' },
+      });
+
+      fixed++;
+      console.log(`[Unapproved-OT Fix] Reverted TimeRecord ${timeRecord.id} to AUTO_APPROVED (date: ${log.recordDate.toISOString().split('T')[0]})`);
+    }
+  }
+
+  console.log(`\n[No-OT Fix] Reverted ${fixed} records back to AUTO_APPROVED`);
   return fixed;
 }
 
 async function main() {
-  console.log('=== Fixing overtime status entries ===\n');
-  const fixed = await fixOvertimeStatus();
-  console.log(`\nTotal fixed: ${fixed}`);
+  console.log('=== Fixing overtime status and auto-approved badges ===\n');
+
+  const otFixed = await fixOvertimeStatus();
+  const badgeFixed = await fixAutoApprovedNoOT();
+
+  console.log(`\n=== Summary ===`);
+  console.log(`OT status fixes: ${otFixed}`);
+  console.log(`Auto-approved badge fixes: ${badgeFixed}`);
+  console.log(`Total: ${otFixed + badgeFixed}`);
 }
 
 main()

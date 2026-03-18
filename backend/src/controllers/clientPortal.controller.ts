@@ -805,11 +805,25 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
     });
     const approverName = clientFull?.contactPerson || clientFull?.companyName || 'Client';
 
-    // Update the time record
+    // Determine if record has unapproved OT
+    const hasUnapprovedOT =
+      (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.shiftExtensionStatus) && (timeRecord.shiftExtensionMinutes || 0) > 0) ||
+      (['PENDING', 'UNAPPROVED', 'NONE'].includes(timeRecord.extraTimeStatus) && (timeRecord.extraTimeMinutes || 0) > 0);
+
+    // Status logic:
+    // - PENDING: change to APPROVED
+    // - AUTO_APPROVED with OT: change to APPROVED (client approved OT)
+    // - AUTO_APPROVED without OT: keep AUTO_APPROVED
+    const newStatus = timeRecord.status === 'PENDING'
+      ? 'APPROVED'
+      : (timeRecord.status === 'AUTO_APPROVED' && hasUnapprovedOT)
+        ? 'APPROVED'
+        : timeRecord.status; // keep current
+
     const updated = await prisma.timeRecord.update({
       where: { id: recordId },
       data: {
-        status: 'APPROVED',
+        status: newStatus,
         approvedBy: userId,
         approvedAt: new Date(),
       },
@@ -2011,35 +2025,44 @@ export const bulkApproveTimeRecords = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
-    // Bulk update — approve records and cascade to overtime status fields
-    const result = await prisma.timeRecord.updateMany({
-      where: { id: { in: recordIds }, clientId: client.id },
-      data: {
-        status: 'APPROVED',
+    // Approve records individually to handle AUTO_APPROVED correctly
+    let approvedCount = 0;
+    for (const record of records) {
+      const updateData: any = {
         approvedBy: userId,
         approvedAt: new Date(),
-      },
-    });
+      };
 
-    // Cascade approval to shiftExtensionStatus / extraTimeStatus for records with unapproved OT
-    for (const record of records) {
-      const statusUpdates: any = {};
+      // Cascade OT approval
+      const hasUnapprovedOT =
+        (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.shiftExtensionStatus) && (record.shiftExtensionMinutes || 0) > 0) ||
+        (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.extraTimeStatus) && (record.extraTimeMinutes || 0) > 0);
+
       if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.shiftExtensionStatus) && (record.shiftExtensionMinutes || 0) > 0) {
-        statusUpdates.shiftExtensionStatus = 'APPROVED';
+        updateData.shiftExtensionStatus = 'APPROVED';
       }
       if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.extraTimeStatus) && (record.extraTimeMinutes || 0) > 0) {
-        statusUpdates.extraTimeStatus = 'APPROVED';
+        updateData.extraTimeStatus = 'APPROVED';
       }
-      if (Object.keys(statusUpdates).length > 0) {
-        await prisma.timeRecord.update({
-          where: { id: record.id },
-          data: statusUpdates,
-        });
-      }
-    }
 
-    // Also approve any matching OvertimeRequest records
-    for (const record of records) {
+      // Status logic:
+      // - PENDING records always change to APPROVED (client is approving)
+      // - AUTO_APPROVED with OT: change to APPROVED (client approved OT)
+      // - AUTO_APPROVED without OT: keep AUTO_APPROVED (no client action needed)
+      if (record.status === 'PENDING') {
+        updateData.status = 'APPROVED';
+      } else if (record.status === 'AUTO_APPROVED' && hasUnapprovedOT) {
+        updateData.status = 'APPROVED';
+      }
+      // AUTO_APPROVED without OT: don't change status
+
+      await prisma.timeRecord.update({
+        where: { id: record.id },
+        data: updateData,
+      });
+      approvedCount++;
+
+      // Also approve matching OvertimeRequest records
       await prisma.overtimeRequest.updateMany({
         where: {
           employeeId: record.employeeId,
@@ -2057,8 +2080,8 @@ export const bulkApproveTimeRecords = async (req: AuthenticatedRequest, res: Res
 
     res.json({
       success: true,
-      message: `${result.count} time records approved`,
-      count: result.count,
+      message: `${approvedCount} time records approved`,
+      count: approvedCount,
     });
   } catch (error) {
     console.error('Bulk approve error:', error);
