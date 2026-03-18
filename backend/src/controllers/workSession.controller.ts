@@ -1366,18 +1366,24 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       : [];
 
     // Calculate work minutes for each session
-    // Count sessions per day to detect multi-session days
+    // Count sessions per day to detect multi-session days (use client timezone for date grouping)
+    const clientTz = clientAssignment?.client?.timezone || 'America/New_York';
+    const toTzDate = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: clientTz });
     const sessionsPerDay: Record<string, number> = {};
+    const sessionsByDay: Record<string, typeof sessions> = {};
     for (const s of sessions) {
-      const dk = s.startTime.toISOString().split('T')[0];
+      const dk = toTzDate(s.startTime);
       sessionsPerDay[dk] = (sessionsPerDay[dk] || 0) + 1;
+      if (!sessionsByDay[dk]) sessionsByDay[dk] = [];
+      sessionsByDay[dk].push(s);
     }
 
     const sessionsWithStats = sessions.map(session => {
-      // Match time record by date
+      // Match time record by date (TimeRecord.date is stored as UTC midnight)
       const sessionDateKey = session.startTime.toISOString().split('T')[0];
       const timeRecord = timeRecordMap.get(sessionDateKey);
-      const isMultiSession = (sessionsPerDay[sessionDateKey] || 0) > 1;
+      const tzDateKey = toTzDate(session.startTime);
+      const isMultiSession = (sessionsPerDay[tzDateKey] || 0) > 1;
 
       // Calculate break minutes from actual break records
       const computedBreakMinutes = (session.breaks || []).reduce((total: number, brk: any) => {
@@ -1404,7 +1410,10 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         : sessionCalcMinutes;
 
       // Match OvertimeRequests to this specific session using createdAt
-      const sameDayOTs = overtimeRequests.filter(ot => ot.date.toISOString().split('T')[0] === sessionDateKey);
+      const sameDayOTs = overtimeRequests.filter(ot => {
+        const otDateStr = ot.date.toISOString().split('T')[0];
+        return otDateStr === sessionDateKey || toTzDate(ot.date) === tzDateKey;
+      });
       let matchedOTEntries: typeof overtimeRequests;
 
       if (session.endTime) {
