@@ -234,7 +234,12 @@ const Billing = () => {
                       <p className="text-sm font-semibold text-primary-600">{invoice.invoiceNumber}</p>
                       <p className="text-xs text-gray-400">{formatDate(invoice.periodStart)}</p>
                     </div>
-                    {getStatusBadge(invoice.status)}
+                    {invoice.status === 'PAID'
+                      ? getStatusBadge('PAID')
+                      : invoice.status === 'CANCELLED'
+                        ? getStatusBadge('CANCELLED')
+                        : <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-amber-100 text-amber-700">Pending</span>
+                    }
                   </div>
 
                   {/* Right: Amount + Actions */}
@@ -242,7 +247,15 @@ const Billing = () => {
                     <p className={`text-sm font-bold ${invoice.status === 'CANCELLED' ? 'text-red-500' : 'text-gray-900'}`}>
                       {formatCurrency(invoice.total, invoice.currency)}
                     </p>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
+                      {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && invoice.status !== 'DRAFT' && (
+                        <button
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors"
+                        >
+                          <DollarSign className="w-3.5 h-3.5" />
+                          Pay Now
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDownloadPdf(invoice.id, invoice.invoiceNumber)}
                         className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
