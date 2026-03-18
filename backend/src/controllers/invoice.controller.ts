@@ -728,11 +728,22 @@ export const deleteInvoice = async (req: AuthenticatedRequest, res: Response): P
     // Release time records and delete invoice in a transaction
     await prisma.$transaction(async (tx) => {
       // Reset invoiceId on time records so they can be re-invoiced
-      await tx.timeRecord.updateMany({
-        where: { invoiceId },
+      const released = await tx.timeRecord.updateMany({
+        where: { invoiceId: invoiceId },
         data: { invoiceId: null },
       });
+      console.log(`[Invoice Delete] Released ${released.count} time records for invoice ${invoiceId} (${invoice.invoiceNumber})`);
+
+      // Delete line items (cascade should handle this, but be explicit)
+      await tx.invoiceLineItem.deleteMany({ where: { invoiceId: invoiceId } });
+
       await tx.invoice.delete({ where: { id: invoiceId } });
+    });
+
+    // Double-check: clear any remaining references (safety net)
+    await prisma.timeRecord.updateMany({
+      where: { invoiceId: invoiceId },
+      data: { invoiceId: null },
     });
 
     res.json({ success: true, message: 'Invoice deleted. Time records released for re-invoicing.' });

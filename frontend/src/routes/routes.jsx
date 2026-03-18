@@ -57,6 +57,7 @@ const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
 const Payroll = lazy(() => import('../pages/admin/Payroll'));
 const PayrollEmployeeDetail = lazy(() => import('../pages/admin/PayrollEmployeeDetail'));
 const AdminInvoices = lazy(() => import('../pages/admin/invoices/Invoices'));
+const GenerateInvoice = lazy(() => import('../pages/admin/invoices/GenerateInvoice'));
 const AdminSettings = lazy(() => import('../pages/admin/Settings'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile'));
 const TimeAdjustments = lazy(() => import('../pages/admin/TimeAdjustments'));
@@ -217,6 +218,7 @@ const AppRoutes = () => {
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/employee/:employeeId" element={<PayrollEmployeeDetail />} />
           <Route path="invoices" element={<AdminInvoices />} />
+          <Route path="invoices/generate" element={<GenerateInvoice />} />
           <Route path="billing-history" element={<BillingHistory />} />
           <Route path="reports" element={<AdminAnalytics />} />
           <Route path="time-adjustments" element={<TimeAdjustments />} />

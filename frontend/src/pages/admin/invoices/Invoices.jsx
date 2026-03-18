@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   DollarSign,
@@ -27,6 +28,7 @@ import invoiceService from '../../../services/invoice.service';
 import clientService from '../../../services/client.service';
 
 const Invoices = () => {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState([]);
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -184,6 +186,7 @@ const Invoices = () => {
 
   const [deleteInvoiceId, setDeleteInvoiceId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [markPaidInvoiceId, setMarkPaidInvoiceId] = useState(null);
 
   const handleDelete = async () => {
     if (!deleteInvoiceId) return;
@@ -328,7 +331,7 @@ const Invoices = () => {
           <Button variant="outline" icon={RefreshCw} onClick={fetchInvoices}>
             Refresh
           </Button>
-          <Button variant="primary" icon={Play} onClick={() => setShowGenerateModal(true)}>
+          <Button variant="primary" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
             Generate Invoices
           </Button>
         </div>
@@ -592,7 +595,7 @@ const Invoices = () => {
                         )}
                         {invoice.status === 'SENT' && (
                           <button
-                            onClick={() => handleStatusUpdate(invoice.id, 'PAID')}
+                            onClick={() => setMarkPaidInvoiceId(invoice.id)}
                             className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="Mark as Paid"
                             disabled={updatingId === invoice.id}
@@ -1047,7 +1050,7 @@ const Invoices = () => {
                   variant="primary"
                   size="sm"
                   icon={CheckCircle}
-                  onClick={() => handleStatusUpdate(selectedInvoice.id, 'PAID')}
+                  onClick={() => { setMarkPaidInvoiceId(selectedInvoice.id); setShowDetailModal(false); }}
                   loading={updatingId === selectedInvoice.id}
                 >
                   Mark as Paid
@@ -1086,6 +1089,42 @@ const Invoices = () => {
               disabled={deleting}
             >
               {deleting ? 'Deleting...' : 'Delete Invoice'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mark as Paid Confirmation Modal */}
+      <Modal
+        isOpen={!!markPaidInvoiceId}
+        onClose={() => setMarkPaidInvoiceId(null)}
+        title="Mark Invoice as Paid"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-green-50 rounded-lg flex-shrink-0">
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-gray-900 font-medium">Are you sure you want to mark this invoice as paid?</p>
+              <p className="text-sm text-gray-500 mt-1">This will update the invoice status to Paid. This action cannot be undone.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setMarkPaidInvoiceId(null)} disabled={updatingId === markPaidInvoiceId}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={CheckCircle}
+              onClick={async () => {
+                await handleStatusUpdate(markPaidInvoiceId, 'PAID');
+                setMarkPaidInvoiceId(null);
+              }}
+              loading={updatingId === markPaidInvoiceId}
+            >
+              Confirm Paid
             </Button>
           </div>
         </div>
