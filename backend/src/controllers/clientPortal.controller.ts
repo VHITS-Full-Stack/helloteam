@@ -1705,13 +1705,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             return sessionStartTotalMin >= schedEndTotalMin && sessionOvertime > 0;
           })();
 
-          // Method 3: TimeRecord has approved extraTime (off-shift) and this session has no billing overlap
-          const isOffShiftByTimeRecord = timeRecord &&
-            (timeRecord.extraTimeStatus === 'APPROVED' || timeRecord.extraTimeStatus === 'PENDING') &&
-            (timeRecord.extraTimeMinutes || 0) > 0 &&
-            sessionOvertime > 0;
+          // Method 3: Check using TZ-based session grouping — if not the first session and TR has off-shift OT
+          const tzSessKey = `${empId}_${toTzDateStr(session.startTime)}`;
+          const tzDaySessions = sessionsByEmpTzDate.get(tzSessKey) || [];
+          const allDaySessions = tzDaySessions.length > 1 ? tzDaySessions : (daySessions && daySessions.length > 1 ? daySessions : []);
+          const isNotFirstSession = allDaySessions.length > 1 && allDaySessions.indexOf(session) > 0;
+          const trHasOffShiftOT = timeRecord && (timeRecord.extraTimeMinutes || 0) > 0;
+          const isOffShiftByPosition = isNotFirstSession && trHasOffShiftOT;
 
-          const isOffShiftOnly = isOffShiftByOT || isOffShiftBySchedule || !!isOffShiftByTimeRecord;
+          const isOffShiftOnly = isOffShiftByOT || isOffShiftBySchedule || !!isOffShiftByPosition;
 
           empData.records.push({
             id: session.id,
