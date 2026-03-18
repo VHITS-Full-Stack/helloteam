@@ -119,6 +119,32 @@ const generateInvoiceForClient = async (
     console.error(`[Invoice] Pre-generation reminder failed for ${client.companyName}:`, reminderErr);
   }
 
+  // Clean up orphaned invoiceId references (where invoice was deleted but invoiceId wasn't cleared)
+  const orphanedRecords = await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      date: { gte: periodStart, lte: periodEnd },
+      invoiceId: { not: null },
+    },
+    select: { id: true, invoiceId: true },
+  });
+  if (orphanedRecords.length > 0) {
+    const invoiceIds = [...new Set(orphanedRecords.map(r => r.invoiceId!))];
+    const existingInvoices = await prisma.invoice.findMany({
+      where: { id: { in: invoiceIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingInvoices.map(i => i.id));
+    const orphanedIds = orphanedRecords.filter(r => !existingIds.has(r.invoiceId!)).map(r => r.id);
+    if (orphanedIds.length > 0) {
+      await prisma.timeRecord.updateMany({
+        where: { id: { in: orphanedIds } },
+        data: { invoiceId: null },
+      });
+      console.log(`[Invoice] Cleared ${orphanedIds.length} orphaned invoiceId references for ${client.companyName}`);
+    }
+  }
+
   // Get approved time records for the period
   const timeRecords = await prisma.timeRecord.findMany({
     where: {
