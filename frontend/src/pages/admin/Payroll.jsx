@@ -795,7 +795,7 @@ const Payroll = () => {
                                     e.stopPropagation();
                                     setDeleteAdjustmentId(adj.id);
                                   }}
-                                  className="p-1 hover:bg-red-50 rounded text-gray-300 hover:text-red-500 flex-shrink-0"
+                                  className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 flex-shrink-0"
                                   title="Delete"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
