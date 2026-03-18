@@ -454,7 +454,8 @@ export const generateInvoicesForPeriod = async (
   year: number,
   month: number, // 1-indexed (1 = January)
   io?: Server,
-  clientId?: string
+  clientId?: string,
+  cronMode: boolean = false
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -463,15 +464,15 @@ export const generateInvoicesForPeriod = async (
     const periodStart = new Date(Date.UTC(year, month - 1, 1));
     const periodEnd = new Date(Date.UTC(year, month, 0)); // Last day of month
 
-    // When a specific client is requested, skip agreement-type filtering (admin override).
-    // Otherwise only monthly clients (MONTHLY or null/unset — backward compatible).
-    // PostgreSQL: NULL NOT IN (...) evaluates to NULL (false), so we must use OR to include null.
+    // When a specific client is requested or admin manual trigger, include all active clients.
+    // Only filter by agreement type during cron job (automatic generation).
     const clientWhere: any = {
       user: { status: 'ACTIVE' },
     };
     if (clientId) {
       clientWhere.id = clientId;
-    } else {
+    } else if (cronMode) {
+      // Cron job: only MONTHLY or null/unset agreement clients
       clientWhere.OR = [
         { agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] } },
         { agreementType: null },
@@ -637,7 +638,7 @@ export const runMonthlyInvoiceGeneration = async (io?: Server): Promise<void> =>
   const month = prevMonth === 0 ? 12 : prevMonth;
 
   console.log(`[Invoice] Starting monthly invoice generation for ${year}-${String(month).padStart(2, '0')}`);
-  const result = await generateInvoicesForPeriod(year, month, io);
+  const result = await generateInvoicesForPeriod(year, month, io, undefined, true);
   console.log(`[Invoice] Monthly completed: ${result.generated} invoices generated, ${result.errors.length} errors`);
 };
 
@@ -870,18 +871,12 @@ export const previewInvoicesForPeriod = async (
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 0));
 
-  // When a specific client is requested, skip agreement-type filtering (admin override).
-  // PostgreSQL: NULL NOT IN (...) evaluates to NULL (false), so we must use OR to include null.
+  // Preview always includes all active clients (admin manual action)
   const clientWhere: any = {
     user: { status: 'ACTIVE' },
   };
   if (clientId) {
     clientWhere.id = clientId;
-  } else {
-    clientWhere.OR = [
-      { agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] } },
-      { agreementType: null },
-    ];
   }
 
   const clients = await prisma.client.findMany({
