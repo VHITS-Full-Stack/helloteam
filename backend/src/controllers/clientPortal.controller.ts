@@ -1632,13 +1632,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || (isActive ? now : null);
-          // Use TimeRecord's stored totalMinutes (source of truth) when available
-          const sessionMins = timeRecord?.totalMinutes ?? (() => {
+          // Always calculate per-session from actual clock in/out (same as admin)
+          const sessionMins = (() => {
             if (!endRef) return 0;
             const rawMs = endRef.getTime() - session.startTime.getTime();
             const fullMin = Math.floor(rawMs / 60000);
             const remSec = Math.floor((rawMs % 60000) / 1000);
-            return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins;
+            return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
           })();
 
           // Match OT requests to this specific session using createdAt
@@ -1665,6 +1665,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             .filter(ot => ot.status === 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
           const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
+          const sessionOvertimeMinutes = Math.min(sessionOvertime, effectiveSessionMinutes);
+          const sessionRegularMinutes = Math.max(0, effectiveSessionMinutes - sessionOvertimeMinutes);
           const sessionBillingMins = timeRecord?.billingMinutes || effectiveSessionMinutes;
           const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
 
@@ -1725,11 +1727,12 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             scheduledEnd: daySchedule?.endTime || null,
             billingStart: timeRecord?.billingStart || null,
             billingEnd: timeRecord?.billingEnd || null,
-            billingMinutes: isOffShiftOnly ? 0 : (timeRecord?.billingMinutes || 0),
+            billingMinutes: timeRecord?.billingMinutes || 0,
+            regularMinutes: sessionRegularMinutes,
             isLate: timeRecord?.isLate || false,
             totalMinutes: effectiveSessionMinutes,
             breakMinutes: breakMins,
-            overtimeMinutes: sessionOvertime,
+            overtimeMinutes: sessionOvertimeMinutes,
             shiftExtensionStatus: timeRecord?.shiftExtensionStatus || 'NONE',
             shiftExtensionMinutes: timeRecord?.shiftExtensionMinutes || 0,
             shiftExtensionReason: timeRecord?.shiftExtensionReason || null,
@@ -1737,10 +1740,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
             status: isActive ? 'ACTIVE' : (() => {
               const baseStatus = dayOvertimeStatus || 'PENDING';
-              // If record is APPROVED due to OT approval, check per-session:
-              // Off-shift sessions keep APPROVED, non-OT sessions show AUTO_APPROVED
-              if (baseStatus === 'APPROVED' && !isOffShiftOnly && sessionOvertime === 0) {
-                // This session has no OT — check if the TimeRecord has approved OT (meaning OT was on another session)
+              // Per-session status (same as admin):
+              // If this session has no OT but TimeRecord is APPROVED due to OT on another session,
+              // show AUTO_APPROVED for this session
+              if (baseStatus === 'APPROVED' && sessionOvertimeMinutes === 0) {
                 const trHasApprovedOT = timeRecord && (
                   (timeRecord.extraTimeStatus === 'APPROVED' && (timeRecord.extraTimeMinutes || 0) > 0) ||
                   (timeRecord.shiftExtensionStatus === 'APPROVED' && (timeRecord.shiftExtensionMinutes || 0) > 0)

@@ -676,7 +676,8 @@ const TimeRecords = () => {
                           (s, o) => s + (o.requestedMinutes || 0),
                           0,
                         );
-                        const regularM = billingM > 0 ? billingM : Math.max(0, totalM - approvedOTM);
+                        // Use per-session regularMinutes from backend (calculated from clock in/out like admin)
+                        const regularM = rec.regularMinutes != null ? rec.regularMinutes : (billingM > 0 ? billingM : Math.max(0, totalM - approvedOTM));
                         const hasOT =
                           approvedOTM > 0 || unapprovedOTMinutes > 0;
                         const dateLabel = rec.dateObj.toLocaleDateString(
