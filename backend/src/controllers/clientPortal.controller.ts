@@ -1678,9 +1678,12 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           }
 
           // Determine if this session is purely off-shift OT (no regular hours)
-          const isOffShiftOnly = sessionOTEntries.length > 0 &&
-            sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT') &&
-            daySessions.length > 1; // Multiple sessions on same day means separate shifts
+          // A session is off-shift if it has OT entries that are all OFF_SHIFT type
+          const hasSessionOT = sessionOTEntries.length > 0;
+          const isOffShiftOnly = hasSessionOT && sessionOTEntries.every(ot => ot.type === 'OFF_SHIFT');
+          // Fallback: if sessionOTEntries didn't match but day has off-shift OT and this session has overtime
+          const isOffShiftFallback = !hasSessionOT && daySessions.length > 1 && sessionOvertime === 0 ? false :
+            (!hasSessionOT && daySessions.length > 1 && dayOTRequests.some(ot => ot.type === 'OFF_SHIFT') && sessionOvertime > 0);
 
           empData.records.push({
             id: session.id,
@@ -1692,7 +1695,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             scheduledEnd: daySchedule?.endTime || null,
             billingStart: timeRecord?.billingStart || null,
             billingEnd: timeRecord?.billingEnd || null,
-            billingMinutes: isOffShiftOnly ? 0 : (timeRecord?.billingMinutes || 0),
+            billingMinutes: (isOffShiftOnly || isOffShiftFallback) ? 0 : (timeRecord?.billingMinutes || 0),
             isLate: timeRecord?.isLate || false,
             totalMinutes: effectiveSessionMinutes,
             breakMinutes: breakMins,
@@ -1704,11 +1707,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
             status: isActive ? 'ACTIVE' : (() => {
               const baseStatus = dayOvertimeStatus || 'PENDING';
-              // If this session has no OT but other sessions on the same day do,
-              // and the record was upgraded to APPROVED because of OT, show AUTO_APPROVED for this session
-              if (baseStatus === 'APPROVED' && sessionOTEntries.length === 0 && daySessions.length > 1) {
-                const otherSessionsHaveOT = dayOTRequests.length > 0;
-                if (otherSessionsHaveOT) return 'AUTO_APPROVED';
+              // If record is APPROVED due to OT approval, check per-session:
+              // Sessions without OT were auto-approved, sessions with OT were client-approved
+              if (baseStatus === 'APPROVED' && daySessions.length > 1 && dayOTRequests.length > 0) {
+                const thisSessionHasOT = hasSessionOT || isOffShiftFallback;
+                if (!thisSessionHasOT) return 'AUTO_APPROVED';
               }
               return baseStatus;
             })(),

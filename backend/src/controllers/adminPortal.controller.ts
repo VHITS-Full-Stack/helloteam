@@ -823,13 +823,16 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         breaks: breakHours,
         status: (() => {
           const trStatus = dayTimeRecord?.status?.toLowerCase() || recordStatus;
-          // If the TimeRecord is 'approved' but this session has no OT,
-          // check if it was originally auto-approved (the OT on another session caused the upgrade)
-          if (trStatus === 'approved' && sessionOTEntries.length === 0 && dayTimeRecord?.status === 'APPROVED') {
-            // Check if there are other sessions on this day with OT — if so, this session was auto-approved
+          if (trStatus === 'approved' && dayTimeRecord?.status === 'APPROVED') {
             const dayKey = `${session.employeeId}_${dateStr}`;
+            const daySessions = sessionsByEmpDate.get(dayKey) || [];
             const allDayOTs = otRequestMap.get(dayKey) || [];
-            if (allDayOTs.length > 0) return 'auto_approved';
+            // If multiple sessions on this day with OT requests,
+            // sessions without OT show auto_approved, sessions with OT show approved
+            if (daySessions.length > 1 && allDayOTs.length > 0) {
+              const thisSessionHasOT = sessionOTEntries.length > 0 || overtimeHours > 0;
+              if (!thisSessionHasOT) return 'auto_approved';
+            }
           }
           return trStatus;
         })(),
