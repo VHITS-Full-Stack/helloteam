@@ -583,7 +583,7 @@ const Payroll = () => {
         </div>
         <div className="flex items-center gap-2">
           {/* Period Selector */}
-          <span className="text-sm text-gray-500">Report Dates:</span>
+          <span className="text-sm font-bold text-gray-500">Report Dates:</span>
           <div className="relative">
             <select
               className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-gray-700 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
