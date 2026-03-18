@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { FileText, Download, ChevronRight, Loader2, DollarSign, Clock, Calendar } from 'lucide-react';
-import { Card, Badge, Avatar } from '../../components/common';
+import { Card, Badge, Avatar, Button } from '../../components/common';
 import payslipService from '../../services/payslip.service';
 
 const Payslips = () => {
@@ -252,12 +252,43 @@ const Payslips = () => {
     );
   }
 
+  const handleExportCSV = () => {
+    if (!payslips.length) return;
+    const headers = ['Period', 'Client', 'Work Days', 'Total Hours', 'Overtime Hours', 'Gross Pay'];
+    const rows = payslips.map(slip => [
+      formatPeriod(slip.periodStart, slip.periodEnd),
+      slip.clientName,
+      slip.workDays,
+      slip.totalHours,
+      slip.overtimeHours || 0,
+      `$${slip.grossPay.toLocaleString()}`,
+    ]);
+    const csvContent = [
+      headers.map(h => `"${h}"`).join(','),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payslips-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   // Payslip list
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-gray-900">Payslips</h2>
-        <p className="text-gray-500">View your pay history and breakdowns</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Payslips</h2>
+          <p className="text-gray-500">View your pay history and breakdowns</p>
+        </div>
+        {payslips.length > 0 && (
+          <Button variant="outline" size="sm" icon={Download} onClick={handleExportCSV}>
+            Export CSV
+          </Button>
+        )}
       </div>
 
       {payslips.length === 0 ? (
