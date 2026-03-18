@@ -404,7 +404,10 @@ const TimeRecords = () => {
   };
 
   // Get arrival badge — billing isLate (>7 min grace) takes precedence
+  // Don't show Late for off-shift OT sessions
   const getArrivalBadge = (session) => {
+    const isOffShiftOT = (session.overtimeMinutes || 0) > 0 && (session.workMinutes || 0) === 0;
+    if (isOffShiftOT) return null;
     if (session.isLate || session.arrivalStatus === "Late") {
       return (
         <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-red-100 text-red-700">

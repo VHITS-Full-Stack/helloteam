@@ -564,7 +564,7 @@ const TimeRecords = () => {
                             </span>
                           ) : <span className="text-gray-400">-</span>}
                         </div>
-                        {(day.isLate || day.arrivalStatus === 'Late') && (
+                        {(day.isLate || day.arrivalStatus === 'Late') && day.overtimeHours === 0 && (
                           <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700 mt-0.5">
                             Late{day.lateMinutes ? ` ${day.lateMinutes >= 60 ? `${Math.floor(day.lateMinutes / 60)}h ${day.lateMinutes % 60}m` : `${day.lateMinutes}m`}` : ''}
                           </span>
