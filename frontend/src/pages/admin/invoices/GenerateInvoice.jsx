@@ -226,9 +226,13 @@ const GenerateInvoice = () => {
                 {frequency === 'monthly' ? (
                   <div className="relative">
                     <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className={selectClass}>
-                      {monthNames.map((name, i) => (
-                        <option key={i + 1} value={i + 1}>{name}</option>
-                      ))}
+                      {monthNames.map((name, i) => {
+                        const m = i + 1;
+                        const now = new Date();
+                        // Hide future months for current year
+                        if (year === now.getFullYear() && m > now.getMonth() + 1) return null;
+                        return <option key={m} value={m}>{name}</option>;
+                      })}
                     </select>
                     <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
@@ -239,20 +243,28 @@ const GenerateInvoice = () => {
                     onChange={(e) => setWeek(parseInt(e.target.value))}
                     className={inputClass}
                     min={1}
-                    max={53}
+                    max={(() => {
+                      const now = new Date();
+                      if (year < now.getFullYear()) return 53;
+                      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+                      const dayNum = d.getUTCDay() || 7;
+                      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+                      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+                      return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+                    })()}
                   />
                 )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Year</label>
-                <input
-                  type="number"
-                  value={year}
-                  onChange={(e) => setYear(parseInt(e.target.value))}
-                  className={inputClass}
-                  min={2020}
-                  max={new Date().getFullYear()}
-                />
+                <div className="relative">
+                  <select value={year} onChange={(e) => setYear(parseInt(e.target.value))} className={selectClass}>
+                    {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => new Date().getFullYear() - i).map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
             </div>
 

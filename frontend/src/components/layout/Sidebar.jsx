@@ -101,7 +101,7 @@ const Sidebar = ({
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
     // { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
-    { to: '/client/billing', icon: CreditCard, label: 'Billing' },
+    { to: '/client/billing', icon: CreditCard, label: 'Billing & Invoices' },
     { to: '/client/profile', icon: User, label: 'Profile' },
     { to: '/client/settings', icon: Settings, label: 'Settings' },
   ];
@@ -166,7 +166,7 @@ const Sidebar = ({
     {
       to: '/admin/invoices',
       icon: FileText,
-      label: 'Invoices',
+      label: 'Billing & Invoices',
       permission: PERMISSIONS.PAYROLL.VIEW
     },
     {
