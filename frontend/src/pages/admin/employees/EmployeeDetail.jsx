@@ -319,7 +319,7 @@ const EmployeeDetail = () => {
 
       {/* Pending Bonus/Raise Requests */}
       {pendingRequests.length > 0 && (
-        <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200">
+        <div className="rounded-2xl p-4 bg-purple-50 border border-purple-200">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-500" />
