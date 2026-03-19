@@ -16,6 +16,8 @@ import {
   Calendar,
   TrendingUp,
   ChevronDown,
+  Check,
+  X,
 } from "lucide-react";
 import { Card, Button, Badge, Avatar } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
@@ -43,6 +45,10 @@ const TimeRecords = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [rejectRecordIds, setRejectRecordIds] = useState([]);
+  const [successMessage, setSuccessMessage] = useState("");
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
@@ -316,6 +322,72 @@ const TimeRecords = () => {
       }
     } catch (err) {
       setError(err.message || "Failed to request revision");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = async (timeRecordIds) => {
+    const ids = Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds];
+    if (!ids.length) return;
+    try {
+      setActionLoading(true);
+      let response;
+      if (ids.length === 1) {
+        response = await clientPortalService.approveTimeRecord(ids[0]);
+      } else {
+        response = await clientPortalService.bulkApproveTimeRecords(ids);
+      }
+      if (response.success) {
+        setSuccessMessage("Time record(s) approved successfully");
+        setTimeout(() => setSuccessMessage(""), 3000);
+        fetchTimeRecords();
+      } else {
+        setError(response.error || "Failed to approve");
+      }
+    } catch (err) {
+      setError(err.error || err.message || "Failed to approve time record");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = (timeRecordIds) => {
+    setRejectRecordIds(
+      Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds],
+    );
+    setRejectReason("");
+    setShowRejectModal(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectRecordIds.length || !rejectReason.trim()) return;
+    try {
+      setActionLoading(true);
+      let response;
+      if (rejectRecordIds.length === 1) {
+        response = await clientPortalService.rejectTimeRecord(
+          rejectRecordIds[0],
+          rejectReason,
+        );
+      } else {
+        response = await clientPortalService.bulkRejectTimeRecords(
+          rejectRecordIds,
+          rejectReason,
+        );
+      }
+      if (response.success) {
+        setShowRejectModal(false);
+        setRejectReason("");
+        setRejectRecordIds([]);
+        setSuccessMessage("Overtime rejected successfully");
+        setTimeout(() => setSuccessMessage(""), 3000);
+        fetchTimeRecords();
+      } else {
+        setError(response.error || "Failed to reject");
+      }
+    } catch (err) {
+      setError(err.error || err.message || "Failed to reject time record");
     } finally {
       setActionLoading(false);
     }
@@ -644,8 +716,11 @@ const TimeRecords = () => {
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[80px]">
                           Total
                         </th>
-                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[120px]">
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 w-[100px]">
                           Status
+                        </th>
+                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[140px]">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -909,8 +984,38 @@ const TimeRecords = () => {
                               </>
                             )}
 
-                            <td className="py-2.5 px-5 text-right">
+                            <td className="py-2.5 px-3 text-center">
                               {getStatusBadge(status)}
+                            </td>
+                            <td className="py-2.5 px-4 text-right">
+                              {rec.timeRecordId && status === "pending" ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => handleApprove(rec.timeRecordId)}
+                                    disabled={actionLoading}
+                                    title="Approve"
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Approve
+                                  </button>
+                                  {(rec.overtimeEntries || []).some(
+                                    (ot) => ot.status === "PENDING",
+                                  ) && (
+                                    <button
+                                      onClick={() => handleReject(rec.timeRecordId)}
+                                      disabled={actionLoading}
+                                      title="Reject Overtime"
+                                      className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+                                    >
+                                      <X className="w-3 h-3" />
+                                      Reject
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-gray-300">—</span>
+                              )}
                             </td>
                           </tr>
                         );
@@ -1065,31 +1170,156 @@ const TimeRecords = () => {
                             </div>
                           </>
                         )}
+                        {rec.timeRecordId && status === "pending" && (
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
+                            <button
+                              onClick={() => handleApprove(rec.timeRecordId)}
+                              disabled={actionLoading}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                            >
+                              <Check className="w-3 h-3" />
+                              Approve
+                            </button>
+                            {(rec.overtimeEntries || []).some(
+                              (ot) => ot.status === "PENDING",
+                            ) && (
+                              <button
+                                onClick={() => handleReject(rec.timeRecordId)}
+                                disabled={actionLoading}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+                              >
+                                <X className="w-3 h-3" />
+                                Reject OT
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
 
-                {/* Request Revisions footer */}
-                {revisionEligible.length > 0 && (
-                  <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100 flex justify-end">
-                    <button
-                      onClick={() =>
-                        handleRequestRevision(
-                          revisionEligible.map((r) => r.timeRecordId),
-                        )
-                      }
-                      disabled={actionLoading}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      Request Revisions
-                    </button>
-                  </div>
-                )}
+                {/* Actions footer */}
+                {(() => {
+                  const pendingRecords = emp.filteredRecords.filter(
+                    (r) =>
+                      r.timeRecordId &&
+                      r.status?.toLowerCase() === "pending",
+                  );
+                  const otPendingRecords = emp.filteredRecords.filter(
+                    (r) =>
+                      r.timeRecordId &&
+                      (r.overtimeEntries || []).some(
+                        (ot) => ot.status === "PENDING",
+                      ),
+                  );
+                  const showFooter = pendingRecords.length > 0 || otPendingRecords.length > 0 || revisionEligible.length > 0;
+
+                  return showFooter ? (
+                    <div className="px-5 py-2.5 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {pendingRecords.length > 0 && (
+                          <button
+                            onClick={() =>
+                              handleApprove(
+                                pendingRecords.map((r) => r.timeRecordId),
+                              )
+                            }
+                            disabled={actionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-100 text-green-700 hover:bg-green-200 transition-colors disabled:opacity-50"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            Approve All
+                          </button>
+                        )}
+                        {otPendingRecords.length > 0 && (
+                          <button
+                            onClick={() =>
+                              handleReject(
+                                otPendingRecords.map((r) => r.timeRecordId),
+                              )
+                            }
+                            disabled={actionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            Reject OT
+                          </button>
+                        )}
+                      </div>
+                      <div>
+                        {revisionEligible.length > 0 && (
+                          <button
+                            onClick={() =>
+                              handleRequestRevision(
+                                revisionEligible.map((r) => r.timeRecordId),
+                              )
+                            }
+                            disabled={actionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            Request Revisions
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* Success Message */}
+      {successMessage && (
+        <div className="fixed top-4 right-4 z-50 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700 shadow-lg flex items-center gap-2 animate-fade-in">
+          <CheckCircle className="w-5 h-5 text-green-500" />
+          {successMessage}
+        </div>
+      )}
+
+      {/* Reject OT Modal */}
+      {showRejectModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowRejectModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Reject Overtime
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Only overtime hours will be rejected. Regular scheduled hours will remain approved.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Provide a reason for rejecting the overtime..."
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowRejectModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={actionLoading || !rejectReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Reject Overtime
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
