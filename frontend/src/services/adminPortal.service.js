@@ -79,6 +79,22 @@ const adminPortalService = {
     });
     return response;
   },
+
+  // Raise Request APIs
+  getRaiseRequests: async (params = {}) => {
+    const response = await api.get('/admin-portal/raise-requests', { params });
+    return response;
+  },
+
+  approveRaiseRequest: async (raiseId, adminNotes) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, { adminNotes });
+    return response;
+  },
+
+  rejectRaiseRequest: async (raiseId, adminNotes) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/reject`, { adminNotes });
+    return response;
+  },
 };
 
 export default adminPortalService;

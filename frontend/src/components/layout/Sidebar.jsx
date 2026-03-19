@@ -22,7 +22,9 @@ import {
   ClipboardList,
   TrendingUp,
   FileCheck,
-  Wallet
+  Wallet,
+  Timer,
+  Gift,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -80,34 +82,44 @@ const Sidebar = ({
   }, [fetchPendingCounts]);
 
   const employeeLinks = [
+    { group: 'Overview' },
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    // { to: '/employee/time-clock', icon: Clock, label: 'Time Clock' },
+    { group: 'Work' },
     { to: '/employee/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/employee/time-records', icon: FileText, label: 'Time Records' },
     { to: '/employee/leave', icon: Calendar, label: 'Leave Requests' },
-    { to: '/employee/payslips', icon: Wallet, label: 'Payslips' },
     { to: '/employee/tasks', icon: ClipboardList, label: 'Tasks' },
+    { group: 'Finance' },
+    { to: '/employee/payslips', icon: Wallet, label: 'Payslips' },
+    { group: '' },
     { to: '/employee/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/employee/support', icon: MessageSquare, label: 'Support' },
     { to: '/employee/profile', icon: User, label: 'Profile' },
   ];
 
   const clientLinks = [
+    { group: 'Overview' },
     { to: '/client/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/client/workforce', icon: Users, label: 'Workforce' },
-    { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
-    { to: '/client/tasks', icon: ClipboardList, label: 'Tasks' },
-    { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
-    { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
-    // { to: '/client/analytics', icon: BarChart3, label: 'Analytics' },
+    { group: 'Management' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
+    { to: '/client/add-overtime', icon: Timer, label: 'Add Overtime' },
+    { to: '/client/bonuses-raises', icon: Gift, label: 'Bonuses & Raises' },
+    { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
+    { group: 'Billing' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing & Invoices' },
+    { group: 'Team' },
+    { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
+    { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
+    { to: '/client/tasks', icon: ClipboardList, label: 'Tasks' },
+    { group: '' },
     { to: '/client/profile', icon: User, label: 'Profile' },
     { to: '/client/settings', icon: Settings, label: 'Settings' },
   ];
 
   // Admin links with permission requirements
   const adminLinksConfig = [
+    { group: 'Overview' },
     {
       to: '/admin/dashboard',
       icon: LayoutDashboard,
@@ -126,18 +138,7 @@ const Sidebar = ({
       label: 'Clients',
       permission: PERMISSIONS.CLIENTS.VIEW
     },
-    {
-      to: '/admin/tasks',
-      icon: ClipboardList,
-      label: 'Tasks',
-      permission: PERMISSIONS.TASKS.VIEW
-    },
-    // {
-    //   to: '/admin/analytics',
-    //   icon: BarChart3,
-    //   label: 'Analytics',
-    //   permission: PERMISSIONS.REPORTS.VIEW
-    // },
+    { group: 'Management' },
     {
       to: '/admin/time-records',
       icon: Clock,
@@ -158,6 +159,19 @@ const Sidebar = ({
       badge: pendingApprovalCount
     },
     {
+      to: '/admin/raise-requests',
+      icon: Gift,
+      label: 'Bonuses & Raises',
+      permission: PERMISSIONS.APPROVALS.VIEW,
+    },
+    {
+      to: '/admin/tasks',
+      icon: ClipboardList,
+      label: 'Tasks',
+      permission: PERMISSIONS.TASKS.VIEW
+    },
+    { group: 'Finance' },
+    {
       to: '/admin/payroll',
       icon: Briefcase,
       label: 'Payroll',
@@ -175,6 +189,7 @@ const Sidebar = ({
       label: 'Billing History',
       permission: PERMISSIONS.EMPLOYEES.VIEW
     },
+    { group: '' },
     {
       to: '/admin/document-types',
       icon: FileCheck,
@@ -191,7 +206,7 @@ const Sidebar = ({
       to: '/admin/profile',
       icon: User,
       label: 'Profile',
-      permission: null // All admins can access their profile
+      permission: null
     },
   ];
 
@@ -202,6 +217,8 @@ const Sidebar = ({
       return adminLinksConfig;
     }
     return adminLinksConfig.filter(link => {
+      // Always keep group headers
+      if (link.group !== undefined) return true;
       // If no permission required, show the link
       if (!link.permission) return true;
       // Check if user has the required permission
@@ -280,36 +297,50 @@ const Sidebar = ({
 
       {/* Navigation */}
       <nav className="p-3 space-y-1 overflow-y-auto h-[calc(100vh-260px)] scrollbar-thin">
-        {links.map((link) => (
-          <NavLink
-            key={link.to}
-            to={link.to}
-            className={({ isActive }) => `
-              relative flex items-center gap-3 px-4 py-3 rounded-xl
-              transition-all duration-200 group
-              ${isActive
-                ? 'bg-secondary text-primary-900 shadow-lg font-semibold'
-                : 'text-primary-200 hover:bg-primary-600/50 hover:text-white'
-              }
-              ${collapsed ? 'justify-center px-3' : ''}
-            `}
-            title={collapsed ? link.label : ''}
-          >
-            <link.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
-            {!collapsed && (
-              <>
-                <span className="font-medium flex-1">{link.label}</span>
-                {link.badge > 0 && (
-                  <span className="ml-auto px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
-                    {link.badge}
-                  </span>
-                )}
-              </>
-            )}
-            {collapsed && link.badge > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
-            )}
-          </NavLink>
+        {links.map((link, idx) => (
+          link.group !== undefined ? (
+            link.group && !collapsed ? (
+              <div key={`group-${idx}`} className="pt-4 pb-1 px-4 first:pt-1">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary-400/70">
+                  {link.group}
+                </p>
+              </div>
+            ) : link.group && collapsed ? (
+              <div key={`group-${idx}`} className="pt-3 pb-1 flex justify-center">
+                <div className="w-6 border-t border-primary-600/40" />
+              </div>
+            ) : <div key={`group-${idx}`} className={collapsed ? 'pt-2' : 'pt-3'} />
+          ) : (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              className={({ isActive }) => `
+                relative flex items-center gap-3 px-4 py-3 rounded-xl
+                transition-all duration-200 group
+                ${isActive
+                  ? 'bg-secondary text-primary-900 shadow-lg font-semibold'
+                  : 'text-primary-200 hover:bg-primary-600/50 hover:text-white'
+                }
+                ${collapsed ? 'justify-center px-3' : ''}
+              `}
+              title={collapsed ? link.label : ''}
+            >
+              <link.icon className="w-5 h-5 flex-shrink-0 transition-transform group-hover:scale-110" />
+              {!collapsed && (
+                <>
+                  <span className="font-medium flex-1">{link.label}</span>
+                  {link.badge > 0 && (
+                    <span className="ml-auto px-2 py-0.5 text-xs font-bold bg-red-500 text-white rounded-full min-w-[20px] text-center">
+                      {link.badge}
+                    </span>
+                  )}
+                </>
+              )}
+              {collapsed && link.badge > 0 && (
+                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+              )}
+            </NavLink>
+          )
         ))}
       </nav>
 
