@@ -49,6 +49,7 @@ const ClientDetail = () => {
   const navigate = useNavigate();
   const { impersonate, user: currentUser } = useAuth();
   const [impersonating, setImpersonating] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const {
     client,
@@ -187,11 +188,35 @@ const ClientDetail = () => {
         </div>
       )}
 
-      {/* 2-column grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* LEFT: Contact + Policies */}
-        <div className="space-y-4">
-          {/* Contact Info */}
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-8">
+          {[
+            { key: 'overview', label: 'Overview', icon: Building },
+            { key: 'policies', label: 'Policies', icon: Settings },
+            { key: 'agreement', label: 'Agreement', icon: FileText },
+            { key: 'payment', label: 'Payment', icon: CreditCard },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${
+                activeTab === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Company Info */}
           <Card>
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Company Info</h3>
             <InfoRow label="Email" value={client.user?.email} icon={Mail} />
@@ -202,9 +227,9 @@ const ClientDetail = () => {
           </Card>
 
           {/* Contact Persons */}
-          {client.contacts && client.contacts.length > 0 && (
-            <Card>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact Persons</h3>
+          <Card>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact Persons</h3>
+            {client.contacts && client.contacts.length > 0 ? (
               <div className="space-y-2">
                 {client.contacts.map((contact, idx) => (
                   <div key={contact.id || idx} className="flex items-start justify-between py-2 border-b border-gray-50 last:border-0">
@@ -222,59 +247,9 @@ const ClientDetail = () => {
                   </div>
                 ))}
               </div>
-            </Card>
-          )}
-
-          {/* Policies */}
-          <Card>
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Policies</h3>
-            <div className="space-y-0">
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-xs text-gray-500">Paid Leave</span>
-                <div className="flex items-center gap-2">
-                  {pol?.allowPaidLeave && (
-                    <span className="text-xs text-gray-400">{pol.annualPaidLeaveDays} days/yr</span>
-                  )}
-                  <Badge variant={pol?.allowPaidLeave ? 'success' : 'warning'} size="sm">
-                    {pol?.allowPaidLeave ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-xs text-gray-500">Unpaid Leave</span>
-                <Badge variant={pol?.allowUnpaidLeave ? 'success' : 'warning'} size="sm">
-                  {pol?.allowUnpaidLeave ? 'Yes' : 'No'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-xs text-gray-500">Overtime</span>
-                <div className="flex items-center gap-2">
-                  {pol?.allowOvertime && (
-                    <span className="text-xs text-gray-400">{pol.overtimeRequiresApproval ? 'Needs approval' : 'No approval'}</span>
-                  )}
-                  <Badge variant={pol?.allowOvertime ? 'success' : 'warning'} size="sm">
-                    {pol?.allowOvertime ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-              </div>
-              <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                <span className="text-xs text-gray-500">Notice Period</span>
-                <Badge variant={pol?.requireTwoWeeksNotice ? 'info' : 'default'} size="sm">
-                  {pol?.requireTwoWeeksNotice ? '2 Weeks' : 'Flexible'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between py-2">
-                <span className="text-xs text-gray-500">Auto-Approve Timesheets</span>
-                <div className="flex items-center gap-2">
-                  {pol?.autoApproveTimesheets && (
-                    <span className="text-xs text-gray-400">{pol.autoApproveMinutes || 15} min</span>
-                  )}
-                  <Badge variant={pol?.autoApproveTimesheets ? 'success' : 'warning'} size="sm">
-                    {pol?.autoApproveTimesheets ? 'Yes' : 'No'}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+            ) : (
+              <p className="text-sm text-gray-400">No contacts added</p>
+            )}
           </Card>
 
           {/* Groups & Employees */}
@@ -298,13 +273,66 @@ const ClientDetail = () => {
             </div>
           </Card>
         </div>
+      )}
 
-        {/* RIGHT: Agreement + Business + Payment */}
-        <div className="space-y-4">
-          {/* Agreement */}
+      {activeTab === 'policies' && (
+        <Card>
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">Client Policies</h3>
+          <div className="space-y-0">
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-600">Paid Leave</span>
+              <div className="flex items-center gap-2">
+                {pol?.allowPaidLeave && (
+                  <span className="text-xs text-gray-400">{pol.annualPaidLeaveDays} days/yr</span>
+                )}
+                <Badge variant={pol?.allowPaidLeave ? 'success' : 'warning'} size="sm">
+                  {pol?.allowPaidLeave ? 'Yes' : 'No'}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-600">Unpaid Leave</span>
+              <Badge variant={pol?.allowUnpaidLeave ? 'success' : 'warning'} size="sm">
+                {pol?.allowUnpaidLeave ? 'Yes' : 'No'}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-600">Overtime</span>
+              <div className="flex items-center gap-2">
+                {pol?.allowOvertime && (
+                  <span className="text-xs text-gray-400">{pol.overtimeRequiresApproval ? 'Needs approval' : 'No approval'}</span>
+                )}
+                <Badge variant={pol?.allowOvertime ? 'success' : 'warning'} size="sm">
+                  {pol?.allowOvertime ? 'Yes' : 'No'}
+                </Badge>
+              </div>
+            </div>
+            <div className="flex items-center justify-between py-2.5 border-b border-gray-100">
+              <span className="text-sm text-gray-600">Notice Period</span>
+              <Badge variant={pol?.requireTwoWeeksNotice ? 'info' : 'default'} size="sm">
+                {pol?.requireTwoWeeksNotice ? '2 Weeks' : 'Flexible'}
+              </Badge>
+            </div>
+            <div className="flex items-center justify-between py-2.5">
+              <span className="text-sm text-gray-600">Auto-Approve Timesheets</span>
+              <div className="flex items-center gap-2">
+                {pol?.autoApproveTimesheets && (
+                  <span className="text-xs text-gray-400">{pol.autoApproveMinutes || 15} min</span>
+                )}
+                <Badge variant={pol?.autoApproveTimesheets ? 'success' : 'warning'} size="sm">
+                  {pol?.autoApproveTimesheets ? 'Yes' : 'No'}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {activeTab === 'agreement' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Agreement</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-900">Agreement Details</h3>
               {client.onboardingStatus === 'COMPLETED' ? (
                 <span className="flex items-center gap-1 text-xs font-medium text-green-700">
                   <CheckCircle className="w-3.5 h-3.5" /> Signed
@@ -340,7 +368,6 @@ const ClientDetail = () => {
             </div>
           </Card>
 
-          {/* Business Info */}
           {ag?.businessName && (
             <Card>
               <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
@@ -353,12 +380,15 @@ const ClientDetail = () => {
               {ag.signerAddress && <InfoRow label="Signer Address" value={ag.signerAddress} />}
             </Card>
           )}
+        </div>
+      )}
 
-          {/* Payment */}
-          {ag?.paymentMethod && (
-            <Card>
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                <CreditCard className="w-3.5 h-3.5 text-gray-400" /> Payment
+      {activeTab === 'payment' && (
+        <Card>
+          {ag?.paymentMethod ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-gray-400" /> Payment Information
               </h3>
               <InfoRow
                 label="Method"
@@ -381,10 +411,12 @@ const ClientDetail = () => {
                   {ag.achAccountType && <InfoRow label="Type" value={ag.achAccountType} />}
                 </>
               )}
-            </Card>
+            </>
+          ) : (
+            <p className="text-sm text-gray-400">No payment information on file</p>
           )}
-        </div>
-      </div>
+        </Card>
+      )}
 
       {/* Delete Modal */}
       <Modal isOpen={showDeleteModal} onClose={closeDeleteModal} title="Delete Client" size="sm">

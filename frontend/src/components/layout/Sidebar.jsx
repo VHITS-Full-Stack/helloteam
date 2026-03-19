@@ -23,7 +23,8 @@ import {
   TrendingUp,
   FileCheck,
   Wallet,
-  Timer
+  Timer,
+  Gift,
 } from 'lucide-react';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -40,6 +41,7 @@ const Sidebar = ({
   const [collapsed, setCollapsed] = useState(false);
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
 
   // Fetch pending approval counts for sidebar badge
   const fetchPendingCounts = useCallback(async () => {
@@ -62,9 +64,15 @@ const Sidebar = ({
       }
     } else if (portalType === 'admin') {
       try {
-        const res = await adminPortalService.getPendingActions();
+        const [res, raiseRes] = await Promise.all([
+          adminPortalService.getPendingActions(),
+          adminPortalService.getRaiseRequests({ status: 'PENDING' }),
+        ]);
         if (res.success && res.counts) {
           setPendingApprovalCount((res.counts.pendingLeave || 0) + (res.counts.pendingOvertime || 0));
+        }
+        if (raiseRes.success) {
+          setPendingBonusRaiseCount((raiseRes.data?.requests || []).length);
         }
       } catch (e) {
         console.error('Failed to fetch admin pending counts:', e);
@@ -81,13 +89,16 @@ const Sidebar = ({
   }, [fetchPendingCounts]);
 
   const employeeLinks = [
+    { group: 'Overview' },
     { to: '/employee/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    // { to: '/employee/time-clock', icon: Clock, label: 'Time Clock' },
+    { group: 'Work' },
     { to: '/employee/schedule', icon: Calendar, label: 'Schedule' },
     { to: '/employee/time-records', icon: FileText, label: 'Time Records' },
     { to: '/employee/leave', icon: Calendar, label: 'Leave Requests' },
-    { to: '/employee/payslips', icon: Wallet, label: 'Payslips' },
     { to: '/employee/tasks', icon: ClipboardList, label: 'Tasks' },
+    { group: 'Finance' },
+    { to: '/employee/payslips', icon: Wallet, label: 'Payslips' },
+    { group: '' },
     { to: '/employee/chat', icon: MessageCircle, label: 'Chat' },
     { to: '/employee/support', icon: MessageSquare, label: 'Support' },
     { to: '/employee/profile', icon: User, label: 'Profile' },
@@ -100,9 +111,11 @@ const Sidebar = ({
     { group: 'Management' },
     { to: '/client/time-records', icon: Clock, label: 'Time Records' },
     { to: '/client/add-overtime', icon: Timer, label: 'Add Overtime' },
+    { to: '/client/bonuses-raises', icon: Gift, label: 'Bonuses & Raises' },
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
     { group: 'Billing' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing & Invoices' },
+    { to: '/client/rate-history', icon: TrendingUp, label: 'Rate History' },
     { group: 'Team' },
     { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
     { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
@@ -152,6 +165,13 @@ const Sidebar = ({
       label: 'Approvals',
       permission: PERMISSIONS.APPROVALS.VIEW,
       badge: pendingApprovalCount
+    },
+    {
+      to: '/admin/raise-requests',
+      icon: Gift,
+      label: 'Bonuses & Raises',
+      permission: PERMISSIONS.APPROVALS.VIEW,
+      badge: pendingBonusRaiseCount,
     },
     {
       to: '/admin/tasks',

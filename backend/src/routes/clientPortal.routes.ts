@@ -27,6 +27,10 @@ import {
   removeEmployeeFromClientGroup,
   getClientEmployeesList,
   getPendingOvertimeSummary,
+  getEmployeesWithRates,
+  sendBonus,
+  submitRaiseRequest,
+  getClientRateHistory,
 } from '../controllers/clientPortal.controller';
 import {
   getClientInvoices,
@@ -169,6 +173,14 @@ router.post('/groups/:groupId/employees', addEmployeesToClientGroup);
 
 // Remove employee from a group
 router.delete('/groups/:groupId/employees/:employeeId', removeEmployeeFromClientGroup);
+
+// ============================================
+// BONUSES & RAISES ROUTES
+// ============================================
+router.get('/employees/with-rates', getEmployeesWithRates);
+router.post('/bonuses', sendBonus);
+router.post('/raises', submitRaiseRequest);
+router.get('/rate-history', getClientRateHistory);
 
 // Get employees assigned to this client (for group management)
 router.get('/employees', getClientEmployeesList);

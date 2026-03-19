@@ -314,9 +314,9 @@ Client portal contains **TWO completely separate areas**:
 
 | Employee Action | System Classification |
 |----------------|----------------------|
-| [] Staying late after shift | Shift Extension |
-| [] Working at a different time | Extra Time |
-| [] Early clock-in | Extra Time |
+| [x] Staying late after shift | Shift Extension |
+| [x] Working at a different time | Extra Time |
+| [x] Early clock-in | Extra Time |
 
 ---
 

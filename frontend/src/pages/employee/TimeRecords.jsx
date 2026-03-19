@@ -693,269 +693,110 @@ const TimeRecords = () => {
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left py-3 px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Schedule
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Actual In/Out
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Billing In/Out
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Break
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Regular
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Overtime
-                          <span className="text-[9px] font-medium text-gray-400 normal-case tracking-normal block">
-                            Ext / Off‑Shift
-                          </span>
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="text-center py-3 px-2 text-xs font-semibold text-gray-500 uppercase tracking-wider w-16"></th>
+                      <tr className="border-b border-gray-200 bg-slate-50/50">
+                        <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Clock In</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Clock Out</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Break</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Regular Hours</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Overtime</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Status</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3 w-16"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-50">
                       {sessions.map((session) => {
                         const isOT = session.overtimeMinutes > 0;
+                        const otEntries = session.overtimeEntries || [];
+                        const totalM = session.totalMinutes || 0;
+                        const allOTM = otEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                        const regularM = Math.max(0, totalM - allOTM);
+                        const breakM = session.breakMinutes || session.totalBreakMinutes || 0;
+                        const active = isActiveSession(session);
+
                         return (
                           <React.Fragment key={session.id}>
-                            <tr
-                              className={`transition-colors ${
-                                isOT
-                                  ? "bg-amber-50/40 hover:bg-amber-50/80"
-                                  : "hover:bg-gray-50"
-                              }`}
-                            >
+                            <tr className={`transition-colors ${isOT ? "bg-orange-50/30 hover:bg-orange-50/50" : "hover:bg-gray-50/50"}`}>
                               {/* Date */}
-                              <td className="py-3 px-3">
-                                <div className="flex flex-col gap-0.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-semibold text-gray-900 text-sm">
-                                      {formatDateHeader(session.startTime)}
-                                    </span>
-                                  </div>
-                                  {session.client && (
-                                    <span className="text-xs text-gray-400">
-                                      {session.client.companyName}
-                                    </span>
-                                  )}
+                              <td className="py-2.5 px-4">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-medium text-gray-900">{formatDateHeader(session.startTime)}</span>
+                                  {getArrivalBadge(session)}
                                 </div>
-                              </td>
-
-                              {/* Schedule */}
-                              <td className="py-3 px-2 text-center">
-                                {session.scheduledStart &&
-                                session.scheduledEnd ? (
-                                  <div className="text-sm font-medium text-gray-600">
-                                    {formatTime(session.scheduledStart)}
-                                    <span className="text-gray-300 mx-1">
-                                      –
-                                    </span>
-                                    {formatTime(session.scheduledEnd)}
-                                  </div>
-                                ) : (
-                                  <span className="text-gray-300">&mdash;</span>
+                                {session.client && (
+                                  <span className="text-xs text-gray-400">{session.client.companyName}</span>
                                 )}
                               </td>
 
-                              {/* Actual In / Out */}
-                              <td className="py-3 px-2 text-center">
-                                {isActiveSession(session) ? (
-                                  <div>
-                                    <span className="text-sm font-medium text-gray-900">
-                                      {formatTime(session.startTime)}
-                                    </span>
-                                    <span className="text-gray-300 mx-1">
-                                      –
-                                    </span>
-
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700">
-                                      <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                                      Active
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {formatTime(session.startTime)}
-                                    <span className="text-gray-300 mx-1">
-                                      –
-                                    </span>
-                                    {session.endTime ? (
-                                      formatTime(session.endTime)
-                                    ) : (
-                                      <span className="text-gray-400 italic text-xs">
-                                        —
-                                      </span>
-                                    )}
-                                    <span>{getArrivalBadge(session)}</span>
-                                  </div>
-                                )}
+                              {/* Clock In */}
+                              <td className="py-2.5 px-3 text-center text-sm text-gray-900">
+                                {formatTime(session.startTime)}
                               </td>
 
-                              {/* Billing In / Out */}
-                              <td className="py-3 px-2 text-center">
-                                {(() => {
-                                  const otEntries = session.overtimeEntries || [];
-                                  const hasOffShift = otEntries.some(ot => ot.type === 'OFF_SHIFT');
-                                  // For off-shift sessions, show actual times instead of billing
-                                  const displayStart = hasOffShift && session.startTime ? session.startTime : session.billingStart;
-                                  const displayEnd = hasOffShift && session.endTime ? session.endTime : session.billingEnd;
-
-                                  if (displayStart && displayEnd) {
-                                    const approvedExtMins = otEntries
-                                      .filter(ot => (ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') && ot.type === 'SHIFT_EXTENSION')
-                                      .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-                                    return (
-                                      <div className="text-sm font-medium text-blue-700">
-                                        {formatTime(displayStart)}
-                                        <span className="text-blue-300 mx-1">–</span>
-                                        {approvedExtMins > 0
-                                          ? formatTime(new Date(new Date(displayEnd).getTime() + approvedExtMins * 60000))
-                                          : formatTime(displayEnd)}
-                                      </div>
-                                    );
-                                  }
-                                  if (isActiveSession(session)) {
-                                    return <span className="text-xs text-gray-400 italic">In progress</span>;
-                                  }
-                                  return <span className="text-gray-300">&mdash;</span>;
-                                })()}
+                              {/* Clock Out */}
+                              <td className="py-2.5 px-3 text-center text-sm">
+                                {active ? (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-green-100 text-green-700">
+                                    <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                                    Active
+                                  </span>
+                                ) : session.endTime ? (
+                                  <span className="text-gray-900">{formatTime(session.endTime)}</span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
                               </td>
 
                               {/* Break */}
-                              <td className="py-3 px-2 text-center">
-                                {(session.breakMinutes ||
-                                  session.totalBreakMinutes) > 0 ? (
-                                  <span className="inline-flex items-center gap-1 text-sm text-yellow-600 font-medium">
-                                    <Coffee className="w-3 h-3" />
-                                    {formatDurationShort(
-                                      session.breakMinutes ||
-                                        session.totalBreakMinutes,
-                                    )}
-                                  </span>
+                              <td className="py-2.5 px-3 text-center text-sm">
+                                {breakM > 0 ? (
+                                  <span className="text-yellow-600 font-medium">{formatDurationShort(breakM)}</span>
                                 ) : (
-                                  <span className="text-gray-300">&mdash;</span>
+                                  <span className="text-gray-300">—</span>
                                 )}
                               </td>
 
-                              {/* Regular Hours + OT combined */}
-                              {(() => {
-                                const otEntries = session.overtimeEntries || [];
-                                const totalM = session.totalMinutes || 0;
-                                const allOTM = otEntries.reduce(
-                                  (s, o) => s + (o.requestedMinutes || 0),
-                                  0,
-                                );
-                                const regularM = Math.max(0, totalM - allOTM);
-                                const shiftExtM = otEntries
-                                  .filter((o) => o.type === "SHIFT_EXTENSION")
-                                  .reduce(
-                                    (s, o) => s + (o.requestedMinutes || 0),
-                                    0,
-                                  );
-                                const extraTimeM = otEntries
-                                  .filter((o) => o.type === "OFF_SHIFT")
-                                  .reduce(
-                                    (s, o) => s + (o.requestedMinutes || 0),
-                                    0,
-                                  );
-                                return (
-                                  <>
-                                    <td className="py-3 px-2 text-center">
-                                      {isActiveSession(session) ? (
-                                        <span className="text-green-600 font-medium text-sm">
-                                          In Progress
+                              {/* Regular Hours */}
+                              <td className="py-2.5 px-3 text-center text-sm">
+                                {active ? (
+                                  <span className="text-green-600 font-medium">In Progress</span>
+                                ) : (
+                                  <span className="font-semibold text-gray-900">{formatDuration(regularM)}</span>
+                                )}
+                              </td>
+
+                              {/* Overtime */}
+                              <td className="py-2.5 px-3 text-center">
+                                {allOTM > 0 ? (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    {otEntries.map((ot, i) => (
+                                      <span key={i} className="inline-flex items-center gap-1 text-xs">
+                                        <span className={`font-medium ${ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-600"}`}>
+                                          {formatDuration(ot.requestedMinutes)}
                                         </span>
-                                      ) : (
-                                        <span className="font-bold text-gray-900 text-sm">
-                                          {formatDuration(regularM)}
-                                        </span>
-                                      )}
-                                    </td>
-                                    <td className="py-3 px-2 text-center">
-                                      {shiftExtM > 0 || extraTimeM > 0 ? (
-                                        <div className="flex flex-col items-center gap-1">
-                                          {otEntries
-                                            .filter(
-                                              (o) =>
-                                                o.type === "SHIFT_EXTENSION",
-                                            )
-                                            .map((ot, i) => (
-                                              <div
-                                                key={i}
-                                                className="flex flex-col items-center"
-                                              >
-                                                <span className="text-xs text-purple-600 font-medium">
-                                                  {formatDuration(
-                                                    ot.requestedMinutes,
-                                                  )}{" "}
-                                                  ext
-                                                </span>
-                                                <span
-                                                  className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
-                                                >
-                                                  {ot.status === "APPROVED"
-                                                    ? "✓"
-                                                    : ot.status === "REJECTED"
-                                                      ? "✗"
-                                                      : "pending"}
-                                                </span>
-                                              </div>
-                                            ))}
-                                          {otEntries
-                                            .filter(
-                                              (o) => o.type === "OFF_SHIFT",
-                                            )
-                                            .map((ot, i) => (
-                                              <div
-                                                key={i}
-                                                className="flex flex-col items-center"
-                                              >
-                                                <span className="text-xs text-orange-600 font-medium">
-                                                  {formatDuration(
-                                                    ot.requestedMinutes,
-                                                  )}{" "}
-                                                  off
-                                                </span>
-                                                <span
-                                                  className={`text-[10px] ${ot.status === "APPROVED" ? "text-green-600" : ot.status === "REJECTED" ? "text-red-500" : "text-amber-500"}`}
-                                                >
-                                                  {ot.status === "APPROVED"
-                                                    ? "✓"
-                                                    : ot.status === "REJECTED"
-                                                      ? "✗"
-                                                      : "pending"}
-                                                </span>
-                                              </div>
-                                            ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-300">
-                                          &mdash;
-                                        </span>
-                                      )}
-                                    </td>
-                                  </>
-                                );
-                              })()}
+                                        <span className="text-[10px] text-gray-400">{ot.type === "SHIFT_EXTENSION" ? "ext" : "off"}</span>
+                                        {ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? (
+                                          <span className="text-green-500 text-[10px]">✓</span>
+                                        ) : ot.status === "REJECTED" ? (
+                                          <span className="text-red-400 text-[10px]">✗</span>
+                                        ) : (
+                                          <Clock className="w-3 h-3 text-amber-400" />
+                                        )}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
+                                )}
+                              </td>
 
                               {/* Status */}
-                              <td className="py-3 px-2 text-center">
+                              <td className="py-2.5 px-3 text-center">
                                 {getStatusBadge(session)}
                               </td>
 
                               {/* Actions */}
-                              <td className="py-3 px-3 text-center">
+                              <td className="py-2.5 px-3 text-center">
                                 <div className="flex items-center justify-center gap-1">
                                   <button
                                     onClick={() => handleViewDetail(session)}
@@ -964,61 +805,37 @@ const TimeRecords = () => {
                                   >
                                     <Eye className="w-4 h-4" />
                                   </button>
-                                  {session.approvalStatus ===
-                                    "REVISION_REQUESTED" &&
-                                    session.timeRecordId && (
-                                      <button
-                                        onClick={() =>
-                                          handleResubmit(session.timeRecordId)
-                                        }
-                                        disabled={
-                                          resubmitLoading ===
-                                          session.timeRecordId
-                                        }
-                                        className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
-                                        title="Resubmit timesheet"
-                                      >
-                                        <RotateCcw
-                                          className={`w-4 h-4 ${resubmitLoading === session.timeRecordId ? "animate-spin" : ""}`}
-                                        />
-                                      </button>
-                                    )}
+                                  {session.approvalStatus === "REVISION_REQUESTED" && session.timeRecordId && (
+                                    <button
+                                      onClick={() => handleResubmit(session.timeRecordId)}
+                                      disabled={resubmitLoading === session.timeRecordId}
+                                      className="p-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 rounded-lg transition-colors"
+                                      title="Resubmit"
+                                    >
+                                      <RotateCcw className={`w-4 h-4 ${resubmitLoading === session.timeRecordId ? "animate-spin" : ""}`} />
+                                    </button>
+                                  )}
                                 </div>
                               </td>
                             </tr>
 
-                            {/* Revision requested banner */}
-                            {session.approvalStatus ===
-                              "REVISION_REQUESTED" && (
+                            {/* Revision banner */}
+                            {session.approvalStatus === "REVISION_REQUESTED" && (
                               <tr className="bg-amber-50 border-b border-amber-100">
-                                <td colSpan={9} className="px-4 py-2">
+                                <td colSpan={8} className="px-4 py-2">
                                   <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2 text-sm text-amber-700">
                                       <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                      <span>
-                                        <strong>Revision requested:</strong>{" "}
-                                        {session.revisionReason ||
-                                          "Please review and resubmit your timesheet."}
-                                      </span>
+                                      <span><strong>Revision requested:</strong> {session.revisionReason || "Please review and resubmit."}</span>
                                     </div>
                                     {session.timeRecordId && (
                                       <button
-                                        onClick={() =>
-                                          handleResubmit(session.timeRecordId)
-                                        }
-                                        disabled={
-                                          resubmitLoading ===
-                                          session.timeRecordId
-                                        }
+                                        onClick={() => handleResubmit(session.timeRecordId)}
+                                        disabled={resubmitLoading === session.timeRecordId}
                                         className="inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors disabled:opacity-50"
                                       >
-                                        <RotateCcw
-                                          className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? "animate-spin" : ""}`}
-                                        />
-                                        {resubmitLoading ===
-                                        session.timeRecordId
-                                          ? "Resubmitting..."
-                                          : "Resubmit"}
+                                        <RotateCcw className={`w-3 h-3 ${resubmitLoading === session.timeRecordId ? "animate-spin" : ""}`} />
+                                        {resubmitLoading === session.timeRecordId ? "Resubmitting..." : "Resubmit"}
                                       </button>
                                     )}
                                   </div>

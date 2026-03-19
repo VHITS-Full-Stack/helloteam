@@ -40,6 +40,8 @@ const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
 const ClientGroups = lazy(() => import('../pages/client/group/Groups'));
 const ClientAddOvertime = lazy(() => import('../pages/client/AddOvertime'));
+const ClientBonusesRaises = lazy(() => import('../pages/client/BonusesRaises'));
+const ClientRateHistory = lazy(() => import('../pages/client/RateHistory'));
 
 // Admin Pages (lazy)
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -68,6 +70,7 @@ const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
 const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
 const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
+const AdminRaiseRequests = lazy(() => import('../pages/admin/RaiseRequests'));
 const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
 
 // Loading fallback
@@ -192,6 +195,8 @@ const AppRoutes = () => {
           <Route path="time-records" element={<ClientTimeRecords />} />
           <Route path="time-records/:employeeId" element={<ClientTimesheetDetail />} />
           <Route path="add-overtime" element={<ClientAddOvertime />} />
+          <Route path="bonuses-raises" element={<ClientBonusesRaises />} />
+          <Route path="rate-history" element={<ClientRateHistory />} />
           <Route path="billing" element={<Billing />} />
           <Route path="settings" element={<ClientSettings />} />
           <Route path="profile" element={<ClientProfile />} />
@@ -217,6 +222,7 @@ const AppRoutes = () => {
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />
+          <Route path="raise-requests" element={<AdminRaiseRequests />} />
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/employee/:employeeId" element={<PayrollEmployeeDetail />} />
           <Route path="invoices" element={<AdminInvoices />} />

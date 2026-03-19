@@ -238,6 +238,7 @@ model Employee {
   rateChanges         RateChangeHistory[]
   payrollAdjustments  PayrollAdjustment[]
   payslips            Payslip[]
+  clientRequests      ClientRequest[]
 
   @@map("employees")
 }
@@ -276,6 +277,7 @@ model Client {
   invoices         Invoice[]
   autoApprovalLogs AutoApprovalLog[]
   payslips           Payslip[]
+  clientRequests     ClientRequest[]
 
   @@map("clients")
 }
@@ -998,6 +1000,48 @@ model PayrollAdjustment {
 
   @@index([employeeId, periodStart, periodEnd])
   @@map("payroll_adjustments")
+}
+
+enum ClientRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ClientRequestType {
+  BONUS
+  RAISE
+}
+
+model ClientRequest {
+  id               String              @id @default(uuid())
+  type             ClientRequestType
+  employeeId       String
+  clientId         String
+  requestedBy      String
+  // Bonus fields
+  amount           Decimal?            @db.Decimal(10, 2)
+  // Raise fields
+  payRate          Decimal?            @db.Decimal(10, 2)
+  billRate         Decimal?            @db.Decimal(10, 2)
+  effectiveDate    DateTime?           @db.Date
+  // Common fields
+  reason           String?
+  status           ClientRequestStatus @default(PENDING)
+  adminNotes       String?
+  reviewedBy       String?
+  reviewedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([type])
+  @@map("client_requests")
 }
 
 // ============================================

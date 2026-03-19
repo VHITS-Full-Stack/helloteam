@@ -16,6 +16,9 @@ import {
   bulkFinalApprove,
   approveLeaveRequest,
   rejectLeaveRequest,
+  getRaiseRequests,
+  approveRaiseRequest,
+  rejectRaiseRequest,
 } from '../controllers/adminPortal.controller';
 
 const router = Router();
@@ -45,5 +48,10 @@ router.post('/approvals/time-record/:recordId/request-revision', authenticate, a
 router.post('/approvals/bulk-approve', authenticate, authorize(...approvalRoles), bulkFinalApprove);
 router.post('/approvals/leave/:requestId/approve', authenticate, authorize(...approvalRoles), approveLeaveRequest);
 router.post('/approvals/leave/:requestId/reject', authenticate, authorize(...approvalRoles), rejectLeaveRequest);
+
+// Raise request endpoints
+router.get('/raise-requests', authenticate, authorize(...adminRoles), getRaiseRequests);
+router.post('/raise-requests/:raiseId/approve', authenticate, authorize(...approvalRoles), approveRaiseRequest);
+router.post('/raise-requests/:raiseId/reject', authenticate, authorize(...approvalRoles), rejectRaiseRequest);
 
 export default router;

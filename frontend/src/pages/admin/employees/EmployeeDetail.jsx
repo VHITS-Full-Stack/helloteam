@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -31,6 +31,7 @@ import {
 } from '../../../components/common';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import { useAuth } from '../../../context/AuthContext';
+import adminPortalService from '../../../services/adminPortal.service';
 
 import { formatDuration } from '../../../utils/formatTime';
 
@@ -51,6 +52,20 @@ const EmployeeDetail = () => {
   const navigate = useNavigate();
   const { impersonate, user: currentUser } = useAuth();
   const [impersonating, setImpersonating] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [pendingRequests, setPendingRequests] = useState([]);
+
+  useEffect(() => {
+    const fetchPendingRequests = async () => {
+      try {
+        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING' });
+        if (res.success) {
+          setPendingRequests((res.data?.requests || []).filter((r) => r.employeeId === id));
+        }
+      } catch (e) { /* ignore */ }
+    };
+    if (id) fetchPendingRequests();
+  }, [id]);
 
   const handleImpersonate = async () => {
     if (!employee?.user?.id) return;
@@ -252,7 +267,7 @@ const EmployeeDetail = () => {
         </div>
       )}
       {/* KYC Status */}
-      <Card padding="sm">
+      <Card padding="sm" className="bg-blue-50 border border-blue-200">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</p>
@@ -297,16 +312,70 @@ const EmployeeDetail = () => {
         </div>
       )}
 
-      {/* 2-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* ── Left Column ── */}
-        <div className="space-y-4">
-          {/* Contact Card */}
+      {/* Pending Bonus/Raise Requests */}
+      {pendingRequests.length > 0 && (
+        <Card padding="sm" className="bg-amber-50 border border-amber-200">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+              <p className="text-sm font-semibold text-amber-700">
+                {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'}
+              </p>
+            </div>
+            <Link to="/admin/raise-requests">
+              <Button variant="ghost" size="sm">Review</Button>
+            </Link>
+          </div>
+          <div className="space-y-1.5 ml-6">
+            {pendingRequests.map((r) => (
+              <div key={r.id} className="flex items-center gap-2 text-sm">
+                {r.type === 'BONUS' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bonus</span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Raise</span>
+                )}
+                <span className="text-gray-700">
+                  {r.type === 'BONUS' ? (
+                    <><span className="font-semibold">${Number(r.amount).toFixed(2)}</span> from {r.client.companyName}</>
+                  ) : (
+                    <><span className="font-semibold">${Number(r.billRate).toFixed(2)}</span> from {r.client.companyName}</>
+                  )}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="flex gap-8">
+          {[
+            { key: 'overview', label: 'Overview', icon: Mail },
+            { key: 'schedule', label: 'Schedule & Rates', icon: Calendar },
+            { key: 'time', label: 'Time & Stats', icon: Clock },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${
+                activeTab === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <tab.icon className="w-3.5 h-3.5" />
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card padding="md">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Mail className="w-4 h-4 text-primary" />
-              Contact Information
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact Information</h3>
             <InfoRow label="Email" value={employee.user?.email} icon={Mail} />
             <InfoRow label="Phone" value={employee.phone ? `${employee.countryCode || '+1'} ${employee.phone}` : null} icon={Phone} />
             <InfoRow label="Personal Email" value={employee.personalEmail} icon={Mail} />
@@ -317,71 +386,62 @@ const EmployeeDetail = () => {
             )}
           </Card>
 
-          {/* Emergency Contacts Card */}
-          {employee.emergencyContacts && employee.emergencyContacts.length > 0 && (
+          <div className="space-y-4">
+            {/* Assignment */}
             <Card padding="md">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <Heart className="w-4 h-4 text-red-500" />
-                Emergency Contacts
-              </h3>
-              <div className="space-y-3">
-                {employee.emergencyContacts.map((contact, i) => (
-                  <div key={contact.id || i} className="p-2.5 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900">{contact.name}</p>
-                    <div className="flex items-center gap-4 mt-1">
-                      <span className="text-xs text-gray-500 flex items-center gap-1">
-                        <Phone className="w-3 h-3" /> {contact.countryCode || '+1'} {contact.phone}
-                      </span>
-                      <span className="text-xs text-gray-400">{contact.relationship}</span>
-                    </div>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-gray-900">Assignment</h3>
+                <Button variant="ghost" size="sm" icon={UserPlus} onClick={openAssignModal}>
+                  {activeClient ? 'Reassign' : 'Assign'}
+                </Button>
               </div>
+              {activeClient ? (
+                <div className="space-y-1">
+                  <InfoRow
+                    label="Client"
+                    value={
+                      <Link to={`/admin/clients/${activeClient.client?.id}`} className="text-primary hover:underline">
+                        {activeClient.client?.companyName}
+                      </Link>
+                    }
+                    icon={Building2}
+                  />
+                  <InfoRow label="Group" value={groupAssignment?.group?.name} icon={Users} />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400 py-2">Not assigned to any client</p>
+              )}
             </Card>
-          )}
 
-          {/* Assignment Card */}
-          <Card padding="md">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-primary" />
-                Assignment
-              </h3>
-              <Button variant="ghost" size="sm" icon={UserPlus} onClick={openAssignModal}>
-                {activeClient ? 'Reassign' : 'Assign'}
-              </Button>
-            </div>
-            {activeClient ? (
-              <div className="space-y-1">
-                <InfoRow
-                  label="Client"
-                  value={
-                    <Link to={`/admin/clients/${activeClient.client?.id}`} className="text-primary hover:underline">
-                      {activeClient.client?.companyName}
-                    </Link>
-                  }
-                  icon={Building2}
-                />
-                <InfoRow
-                  label="Group"
-                  value={groupAssignment?.group?.name}
-                  icon={Users}
-                />
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 py-2">Not assigned to any client</p>
+            {/* Emergency Contacts */}
+            {employee.emergencyContacts && employee.emergencyContacts.length > 0 && (
+              <Card padding="md">
+                <h3 className="text-sm font-semibold text-gray-900 mb-2">Emergency Contacts</h3>
+                <div className="space-y-3">
+                  {employee.emergencyContacts.map((contact, i) => (
+                    <div key={contact.id || i} className="p-2.5 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium text-gray-900">{contact.name}</p>
+                      <div className="flex items-center gap-4 mt-1">
+                        <span className="text-xs text-gray-500 flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {contact.countryCode || '+1'} {contact.phone}
+                        </span>
+                        <span className="text-xs text-gray-400">{contact.relationship}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             )}
-          </Card>
+          </div>
         </div>
+      )}
 
-        {/* ── Right Column ── */}
-        <div className="space-y-4">
-          {/* Rates Card */}
+      {/* Schedule & Rates Tab */}
+      {activeTab === 'schedule' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Rates */}
           <Card padding="md">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <DollarSign className="w-4 h-4 text-primary" />
-              Rates
-            </h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">Rates</h3>
             <InfoRow
               label="Payable Rate"
               value={employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}/hr` : null}
@@ -399,20 +459,14 @@ const EmployeeDetail = () => {
             />
           </Card>
 
-          {/* Work Schedule Card */}
+          {/* Work Schedule */}
           <Card padding="md">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-primary" />
-                Work Schedule
-              </h3>
+              <h3 className="text-sm font-semibold text-gray-900">Work Schedule</h3>
               <Link to={`/admin/schedules?employee=${id}`}>
-                <Button variant="ghost" size="sm" icon={Edit}>
-                  Edit
-                </Button>
+                <Button variant="ghost" size="sm" icon={Edit}>Edit</Button>
               </Link>
             </div>
-
             {schedules.length > 0 ? (
               <div className="space-y-1">
                 {DAYS_OF_WEEK.map((day, index) => {
@@ -420,17 +474,13 @@ const EmployeeDetail = () => {
                   return (
                     <div
                       key={day}
-                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
-                        schedule ? 'bg-green-50' : 'bg-gray-50'
-                      }`}
+                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${schedule ? 'bg-green-50' : 'bg-gray-50'}`}
                     >
                       <span className={`text-xs font-medium ${schedule ? 'text-green-800' : 'text-gray-400'}`}>
                         {day.slice(0, 3)}
                       </span>
                       {schedule ? (
-                        <span className="text-xs text-green-700">
-                          {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
-                        </span>
+                        <span className="text-xs text-green-700">{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
                       ) : (
                         <span className="text-xs text-gray-300">Off</span>
                       )}
@@ -442,129 +492,109 @@ const EmployeeDetail = () => {
               <div className="text-center py-4 text-gray-400">
                 <Calendar className="w-8 h-8 mx-auto mb-1 text-gray-300" />
                 <p className="text-xs">No schedule configured</p>
-                <Link to={`/admin/schedules?employee=${id}`} className="text-primary hover:underline text-xs">
-                  Set up schedule
-                </Link>
+                <Link to={`/admin/schedules?employee=${id}`} className="text-primary hover:underline text-xs">Set up schedule</Link>
               </div>
             )}
           </Card>
 
-          {/* Holiday Policy Card */}
-          {/* show holiday card if we have either a policy or any holidays at all */}
+          {/* Holiday Policy */}
           {(employeePtoConfig?.effective || (activeClientHolidays && activeClientHolidays.length > 0)) && (
             <Card padding="md">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                <Sun className="w-4 h-4 text-primary" />
-                Holiday Policy
-              </h3>
-
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">Holiday Policy</h3>
               {employeePtoConfig?.effective && (
                 <>
-                  <InfoRow
-                    label="Paid Holidays"
-                    value={employeePtoConfig.effective.allowPaidHolidays ? 'Yes' : 'No'}
-                    icon={Calendar}
-                  />
-                  <InfoRow
-                    label="Unpaid Holidays"
-                    value={employeePtoConfig.effective.allowUnpaidHolidays ? 'Yes' : 'No'}
-                    icon={Calendar}
-                  />
+                  <InfoRow label="Paid Holidays" value={employeePtoConfig.effective.allowPaidHolidays ? 'Yes' : 'No'} icon={Calendar} />
+                  <InfoRow label="Unpaid Holidays" value={employeePtoConfig.effective.allowUnpaidHolidays ? 'Yes' : 'No'} icon={Calendar} />
                   {employeePtoConfig.effective.source && (
-                    <InfoRow
-                      label="Source"
-                      value={employeePtoConfig.effective.source === 'employee_override' ? 'Employee override' : 'Client policy'}
-                      icon={Edit}
-                    />
+                    <InfoRow label="Source" value={employeePtoConfig.effective.source === 'employee_override' ? 'Employee override' : 'Client policy'} icon={Edit} />
                   )}
                 </>
               )}
-
               {activeClientHolidays && activeClientHolidays.length > 0 && (
                 <>
                   <h4 className="text-xs font-medium text-gray-500 mt-3 mb-1">Upcoming Holidays</h4>
                   <ul className="text-sm space-y-1">
-                    {activeClientHolidays
-                      .filter(h => new Date(h.date) >= new Date())
-                      .map((h) => (
-                        <li key={h.id} className="flex justify-between">
-                          <span>{formatDate(h.date)}</span>
-                          <span className="text-gray-700 truncate ml-2">{h.name}</span>
-                        </li>
-                      ))}
+                    {activeClientHolidays.filter(h => new Date(h.date) >= new Date()).map((h) => (
+                      <li key={h.id} className="flex justify-between">
+                        <span>{formatDate(h.date)}</span>
+                        <span className="text-gray-700 truncate ml-2">{h.name}</span>
+                      </li>
+                    ))}
                   </ul>
                 </>
               )}
             </Card>
           )}
-
-          {/* Time Analytics Card */}
-          <Card padding="md">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-              <Clock className="w-4 h-4 text-primary" />
-              This Month
-            </h3>
-
-            {timeStats ? (
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="bg-blue-50 rounded-lg p-2.5">
-                    <p className="text-xs text-blue-600">Total Hours</p>
-                    <p className="text-lg font-bold text-blue-700">{formatDuration(timeStats.totalMinutes)}</p>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-2.5">
-                    <p className="text-xs text-orange-600">Overtime</p>
-                    <p className="text-lg font-bold text-orange-700">{formatDuration(timeStats.overtimeMinutes)}</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-2.5">
-                    <p className="text-xs text-green-600">Work Days</p>
-                    <p className="text-lg font-bold text-green-700">{timeStats.workDays}</p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-2.5">
-                    <p className="text-xs text-purple-600">Avg/Day</p>
-                    <p className="text-lg font-bold text-purple-700">{formatDuration(timeStats.avgMinutesPerDay)}</p>
-                  </div>
-                </div>
-
-                {recentRecords.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Recent Records</h4>
-                    <div className="space-y-1 max-h-36 overflow-auto">
-                      {recentRecords.map((record) => (
-                        <div
-                          key={record.id}
-                          className="flex items-center justify-between p-1.5 bg-gray-50 rounded text-xs"
-                        >
-                          <span className="text-gray-600">{formatDate(record.date)}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">
-                              {formatDuration(record.totalMinutes || 0)}
-                            </span>
-                            <Badge
-                              variant={
-                                record.status === 'APPROVED' ? 'success' :
-                                record.status === 'REJECTED' ? 'danger' : 'warning'
-                              }
-                              size="sm"
-                            >
-                              {record.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-4 text-gray-400">
-                <Clock className="w-8 h-8 mx-auto mb-1 text-gray-300" />
-                <p className="text-xs">No time records this month</p>
-              </div>
-            )}
-          </Card>
         </div>
-      </div>
+      )}
+
+      {/* Time & Stats Tab */}
+      {activeTab === 'time' && (
+        <div className="space-y-4">
+          {/* Monthly Stats */}
+          {timeStats ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+              <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/60 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Total Hours</p>
+                <p className="text-xl font-bold text-blue-700 mt-0.5">{formatDuration(timeStats.totalMinutes)}</p>
+              </div>
+              <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/60 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wider">Overtime</p>
+                <p className="text-xl font-bold text-orange-700 mt-0.5">{formatDuration(timeStats.overtimeMinutes)}</p>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200/60 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold text-green-500 uppercase tracking-wider">Work Days</p>
+                <p className="text-xl font-bold text-green-700 mt-0.5">{timeStats.workDays}</p>
+              </div>
+              <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200/60 rounded-lg px-3 py-2">
+                <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wider">Avg/Day</p>
+                <p className="text-xl font-bold text-purple-700 mt-0.5">{formatDuration(timeStats.avgMinutesPerDay)}</p>
+              </div>
+            </div>
+          ) : (
+            <Card>
+              <div className="text-center py-8 text-gray-400">
+                <Clock className="w-8 h-8 mx-auto mb-1 text-gray-300" />
+                <p className="text-sm">No time records this month</p>
+              </div>
+            </Card>
+          )}
+
+          {/* Recent Records */}
+          {recentRecords.length > 0 && (
+            <Card padding="none" className="overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">Recent Records</h3>
+              </div>
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-gray-200">
+                    <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
+                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Duration</th>
+                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {recentRecords.map((record) => (
+                    <tr key={record.id} className="hover:bg-gray-50/50">
+                      <td className="py-2.5 px-4 text-sm text-gray-900">{formatDate(record.date)}</td>
+                      <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">{formatDuration(record.totalMinutes || 0)}</td>
+                      <td className="py-2.5 px-3 text-center">
+                        <Badge
+                          variant={record.status === 'APPROVED' ? 'success' : record.status === 'REJECTED' ? 'danger' : 'warning'}
+                          size="sm"
+                        >
+                          {record.status}
+                        </Badge>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* ── Terminate Modal ── */}
       <Modal
