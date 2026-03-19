@@ -29,6 +29,11 @@ const adminPortalService = {
     return response;
   },
 
+  getClientWiseUnapprovedOT: async () => {
+    const response = await api.get('/admin-portal/dashboard/unapproved-ot');
+    return response;
+  },
+
   // Time Records APIs
   getTimeRecords: async (params = {}) => {
     const response = await api.get('/admin-portal/time-records', { params });

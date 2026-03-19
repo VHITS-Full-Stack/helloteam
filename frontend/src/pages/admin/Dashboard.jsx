@@ -9,7 +9,8 @@ import {
   Activity,
   TrendingUp,
   MessageSquare,
-  RefreshCw
+  RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Card, StatCard, Badge, Button, Avatar } from '../../components/common';
@@ -32,6 +33,7 @@ const AdminDashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [pendingActions, setPendingActions] = useState([]);
   const [clientOverview, setClientOverview] = useState([]);
+  const [unapprovedOT, setUnapprovedOT] = useState(null);
   const [payrollReadiness, setPayrollReadiness] = useState({
     approvedHours: 0,
     pendingHours: 0,
@@ -47,12 +49,13 @@ const AdminDashboard = () => {
     fetchingRef.current = true;
     setLoading(true);
     try {
-      const [statsRes, activityRes, actionsRes, clientsRes, payrollRes] = await Promise.all([
+      const [statsRes, activityRes, actionsRes, clientsRes, payrollRes, unapprovedOTRes] = await Promise.all([
         adminPortalService.getDashboardStats(),
         adminPortalService.getRecentActivity(5),
         adminPortalService.getPendingActions(),
         adminPortalService.getClientOverview(),
         adminPortalService.getPayrollReadiness(),
+        adminPortalService.getClientWiseUnapprovedOT(),
       ]);
 
       if (statsRes?.success) {
@@ -69,6 +72,11 @@ const AdminDashboard = () => {
       }
       if (payrollRes?.success) {
         setPayrollReadiness(payrollRes.data);
+      }
+      if (unapprovedOTRes?.success && unapprovedOTRes.data.totalCount > 0) {
+        setUnapprovedOT(unapprovedOTRes.data);
+      } else {
+        setUnapprovedOT(null);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -188,6 +196,51 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Client-wise Unapproved OT Warning */}
+      {unapprovedOT && unapprovedOT.clients.length > 0 && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-red-100 rounded-full flex-shrink-0 mt-0.5">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-lg font-bold text-red-800">
+                Unapproved Overtime — {unapprovedOT.totalCount} {unapprovedOT.totalCount === 1 ? 'Entry' : 'Entries'} Pending
+              </h3>
+              <p className="text-red-700 mt-1 text-sm">
+                Employees have worked overtime without prior approval. These hours affect billing and cannot be processed until clients approve or deny.
+              </p>
+              <div className="mt-3 space-y-2">
+                {unapprovedOT.clients.map((client) => (
+                  <div key={client.clientId} className="bg-white/70 border border-red-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="font-semibold text-red-900 text-sm">{client.clientName}</span>
+                      <span className="text-sm font-bold text-red-700">{client.totalHours} — {client.count} {client.count === 1 ? 'entry' : 'entries'}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {client.employees.map((emp, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
+                          {emp.name} — {emp.hours}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4">
+                <Button
+                  variant="danger"
+                  icon={AlertCircle}
+                  onClick={() => navigate('/admin/approvals?type=autoOvertime')}
+                >
+                  Review All Unapproved OT
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

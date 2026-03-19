@@ -1497,6 +1497,16 @@ export const getEmployeePayrollSummary = async (
       }
 
       employeeSummary[empId].workDays += 1;
+      employeeSummary[empId].records.push({
+        id: record.id,
+        date: record.date,
+        totalMinutes: record.totalMinutes,
+        breakMinutes: record.breakMinutes,
+        overtimeMinutes: record.overtimeMinutes,
+        status: record.status,
+        clockIn: record.actualStart,
+        clockOut: record.actualEnd,
+      });
 
       if (record.status === "APPROVED" || record.status === "AUTO_APPROVED") {
         // Calculate approved OT from the record's own fields
@@ -1527,6 +1537,49 @@ export const getEmployeePayrollSummary = async (
         employeeSummary[empId].rejectedDays += 1;
       }
     });
+
+    // Fetch approved leave requests in this period for PTO/VTO hours
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        status: 'APPROVED',
+        startDate: { lte: new Date((periodEnd as string) + 'T23:59:59Z') },
+        endDate: { gte: new Date((periodStart as string) + 'T00:00:00Z') },
+      },
+      select: {
+        employeeId: true,
+        leaveType: true,
+        startDate: true,
+        endDate: true,
+      },
+    });
+
+    // Calculate PTO/VTO days per employee (8 hours per day)
+    const leaveDaysByEmployee: Record<string, { ptoDays: number; vtoDays: number }> = {};
+    for (const leave of leaveRequests) {
+      if (!leaveDaysByEmployee[leave.employeeId]) {
+        leaveDaysByEmployee[leave.employeeId] = { ptoDays: 0, vtoDays: 0 };
+      }
+      // Calculate overlapping days within this period
+      const pStartDate = new Date(periodStart as string);
+      const pEndDate = new Date(periodEnd as string);
+      const leaveStart = leave.startDate > pStartDate ? leave.startDate : pStartDate;
+      const leaveEnd = leave.endDate < pEndDate ? leave.endDate : pEndDate;
+      const days = Math.max(0, Math.floor((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      // Count only weekdays
+      let weekdays = 0;
+      const d = new Date(leaveStart);
+      for (let i = 0; i < days; i++) {
+        const dow = d.getDay();
+        if (dow >= 1 && dow <= 5) weekdays++;
+        d.setDate(d.getDate() + 1);
+      }
+      if (leave.leaveType === 'PAID') {
+        leaveDaysByEmployee[leave.employeeId].ptoDays += weekdays;
+      } else {
+        leaveDaysByEmployee[leave.employeeId].vtoDays += weekdays;
+      }
+    }
 
     // Fetch payroll adjustments for this period
     // Use T12:00:00Z to avoid timezone date shifts with @db.Date fields
@@ -1603,6 +1656,14 @@ export const getEmployeePayrollSummary = async (
       const employeeDeduction = emp.employee.deduction ? Number(emp.employee.deduction) : 0;
       const totalDeductions = adjustmentDeductions + employeeDeduction;
 
+      // PTO/VTO hours (8 hours per day)
+      const empLeave = leaveDaysByEmployee[emp.employee.id] || { ptoDays: 0, vtoDays: 0 };
+      const ptoHours = Math.round(empLeave.ptoDays * 8 * 100) / 100;
+      const vtoHours = Math.round(empLeave.vtoDays * 8 * 100) / 100;
+
+      // Total hours = approved work hours + PTO hours
+      const totalHoursWithPTO = Math.round((totalHours + ptoHours) * 100) / 100;
+
       const grossPay =
         Math.round(
           (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
@@ -1615,6 +1676,9 @@ export const getEmployeePayrollSummary = async (
         approvedHours: Math.round((emp.approvedMinutes / 60) * 100) / 100,
         pendingHours: Math.round((emp.pendingMinutes / 60) * 100) / 100,
         regularHours,
+        ptoHours,
+        vtoHours,
+        totalHoursWithPTO,
         regularPay,
         overtimePay,
         grossPay,

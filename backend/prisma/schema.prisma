@@ -937,6 +937,7 @@ model OvertimeRequest {
   rejectedBy         String?
   rejectedAt         DateTime?
   rejectionReason    String?
+  approvalNotes      String?        // Admin/client notes on approval or rejection
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
