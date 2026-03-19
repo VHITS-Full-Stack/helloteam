@@ -228,6 +228,11 @@ const clientPortalService = {
     const response = await api.post('/client-portal/raises', data);
     return response;
   },
+
+  getRateHistory: async () => {
+    const response = await api.get('/client-portal/rate-history');
+    return response;
+  },
 };
 
 export default clientPortalService;

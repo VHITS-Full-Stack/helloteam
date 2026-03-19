@@ -30,6 +30,7 @@ import {
   getEmployeesWithRates,
   sendBonus,
   submitRaiseRequest,
+  getClientRateHistory,
 } from '../controllers/clientPortal.controller';
 import {
   getClientInvoices,
@@ -179,6 +180,7 @@ router.delete('/groups/:groupId/employees/:employeeId', removeEmployeeFromClient
 router.get('/employees/with-rates', getEmployeesWithRates);
 router.post('/bonuses', sendBonus);
 router.post('/raises', submitRaiseRequest);
+router.get('/rate-history', getClientRateHistory);
 
 // Get employees assigned to this client (for group management)
 router.get('/employees', getClientEmployeesList);

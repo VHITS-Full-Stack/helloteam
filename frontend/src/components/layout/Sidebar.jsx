@@ -41,6 +41,7 @@ const Sidebar = ({
   const [collapsed, setCollapsed] = useState(false);
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
+  const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
 
   // Fetch pending approval counts for sidebar badge
   const fetchPendingCounts = useCallback(async () => {
@@ -63,9 +64,15 @@ const Sidebar = ({
       }
     } else if (portalType === 'admin') {
       try {
-        const res = await adminPortalService.getPendingActions();
+        const [res, raiseRes] = await Promise.all([
+          adminPortalService.getPendingActions(),
+          adminPortalService.getRaiseRequests({ status: 'PENDING' }),
+        ]);
         if (res.success && res.counts) {
           setPendingApprovalCount((res.counts.pendingLeave || 0) + (res.counts.pendingOvertime || 0));
+        }
+        if (raiseRes.success) {
+          setPendingBonusRaiseCount((raiseRes.data?.requests || []).length);
         }
       } catch (e) {
         console.error('Failed to fetch admin pending counts:', e);
@@ -108,6 +115,7 @@ const Sidebar = ({
     { to: '/client/approvals', icon: CheckSquare, label: 'Approvals', badge: pendingApprovalCount },
     { group: 'Billing' },
     { to: '/client/billing', icon: CreditCard, label: 'Billing & Invoices' },
+    { to: '/client/rate-history', icon: TrendingUp, label: 'Rate History' },
     { group: 'Team' },
     { to: '/client/groups', icon: FolderOpen, label: 'Groups' },
     { to: '/client/chat', icon: MessageCircle, label: 'Chat' },
@@ -163,6 +171,7 @@ const Sidebar = ({
       icon: Gift,
       label: 'Bonuses & Raises',
       permission: PERMISSIONS.APPROVALS.VIEW,
+      badge: pendingBonusRaiseCount,
     },
     {
       to: '/admin/tasks',

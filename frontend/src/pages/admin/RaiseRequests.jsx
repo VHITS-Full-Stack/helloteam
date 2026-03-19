@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, Gift, Loader2, Check, X } from "lucide-react";
+import { TrendingUp, Gift, Loader2, Check, X, Filter, ChevronDown } from "lucide-react";
 import { Card, Badge, Avatar } from "../../components/common";
 import adminPortalService from "../../services/adminPortal.service";
 
@@ -9,8 +9,11 @@ const RaiseRequests = () => {
   const [error, setError] = useState("");
   const [typeFilter, setTypeFilter] = useState("BONUS");
   const [statusFilter, setStatusFilter] = useState("PENDING");
+  const [clientFilter, setClientFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
   const [actionLoading, setActionLoading] = useState(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showApproveModal, setShowApproveModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -32,30 +35,53 @@ const RaiseRequests = () => {
 
   useEffect(() => { fetchRequests(); }, []);
 
+  // Unique clients and employees for filters
+  const uniqueClients = [...new Map(allRequests.map((r) => [r.client.id, r.client.companyName])).entries()];
+  const uniqueEmployees = [...new Map(allRequests.map((r) => [r.employee.id, `${r.employee.firstName} ${r.employee.lastName}`])).entries()];
+
   const filtered = allRequests.filter((r) => {
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
     if (typeFilter !== "all" && r.type !== typeFilter) return false;
+    if (clientFilter !== "all" && r.client.id !== clientFilter) return false;
+    if (employeeFilter !== "all" && r.employee.id !== employeeFilter) return false;
     return true;
   });
 
-  const statusCounts = {
-    all: allRequests.filter((r) => typeFilter === "all" || r.type === typeFilter).length,
-    PENDING: allRequests.filter((r) => r.status === "PENDING" && (typeFilter === "all" || r.type === typeFilter)).length,
-    APPROVED: allRequests.filter((r) => r.status === "APPROVED" && (typeFilter === "all" || r.type === typeFilter)).length,
-    REJECTED: allRequests.filter((r) => r.status === "REJECTED" && (typeFilter === "all" || r.type === typeFilter)).length,
-  };
+  // Helper: apply client + employee filters only
+  const baseFiltered = allRequests.filter((r) => {
+    if (clientFilter !== "all" && r.client.id !== clientFilter) return false;
+    if (employeeFilter !== "all" && r.employee.id !== employeeFilter) return false;
+    return true;
+  });
 
+  // Type tab counts: show pending count only
   const typeCounts = {
-    all: allRequests.length,
-    BONUS: allRequests.filter((r) => r.type === "BONUS").length,
-    RAISE: allRequests.filter((r) => r.type === "RAISE").length,
+    BONUS: baseFiltered.filter((r) => r.type === "BONUS" && r.status === "PENDING").length,
+    RAISE: baseFiltered.filter((r) => r.type === "RAISE" && r.status === "PENDING").length,
   };
 
-  const handleApprove = async (id) => {
+  // Status counts: filtered by client/employee AND type
+  const typeFiltered = baseFiltered.filter((r) => typeFilter === "all" || r.type === typeFilter);
+  const statusCounts = {
+    all: typeFiltered.length,
+    PENDING: typeFiltered.filter((r) => r.status === "PENDING").length,
+    APPROVED: typeFiltered.filter((r) => r.status === "APPROVED").length,
+    REJECTED: typeFiltered.filter((r) => r.status === "REJECTED").length,
+  };
+
+  const openApproveModal = (request) => {
+    setSelectedRequest(request);
+    setShowApproveModal(true);
+  };
+
+  const handleApprove = async () => {
+    if (!selectedRequest) return;
     try {
-      setActionLoading(id);
-      const response = await adminPortalService.approveRaiseRequest(id);
+      setActionLoading(selectedRequest.id);
+      const response = await adminPortalService.approveRaiseRequest(selectedRequest.id);
       if (response.success) {
+        setShowApproveModal(false);
+        setSelectedRequest(null);
         setSuccessMessage(response.message || "Approved successfully");
         setTimeout(() => setSuccessMessage(""), 4000);
         fetchRequests();
@@ -240,7 +266,7 @@ const RaiseRequests = () => {
     return (
       <div className="flex items-center justify-end gap-1.5">
         <button
-          onClick={() => handleApprove(rr.id)}
+          onClick={() => openApproveModal(rr)}
           disabled={actionLoading === rr.id}
           className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
         >
@@ -275,53 +301,103 @@ const RaiseRequests = () => {
         </div>
       )}
 
-      {/* Type Filter */}
-      <div className="flex items-center gap-2">
-        {[
-          { key: "BONUS", label: "Bonuses", icon: Gift },
-          { key: "RAISE", label: "Raises", icon: TrendingUp },
-        ].map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTypeFilter(t.key)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-              typeFilter === t.key
-                ? "bg-primary-50 text-primary-700 border border-primary-200"
-                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-            }`}
-          >
-            {t.icon && <t.icon className="w-3.5 h-3.5" />}
-            {t.label}
-            <span className={`ml-1 text-xs ${typeFilter === t.key ? "text-primary-500" : "text-gray-400"}`}>{typeCounts[t.key]}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Status Tabs */}
+      {/* Type Tabs (Bonuses / Raises) */}
       <div className="border-b border-gray-200">
         <nav className="flex gap-8">
+          {[
+            { key: "BONUS", label: "Bonuses", icon: Gift, count: typeCounts.BONUS },
+            { key: "RAISE", label: "Raises", icon: TrendingUp, count: typeCounts.RAISE },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setTypeFilter(tab.key)}
+              className={`
+                py-4 px-1 border-b-2 font-medium text-sm transition-colors inline-flex items-center gap-1.5
+                ${typeFilter === tab.key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }
+              `}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+              <span className={`
+                ml-1 py-0.5 px-2 rounded-full text-xs
+                ${typeFilter === tab.key
+                  ? 'bg-primary-100 text-primary'
+                  : 'bg-gray-100 text-gray-600'
+                }
+              `}>{tab.count}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Filters + Status */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {/* Status pills */}
+        <div className="flex items-center gap-1">
           {[
             { key: "all", label: "All" },
             { key: "PENDING", label: "Pending" },
             { key: "APPROVED", label: "Approved" },
             { key: "REJECTED", label: "Rejected" },
-          ].map((tab) => (
+          ].map((s) => (
             <button
-              key={tab.key}
-              onClick={() => setStatusFilter(tab.key)}
-              className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                statusFilter === tab.key
-                  ? "border-primary text-primary"
-                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              key={s.key}
+              onClick={() => setStatusFilter(s.key)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+                statusFilter === s.key
+                  ? "bg-primary-50 text-primary-700"
+                  : "text-gray-500 hover:bg-gray-100"
               }`}
             >
-              {tab.label}
-              <span className={`ml-2 py-0.5 px-2 rounded-full text-xs ${
-                statusFilter === tab.key ? "bg-primary-100 text-primary" : "bg-gray-100 text-gray-600"
-              }`}>{statusCounts[tab.key]}</span>
+              {s.label}
+              <span className={`ml-1 text-xs ${statusFilter === s.key ? "text-primary-500" : "text-gray-400"}`}>{statusCounts[s.key]}</span>
             </button>
           ))}
-        </nav>
+        </div>
+
+        {/* Client / Employee filters */}
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-400" />
+          <div className="relative">
+            <select
+              className="input w-44 appearance-none"
+              style={{ padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              value={clientFilter}
+              onChange={(e) => setClientFilter(e.target.value)}
+            >
+              <option value="all">All Clients</option>
+              {uniqueClients.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              className="input w-44 appearance-none"
+              style={{ padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              value={employeeFilter}
+              onChange={(e) => setEmployeeFilter(e.target.value)}
+            >
+              <option value="all">All Employees</option>
+              {uniqueEmployees.map(([id, name]) => (
+                <option key={id} value={id}>{name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+          {(clientFilter !== "all" || employeeFilter !== "all") && (
+            <button
+              className="text-sm text-primary hover:text-primary-dark font-medium"
+              onClick={() => { setClientFilter("all"); setEmployeeFilter("all"); }}
+            >
+              Clear filters ×
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content */}
@@ -376,6 +452,42 @@ const RaiseRequests = () => {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* Approve Confirmation Modal */}
+      {showApproveModal && selectedRequest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowApproveModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Approve {selectedRequest.type === "BONUS" ? "Bonus" : "Raise"}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              {selectedRequest.type === "BONUS" ? (
+                <>Approve <span className="font-semibold text-amber-700">${selectedRequest.amount?.toFixed(2)}</span> bonus for </>
+              ) : (
+                <>Approve bill rate change to <span className="font-semibold text-primary-700">${selectedRequest.billRate?.toFixed(2)}/hr</span> for </>
+              )}
+              <span className="font-semibold">{selectedRequest.employee.firstName} {selectedRequest.employee.lastName}</span> from {selectedRequest.client.companyName}?
+            </p>
+            {selectedRequest.type === "BONUS" && (
+              <p className="text-xs text-gray-400 mb-4">This will add a bonus to the employee's payroll.</p>
+            )}
+            {selectedRequest.type === "RAISE" && (
+              <p className="text-xs text-gray-400 mb-4">This will update the employee's billing rate and create a rate change history entry.</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowApproveModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+              <button
+                onClick={handleApprove}
+                disabled={actionLoading === selectedRequest.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+              >
+                {actionLoading === selectedRequest.id && <Loader2 className="w-4 h-4 animate-spin" />}
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Reject Modal */}
