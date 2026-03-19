@@ -178,6 +178,40 @@ const clientPortalService = {
     const response = await api.get('/client-portal/employees');
     return response;
   },
+
+  // Overtime creation API
+  createOvertime: async (data) => {
+    const payload = {
+      employeeId: data.employeeId,
+      date: data.date,
+      reason: data.notes || 'Pre-approved overtime scheduled by client',
+      type: data.type || 'SHIFT_EXTENSION',
+    };
+    if (data.type === 'OFF_SHIFT') {
+      payload.requestedStartTime = data.startTime;
+      payload.requestedEndTime = data.endTime;
+    } else {
+      const [startH, startM] = (data.startTime || '').split(':').map(Number);
+      const [endH, endM] = (data.endTime || '').split(':').map(Number);
+      let diff = (endH * 60 + endM) - (startH * 60 + startM);
+      if (diff <= 0) diff += 24 * 60;
+      payload.requestedMinutes = Math.round(diff);
+      payload.estimatedEndTime = data.endTime;
+    }
+    const response = await api.post('/overtime-requests', payload);
+    return response;
+  },
+
+  // Overtime approval APIs
+  approveOvertime: async (overtimeId) => {
+    const response = await api.put(`/overtime-requests/${overtimeId}/approve`);
+    return response;
+  },
+
+  rejectOvertime: async (overtimeId, reason) => {
+    const response = await api.put(`/overtime-requests/${overtimeId}/reject`, { reason });
+    return response;
+  },
 };
 
 export default clientPortalService;

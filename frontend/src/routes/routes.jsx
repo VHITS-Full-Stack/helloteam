@@ -39,6 +39,7 @@ const Billing = lazy(() => import('../pages/client/Billing'));
 const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
 const ClientGroups = lazy(() => import('../pages/client/group/Groups'));
+const ClientAddOvertime = lazy(() => import('../pages/client/AddOvertime'));
 
 // Admin Pages (lazy)
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -190,6 +191,7 @@ const AppRoutes = () => {
           <Route path="analytics" element={<ClientAnalytics />} />
           <Route path="time-records" element={<ClientTimeRecords />} />
           <Route path="time-records/:employeeId" element={<ClientTimesheetDetail />} />
+          <Route path="add-overtime" element={<ClientAddOvertime />} />
           <Route path="billing" element={<Billing />} />
           <Route path="settings" element={<ClientSettings />} />
           <Route path="profile" element={<ClientProfile />} />

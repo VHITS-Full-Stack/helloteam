@@ -204,6 +204,26 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
       }
     }
 
+    // If client is creating, resolve their clientId and validate the employee belongs to them
+    if (role === 'CLIENT') {
+      const client = await prisma.client.findUnique({ where: { userId } });
+      if (!client) {
+        return res.status(404).json({ success: false, error: 'Client not found' });
+      }
+      finalClientId = client.id;
+
+      if (!finalEmployeeId) {
+        return res.status(400).json({ success: false, error: 'Employee ID is required' });
+      }
+
+      const assignment = await prisma.clientEmployee.findUnique({
+        where: { clientId_employeeId: { clientId: client.id, employeeId: finalEmployeeId } },
+      });
+      if (!assignment || !assignment.isActive) {
+        return res.status(400).json({ success: false, error: 'Employee is not assigned to your organization' });
+      }
+    }
+
     if (!finalEmployeeId || !finalClientId) {
       return res.status(400).json({
         success: false,
@@ -384,18 +404,28 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
     if (existingTimeRecord) {
       const updateData: any = {};
 
-      // Update the overall status to APPROVED (client is actively approving OT)
-      if (existingTimeRecord.status === 'PENDING' || existingTimeRecord.status === 'AUTO_APPROVED') {
-        updateData.status = 'APPROVED';
-        updateData.approvedBy = userId;
-        updateData.approvedAt = new Date();
-      }
-
       // Cascade approval to the relevant status field on TimeRecord
       if (request.type === 'SHIFT_EXTENSION') {
         updateData.shiftExtensionStatus = 'APPROVED';
       } else if (request.type === 'OFF_SHIFT') {
         updateData.extraTimeStatus = 'APPROVED';
+      }
+
+      // Only set overall TimeRecord status to APPROVED when ALL OT requests for this record are approved
+      const remainingPending = await prisma.overtimeRequest.count({
+        where: {
+          employeeId: request.employeeId,
+          clientId: request.clientId,
+          date: request.date,
+          status: 'PENDING',
+          id: { not: id }, // exclude the one we just approved
+        },
+      });
+
+      if (remainingPending === 0 && (existingTimeRecord.status === 'PENDING' || existingTimeRecord.status === 'AUTO_APPROVED')) {
+        updateData.status = 'APPROVED';
+        updateData.approvedBy = userId;
+        updateData.approvedAt = new Date();
       }
 
       if (Object.keys(updateData).length > 0) {

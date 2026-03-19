@@ -19,8 +19,8 @@ router.get('/', getOvertimeRequests);
 // Get overtime summary (clients)
 router.get('/summary', authorizeRoles(['CLIENT']), getOvertimeSummary);
 
-// Create overtime request (employees and admins)
-router.post('/', authorizeRoles(['EMPLOYEE', 'SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR']), createOvertimeRequest);
+// Create overtime request (employees, admins, and clients)
+router.post('/', authorizeRoles(['EMPLOYEE', 'SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'CLIENT']), createOvertimeRequest);
 
 // Approve overtime request (clients and admins)
 router.put('/:id/approve', authorizeRoles(['CLIENT', 'SUPER_ADMIN', 'ADMIN', 'OPERATIONS']), approveOvertimeRequest);
