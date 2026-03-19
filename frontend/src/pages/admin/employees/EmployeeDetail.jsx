@@ -322,8 +322,8 @@ const EmployeeDetail = () => {
         <div className="rounded-2xl p-4 bg-purple-50 border border-purple-200">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              <p className="text-sm font-semibold text-amber-700">
+              <AlertCircle className="w-4 h-4 text-purple-500" />
+              <p className="text-sm font-semibold text-purple-700">
                 {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'}
               </p>
             </div>
