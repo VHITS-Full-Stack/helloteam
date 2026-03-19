@@ -526,9 +526,17 @@ async function main() {
         },
       });
 
-      // Create time record
-      await prisma.timeRecord.create({
-        data: {
+      // Create time record (upsert to avoid unique constraint on re-seed)
+      await prisma.timeRecord.upsert({
+        where: {
+          employeeId_clientId_date: {
+            employeeId: emp.id,
+            clientId: client.id,
+            date: new Date(`${dateStr}T00:00:00.000Z`),
+          },
+        },
+        update: {},
+        create: {
           employeeId: emp.id,
           clientId: client.id,
           date: new Date(`${dateStr}T00:00:00.000Z`),
@@ -658,8 +666,16 @@ async function main() {
         },
       });
 
-      await prisma.timeRecord.create({
-        data: {
+      await prisma.timeRecord.upsert({
+        where: {
+          employeeId_clientId_date: {
+            employeeId: emp.id,
+            clientId: client.id,
+            date: new Date(`${dateStr}T00:00:00.000Z`),
+          },
+        },
+        update: {},
+        create: {
           employeeId: emp.id,
           clientId: client.id,
           date: new Date(`${dateStr}T00:00:00.000Z`),
@@ -763,27 +779,31 @@ async function main() {
         },
       });
 
-      // Create payslip
-      await prisma.payslip.create({
-        data: {
-          employeeId: emp.id,
-          clientId: client.id,
-          periodStart: new Date(pp.start + 'T00:00:00.000Z'),
-          periodEnd: new Date(pp.end + 'T00:00:00.000Z'),
-          regularHours,
-          overtimeHours,
-          totalHours,
-          hourlyRate,
-          overtimeRate,
-          regularPay,
-          overtimePay,
-          totalBonuses: 0,
-          totalDeductions: 0,
-          grossPay,
-          workDays: periodDays.length,
-          status: 'GENERATED',
-        },
-      });
+      // Create payslip (skip if already exists)
+      try {
+        await prisma.payslip.create({
+          data: {
+            employeeId: emp.id,
+            clientId: client.id,
+            periodStart: new Date(pp.start + 'T00:00:00.000Z'),
+            periodEnd: new Date(pp.end + 'T00:00:00.000Z'),
+            regularHours,
+            overtimeHours,
+            totalHours,
+            hourlyRate,
+            overtimeRate,
+            regularPay,
+            overtimePay,
+            totalBonuses: 0,
+            totalDeductions: 0,
+            grossPay,
+            workDays: periodDays.length,
+            status: 'GENERATED',
+          },
+        });
+      } catch (e: any) {
+        if (!e.code || e.code !== 'P2002') throw e; // re-throw if not unique constraint
+      }
     }
   }
   console.log('Created Jan & Feb payroll periods and payslips');
@@ -847,26 +867,30 @@ async function main() {
       const isJan = pp.start.startsWith('2026-01');
       const invStatus = isJan ? 'PAID' : 'SENT';
 
-      await prisma.invoice.create({
-        data: {
-          clientId: cl.id,
-          invoiceNumber,
-          periodStart: new Date(pp.start + 'T00:00:00.000Z'),
-          periodEnd: new Date(pp.end + 'T00:00:00.000Z'),
-          totalHours: Math.round(invoiceTotalHours * 100) / 100,
-          overtimeHours: Math.round(invoiceOTHours * 100) / 100,
-          subtotal: invoiceSubtotal,
-          total: invoiceSubtotal,
-          currency: 'USD',
-          status: invStatus as any,
-          dueDate,
-          notes: isJan ? 'Payment received. Thank you!' : null,
-          clientPaidAt: isJan ? new Date(pp.cutoff) : null,
-          lineItems: {
-            create: lineItemsData,
+      try {
+        await prisma.invoice.create({
+          data: {
+            clientId: cl.id,
+            invoiceNumber,
+            periodStart: new Date(pp.start + 'T00:00:00.000Z'),
+            periodEnd: new Date(pp.end + 'T00:00:00.000Z'),
+            totalHours: Math.round(invoiceTotalHours * 100) / 100,
+            overtimeHours: Math.round(invoiceOTHours * 100) / 100,
+            subtotal: invoiceSubtotal,
+            total: invoiceSubtotal,
+            currency: 'USD',
+            status: invStatus as any,
+            dueDate,
+            notes: isJan ? 'Payment received. Thank you!' : null,
+            clientPaidAt: isJan ? new Date(pp.cutoff) : null,
+            lineItems: {
+              create: lineItemsData,
+            },
           },
-        },
-      });
+        });
+      } catch (e: any) {
+        if (!e.code || e.code !== 'P2002') throw e;
+      }
     }
   }
   console.log('Created Jan & Feb invoices with line items');

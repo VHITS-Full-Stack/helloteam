@@ -1663,3 +1663,181 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     });
   }
 };
+
+// ============================================
+// RAISE REQUESTS
+// ============================================
+
+/**
+ * Get all client requests (bonuses + raises) with optional status/type filter
+ */
+export const getRaiseRequests = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { status, type } = req.query;
+    const where: any = {};
+    if (status && status !== 'all') {
+      where.status = (status as string).toUpperCase();
+    }
+    if (type && type !== 'all') {
+      where.type = (type as string).toUpperCase();
+    }
+
+    const requests = await prisma.clientRequest.findMany({
+      where,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true, payableRate: true, billingRate: true } },
+        client: { select: { id: true, companyName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const data = await Promise.all(
+      requests.map(async (rr) => {
+        const profilePhoto = await refreshProfilePhotoUrl(rr.employee.profilePhoto);
+        const clientEmployee = await prisma.clientEmployee.findFirst({
+          where: { employeeId: rr.employeeId, clientId: rr.clientId, isActive: true },
+          select: { hourlyRate: true },
+        });
+        return {
+          ...rr,
+          amount: rr.amount ? Number(rr.amount) : null,
+          payRate: rr.payRate ? Number(rr.payRate) : null,
+          billRate: rr.billRate ? Number(rr.billRate) : null,
+          currentPayRate: rr.employee.payableRate ? Number(rr.employee.payableRate) : null,
+          currentBillRate: clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : null,
+          employee: { ...rr.employee, profilePhoto },
+        };
+      })
+    );
+
+    res.json({ success: true, data: { requests: data } });
+  } catch (error) {
+    console.error('Get client requests error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch requests' });
+  }
+};
+
+/**
+ * Approve a client request (bonus or raise)
+ */
+export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { raiseId } = req.params;
+    const userId = req.user?.userId;
+    const { adminNotes } = req.body;
+
+    const request = await prisma.clientRequest.findUnique({
+      where: { id: raiseId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, billingRate: true, payableRate: true } },
+        client: { select: { id: true, companyName: true } },
+      },
+    });
+
+    if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
+    if (request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'Request is not pending' });
+
+    if (request.type === 'BONUS') {
+      // Approve bonus — create PayrollAdjustment
+      await prisma.$transaction(async (tx) => {
+        await tx.clientRequest.update({
+          where: { id: raiseId },
+          data: { status: 'APPROVED', reviewedBy: userId, reviewedAt: new Date(), adminNotes: adminNotes?.trim() || null },
+        });
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await tx.payrollAdjustment.create({
+          data: {
+            employeeId: request.employeeId,
+            type: 'BONUS',
+            amount: Number(request.amount),
+            reason: request.reason || `Bonus from client: ${request.client.companyName}`,
+            periodStart: today,
+            periodEnd: today,
+            createdBy: userId!,
+          },
+        });
+      });
+
+      res.json({ success: true, message: 'Bonus approved and added to payroll' });
+    } else {
+      // Approve raise — update rates
+      const newPayRate = Number(request.payRate);
+      const newBillRate = Number(request.billRate);
+
+      const clientEmployee = await prisma.clientEmployee.findFirst({
+        where: { employeeId: request.employeeId, clientId: request.clientId, isActive: true },
+      });
+
+      const oldBillingRate = request.employee.billingRate ? Number(request.employee.billingRate) : 0;
+      const oldPayableRate = request.employee.payableRate ? Number(request.employee.payableRate) : 0;
+
+      await prisma.$transaction(async (tx) => {
+        await tx.clientRequest.update({
+          where: { id: raiseId },
+          data: { status: 'APPROVED', reviewedBy: userId, reviewedAt: new Date(), adminNotes: adminNotes?.trim() || null },
+        });
+
+        if (clientEmployee) {
+          await tx.clientEmployee.update({ where: { id: clientEmployee.id }, data: { hourlyRate: newBillRate } });
+        }
+
+        await tx.employee.update({
+          where: { id: request.employeeId },
+          data: { billingRate: newBillRate, payableRate: newPayRate },
+        });
+
+        const changeDate = request.effectiveDate || new Date();
+        if (newBillRate !== oldBillingRate) {
+          await tx.rateChangeHistory.create({
+            data: {
+              employeeId: request.employeeId, clientId: request.clientId, changedBy: userId!,
+              changeDate, rateType: 'BILLING_RATE', oldValue: oldBillingRate, newValue: newBillRate,
+              source: 'CLIENT_RAISE_REQUEST', notes: `Raise approved — requested by ${request.client.companyName}`,
+            },
+          });
+        }
+        if (newPayRate !== oldPayableRate) {
+          await tx.rateChangeHistory.create({
+            data: {
+              employeeId: request.employeeId, clientId: request.clientId, changedBy: userId!,
+              changeDate, rateType: 'PAYABLE_RATE', oldValue: oldPayableRate, newValue: newPayRate,
+              source: 'CLIENT_RAISE_REQUEST', notes: `Raise approved — requested by ${request.client.companyName}`,
+            },
+          });
+        }
+      });
+
+      res.json({ success: true, message: 'Raise approved and rates updated' });
+    }
+  } catch (error) {
+    console.error('Approve request error:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve request' });
+  }
+};
+
+/**
+ * Reject a client request (bonus or raise)
+ */
+export const rejectRaiseRequest = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { raiseId } = req.params;
+    const userId = req.user?.userId;
+    const { adminNotes } = req.body;
+
+    const request = await prisma.clientRequest.findUnique({ where: { id: raiseId } });
+    if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
+    if (request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'Request is not pending' });
+
+    await prisma.clientRequest.update({
+      where: { id: raiseId },
+      data: { status: 'REJECTED', reviewedBy: userId, reviewedAt: new Date(), adminNotes: adminNotes?.trim() || null },
+    });
+
+    res.json({ success: true, message: `${request.type === 'BONUS' ? 'Bonus' : 'Raise'} request rejected` });
+  } catch (error) {
+    console.error('Reject request error:', error);
+    res.status(500).json({ success: false, error: 'Failed to reject request' });
+  }
+};

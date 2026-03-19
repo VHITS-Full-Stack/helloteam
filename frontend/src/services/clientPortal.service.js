@@ -212,6 +212,22 @@ const clientPortalService = {
     const response = await api.put(`/overtime-requests/${overtimeId}/reject`, { reason });
     return response;
   },
+
+  // Bonuses & Raises APIs
+  getEmployeesWithRates: async () => {
+    const response = await api.get('/client-portal/employees/with-rates');
+    return response;
+  },
+
+  sendBonus: async (data) => {
+    const response = await api.post('/client-portal/bonuses', data);
+    return response;
+  },
+
+  submitRaiseRequest: async (data) => {
+    const response = await api.post('/client-portal/raises', data);
+    return response;
+  },
 };
 
 export default clientPortalService;
