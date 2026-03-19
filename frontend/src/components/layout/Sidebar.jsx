@@ -114,6 +114,7 @@ const Sidebar = ({
 
   // Admin links with permission requirements
   const adminLinksConfig = [
+    { group: 'Operations' },
     {
       to: '/admin/dashboard',
       icon: LayoutDashboard,
@@ -132,18 +133,7 @@ const Sidebar = ({
       label: 'Clients',
       permission: PERMISSIONS.CLIENTS.VIEW
     },
-    {
-      to: '/admin/tasks',
-      icon: ClipboardList,
-      label: 'Tasks',
-      permission: PERMISSIONS.TASKS.VIEW
-    },
-    // {
-    //   to: '/admin/analytics',
-    //   icon: BarChart3,
-    //   label: 'Analytics',
-    //   permission: PERMISSIONS.REPORTS.VIEW
-    // },
+    { group: 'Management' },
     {
       to: '/admin/time-records',
       icon: Clock,
@@ -164,15 +154,22 @@ const Sidebar = ({
       badge: pendingApprovalCount
     },
     {
-      to: '/admin/payroll',
-      icon: Briefcase,
-      label: 'Payroll',
-      permission: PERMISSIONS.PAYROLL.VIEW
+      to: '/admin/tasks',
+      icon: ClipboardList,
+      label: 'Tasks',
+      permission: PERMISSIONS.TASKS.VIEW
     },
+    { group: 'Billing & Payroll' },
     {
       to: '/admin/invoices',
       icon: FileText,
       label: 'Billing & Invoices',
+      permission: PERMISSIONS.PAYROLL.VIEW
+    },
+    {
+      to: '/admin/payroll',
+      icon: Briefcase,
+      label: 'Payroll',
       permission: PERMISSIONS.PAYROLL.VIEW
     },
     {
@@ -181,12 +178,7 @@ const Sidebar = ({
       label: 'Billing History',
       permission: PERMISSIONS.EMPLOYEES.VIEW
     },
-    {
-      to: '/admin/document-types',
-      icon: FileCheck,
-      label: 'Document Types',
-      permission: PERMISSIONS.SETTINGS.EDIT
-    },
+    { group: 'Settings' },
     {
       to: '/admin/settings',
       icon: Settings,
@@ -197,7 +189,13 @@ const Sidebar = ({
       to: '/admin/profile',
       icon: User,
       label: 'Profile',
-      permission: null // All admins can access their profile
+      permission: null
+    },
+    {
+      to: '/admin/document-types',
+      icon: FileCheck,
+      label: 'Document Types',
+      permission: PERMISSIONS.SETTINGS.EDIT
     },
   ];
 
@@ -208,6 +206,8 @@ const Sidebar = ({
       return adminLinksConfig;
     }
     return adminLinksConfig.filter(link => {
+      // Always show group headers
+      if (link.group !== undefined) return true;
       // If no permission required, show the link
       if (!link.permission) return true;
       // Check if user has the required permission
