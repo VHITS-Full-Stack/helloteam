@@ -3413,3 +3413,39 @@ export const submitRaiseRequest = async (req: AuthenticatedRequest, res: Respons
     res.status(500).json({ success: false, error: 'Failed to submit raise request' });
   }
 };
+
+/**
+ * Get rate change history for this client's employees
+ */
+export const getClientRateHistory = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const client = await prisma.client.findFirst({ where: { userId } });
+    if (!client) return res.status(403).json({ success: false, error: 'Client not found' });
+
+    const history = await prisma.rateChangeHistory.findMany({
+      where: { clientId: client.id },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true } },
+      },
+      orderBy: { changeDate: 'desc' },
+      take: 50,
+    });
+
+    const data = history.map((h) => ({
+      id: h.id,
+      employeeName: `${h.employee.firstName} ${h.employee.lastName}`,
+      rateType: h.rateType,
+      oldValue: Number(h.oldValue),
+      newValue: Number(h.newValue),
+      changeDate: h.changeDate,
+      source: h.source,
+      notes: h.notes,
+    }));
+
+    res.json({ success: true, data: { history: data } });
+  } catch (error) {
+    console.error('Get client rate history error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch rate history' });
+  }
+};

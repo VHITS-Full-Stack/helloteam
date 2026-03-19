@@ -41,6 +41,7 @@ const ClientProfile = lazy(() => import('../pages/client/Profile'));
 const ClientGroups = lazy(() => import('../pages/client/group/Groups'));
 const ClientAddOvertime = lazy(() => import('../pages/client/AddOvertime'));
 const ClientBonusesRaises = lazy(() => import('../pages/client/BonusesRaises'));
+const ClientRateHistory = lazy(() => import('../pages/client/RateHistory'));
 
 // Admin Pages (lazy)
 const AdminDashboard = lazy(() => import('../pages/admin/Dashboard'));
@@ -195,6 +196,7 @@ const AppRoutes = () => {
           <Route path="time-records/:employeeId" element={<ClientTimesheetDetail />} />
           <Route path="add-overtime" element={<ClientAddOvertime />} />
           <Route path="bonuses-raises" element={<ClientBonusesRaises />} />
+          <Route path="rate-history" element={<ClientRateHistory />} />
           <Route path="billing" element={<Billing />} />
           <Route path="settings" element={<ClientSettings />} />
           <Route path="profile" element={<ClientProfile />} />

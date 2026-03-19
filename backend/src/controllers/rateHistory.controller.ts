@@ -117,11 +117,25 @@ export const getRateChangeHistory = async (req: AuthenticatedRequest, res: Respo
       }),
     ]);
 
+    // Resolve changedBy userIds to names
+    const changedByIds = [...new Set(history.filter(h => h.changedBy).map(h => h.changedBy))];
+    const changedByUsers = changedByIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: changedByIds } },
+          select: { id: true, email: true, employee: { select: { firstName: true, lastName: true } }, client: { select: { companyName: true, contactPerson: true } }, admin: { select: { firstName: true, lastName: true } } },
+        })
+      : [];
+    const changedByMap = new Map(changedByUsers.map(u => {
+      const name = u.admin ? `${u.admin.firstName} ${u.admin.lastName}` : u.employee ? `${u.employee.firstName} ${u.employee.lastName}` : u.client ? (u.client.contactPerson || u.client.companyName) : u.email;
+      return [u.id, name];
+    }));
+
     const enrichedHistory = history.map(h => ({
       ...h,
       clientName: h.clientId
         ? clientMap.get(h.clientId) || null
         : employeeClientMap.get(h.employeeId) || null,
+      changedByName: h.changedBy ? changedByMap.get(h.changedBy) || 'System' : 'System',
     }));
 
     res.json({
@@ -226,11 +240,25 @@ export const getEmployeeRateHistory = async (req: AuthenticatedRequest, res: Res
       }
     }
 
+    // Resolve changedBy userIds to names
+    const changedByIds2 = [...new Set(history.filter(h => h.changedBy).map(h => h.changedBy))];
+    const changedByUsers2 = changedByIds2.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: changedByIds2 } },
+          select: { id: true, email: true, employee: { select: { firstName: true, lastName: true } }, client: { select: { companyName: true, contactPerson: true } }, admin: { select: { firstName: true, lastName: true } } },
+        })
+      : [];
+    const changedByMap2 = new Map(changedByUsers2.map(u => {
+      const name = u.admin ? `${u.admin.firstName} ${u.admin.lastName}` : u.employee ? `${u.employee.firstName} ${u.employee.lastName}` : u.client ? (u.client.contactPerson || u.client.companyName) : u.email;
+      return [u.id, name];
+    }));
+
     const enrichedHistory = history.map(h => ({
       ...h,
       clientName: h.clientId
         ? clientMap.get(h.clientId) || null
         : employeeClientMap.get(h.employeeId) || null,
+      changedByName: h.changedBy ? changedByMap2.get(h.changedBy) || 'System' : 'System',
     }));
 
     res.json({
