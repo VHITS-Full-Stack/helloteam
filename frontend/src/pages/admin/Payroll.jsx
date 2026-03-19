@@ -709,7 +709,7 @@ const Payroll = () => {
                   .filter((emp) => {
                     if (!employeeSearch.trim()) return true;
                     const name =
-                      `${emp.employee.firstName} ${emp.employee.lastName}`.toLowerCase();
+                      `${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`.toLowerCase();
                     return name.includes(employeeSearch.toLowerCase().trim());
                   })
                   .map((emp) => (
@@ -723,13 +723,13 @@ const Payroll = () => {
                         <div className="flex items-center gap-3">
                           <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedEmployee === emp.employee.id ? 'rotate-90' : ''}`} />
                           <Avatar
-                            name={`${emp.employee.firstName} ${emp.employee.lastName}`}
-                            src={emp.employee.profilePhoto}
+                            name={`${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`}
+                            src={emp.employee?.profilePhoto}
                             size="sm"
                           />
                           <div>
                             <span className="font-medium text-gray-900">
-                              {emp.employee.firstName} {emp.employee.lastName}
+                              {emp.employee?.firstName || ''} {emp.employee?.lastName || ''}
                             </span>
                             <p className="text-xs text-gray-500">{emp.client?.companyName || "-"}</p>
                           </div>
@@ -940,7 +940,7 @@ const Payroll = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
-                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
                           src={record.employee?.profilePhoto}
                           size="sm"
                         />
@@ -1006,7 +1006,7 @@ const Payroll = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
-                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
                           src={record.employee?.profilePhoto}
                           size="sm"
                         />
