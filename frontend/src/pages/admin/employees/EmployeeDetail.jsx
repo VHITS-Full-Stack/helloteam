@@ -267,7 +267,12 @@ const EmployeeDetail = () => {
         </div>
       )}
       {/* KYC Status */}
-      <Card padding="sm" className="bg-blue-50 border border-blue-200">
+      <div className={`rounded-2xl p-4 ${
+        kycStatus === 'APPROVED' ? 'bg-green-50 border border-green-200' :
+        kycStatus === 'REJECTED' ? 'bg-red-50 border border-red-200' :
+        kycStatus === 'RESUBMITTED' ? 'bg-blue-50 border border-blue-200' :
+        'bg-amber-50 border border-amber-200'
+      }`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</p>
@@ -302,7 +307,7 @@ const EmployeeDetail = () => {
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
       {isTerminated && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
           <UserX className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -314,7 +319,7 @@ const EmployeeDetail = () => {
 
       {/* Pending Bonus/Raise Requests */}
       {pendingRequests.length > 0 && (
-        <Card padding="sm" className="bg-amber-50 border border-amber-200">
+        <div className="rounded-2xl p-4 bg-amber-50 border border-amber-200">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-amber-500" />
@@ -344,7 +349,7 @@ const EmployeeDetail = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Tabs */}
