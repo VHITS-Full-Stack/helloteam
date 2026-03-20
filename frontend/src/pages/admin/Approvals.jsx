@@ -294,6 +294,9 @@ const Approvals = () => {
               Approve Selected ({selectedItems.length})
             </Button>
           )}
+          <Button variant="outline" size="sm" icon={Download} onClick={handleExport}>
+            Export CSV
+          </Button>
           <Button variant="outline" icon={RefreshCw} onClick={fetchData}>
             Refresh
           </Button>
@@ -306,7 +309,7 @@ const Approvals = () => {
           { key: 'leave', label: 'Leave Requests', icon: Calendar },
           { key: 'overtime', label: 'Overtime Requests', icon: Timer },
           { key: 'autoOvertime', label: 'OT Without Prior Approval', icon: AlertCircle },
-          { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
+          // { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -320,77 +323,70 @@ const Approvals = () => {
       </div>
 
       {/* Filters */}
-      <Card>
-        <div className="flex flex-wrap items-end gap-4">
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Employee</label>
-            <div className="relative">
-              <select
-                className="input appearance-none pr-9 min-w-[180px]"
-                value={employeeFilter}
-                onChange={(e) => { setEmployeeFilter(e.target.value); setSelectedItems([]); setPage(1); }}
-              >
-                <option value="all">All Employees</option>
-                {employeesList.map((emp) => (
-                  <option key={emp.id || emp.employeeId} value={emp.id || emp.employeeId}>
-                    {emp.firstName} {emp.lastName}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Client</label>
-            <div className="relative">
-              <select
-                className="input appearance-none pr-9 min-w-[180px]"
-                value={clientFilterId}
-                onChange={(e) => { setClientFilterId(e.target.value); setSelectedItems([]); setPage(1); }}
-              >
-                <option value="all">All Clients</option>
-                {clientsList.map((c) => (
-                  <option key={c.id} value={c.id}>{c.companyName}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
-            <div className="relative">
-              <select
-                className="input appearance-none pr-9"
-                value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); setSelectedItems([]); setPage(1); }}
-              >
-                <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                {activeType === 'timesheet' && <option value="revision_requested">Revision Requested</option>}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
-            <input type="date" className="input" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1">To</label>
-            <input type="date" className="input" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-          </div>
-          {(employeeFilter !== 'all' || clientFilterId !== 'all' || startDate || endDate || statusFilter !== 'all') && (
-            <Button variant="ghost" size="sm" onClick={() => { setEmployeeFilter('all'); setClientFilterId('all'); setStartDate(''); setEndDate(''); setStatusFilter('all'); setPage(1); }}>
-              Clear
-            </Button>
-          )}
-          <Button variant="outline" size="sm" icon={Download} onClick={handleExport}>
-            Export CSV
-          </Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative">
+          <select
+            className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            value={employeeFilter}
+            onChange={(e) => { setEmployeeFilter(e.target.value); setSelectedItems([]); setPage(1); }}
+          >
+            <option value="all">All Employees</option>
+            {employeesList.map((emp) => (
+              <option key={emp.id || emp.employeeId} value={emp.id || emp.employeeId}>
+                {emp.firstName} {emp.lastName}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
-      </Card>
+        <div className="relative">
+          <select
+            className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            value={clientFilterId}
+            onChange={(e) => { setClientFilterId(e.target.value); setSelectedItems([]); setPage(1); }}
+          >
+            <option value="all">All Clients</option>
+            {clientsList.map((c) => (
+              <option key={c.id} value={c.id}>{c.companyName}</option>
+            ))}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+        <div className="relative">
+          <select
+            className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-2 text-sm bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setSelectedItems([]); setPage(1); }}
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            {activeType === 'timesheet' && <option value="revision_requested">Revision Requested</option>}
+          </select>
+          <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
+        <input
+          type="date"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-[150px]"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+        />
+        <input
+          type="date"
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-[150px]"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+        />
+        {(employeeFilter !== 'all' || clientFilterId !== 'all' || startDate || endDate || statusFilter !== 'all') && (
+          <button
+            className="text-sm text-primary hover:text-primary-dark font-medium"
+            onClick={() => { setEmployeeFilter('all'); setClientFilterId('all'); setStartDate(''); setEndDate(''); setStatusFilter('all'); setPage(1); }}
+          >
+            Clear ×
+          </button>
+        )}
+      </div>
 
       {/* Table */}
       <Card padding="none">

@@ -619,82 +619,12 @@ const Settings = () => {
                       }))}
                     />
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Default Timezone</label>
-                      <div className="relative">
-                        <select
-                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={generalSettings.defaultTimezone}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setGeneralSettings(prev => ({
-                            ...prev,
-                            defaultTimezone: e.target.value
-                          }))}
-                        >
-                          <option value="America/New_York">America/New_York (ET)</option>
-                          <option value="America/Chicago">America/Chicago (CT)</option>
-                          <option value="America/Denver">America/Denver (MT)</option>
-                          <option value="America/Los_Angeles">America/Los_Angeles (PT)</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
+                  <div>
+                    <label className="label">Timezone</label>
+                    <div className="input flex items-center text-gray-700">
+                      Eastern Time (EST)
                     </div>
-                    <div>
-                      <label className="label">Date Format</label>
-                      <div className="relative">
-                        <select
-                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={generalSettings.dateFormat}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setGeneralSettings(prev => ({
-                            ...prev,
-                            dateFormat: e.target.value
-                          }))}
-                        >
-                          <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                          <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                          <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="label">Work Week Start</label>
-                      <div className="relative">
-                        <select
-                          className={`input appearance-none pr-9 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={generalSettings.workWeekStart}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setGeneralSettings(prev => ({
-                            ...prev,
-                            workWeekStart: e.target.value
-                          }))}
-                        >
-                          <option value="Sunday">Sunday</option>
-                          <option value="Monday">Monday</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      </div>
-                    </div>
-                    <div>
-                      <label className="label">Default Overtime Threshold</label>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          className={`input w-24 ${!isSuperAdmin ? 'cursor-not-allowed opacity-60' : ''}`}
-                          value={generalSettings.overtimeThreshold}
-                          disabled={!isSuperAdmin}
-                          onChange={(e) => setGeneralSettings(prev => ({
-                            ...prev,
-                            overtimeThreshold: parseInt(e.target.value) || 0
-                          }))}
-                        />
-                        <span className="text-gray-500">hours/week</span>
-                      </div>
-                    </div>
+                    <p className="text-xs text-gray-500 mt-1">All time tracking and reporting uses Eastern Standard Time (EST)</p>
                   </div>
                   <div>
                     <label className="label">Payroll Periods</label>
@@ -1473,9 +1403,9 @@ const Settings = () => {
                     {billingRates.map((rate, index) => (
                       <tr key={index} className="border-b border-gray-100">
                         <td className="py-4 px-4 font-medium text-gray-900">{rate.client}</td>
-                        <td className="py-4 px-4 text-right">${rate.standardRate.toFixed(2)}/hr</td>
-                        <td className="py-4 px-4 text-right text-orange-600">${rate.overtimeRate.toFixed(2)}/hr</td>
-                        <td className="py-4 px-4 text-right text-purple-600">${rate.holidayRate.toFixed(2)}/hr</td>
+                        <td className="py-4 px-4 text-right">${rate.standardRate.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right text-orange-600">${rate.overtimeRate.toFixed(2)}</td>
+                        <td className="py-4 px-4 text-right text-purple-600">${rate.holidayRate.toFixed(2)}</td>
                         <td className="py-4 px-4 text-right">
                           <Button variant="ghost" size="sm">Edit</Button>
                         </td>

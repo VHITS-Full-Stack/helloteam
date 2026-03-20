@@ -4,8 +4,8 @@
  * Scenario:
  *   - Employee: Jigar Patel (jigar@demo.com) → assigned to Virtual Height (Nikita's client)
  *   - Payroll period: Feb 22 – Mar 7, 2026
- *   - Billing rate Feb 22–28: $10/hr
- *   - Billing rate Mar 1–7:  $15/hr (rate changed on Mar 1)
+ *   - Billing rate Feb 22–28: $10
+ *   - Billing rate Mar 1–7:  $15 (rate changed on Mar 1)
  *   - Each day: 8 hours work (480 min), no OT, APPROVED status
  *
  * Run: npx ts-node prisma/seed-payroll-test.ts
@@ -60,7 +60,7 @@ async function main() {
     where: { id: employeeId },
     data: { billingRate: 10.00 },
   });
-  console.log('Set initial billing rate to $10/hr');
+  console.log('Set initial billing rate to $10');
 
   // Step 2: Create RateChangeHistory — rate changed from $10 to $15 on Mar 1
   // First delete any existing test rate change entries for this employee
@@ -92,7 +92,7 @@ async function main() {
     where: { id: employeeId },
     data: { billingRate: 15.00 },
   });
-  console.log('Updated current billing rate to $15/hr');
+  console.log('Updated current billing rate to $15');
 
   // Step 3: Create time records for Feb 22 – Mar 7 (weekdays only)
   const dates: string[] = [];
@@ -162,8 +162,8 @@ async function main() {
   const marDates = dates.filter(d => d.startsWith('2026-03'));
 
   console.log('\n=== EXPECTED PAYROLL RESULTS ===');
-  console.log(`Feb 22-28 (${febDates.length} days): ${febDates.length * 8}h × $10/hr = $${febDates.length * 8 * 10}`);
-  console.log(`Mar 1-7  (${marDates.length} days): ${marDates.length * 8}h × $15/hr = $${marDates.length * 8 * 15}`);
+  console.log(`Feb 22-28 (${febDates.length} days): ${febDates.length * 8}h × $10 = $${febDates.length * 8 * 10}`);
+  console.log(`Mar 1-7  (${marDates.length} days): ${marDates.length * 8}h × $15 = $${marDates.length * 8 * 15}`);
   console.log(`Total: ${dates.length * 8}h, $${febDates.length * 8 * 10 + marDates.length * 8 * 15}`);
   console.log('================================\n');
 

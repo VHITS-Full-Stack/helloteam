@@ -221,7 +221,7 @@ const AddEmployee = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {!isEdit && (
                 <Input
-                  label="Payable Rate ($/hr)"
+                  label="Payable Rate"
                   type="number"
                   step="0.01"
                   min="0"
@@ -233,7 +233,7 @@ const AddEmployee = () => {
               )}
               {!isEdit && (
                 <Input
-                  label="Billing Rate ($/hr)"
+                  label="Billing Rate"
                   type="number"
                   step="0.01"
                   min="0"

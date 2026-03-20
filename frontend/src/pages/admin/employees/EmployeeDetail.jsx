@@ -451,17 +451,17 @@ const EmployeeDetail = () => {
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Rates</h3>
             <InfoRow
               label="Payable Rate"
-              value={employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}/hr` : null}
+              value={employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}` : null}
               icon={DollarSign}
             />
             <InfoRow
               label="Billing Rate"
-              value={billingRateDisplay !== '—' ? `${billingRateDisplay}/hr` : null}
+              value={billingRateDisplay !== '—' ? `${billingRateDisplay}` : null}
               icon={DollarSign}
             />
             <InfoRow
               label="Group Billing Rate"
-              value={groupBillingRate !== '—' ? `${groupBillingRate}/hr` : null}
+              value={groupBillingRate !== '—' ? `${groupBillingRate}` : null}
               icon={Users}
             />
           </Card>

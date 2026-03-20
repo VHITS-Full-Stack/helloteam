@@ -1355,7 +1355,7 @@ export const getPayrollExportData = async (
         "Work Days",
         "Total Hours",
         "OT Hours",
-        "Rate ($/hr)",
+        "Rate",
         "Gross Pay",
       ];
       lines.push(csvHeaders.join(","));

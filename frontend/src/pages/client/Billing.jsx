@@ -379,7 +379,7 @@ const Billing = () => {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">
                   Regular Hours ({regularHours}h x ${currentPeriod.hourlyRate}
-                  /hr)
+                  )
                 </span>
                 <span className="text-sm text-gray-900">
                   {formatCurrency(regularAmount)}
@@ -625,7 +625,7 @@ const Billing = () => {
                                   )}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {formatCurrency(item.rate)}/hr
+                                  {formatCurrency(item.rate)}
                                 </td>
                                 <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
                                   {formatCurrency(item.amount)}

@@ -516,10 +516,10 @@ const RaiseRequests = () => {
                   <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Current Pay Rate:</span>
-                      <span className="font-semibold text-gray-700">${selectedRequest.currentPayRate != null ? selectedRequest.currentPayRate.toFixed(2) : "0.00"}/hr</span>
+                      <span className="font-semibold text-gray-700">${selectedRequest.currentPayRate != null ? selectedRequest.currentPayRate.toFixed(2) : "0.00"}</span>
                     </div>
                     <div>
-                      <label className="text-sm text-gray-500">New Pay Rate ($/hr)</label>
+                      <label className="text-sm text-gray-500">New Pay Rate</label>
                       <input
                         type="number"
                         step="0.01"

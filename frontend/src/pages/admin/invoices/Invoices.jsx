@@ -330,6 +330,30 @@ const Invoices = () => {
           <p className="text-gray-500">Manage client invoices and billing</p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" size="sm" icon={Download} onClick={() => {
+            if (!invoices.length) return;
+            const headers = ['Invoice #', 'Client', 'Period', 'Hours', 'OT Hours', 'Amount', 'Status', 'Due Date'];
+            const rows = invoices.map(inv => [
+              inv.invoiceNumber,
+              inv.client?.companyName || '',
+              formatPeriod(inv.periodStart),
+              Number(inv.totalHours || 0).toFixed(2),
+              Number(inv.overtimeHours || 0).toFixed(2),
+              formatCurrency(inv.total, inv.currency),
+              inv.status,
+              formatDate(inv.dueDate),
+            ]);
+            const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+          }}>
+            Export CSV
+          </Button>
           <Button variant="outline" icon={RefreshCw} onClick={fetchInvoices}>
             Refresh
           </Button>
@@ -460,56 +484,56 @@ const Invoices = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice #</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Hours</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Rate</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Due Date</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invoice #</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Client</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Period</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Hours</th>
+                  {/* <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Rate</th> */}
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Due Date</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {invoices.map((invoice) => (
                   <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900">{invoice.invoiceNumber}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm text-gray-900">{invoice.client?.companyName || '—'}</p>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm text-gray-600">{formatPeriod(invoice.periodStart)}</p>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       <p className="text-sm text-gray-900">{Number(invoice.totalHours || 0).toFixed(2)}</p>
                       {Number(invoice.overtimeHours) > 0 && (
                         <p className="text-xs text-orange-500">+{Number(invoice.overtimeHours).toFixed(2)} OT</p>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    {/* <td className="px-4 py-3 text-right whitespace-nowrap">
                       {(() => {
                         const rates = [...new Set((invoice.lineItems || []).map(li => Number(li.rate)))].filter(r => r > 0);
                         if (rates.length === 0) return <span className="text-sm text-gray-400">-</span>;
-                        if (rates.length === 1) return <p className="text-sm text-gray-600">{formatCurrency(rates[0])}/hr</p>;
-                        return <p className="text-sm text-gray-600">{formatCurrency(Math.min(...rates))} - {formatCurrency(Math.max(...rates))}/hr</p>;
+                        if (rates.length === 1) return <p className="text-sm text-gray-600">{formatCurrency(rates[0])}</p>;
+                        return <p className="text-sm text-gray-600">{formatCurrency(Math.min(...rates))} - {formatCurrency(Math.max(...rates))}</p>;
                       })()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
+                    </td> */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       <p className="text-sm font-semibold text-gray-900">{formatCurrency(invoice.total, invoice.currency)}</p>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {getStatusBadge(invoice.status)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm text-gray-600">{formatDate(invoice.dueDate)}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => handleViewInvoice(invoice.id)}
+                          onClick={() => navigate(`/admin/invoices/${invoice.id}`)}
                           className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-colors"
                           title="View Details"
                         >
@@ -833,7 +857,7 @@ const Invoices = () => {
                                   ? <span className="text-orange-600">{Number(li.overtimeHours).toFixed(2)}</span>
                                   : <span className="text-gray-300">—</span>}
                               </td>
-                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}/hr</td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}</td>
                               <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{formatCurrency(li.amount)}</td>
                             </tr>
                           ))}
@@ -953,7 +977,7 @@ const Invoices = () => {
                           </td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(2)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours || 0).toFixed(2)}</td>
-                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}/hr</td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}</td>
                           <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.amount)}</td>
                         </tr>
                       ))}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, Fragment } from "react";
+import React, { useState, useEffect, useCallback, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DollarSign,
@@ -1140,26 +1140,10 @@ const Payroll = () => {
                       variant="ghost"
                       size="sm"
                       icon={EyeIcon}
-                      onClick={async () => {
+                      onClick={() => {
                         const pStart = period.periodStart?.split('T')[0] || period.start;
                         const pEnd = period.periodEnd?.split('T')[0] || period.end;
-                        setReportPeriod({ start: pStart, end: pEnd });
-                        setShowReportModal(true);
-                        setReportLoading(true);
-                        try {
-                          const res = await payrollService.exportData(pStart, pEnd);
-                          if (res.success) {
-                            setReportData(res.data);
-                          } else {
-                            setError(res.error || 'Failed to load report');
-                            setShowReportModal(false);
-                          }
-                        } catch (err) {
-                          setError(err.message || 'Failed to load report');
-                          setShowReportModal(false);
-                        } finally {
-                          setReportLoading(false);
-                        }
+                        navigate(`/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`);
                       }}
                     >
                       Report
@@ -1261,7 +1245,7 @@ const Payroll = () => {
                                 <td className="px-3 py-2 text-sm text-center">{rp.workDays}</td>
                                 <td className="px-3 py-2 text-sm text-center">{totalH}</td>
                                 <td className="px-3 py-2 text-sm text-center">{otH > 0 ? <span className="text-orange-600">{otH}</span> : <span className="text-gray-300">-</span>}</td>
-                                <td className="px-3 py-2 text-sm text-center font-medium">${rp.rate}/hr</td>
+                                <td className="px-3 py-2 text-sm text-center font-medium">${rp.rate}</td>
                                 <td className="px-3 py-2 text-sm text-right font-semibold">${(Math.round((rp.regularPay + rp.otPay) * 100) / 100).toFixed(2)}</td>
                               </tr>
                             );
@@ -1286,7 +1270,7 @@ const Payroll = () => {
                         <td className="px-3 py-2 text-sm text-center">{emp.workDays}</td>
                         <td className="px-3 py-2 text-sm text-center">{emp.totalHours}</td>
                         <td className="px-3 py-2 text-sm text-center">{emp.overtimeHours > 0 ? <span className="text-orange-600">{emp.overtimeHours}</span> : <span className="text-gray-300">-</span>}</td>
-                        <td className="px-3 py-2 text-sm text-center font-medium">${emp.hourlyRate}/hr</td>
+                        <td className="px-3 py-2 text-sm text-center font-medium">${emp.hourlyRate}</td>
                         <td className="px-3 py-2 text-sm text-right font-semibold text-green-700">${emp.grossPay.toFixed(2)}</td>
                       </tr>
                     );
