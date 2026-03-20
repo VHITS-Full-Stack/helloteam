@@ -106,6 +106,7 @@ const DashboardLayout = ({
   showSearch = true,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showOTBlocker, setShowOTBlocker] = useState(false);
 
   // Show login blocker for client portal users on initial load
@@ -153,13 +154,15 @@ const DashboardLayout = ({
           portalType={portalType}
           user={user}
           onLogout={onLogout}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         />
       </div>
 
       {/* Main Content */}
       <div className={`
         transition-all duration-300
-        lg:ml-64 lg:p-2
+        ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'} lg:p-2
       `}>
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden min-h-[calc(100vh-1rem)]">
           <ImpersonationBanner />

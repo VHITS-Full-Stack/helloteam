@@ -36,9 +36,11 @@ import adminPortalService from '../../services/adminPortal.service';
 const Sidebar = ({
   portalType = 'employee',
   user,
-  onLogout
+  onLogout,
+  collapsed = false,
+  onToggleCollapse,
 }) => {
-  const [collapsed, setCollapsed] = useState(false);
+  const setCollapsed = onToggleCollapse || (() => {});
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
@@ -401,7 +403,7 @@ const Sidebar = ({
             {!collapsed && <span className="text-sm font-medium">Logout</span>}
           </button>
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={() => setCollapsed()}
             className="p-3 text-primary-400 hover:text-secondary hover:bg-primary-600/30 transition-all duration-200 group"
             title={collapsed ? 'Expand' : 'Collapse'}
           >
