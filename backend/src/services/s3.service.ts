@@ -54,7 +54,7 @@ const saveLocally = (file: Express.Multer.File, folder: string): { url: string; 
   fs.writeFileSync(filePath, file.buffer);
 
   const key = `${folder}/${uniqueFilename}`;
-  const url = `${API_BASE_URL}/uploads/${key}`;
+  const url = `${API_BASE_URL}/${key}`;
 
   return { url, key };
 };
@@ -170,7 +170,7 @@ export const getPresignedUrl = async (key: string, expiresIn: number = 604800): 
   try {
     if (!isS3Configured) {
       // Local files don't need presigned URLs
-      return `${API_BASE_URL}/uploads/${key}`;
+      return `${API_BASE_URL}/${key}`;
     }
 
     const command = new GetObjectCommand({

@@ -1,11 +1,12 @@
 import { useState, useRef } from 'react';
 import { Building2, User, Mail, Phone, MapPin, Globe, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Clock, Loader2, Trash2 } from 'lucide-react';
 import { Card, Button, Badge, PhoneInput } from '../../components/common';
+import { getPhoneError } from '../../utils/clientValidation';
 import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, refreshUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState('company');
   const [showPassword, setShowPassword] = useState(false);
@@ -14,6 +15,7 @@ const Profile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [showDeleteLogoModal, setShowDeleteLogoModal] = useState(false);
   const fileInputRef = useRef(null);
 
   // Profile data - initialized from auth context (no extra API call needed)
@@ -51,14 +53,9 @@ const Profile = () => {
     invoiceNotifications: true,
   });
 
-  const fetchingRef = useRef(false);
-
-  // Only used to refresh after profile updates, not on mount
+  // Refresh profile data from server
   const fetchProfile = async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
     try {
-      setLoading(true);
       const response = await authService.getProfile();
       if (response.success && response.data) {
         setProfile(response.data);
@@ -77,9 +74,6 @@ const Profile = () => {
     } catch (err) {
       setError('Failed to load profile');
       console.error('Profile fetch error:', err);
-    } finally {
-      setLoading(false);
-      fetchingRef.current = false;
     }
   };
 
@@ -89,6 +83,11 @@ const Profile = () => {
   };
 
   const handleSaveProfile = async () => {
+    const phoneError = getPhoneError(formData.phone, formData.countryCode);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
     try {
       setSaving(true);
       setError('');
@@ -177,14 +176,16 @@ const Profile = () => {
       const response = await authService.uploadClientLogo(file);
       if (response.success) {
         setSuccess('Company logo uploaded successfully');
-        // Refresh profile to get new logo URL
-        fetchProfile();
+        if (response.data?.logoUrl) {
+          setProfile(prev => ({ ...prev, client: { ...prev?.client, logoUrl: response.data.logoUrl } }));
+        }
+        refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(response.error || 'Failed to upload logo');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to upload logo');
+      setError(err.message || 'Failed to upload logo');
     } finally {
       setUploadingLogo(false);
       // Reset file input
@@ -195,24 +196,21 @@ const Profile = () => {
   };
 
   const handleDeleteLogo = async () => {
-    if (!window.confirm('Are you sure you want to delete the company logo?')) {
-      return;
-    }
-
+    setShowDeleteLogoModal(false);
     try {
       setUploadingLogo(true);
       setError('');
       const response = await authService.deleteClientLogo();
       if (response.success) {
         setSuccess('Company logo deleted successfully');
-        // Refresh profile
-        fetchProfile();
+        setProfile(prev => ({ ...prev, client: { ...prev?.client, logoUrl: null } }));
+        refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(response.error || 'Failed to delete logo');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to delete logo');
+      setError(err.message || 'Failed to delete logo');
     } finally {
       setUploadingLogo(false);
     }
@@ -272,39 +270,6 @@ const Profile = () => {
       <Card>
         <div className="flex flex-col md:flex-row items-center gap-6">
           <div className="relative">
-            {client?.logoUrl ? (
-              <div className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-primary-200">
-                <img
-                  src={client.logoUrl}
-                  alt={client?.companyName || 'Company'}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center">
-                <Building2 className="w-10 h-10 text-primary" />
-              </div>
-            )}
-            {uploadingLogo ? (
-              <div className="absolute bottom-0 right-0 p-2 bg-gray-400 text-white rounded-full shadow-lg">
-                <Loader2 className="w-4 h-4 animate-spin" />
-              </div>
-            ) : (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-            )}
-            {client?.logoUrl && !uploadingLogo && (
-              <button
-                onClick={handleDeleteLogo}
-                className="absolute bottom-0 left-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            )}
             <input
               type="file"
               ref={fileInputRef}
@@ -312,6 +277,38 @@ const Profile = () => {
               accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
             />
+            {client?.logoUrl ? (
+              <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
+                <img
+                  src={client.logoUrl}
+                  alt={client?.companyName || 'Company'}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-24 h-24 rounded-full bg-primary-100 flex items-center justify-center shadow-lg">
+                <Building2 className="w-12 h-12 text-primary" />
+              </div>
+            )}
+            {client?.logoUrl ? (
+              <button
+                onClick={() => setShowDeleteLogoModal(true)}
+                disabled={uploadingLogo}
+                className="absolute bottom-0 right-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                title="Delete logo"
+              >
+                {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            ) : (
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingLogo}
+                className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                title="Upload logo"
+              >
+                {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              </button>
+            )}
           </div>
           <div className="text-center md:text-left flex-1">
             <h3 className="text-2xl font-bold text-gray-900">{client?.companyName || 'Company'}</h3>
@@ -675,6 +672,19 @@ const Profile = () => {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+      {/* Delete Logo Confirmation Modal */}
+      {showDeleteLogoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowDeleteLogoModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Company Logo</h3>
+            <p className="text-sm text-gray-500 mb-5">Are you sure you want to delete the company logo? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowDeleteLogoModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+              <button onClick={handleDeleteLogo} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </div>

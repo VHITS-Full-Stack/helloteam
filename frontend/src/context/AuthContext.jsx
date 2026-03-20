@@ -351,6 +351,17 @@ export const AuthProvider = ({ children }) => {
     return hasRole(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE', 'SUPPORT']);
   };
 
+  const refreshUser = async () => {
+    try {
+      const response = await authService.getProfile();
+      if (response.success) {
+        setUser(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to refresh user:', err);
+    }
+  };
+
   const value = {
     user,
     loading,
@@ -368,6 +379,7 @@ export const AuthProvider = ({ children }) => {
     impersonate,
     exitImpersonation,
     isImpersonating,
+    refreshUser,
   };
 
   return (
