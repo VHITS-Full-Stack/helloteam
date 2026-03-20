@@ -195,6 +195,7 @@ const RaiseRequests = () => {
           <th className={`text-center ${th}`}>New Pay ($)</th>
           <th className={`text-center ${th}`}>New Bill ($)</th>
           <th className={`text-center ${th}`}>Effective Date</th>
+          <th className={`text-center ${th}`}>Submitted</th>
           <th className={`text-center ${th}`}>Status</th>
           <th className={`text-right ${th} px-4`}>Action</th>
         </tr>
@@ -215,6 +216,9 @@ const RaiseRequests = () => {
             <td className="py-3 px-3 text-center text-sm font-semibold text-primary-700">{rr.billRate?.toFixed(2)}</td>
             <td className="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
               {rr.effectiveDate ? new Date(rr.effectiveDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+            </td>
+            <td className="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
+              {new Date(rr.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             </td>
             <td className="py-3 px-3 text-center">{getStatusBadge(rr.status)}</td>
             <td className="py-3 px-4 text-right">{renderActions(rr)}</td>

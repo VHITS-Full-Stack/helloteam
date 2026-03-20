@@ -132,6 +132,7 @@ function useEmployeeDetail(id) {
   const [recentRecords, setRecentRecords] = useState([]);
   const [employeePtoConfig, setEmployeePtoConfig] = useState(null); // includes holidays
   const [activeClientHolidays, setActiveClientHolidays] = useState([]);
+  const [rateHistory, setRateHistory] = useState([]);
 
   // Modal states
   const [showTerminateModal, setShowTerminateModal] = useState(false);
@@ -221,6 +222,16 @@ function useEmployeeDetail(id) {
         }
       } catch (timeErr) {
         console.error('Error fetching time records:', timeErr);
+      }
+
+      // Fetch rate/billing history (non-fatal)
+      try {
+        const rateHistoryResponse = await api.get(`/rate-history/${id}`);
+        if (rateHistoryResponse.success) {
+          setRateHistory(rateHistoryResponse.data?.history || []);
+        }
+      } catch (rateErr) {
+        console.error('Error fetching rate history:', rateErr);
       }
     } catch (err) {
       console.error('Error fetching employee details:', err);
@@ -540,6 +551,7 @@ function useEmployeeDetail(id) {
     rejectKyc,
     reviewDocument,
     finalizeKycReview,
+    rateHistory,
   };
 }
 
