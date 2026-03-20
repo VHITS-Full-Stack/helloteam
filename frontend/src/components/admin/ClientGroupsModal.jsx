@@ -485,7 +485,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
                             {group.totalEmployees > 0
                               ? `${group.totalEmployees} employee${group.totalEmployees !== 1 ? 's' : ''}`
                               : 'No employees yet'}
-                            {group.billingRate ? ` · $${Number(group.billingRate).toFixed(2)}/hr` : ''}
+                            {group.billingRate ? ` · $${Number(group.billingRate).toFixed(2)}` : ''}
                           </p>
                         </div>
                       </div>
@@ -598,7 +598,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
               onChange={(e) => setEditGroupDescription(e.target.value)}
             />
             <Input
-              label="Billing Rate ($/hr)"
+              label="Billing Rate"
               type="number"
               placeholder="e.g. 45.00 (optional)"
               value={editGroupBillingRate}

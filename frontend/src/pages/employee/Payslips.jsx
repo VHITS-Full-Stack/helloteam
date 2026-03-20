@@ -112,7 +112,7 @@ const Payslips = () => {
           </div>
           <div className="bg-purple-50 rounded-lg p-3 border border-purple-200">
             <p className="text-[10px] text-purple-600 font-medium">Rate</p>
-            <p className="text-xl font-bold text-purple-700">${d.hourlyRate}/hr</p>
+            <p className="text-xl font-bold text-purple-700">${d.hourlyRate}</p>
           </div>
           <div className="rounded-lg p-3 border border-gray-200">
             <div className="flex items-center justify-between">
@@ -207,14 +207,14 @@ const Payslips = () => {
             <div className="flex items-center gap-3 px-3 py-2 bg-blue-50/50 rounded-lg">
               <div className="w-0.5 h-6 bg-blue-500 rounded-full"></div>
               <span className="text-sm text-gray-700 flex-1">Regular Pay</span>
-              <span className="text-xs text-gray-400">{d.regularHours}h &times; ${d.hourlyRate}/hr</span>
+              <span className="text-xs text-gray-400">{d.regularHours}h &times; ${d.hourlyRate}</span>
               <span className="text-sm font-semibold text-gray-900 w-20 text-right">${d.regularPay.toLocaleString()}</span>
             </div>
             {d.overtimeHours > 0 && (
               <div className="flex items-center gap-3 px-3 py-2 bg-orange-50/50 rounded-lg">
                 <div className="w-0.5 h-6 bg-orange-500 rounded-full"></div>
                 <span className="text-sm text-orange-700 flex-1">Overtime</span>
-                <span className="text-xs text-gray-400">{d.overtimeHours}h &times; ${d.overtimeRate}/hr</span>
+                <span className="text-xs text-gray-400">{d.overtimeHours}h &times; ${d.overtimeRate}</span>
                 <span className="text-sm font-semibold text-orange-700 w-20 text-right">+${d.overtimePay.toLocaleString()}</span>
               </div>
             )}

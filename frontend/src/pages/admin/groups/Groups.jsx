@@ -547,7 +547,7 @@ const Groups = () => {
               <TableRow>
                 <TableHeader>Group</TableHeader>
                 <TableHeader>Description</TableHeader>
-                <TableHeader>Billing Rate ($/hr)</TableHeader>
+                <TableHeader>Billing Rate</TableHeader>
                 <TableHeader>Employees</TableHeader>
                 <TableHeader>Assigned Clients</TableHeader>
                 <TableHeader>Status</TableHeader>
@@ -702,7 +702,7 @@ const Groups = () => {
             />
           </div>
           <Input
-            label="Billing Rate ($/hr)"
+            label="Billing Rate"
             type="number"
             step="0.01"
             min="0"
@@ -753,7 +753,7 @@ const Groups = () => {
             />
           </div>
           <Input
-            label="Billing Rate ($/hr)"
+            label="Billing Rate "
             type="number"
             step="0.01"
             min="0"

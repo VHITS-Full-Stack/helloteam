@@ -636,7 +636,7 @@ const Groups = () => {
                   </Badge>
                   {group.billingRate && (
                     <Badge variant="default" size="sm">
-                      ${Number(group.billingRate).toFixed(2)}/hr
+                      ${Number(group.billingRate).toFixed(2)}
                     </Badge>
                   )}
                   <span className="text-xs text-gray-400">

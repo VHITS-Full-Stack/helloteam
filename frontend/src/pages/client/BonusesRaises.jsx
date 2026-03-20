@@ -262,7 +262,7 @@ const BonusesRaises = () => {
             {/* Bill Rate */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bill Rate ($/hr)
+                Bill Rate
               </label>
               <input
                 type="number"

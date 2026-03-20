@@ -303,7 +303,7 @@ const ClientEmployees = () => {
                       {effectiveRate ? (
                         <>
                           <p className="text-sm font-medium text-gray-900">
-                            ${Number(effectiveRate).toFixed(2)}/hr
+                            ${Number(effectiveRate).toFixed(2)}
                           </p>
                           <p className="text-xs text-gray-400">
                             {rateSource === 'custom' && 'Custom rate'}
@@ -371,7 +371,7 @@ const ClientEmployees = () => {
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800 font-medium mb-1">Employee Billing Rate</p>
                   <p className="text-sm text-green-600">
-                    ${Number(rateFormData.employeeBillingRate).toFixed(2)}/hr
+                    ${Number(rateFormData.employeeBillingRate).toFixed(2)}
                   </p>
                 </div>
               )}
@@ -381,7 +381,7 @@ const ClientEmployees = () => {
                     Client Group Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
                   </p>
                   <p className="text-sm text-purple-600">
-                    ${Number(rateFormData.clientGroupBillingRate).toFixed(2)}/hr
+                    ${Number(rateFormData.clientGroupBillingRate).toFixed(2)}
                   </p>
                 </div>
               )}
@@ -391,7 +391,7 @@ const ClientEmployees = () => {
                     Group Default Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
                   </p>
                   <p className="text-sm text-purple-600">
-                    ${Number(rateFormData.groupBillingRate).toFixed(2)}/hr
+                    ${Number(rateFormData.groupBillingRate).toFixed(2)}
                   </p>
                 </div>
               )}

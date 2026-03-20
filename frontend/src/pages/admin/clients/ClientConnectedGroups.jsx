@@ -610,7 +610,7 @@ const ClientConnectedGroups = () => {
               onChange={(e) => setEditGroupDescription(e.target.value)}
             />
             <Input
-              label="Billing Rate ($/hr)"
+              label="Billing Rate"
               type="number"
               placeholder="e.g. 45.00 (optional)"
               value={editGroupBillingRate}
@@ -692,7 +692,7 @@ const ClientConnectedGroups = () => {
                     {group.billingRate ? (
                       <div className="flex items-center gap-1 text-sm font-medium text-green-700 bg-green-50 px-2.5 py-1 rounded-lg">
                         <DollarSign className="w-3.5 h-3.5" />
-                        {Number(group.billingRate).toFixed(2)}/hr
+                        {Number(group.billingRate).toFixed(2)}
                       </div>
                     ) : (
                       <span className="text-xs text-gray-400">No rate</span>

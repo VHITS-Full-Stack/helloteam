@@ -360,7 +360,7 @@ const PayrollEmployeeDetail = () => {
           <div className="flex items-center gap-3 px-3 py-2 bg-blue-50/50 rounded-lg">
             <div className="w-0.5 h-6 bg-blue-500 rounded-full"></div>
             <span className="text-sm text-gray-700 flex-1">Regular Pay</span>
-            {/* <span className="text-xs text-gray-400">{s.regularHours}h &times; ${rates.hourlyRate}/hr</span> */}
+            {/* <span className="text-xs text-gray-400">{s.regularHours}h &times; ${rates.hourlyRate}</span> */}
             <span className="text-sm font-semibold text-gray-900 w-20 text-right">
               ${s.regularPay.toLocaleString()}
             </span>
@@ -370,7 +370,7 @@ const PayrollEmployeeDetail = () => {
               <div className="w-0.5 h-6 bg-orange-500 rounded-full"></div>
               <span className="text-sm text-orange-700 flex-1">Overtime</span>
               <span className="text-xs text-gray-400">
-                {s.overtimeHours}h &times; ${rates.overtimeRate}/hr
+                {s.overtimeHours}h &times; ${rates.overtimeRate}
               </span>
               <span className="text-sm font-semibold text-orange-700 w-20 text-right">
                 +${s.overtimePay.toLocaleString()}
