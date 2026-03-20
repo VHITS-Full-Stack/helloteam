@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { User, Mail, Phone, MapPin, Building2, Calendar, Shield, Camera, Save, Bell, Lock, Eye, EyeOff, AlertCircle, Check, Loader2, Trash2 } from 'lucide-react';
 import { Card, Button, Badge, Avatar, PhoneInput } from '../../components/common';
+import { getPhoneError } from '../../utils/clientValidation';
 import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
@@ -100,6 +101,11 @@ const Profile = () => {
   };
 
   const handleSaveProfile = async () => {
+    const phoneError = getPhoneError(formData.phone, formData.countryCode);
+    if (phoneError) {
+      setError(phoneError);
+      return;
+    }
     try {
       setSaving(true);
       setError('');

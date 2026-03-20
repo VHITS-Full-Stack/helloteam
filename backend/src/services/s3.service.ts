@@ -170,7 +170,7 @@ export const getPresignedUrl = async (key: string, expiresIn: number = 604800): 
   try {
     if (!isS3Configured) {
       // Local files don't need presigned URLs
-      return `${API_BASE_URL}/uploads/${key}`;
+      return `${API_BASE_URL}/${key}`;
     }
 
     const command = new GetObjectCommand({
