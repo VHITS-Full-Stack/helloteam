@@ -51,11 +51,9 @@ const Modal = ({
           `}
         >
           {/* Header */}
-          {(title || showClose) && (
+          {title ? (
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              {title && (
-                <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-              )}
+              <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
               {showClose && (
                 <button
                   onClick={onClose}
@@ -64,6 +62,15 @@ const Modal = ({
                   <X className="w-5 h-5" />
                 </button>
               )}
+            </div>
+          ) : showClose && (
+            <div className="flex justify-end px-4 pt-3 pb-0">
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           )}
 

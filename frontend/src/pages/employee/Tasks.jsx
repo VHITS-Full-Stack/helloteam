@@ -217,7 +217,7 @@ const Tasks = () => {
     setSubmittingComment(true);
     try {
       const response = await taskService.addTaskComment(selectedTask.id, newComment.trim());
-      if (response.success) { setComments(prev => [...prev, response.data]); setNewComment(''); }
+      if (response.success) { setComments(prev => [...prev, response.data]); setNewComment(''); setDetailTab('comments'); }
     } catch (err) {
       console.error('Failed to add comment:', err);
     } finally {
@@ -661,13 +661,13 @@ const Tasks = () => {
 
               {/* Action Buttons */}
               <div className="flex gap-2 mt-4 pt-4 border-t">
-                <Button variant="outline" size="sm" onClick={() => { setShowDetailModal(false); openEdit(selectedTask); }}>
-                  <Edit2 className="w-3.5 h-3.5 mr-1.5" />Edit
-                </Button>
+                <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" onClick={() => { setShowDetailModal(false); openEdit(selectedTask); }}>
+                  <Edit2 className="w-3.5 h-3.5" />Edit
+                </button>
                 {selectedTask.isPersonal && (
-                  <Button variant="outline" size="sm" className="text-red-600 hover:bg-red-50 border-red-200" onClick={() => { setShowDetailModal(false); setShowDeleteModal(true); }}>
-                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />Delete
-                  </Button>
+                  <button className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors" onClick={() => { setShowDetailModal(false); setShowDeleteModal(true); }}>
+                    <Trash2 className="w-3.5 h-3.5" />Delete
+                  </button>
                 )}
               </div>
             </div>
@@ -683,7 +683,7 @@ const Tasks = () => {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto max-h-[350px]">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden max-h-[350px]">
                 {loadingDetail ? (
                   <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
                 ) : detailTab === 'activity' ? (
@@ -729,7 +729,7 @@ const Tasks = () => {
                               <span className="text-sm font-medium text-gray-900">{comment.authorName}</span>
                               <span className="text-xs text-gray-400">{formatRelativeTime(comment.createdAt)}</span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{comment.message}</p>
+                            <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{comment.message}</p>
                           </div>
                         </div>
                       ))}

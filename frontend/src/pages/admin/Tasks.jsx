@@ -399,7 +399,7 @@ const Tasks = () => {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto max-h-[400px]">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden max-h-[400px]">
                 {loadingDetail ? (
                   <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
                 ) : detailTab === 'activity' ? (
@@ -448,7 +448,7 @@ const Tasks = () => {
                               </span>
                               <span className="text-xs text-gray-400">{formatRelativeTime(comment.createdAt)}</span>
                             </div>
-                            <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap">{comment.message}</p>
+                            <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{comment.message}</p>
                           </div>
                         </div>
                       ))}
