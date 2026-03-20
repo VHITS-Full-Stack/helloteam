@@ -54,8 +54,9 @@ const Profile = () => {
   });
 
   // Refresh profile data from server
-  const fetchProfile = async () => {
+  const fetchProfile = async (showLoading = true) => {
     try {
+      if (showLoading) setLoading(true);
       const response = await authService.getProfile();
       if (response.success && response.data) {
         setProfile(response.data);
@@ -74,6 +75,8 @@ const Profile = () => {
     } catch (err) {
       setError('Failed to load profile');
       console.error('Profile fetch error:', err);
+    } finally {
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -176,9 +179,12 @@ const Profile = () => {
       const response = await authService.uploadClientLogo(file);
       if (response.success) {
         setSuccess('Company logo uploaded successfully');
-        if (response.data?.logoUrl) {
-          setProfile(prev => ({ ...prev, client: { ...prev?.client, logoUrl: response.data.logoUrl } }));
-        }
+        // Update logo directly from upload response
+        setProfile(prev => ({
+          ...prev,
+          client: { ...prev?.client, logoUrl: response.data.logoUrl },
+        }));
+        // Refresh auth context so sidebar/header update too
         refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
@@ -203,7 +209,12 @@ const Profile = () => {
       const response = await authService.deleteClientLogo();
       if (response.success) {
         setSuccess('Company logo deleted successfully');
-        setProfile(prev => ({ ...prev, client: { ...prev?.client, logoUrl: null } }));
+        // Clear logo directly
+        setProfile(prev => ({
+          ...prev,
+          client: { ...prev?.client, logoUrl: null },
+        }));
+        // Refresh auth context so sidebar/header update too
         refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
@@ -269,7 +280,8 @@ const Profile = () => {
       {/* Profile Header Card */}
       <Card>
         <div className="flex flex-col md:flex-row items-center gap-6">
-          <div className="relative">
+          <div className="relative group">
+            {/* Hidden file input */}
             <input
               type="file"
               ref={fileInputRef}
@@ -277,6 +289,8 @@ const Profile = () => {
               accept="image/jpeg,image/png,image/webp,image/gif"
               className="hidden"
             />
+
+            {/* Logo or Placeholder */}
             {client?.logoUrl ? (
               <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-lg">
                 <img
@@ -290,6 +304,8 @@ const Profile = () => {
                 <Building2 className="w-12 h-12 text-primary" />
               </div>
             )}
+
+            {/* Camera icon when no logo, Delete icon when logo exists */}
             {client?.logoUrl ? (
               <button
                 onClick={() => setShowDeleteLogoModal(true)}
@@ -297,7 +313,11 @@ const Profile = () => {
                 className="absolute bottom-0 right-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
                 title="Delete logo"
               >
-                {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                {uploadingLogo ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
               </button>
             ) : (
               <button
@@ -306,7 +326,11 @@ const Profile = () => {
                 className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
                 title="Upload logo"
               >
-                {uploadingLogo ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+                {uploadingLogo ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Camera className="w-4 h-4" />
+                )}
               </button>
             )}
           </div>
@@ -423,29 +447,19 @@ const Profile = () => {
                 <label className="label">Timezone</label>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
-                  <select
-                    name="timezone"
-                    className="input"
-                    style={{ paddingLeft: '2.5rem' }}
-                    value={formData.timezone}
-                    onChange={handleInputChange}
-                  >
-                    {timezones.map((tz) => (
-                      <option key={tz.value} value={tz.value}>
-                        {tz.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="input flex items-center text-gray-700" style={{ paddingLeft: '2.5rem' }}>
+                    Eastern Time (EST)
+                  </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-1">
-                  This timezone will be used for all time tracking and reporting
+                  All time tracking and reporting uses Eastern Standard Time (EST)
                 </p>
               </div>
               <div className="p-4 bg-gray-50 rounded-xl">
                 <p className="text-sm text-gray-500">Current local time</p>
                 <p className="font-medium text-gray-900 mt-1">
                   {new Date().toLocaleString('en-US', {
-                    timeZone: formData.timezone,
+                    timeZone: 'America/New_York',
                     dateStyle: 'medium',
                     timeStyle: 'short'
                   })}
@@ -681,8 +695,18 @@ const Profile = () => {
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Company Logo</h3>
             <p className="text-sm text-gray-500 mb-5">Are you sure you want to delete the company logo? This action cannot be undone.</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setShowDeleteLogoModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
-              <button onClick={handleDeleteLogo} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+              <button
+                onClick={() => setShowDeleteLogoModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteLogo}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>

@@ -58,6 +58,42 @@ try {
 - PostgreSQL with Prisma ORM
 - JWT for authentication
 
+## Invoice Generation Logic
+
+Invoices are auto-generated based on the client's **Agreement Type** (set when adding a client).
+
+### Weekly
+- **Period**: Monday – Sunday
+- **Auto-generated**: Every **Wednesday** (for the previous Mon–Sun)
+- **Manual**: Admin selects week number → generates immediately
+
+### Bi-Weekly (Half-Month)
+- **Period 1**: 1st – 15th of the month
+  - **Auto-generated**: On the **17th** of the same month
+- **Period 2**: 16th – End of month
+  - **Auto-generated**: On the **3rd** of the next month
+- **Manual**: Admin selects month + period (1st–15th or 16th–End) → generates immediately
+- Auto/cron only processes clients with `agreementType: BI_WEEKLY`
+
+### Monthly
+- **Period**: 1st – End of month
+- **Auto-generated**: On the **3rd** of the next month
+- **Manual**: Admin selects month → generates immediately
+
+### Key Rules
+- Cron jobs only process clients matching the agreement type (WEEKLY, BI_WEEKLY, MONTHLY)
+- Manual triggers generate invoices **immediately** regardless of schedule
+- Existing invoices for the same period are skipped (no duplicates)
+- Only APPROVED / AUTO_APPROVED time records are included
+- Late-approved overtime from previous periods can be included in the current invoice
+
+### Cron Schedule (UTC)
+| Job | Schedule | Cron Expression |
+|-----|----------|-----------------|
+| Weekly | Every Wednesday 05:10 UTC | `10 5 * * 3` |
+| Bi-Weekly | 3rd & 17th 05:15 UTC | `15 5 3,17 * *` |
+| Monthly | 3rd of month 05:05 UTC | `5 5 3 * *` |
+
 ## Project Structure
 
 ```

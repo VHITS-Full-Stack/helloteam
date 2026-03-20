@@ -532,6 +532,91 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+/**
+ * Update payment method for an already-onboarded client.
+ * POST /api/client-portal/payment-method
+ */
+export const updatePaymentMethod = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const {
+      paymentMethod,
+      ccCardholderName, ccBillingAddress, ccCity, ccState, ccZip, ccCardType,
+      ccCardNumber, ccExpiration, ccCVV,
+      achAccountHolder, achBankName, achRoutingNumber, achAccountNumber, achAccountType,
+    } = req.body;
+
+    if (!paymentMethod || !['credit_card', 'ach'].includes(paymentMethod)) {
+      res.status(400).json({ success: false, error: 'Valid payment method (credit_card or ach) is required' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId: req.user.userId },
+      include: { agreement: true },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    if (!client.agreement) {
+      res.status(400).json({ success: false, error: 'No agreement found. Please complete onboarding first.' });
+      return;
+    }
+
+    // Determine the new combined payment method
+    const existingMethod = client.agreement.paymentMethod;
+    let newMethod = paymentMethod;
+    if (existingMethod && existingMethod !== paymentMethod) {
+      newMethod = 'both';
+    }
+
+    const updateData: any = { paymentMethod: newMethod };
+
+    if (paymentMethod === 'credit_card') {
+      if (!ccCardholderName?.trim() || !ccCardNumber?.trim() || !ccExpiration?.trim()) {
+        res.status(400).json({ success: false, error: 'Card details are required' });
+        return;
+      }
+      updateData.ccCardholderName = ccCardholderName.trim();
+      updateData.ccBillingAddress = ccBillingAddress?.trim() || null;
+      updateData.ccCity = ccCity?.trim() || null;
+      updateData.ccState = ccState?.trim() || null;
+      updateData.ccZip = ccZip?.trim() || null;
+      updateData.ccCardType = ccCardType || null;
+      updateData.ccCardNumber = ccCardNumber.trim();
+      updateData.ccExpiration = ccExpiration.trim();
+      updateData.ccCVV = ccCVV?.trim() || null;
+    } else {
+      if (!achAccountHolder?.trim() || !achBankName?.trim() || !achRoutingNumber?.trim() || !achAccountNumber?.trim()) {
+        res.status(400).json({ success: false, error: 'Bank account details are required' });
+        return;
+      }
+      updateData.achAccountHolder = achAccountHolder.trim();
+      updateData.achBankName = achBankName.trim();
+      updateData.achRoutingNumber = achRoutingNumber.trim();
+      updateData.achAccountNumber = achAccountNumber.trim();
+      updateData.achAccountType = achAccountType || 'Checking';
+    }
+
+    await prisma.clientAgreement.update({
+      where: { id: client.agreement.id },
+      data: updateData,
+    });
+
+    res.json({ success: true, message: 'Payment method added successfully' });
+  } catch (error) {
+    console.error('Update payment method error:', error);
+    res.status(500).json({ success: false, error: 'Failed to update payment method' });
+  }
+};
+
 // GET /api/onboarding/agreement/preview - Generate pre-filled PDF
 export const getAgreementPreview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {

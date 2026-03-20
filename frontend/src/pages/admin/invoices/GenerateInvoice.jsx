@@ -33,6 +33,7 @@ const GenerateInvoice = () => {
 
   // Form params
   const [frequency, setFrequency] = useState('monthly');
+  const [half, setHalf] = useState(1); // 1 = 1st-15th, 2 = 16th-end
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(() => {
     const m = new Date().getMonth();
@@ -73,6 +74,9 @@ const GenerateInvoice = () => {
     const params = { year, frequency };
     if (frequency === 'weekly') {
       params.week = week;
+    } else if (frequency === 'bi-weekly') {
+      params.month = month;
+      params.half = half;
     } else {
       params.month = month;
     }
@@ -80,7 +84,7 @@ const GenerateInvoice = () => {
       params.clientId = clientId;
     }
     return params;
-  }, [year, frequency, week, month, clientId]);
+  }, [year, frequency, week, month, half, clientId]);
 
   const handlePreview = async () => {
     setPreviewing(true);
@@ -119,7 +123,9 @@ const GenerateInvoice = () => {
 
   const periodLabel = frequency === 'monthly'
     ? `${monthNames[month - 1]} ${year}`
-    : `Week ${week}, ${year}`;
+    : frequency === 'bi-weekly'
+      ? `${monthNames[month - 1]} ${half === 1 ? '1st–15th' : '16th–' + new Date(year, month, 0).getDate() + 'th'}, ${year}`
+      : `Week ${week}, ${year}`;
 
   const selectClass = "appearance-none pr-8 w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white";
   const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm";
@@ -186,18 +192,22 @@ const GenerateInvoice = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Frequency</label>
               <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                {['monthly', 'weekly'].map((f) => (
+                {[
+                  { key: 'monthly', label: 'Monthly' },
+                  { key: 'bi-weekly', label: 'Bi-Weekly' },
+                  { key: 'weekly', label: 'Weekly' },
+                ].map((f) => (
                   <button
-                    key={f}
+                    key={f.key}
                     type="button"
-                    onClick={() => setFrequency(f)}
+                    onClick={() => setFrequency(f.key)}
                     className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                      frequency === f
+                      frequency === f.key
                         ? 'bg-primary text-white'
                         : 'bg-white text-gray-600 hover:bg-gray-50'
                     }`}
                   >
-                    {f.charAt(0).toUpperCase() + f.slice(1)}
+                    {f.label}
                   </button>
                 ))}
               </div>
@@ -218,25 +228,12 @@ const GenerateInvoice = () => {
             </div>
 
             {/* Period */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid gap-3 ${frequency === 'bi-weekly' ? 'grid-cols-3' : 'grid-cols-2'}`}>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {frequency === 'monthly' ? 'Month' : 'Week'}
+                  {frequency === 'weekly' ? 'Week' : 'Month'}
                 </label>
-                {frequency === 'monthly' ? (
-                  <div className="relative">
-                    <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className={selectClass}>
-                      {monthNames.map((name, i) => {
-                        const m = i + 1;
-                        const now = new Date();
-                        // Hide future months for current year
-                        if (year === now.getFullYear() && m > now.getMonth() + 1) return null;
-                        return <option key={m} value={m}>{name}</option>;
-                      })}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                ) : (
+                {frequency === 'weekly' ? (
                   <input
                     type="number"
                     value={week}
@@ -253,15 +250,37 @@ const GenerateInvoice = () => {
                       return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
                     })()}
                   />
+                ) : (
+                  <div className="relative">
+                    <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className={selectClass}>
+                      {monthNames.map((name, i) => {
+                        const m = i + 1;
+                        const now = new Date();
+                        if (year === now.getFullYear() && m > now.getMonth() + 1) return null;
+                        return <option key={m} value={m}>{name}</option>;
+                      })}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 )}
               </div>
+              {frequency === 'bi-weekly' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Period</label>
+                  <div className="relative">
+                    <select value={half} onChange={(e) => setHalf(parseInt(e.target.value))} className={selectClass}>
+                      <option value={1}>1st – 15th</option>
+                      <option value={2}>16th – End</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Year</label>
                 <div className="relative">
                   <select value={year} onChange={(e) => setYear(parseInt(e.target.value))} className={selectClass}>
-                    {Array.from({ length: new Date().getFullYear() - 2024 + 1 }, (_, i) => new Date().getFullYear() - i).map((y) => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
+                    <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>

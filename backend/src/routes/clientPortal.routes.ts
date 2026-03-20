@@ -38,6 +38,7 @@ import {
   downloadClientInvoicePdf,
   clientMarkInvoicePaid,
 } from '../controllers/invoice.controller';
+import { updatePaymentMethod } from '../controllers/agreement.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
 
@@ -141,6 +142,9 @@ router.get('/invoices/:invoiceId', getClientInvoiceById);
 
 // Client marks invoice as paid
 router.post('/invoices/:invoiceId/mark-paid', clientMarkInvoicePaid);
+
+// Update payment method
+router.post('/payment-method', updatePaymentMethod);
 
 // ============================================
 // SETTINGS ROUTES

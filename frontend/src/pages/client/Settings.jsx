@@ -44,21 +44,21 @@ const Settings = () => {
     invoiceNotifications: true,
   });
 
-  // Preferences (local state for now)
-  const [preferences, setPreferences] = useState({
-    dateFormat: 'MM/DD/YYYY',
-    timeFormat: '12-hour',
-    workWeekStart: 'Sunday',
-    overtimeThreshold: 40,
-  });
 
   const tabs = [
     { id: 'company', label: 'Company', icon: Building2 },
     { id: 'team', label: 'Team Access', icon: Users },
     { id: 'policies', label: 'Policies', icon: Shield },
     { id: 'notifications', label: 'Notifications', icon: Bell },
-    { id: 'preferences', label: 'Preferences', icon: Globe },
   ];
+
+  const notificationLabels = {
+    timeEntrySubmissions: 'New time entry submissions',
+    overtimeAlerts: 'Overtime alerts',
+    leaveRequests: 'Leave request notifications',
+    weeklySummary: 'Weekly summary reports',
+    invoiceNotifications: 'Invoice notifications',
+  };
 
   const timezones = [
     { value: 'America/New_York', label: 'Eastern Time (ET)' },
@@ -83,7 +83,7 @@ const Settings = () => {
       setLoading(true);
       const response = await clientPortalService.getSettings();
       if (response.success && response.data) {
-        const { company, policies: policyData, notifications: notificationData, preferences: preferenceData, assignedEmployees: employees } = response.data;
+        const { company, policies: policyData, notifications: notificationData, assignedEmployees: employees } = response.data;
 
         setCompanyInfo({
           companyName: company.companyName || '',
@@ -101,10 +101,6 @@ const Settings = () => {
 
         if (notificationData) {
           setNotifications(notificationData);
-        }
-
-        if (preferenceData) {
-          setPreferences(preferenceData);
         }
 
         setAssignedEmployees(employees || []);
@@ -168,27 +164,6 @@ const Settings = () => {
     }
   };
 
-  const handlePreferenceChange = async (key, value) => {
-    const oldValue = preferences[key];
-    setPreferences(prev => ({ ...prev, [key]: value }));
-
-    try {
-      const response = await clientPortalService.updateSettings({
-        preferences: { [key]: value }
-      });
-      if (!response.success) {
-        // Revert on failure
-        setPreferences(prev => ({ ...prev, [key]: oldValue }));
-        setError(response.error || 'Failed to update preference');
-        setTimeout(() => setError(''), 3000);
-      }
-    } catch (err) {
-      // Revert on error
-      setPreferences(prev => ({ ...prev, [key]: oldValue }));
-      setError(err.error || err.message || 'Failed to update preference');
-      setTimeout(() => setError(''), 3000);
-    }
-  };
 
   if (loading) {
     return (
@@ -543,27 +518,21 @@ const Settings = () => {
             <Card>
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Notification Preferences</h3>
               <div className="space-y-4">
-                {[
-                  { key: 'timeEntrySubmissions', label: 'New time entry submissions', description: 'Get notified when employees submit time entries' },
-                  { key: 'overtimeAlerts', label: 'Overtime alerts', description: 'Get alerted when overtime is recorded' },
-                  { key: 'leaveRequests', label: 'Leave request notifications', description: 'Get notified of new leave requests' },
-                  { key: 'weeklySummary', label: 'Weekly summary reports', description: 'Receive weekly workforce summary' },
-                  { key: 'invoiceNotifications', label: 'Invoice notifications', description: 'Get notified when new invoices are generated' },
-                ].map((setting) => (
+                {Object.entries(notifications).map(([key, enabled]) => (
                   <div
-                    key={setting.key}
+                    key={key}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                   >
-                    <div>
-                      <p className="font-medium text-gray-900">{setting.label}</p>
-                      <p className="text-sm text-gray-500">{setting.description}</p>
+                    <div className="flex items-center gap-3">
+                      <Bell className="w-5 h-5 text-gray-400" />
+                      <span className="text-gray-700">{notificationLabels[key] || key}</span>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
                         className="sr-only peer"
-                        checked={notifications[setting.key]}
-                        onChange={() => handleNotificationToggle(setting.key)}
+                        checked={enabled}
+                        onChange={() => handleNotificationToggle(key)}
                       />
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
                     </label>
@@ -576,72 +545,6 @@ const Settings = () => {
             </Card>
           )}
 
-          {activeTab === 'preferences' && (
-            <Card>
-              <h3 className="text-lg font-semibold text-gray-900 mb-6">System Preferences</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="label">Date Format</label>
-                  <div className="relative">
-                    <select
-                      className="input appearance-none pr-9"
-                      value={preferences.dateFormat}
-                      onChange={(e) => handlePreferenceChange('dateFormat', e.target.value)}
-                    >
-                      <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                      <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                      <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Time Format</label>
-                  <div className="relative">
-                    <select
-                      className="input appearance-none pr-9"
-                      value={preferences.timeFormat}
-                      onChange={(e) => handlePreferenceChange('timeFormat', e.target.value)}
-                    >
-                      <option value="12-hour">12-hour (AM/PM)</option>
-                      <option value="24-hour">24-hour</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Work Week Start</label>
-                  <div className="relative">
-                    <select
-                      className="input appearance-none pr-9"
-                      value={preferences.workWeekStart}
-                      onChange={(e) => handlePreferenceChange('workWeekStart', e.target.value)}
-                    >
-                      <option value="Sunday">Sunday</option>
-                      <option value="Monday">Monday</option>
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="label">Default Overtime Threshold</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      className="input w-24"
-                      value={preferences.overtimeThreshold}
-                      onBlur={(e) => handlePreferenceChange('overtimeThreshold', parseInt(e.target.value) || 40)}
-                      onChange={(e) => setPreferences(prev => ({ ...prev, overtimeThreshold: parseInt(e.target.value) || 40 }))}
-                    />
-                    <span className="text-gray-500">hours per week</span>
-                  </div>
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mt-4">
-                Changes are automatically saved.
-              </p>
-            </Card>
-          )}
         </div>
       </div>
     </div>

@@ -119,6 +119,7 @@ const EmployeeDetail = () => {
     approveKyc,
     rejectKyc,
     refresh,
+    rateHistory,
   } = useEmployeeData({ mode: 'detail', id });
 
   const getStatusBadge = () => {
@@ -267,7 +268,12 @@ const EmployeeDetail = () => {
         </div>
       )}
       {/* KYC Status */}
-      <Card padding="sm" className="bg-blue-50 border border-blue-200">
+      <div className={`rounded-2xl p-4 ${
+        kycStatus === 'APPROVED' ? 'bg-green-50 border border-green-200' :
+        kycStatus === 'REJECTED' ? 'bg-red-50 border border-red-200' :
+        kycStatus === 'RESUBMITTED' ? 'bg-blue-50 border border-blue-200' :
+        'bg-amber-50 border border-amber-200'
+      }`}>
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</p>
@@ -302,7 +308,7 @@ const EmployeeDetail = () => {
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
       {isTerminated && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
           <UserX className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -314,11 +320,11 @@ const EmployeeDetail = () => {
 
       {/* Pending Bonus/Raise Requests */}
       {pendingRequests.length > 0 && (
-        <Card padding="sm" className="bg-amber-50 border border-amber-200">
+        <div className="rounded-2xl p-4 bg-purple-50 border border-purple-200">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              <p className="text-sm font-semibold text-amber-700">
+              <AlertCircle className="w-4 h-4 text-purple-500" />
+              <p className="text-sm font-semibold text-purple-700">
                 {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'}
               </p>
             </div>
@@ -344,7 +350,7 @@ const EmployeeDetail = () => {
               </div>
             ))}
           </div>
-        </Card>
+        </div>
       )}
 
       {/* Tabs */}
@@ -354,6 +360,7 @@ const EmployeeDetail = () => {
             { key: 'overview', label: 'Overview', icon: Mail },
             { key: 'schedule', label: 'Schedule & Rates', icon: Calendar },
             { key: 'time', label: 'Time & Stats', icon: Clock },
+            { key: 'billing', label: 'Billing History', icon: DollarSign },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -591,6 +598,77 @@ const EmployeeDetail = () => {
                   ))}
                 </tbody>
               </table>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Billing History Tab */}
+      {activeTab === 'billing' && (
+        <div className="space-y-4">
+          {rateHistory.length === 0 ? (
+            <Card>
+              <div className="text-center py-8 text-gray-400">
+                <DollarSign className="w-8 h-8 mx-auto mb-1 text-gray-300" />
+                <p className="text-sm">No billing history found</p>
+              </div>
+            </Card>
+          ) : (
+            <Card padding="none" className="overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100">
+                <h3 className="text-sm font-semibold text-gray-900">Rate Change History</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-slate-50/50 border-b border-gray-200">
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Rate Type</th>
+                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Old Rate ($)</th>
+                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">New Rate ($)</th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Client</th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Changed By</th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Source</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {rateHistory.map((record) => {
+                      const oldVal = record.oldValue != null ? Number(record.oldValue).toFixed(2) : '—';
+                      const newVal = record.newValue != null ? Number(record.newValue).toFixed(2) : '—';
+                      const rateLabel = {
+                        BILLING_RATE: 'Billing Rate',
+                        PAYABLE_RATE: 'Payable Rate',
+                        HOURLY_RATE: 'Hourly Rate',
+                        OVERTIME_RATE: 'Overtime Rate',
+                      }[record.rateType] || record.rateType;
+                      const sourceLabel = {
+                        EMPLOYEE_PROFILE: 'Profile Update',
+                        CLIENT_ASSIGNMENT: 'Client Assignment',
+                        CLIENT_RAISE_REQUEST: 'Raise Request',
+                      }[record.source] || record.source;
+                      return (
+                        <tr key={record.id} className="hover:bg-gray-50/50">
+                          <td className="py-2.5 px-4 text-sm text-gray-900 whitespace-nowrap">
+                            {formatDate(record.changeDate)}
+                          </td>
+                          <td className="py-2.5 px-3">
+                            <Badge variant={record.rateType === 'BILLING_RATE' ? 'primary' : 'default'} size="sm">
+                              {rateLabel}
+                            </Badge>
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-sm text-gray-500">{oldVal}</td>
+                          <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">{newVal}</td>
+                          <td className="py-2.5 px-3 text-sm text-gray-700 whitespace-nowrap">{record.clientName || '—'}</td>
+                          <td className="py-2.5 px-3 text-sm text-gray-500 whitespace-nowrap">{record.changedByName || '—'}</td>
+                          <td className="py-2.5 px-3">
+                            <span className="text-xs text-gray-400">{sourceLabel}</span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           )}
         </div>

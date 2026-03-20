@@ -29,6 +29,11 @@ const adminPortalService = {
     return response;
   },
 
+  getClientWiseUnapprovedOT: async () => {
+    const response = await api.get('/admin-portal/dashboard/unapproved-ot');
+    return response;
+  },
+
   // Time Records APIs
   getTimeRecords: async (params = {}) => {
     const response = await api.get('/admin-portal/time-records', { params });
@@ -86,8 +91,8 @@ const adminPortalService = {
     return response;
   },
 
-  approveRaiseRequest: async (raiseId, adminNotes) => {
-    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, { adminNotes });
+  approveRaiseRequest: async (raiseId, data = {}) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, data);
     return response;
   },
 

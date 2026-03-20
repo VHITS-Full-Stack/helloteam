@@ -6,6 +6,7 @@ import {
   getPendingActions,
   getClientOverview,
   getPayrollReadiness,
+  getClientWiseUnapprovedOT,
   getAdminTimeRecords,
   adjustTimeRecord,
   getAdminApprovals,
@@ -33,6 +34,7 @@ router.get('/dashboard/activity', authenticate, authorize(...adminRoles), getRec
 router.get('/dashboard/pending-actions', authenticate, authorize(...adminRoles), getPendingActions);
 router.get('/dashboard/client-overview', authenticate, authorize(...adminRoles), getClientOverview);
 router.get('/dashboard/payroll-readiness', authenticate, authorize(...adminRoles), getPayrollReadiness);
+router.get('/dashboard/unapproved-ot', authenticate, authorize(...adminRoles), getClientWiseUnapprovedOT);
 
 // Time Records endpoints
 router.get('/time-records', authenticate, authorize(...adminRoles), getAdminTimeRecords);

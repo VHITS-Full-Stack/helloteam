@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DollarSign,
@@ -54,6 +54,7 @@ const Payroll = () => {
   const [selectedClient, setSelectedClient] = useState("");
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [expandedEmployee, setExpandedEmployee] = useState(null);
 
   // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
@@ -692,23 +693,14 @@ const Payroll = () => {
               <TableHead>
                 <TableRow>
                   <TableHeader>Employee</TableHeader>
-                  <TableHeader>Client</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">
-                    Regular Hours
-                  </TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">
-                    Overtime
-                  </TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">
-                    Rate
-                  </TableHeader>
-                  <TableHeader className="whitespace-nowrap">
-                    Adjustments
-                  </TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">
-                    Gross Pay
-                  </TableHeader>
-                  <TableHeader className="text-center">Status</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Hours Worked</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">PTO Hours</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">VTO Hours</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Pending Approval</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Total Hours</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Total Bonuses</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Total Deductions</TableHeader>
+                  <TableHeader className="text-center whitespace-nowrap">Gross Pay</TableHeader>
                   <TableHeader className="text-center">Action</TableHeader>
                 </TableRow>
               </TableHead>
@@ -717,111 +709,90 @@ const Payroll = () => {
                   .filter((emp) => {
                     if (!employeeSearch.trim()) return true;
                     const name =
-                      `${emp.employee.firstName} ${emp.employee.lastName}`.toLowerCase();
+                      `${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`.toLowerCase();
                     return name.includes(employeeSearch.toLowerCase().trim());
                   })
                   .map((emp) => (
+                    <React.Fragment key={emp.employee.id}>
                     <TableRow
-                      key={emp.employee.id}
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={() =>
-                        navigate(
-                          `/admin/payroll/employee/${emp.employee.id}?periodStart=${periodStart}&periodEnd=${periodEnd}`,
-                        )
-                      }
+                      onClick={() => setExpandedEmployee(expandedEmployee === emp.employee.id ? null : emp.employee.id)}
                     >
+                      {/* Employee */}
                       <TableCell>
                         <div className="flex items-center gap-3">
+                          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedEmployee === emp.employee.id ? 'rotate-90' : ''}`} />
                           <Avatar
-                            name={`${emp.employee.firstName} ${emp.employee.lastName}`}
-                            src={emp.employee.profilePhoto}
+                            name={`${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`}
+                            src={emp.employee?.profilePhoto}
                             size="sm"
                           />
-                          <span className="font-medium text-gray-900">
-                            {emp.employee.firstName} {emp.employee.lastName}
-                          </span>
+                          <div>
+                            <span className="font-medium text-gray-900">
+                              {emp.employee?.firstName || ''} {emp.employee?.lastName || ''}
+                            </span>
+                            <p className="text-xs text-gray-500">{emp.client?.companyName || "-"}</p>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <span className="text-gray-600">
-                          {emp.client?.companyName || "-"}
-                        </span>
-                      </TableCell>
+                      {/* Hours Worked */}
                       <TableCell className="text-center whitespace-nowrap">
-                        {emp.regularHours}h
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {emp.overtimeHours > 0 ? (
-                          <span className="text-orange-600 font-medium">
-                            {emp.overtimeHours}h
-                          </span>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        {emp.hourlyRate > 0 ? (
-                          <span className="text-gray-600">
-                            ${emp.hourlyRate}/hr
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 text-xs">Not set</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {emp.adjustments?.length > 0 ? (
-                          <div className="space-y-1.5">
-                            {emp.adjustments.map((adj) => (
-                              <div
-                                key={adj.id}
-                                className="flex items-center justify-between gap-2"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span
-                                    className={`text-sm font-semibold ${adj.type === "BONUS" ? "text-green-600" : "text-red-600"}`}
-                                  >
-                                    {adj.type === "BONUS" ? "+" : "-"}$
-                                    {adj.amount.toLocaleString()}
-                                  </span>
-                                  <span
-                                    className="text-xs text-gray-400 truncate max-w-[100px]"
-                                    title={adj.reason}
-                                  >
-                                    {adj.reason}
-                                  </span>
-                                </div>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteAdjustmentId(adj.id);
-                                  }}
-                                  className="p-1 hover:bg-red-50 rounded text-red-400 hover:text-red-600 flex-shrink-0"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
-                        {emp.grossPay > 0
-                          ? `$${emp.grossPay.toLocaleString()}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-center">
                         <div>
-                          {getStatusBadge(emp.status)}
-                          {emp.note && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              {emp.note}
-                            </p>
+                          <span className="font-semibold text-gray-900">{emp.approvedHours}h</span>
+                          {emp.overtimeHours > 0 && (
+                            <p className="text-[10px] text-orange-600">incl. {emp.overtimeHours}h OT</p>
                           )}
                         </div>
                       </TableCell>
+                      {/* PTO Hours */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        {(emp.ptoHours || 0) > 0 ? (
+                          <span className="text-purple-600 font-medium">{emp.ptoHours}h</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      {/* VTO Hours */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        {(emp.vtoHours || 0) > 0 ? (
+                          <span className="text-blue-600 font-medium">{emp.vtoHours}h</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      {/* Pending Approval */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        {emp.pendingHours > 0 ? (
+                          <span className="text-amber-600 font-medium">{emp.pendingHours}h</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      {/* Total Hours (Approved + PTO) */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        <span className="font-bold text-blue-700">{emp.totalHoursWithPTO || emp.totalHours}h</span>
+                      </TableCell>
+                      {/* Total Bonuses */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        {emp.totalBonuses > 0 ? (
+                          <span className="text-green-600 font-medium">+${emp.totalBonuses.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      {/* Total Deductions */}
+                      <TableCell className="text-center whitespace-nowrap">
+                        {emp.totalDeductions > 0 ? (
+                          <span className="text-red-600 font-medium">-${emp.totalDeductions.toLocaleString()}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      {/* Gross Pay */}
+                      <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
+                        {emp.grossPay > 0 ? `$${emp.grossPay.toLocaleString()}` : "—"}
+                      </TableCell>
+                      {/* Action */}
                       <TableCell className="text-center">
                         {emp.status !== "completed" ? (
                           <button
@@ -838,6 +809,103 @@ const Payroll = () => {
                         )}
                       </TableCell>
                     </TableRow>
+                    {/* Expanded Detail Row */}
+                    {expandedEmployee === emp.employee.id && (
+                      <tr>
+                        <td colSpan={10} className="px-0 py-0 bg-gray-50 border-b border-gray-200">
+                          <div className="px-6 py-4">
+                            {/* Time Records */}
+                            <div className="mb-4">
+                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Time Records</h4>
+                              {emp.records && emp.records.length > 0 ? (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm">
+                                    <thead>
+                                      <tr className="border-b border-gray-200">
+                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Date</th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Clock In</th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Clock Out</th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Hours</th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">OT</th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Break</th>
+                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Status</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {emp.records
+                                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                        .map((rec) => {
+                                          const totalH = Math.round(((rec.totalMinutes || 0) / 60) * 100) / 100;
+                                          const otH = Math.round(((rec.overtimeMinutes || 0) / 60) * 100) / 100;
+                                          const breakH = Math.round(((rec.breakMinutes || 0) / 60) * 100) / 100;
+                                          const dateStr = new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+                                          const fmtTime = (d) => d ? new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '—';
+                                          const statusBg = rec.status === 'APPROVED' || rec.status === 'AUTO_APPROVED' ? 'bg-green-100 text-green-700' : rec.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+                                          return (
+                                            <tr key={rec.id} className="border-b border-gray-100 last:border-0">
+                                              <td className="py-1.5 px-3 text-gray-900">{dateStr}</td>
+                                              <td className="py-1.5 px-3 text-center text-gray-600">{fmtTime(rec.clockIn)}</td>
+                                              <td className="py-1.5 px-3 text-center text-gray-600">{fmtTime(rec.clockOut)}</td>
+                                              <td className="py-1.5 px-3 text-center font-medium">{totalH}h</td>
+                                              <td className="py-1.5 px-3 text-center">{otH > 0 ? <span className="text-orange-600">{otH}h</span> : <span className="text-gray-300">—</span>}</td>
+                                              <td className="py-1.5 px-3 text-center">{breakH > 0 ? <span className="text-yellow-600">{breakH}h</span> : <span className="text-gray-300">—</span>}</td>
+                                              <td className="py-1.5 px-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusBg}`}>{rec.status === 'AUTO_APPROVED' ? 'Auto Approved' : rec.status?.charAt(0) + rec.status?.slice(1).toLowerCase()}</span></td>
+                                            </tr>
+                                          );
+                                        })}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              ) : (
+                                <p className="text-sm text-gray-400">No time records for this period</p>
+                              )}
+                            </div>
+                            {/* Adjustments */}
+                            <div className="flex items-start gap-8">
+                              <div>
+                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bonuses & Deductions</h4>
+                                {emp.adjustments && emp.adjustments.length > 0 ? (
+                                  <div className="space-y-1">
+                                    {emp.adjustments.map((adj) => (
+                                      <div key={adj.id} className="flex items-center gap-3">
+                                        <span className={`text-sm font-semibold ${adj.type === 'BONUS' ? 'text-green-600' : 'text-red-600'}`}>
+                                          {adj.type === 'BONUS' ? '+' : '-'}${adj.amount.toLocaleString()}
+                                        </span>
+                                        <span className="text-xs text-gray-500">{adj.reason}</span>
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); setDeleteAdjustmentId(adj.id); }}
+                                          className="p-0.5 hover:bg-red-50 rounded text-red-400 hover:text-red-600"
+                                          title="Delete"
+                                        >
+                                          <Trash2 className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-400">No adjustments</p>
+                                )}
+                              </div>
+                              {emp.employeeDeduction > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Default Deduction</h4>
+                                  <span className="text-sm font-semibold text-red-600">-${emp.employeeDeduction.toLocaleString()}</span>
+                                </div>
+                              )}
+                              {emp.status !== 'completed' && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); openAdjustmentModal(emp, 'BONUS'); }}
+                                  className="mt-5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
+                                >
+                                  + Add Adjustment
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                   ))}
               </TableBody>
             </Table>
@@ -872,7 +940,7 @@ const Payroll = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
-                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
                           src={record.employee?.profilePhoto}
                           size="sm"
                         />
@@ -938,7 +1006,7 @@ const Payroll = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar
-                          name={`${record.employee?.firstName} ${record.employee?.lastName}`}
+                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
                           src={record.employee?.profilePhoto}
                           size="sm"
                         />

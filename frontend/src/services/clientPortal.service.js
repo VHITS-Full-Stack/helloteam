@@ -103,6 +103,12 @@ const clientPortalService = {
     return response;
   },
 
+  // Add/update payment method
+  addPaymentMethod: async (data) => {
+    const response = await api.post('/client-portal/payment-method', data);
+    return response;
+  },
+
   // Download invoice PDF
   downloadInvoicePdf: async (invoiceId, invoiceNumber) => {
     const token = localStorage.getItem('token');
