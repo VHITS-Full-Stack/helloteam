@@ -35,26 +35,26 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Weekly invoice generation scheduled (Monday, 12:10 AM EST)');
 
-  // OT billing cycle reminder: runs daily at 09:00 UTC
+  // OT billing cycle reminder: runs daily at 9:00 AM EST (14:00 UTC)
   // Notifies clients 3 days before billing cycle ends about unapproved OT
-  cron.schedule('0 9 * * *', async () => {
+  cron.schedule('0 14 * * *', async () => {
     await runOTBillingReminder(io);
   });
-  console.log('[Jobs] OT billing reminder scheduled (daily, 09:00 UTC)');
+  console.log('[Jobs] OT billing reminder scheduled (daily, 9:00 AM EST)');
 
-  // Aggressive OT approval reminder: runs daily at 14:00 UTC (10 AM ET)
+  // Aggressive OT approval reminder: runs daily at 10:00 AM EST (15:00 UTC)
   // Sends urgent notifications to clients with any pending unapproved overtime
-  cron.schedule('0 14 * * *', async () => {
+  cron.schedule('0 15 * * *', async () => {
     await runAggressiveOTReminder(io);
   });
-  console.log('[Jobs] Aggressive OT reminder scheduled (daily, 14:00 UTC)');
+  console.log('[Jobs] Aggressive OT reminder scheduled (daily, 10:00 AM EST)');
 
-  // Payroll deadline reminder: runs daily at 09:30 UTC
+  // Payroll deadline reminder: runs daily at 9:30 AM EST (14:30 UTC)
   // Notifies clients 3 days and 1 day before PayrollPeriod.cutoffDate
-  cron.schedule('30 9 * * *', async () => {
+  cron.schedule('30 14 * * *', async () => {
     await runPayrollDeadlineReminder(io);
   });
-  console.log('[Jobs] Payroll deadline reminder scheduled (daily, 09:30 UTC)');
+  console.log('[Jobs] Payroll deadline reminder scheduled (daily, 9:30 AM EST)');
 
   // Payroll auto-generation: runs on 7th and 21st at midnight EST (05:00 UTC)
   // 7th: creates period for 22nd(prev)-7th, 21st: creates period for 8th-21st

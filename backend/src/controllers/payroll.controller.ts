@@ -1098,52 +1098,95 @@ export const getPayrollExportData = async (
       adjustmentsByEmployee[adj.employeeId].push(adj);
     });
 
-    // Group by employee
+    // Fetch billing rate change history for date-effective rate lookup
+    const rateChangeHistory = employeeIds.length > 0
+      ? await prisma.rateChangeHistory.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            rateType: 'BILLING_RATE',
+          },
+          orderBy: { changeDate: 'asc' },
+        })
+      : [];
+
+    // Build rate timeline per employee: sorted list of { date, rate }
+    const empRateTimeline = new Map<string, { date: Date; rate: number }[]>();
+    for (const change of rateChangeHistory) {
+      const timeline = empRateTimeline.get(change.employeeId) || [];
+      timeline.push({
+        date: new Date(change.changeDate),
+        rate: change.newValue ? Number(change.newValue) : 0,
+      });
+      empRateTimeline.set(change.employeeId, timeline);
+    }
+
+    // Get the current/fallback rate for an employee
+    const getFallbackRate = (record: any): { hourlyRate: number; overtimeRate: number } => {
+      const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
+      const policy = policyMap.get(record.clientId);
+      const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
+      const groupAssignment = record.employee.groupAssignments?.[0];
+      const clientGroupBillingRate = groupAssignment?.groupId
+        ? (clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null) : null;
+      const groupBillingRate = groupAssignment?.group?.billingRate ? Number(groupAssignment.group.billingRate) : null;
+
+      const hr = assignment?.hourlyRate ? Number(assignment.hourlyRate)
+        : employeeBillingRate ? employeeBillingRate
+        : clientGroupBillingRate ? clientGroupBillingRate
+        : groupBillingRate ? groupBillingRate
+        : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
+
+      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+        : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
+      if (otr === 0 && hr > 0) otr = hr * 1.5;
+
+      return { hourlyRate: hr, overtimeRate: otr };
+    };
+
+    // Get effective billing rate for an employee on a specific date
+    const getRateForDate = (empId: string, recordDate: Date, record: any): { hourlyRate: number; overtimeRate: number } => {
+      const timeline = empRateTimeline.get(empId);
+      if (!timeline || timeline.length === 0) {
+        return getFallbackRate(record);
+      }
+
+      // Find the most recent rate change on or before this date
+      let effectiveRate: number | null = null;
+      for (let i = timeline.length - 1; i >= 0; i--) {
+        if (timeline[i].date <= recordDate) {
+          effectiveRate = timeline[i].rate;
+          break;
+        }
+      }
+
+      // If no change before this date, use old value from earliest change
+      if (effectiveRate === null) {
+        const firstChange = rateChangeHistory.find(c => c.employeeId === empId && c.rateType === 'BILLING_RATE');
+        if (firstChange?.oldValue) {
+          effectiveRate = Number(firstChange.oldValue);
+        } else {
+          return getFallbackRate(record);
+        }
+      }
+
+      const hr = effectiveRate || 0;
+      const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
+      const policy = policyMap.get(record.clientId);
+      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+        : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
+      if (otr === 0 && hr > 0) otr = hr * 1.5;
+
+      return { hourlyRate: hr, overtimeRate: otr };
+    };
+
+    // Group by employee and calculate per-record pay with date-effective rates
     const employeeData: Record<string, any> = {};
 
     records.forEach((record) => {
       const empId = record.employeeId;
+      const rates = getRateForDate(empId, new Date(record.date), record);
+
       if (!employeeData[empId]) {
-        // Calculate rate
-        const assignment = assignmentMap.get(
-          `${record.clientId}-${record.employeeId}`,
-        );
-        const policy = policyMap.get(record.clientId);
-        const employeeBillingRate = record.employee.billingRate
-          ? Number(record.employee.billingRate)
-          : null;
-        const groupAssignment = record.employee.groupAssignments?.[0];
-        const clientGroupBillingRate = groupAssignment?.groupId
-          ? (clientGroupRateMap.get(
-              `${record.clientId}-${groupAssignment.groupId}`,
-            ) ?? null)
-          : null;
-        const groupBillingRate = groupAssignment?.group?.billingRate
-          ? Number(groupAssignment.group.billingRate)
-          : null;
-
-        const hourlyRate = assignment?.hourlyRate
-          ? Number(assignment.hourlyRate)
-          : employeeBillingRate
-            ? employeeBillingRate
-            : clientGroupBillingRate
-              ? clientGroupBillingRate
-              : groupBillingRate
-                ? groupBillingRate
-                : policy?.defaultHourlyRate
-                  ? Number(policy.defaultHourlyRate)
-                  : 0;
-
-        let overtimeRate = assignment?.overtimeRate
-          ? Number(assignment.overtimeRate)
-          : policy?.defaultOvertimeRate
-            ? Number(policy.defaultOvertimeRate)
-            : 0;
-
-        if (overtimeRate === 0 && hourlyRate > 0) {
-          overtimeRate = hourlyRate * 1.5;
-        }
-
         employeeData[empId] = {
           employeeId: empId,
           firstName: record.employee.firstName,
@@ -1157,8 +1200,12 @@ export const getPayrollExportData = async (
           overtimeMinutes: 0,
           breakMinutes: 0,
           workDays: 0,
-          hourlyRate,
-          overtimeRate,
+          hourlyRate: rates.hourlyRate,
+          overtimeRate: rates.overtimeRate,
+          _regularPay: 0,
+          _overtimePay: 0,
+          // Track per-rate-period breakdown for CSV split rows
+          _ratePeriods: {} as Record<string, { rate: number; otRate: number; regularMinutes: number; otMinutes: number; workDays: number; regularPay: number; otPay: number; minDate: string; maxDate: string }>,
         };
       }
 
@@ -1171,6 +1218,33 @@ export const getPayrollExportData = async (
       const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
       const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOT);
       const payableRegular = payableMinutes - approvedOT;
+
+      // Calculate pay for this record using its date-effective rate
+      // Total hours × rate (total already includes OT, no separate OT rate)
+      const recTotalHours = payableMinutes / 60;
+      const recPay = Math.round(recTotalHours * rates.hourlyRate * 100) / 100;
+      employeeData[empId]._regularPay += recPay;
+      employeeData[empId]._overtimePay += 0;
+
+      // Track per-rate breakdown
+      const rateKey = `${rates.hourlyRate}`;
+      if (!employeeData[empId]._ratePeriods[rateKey]) {
+        employeeData[empId]._ratePeriods[rateKey] = {
+          rate: rates.hourlyRate, otRate: rates.overtimeRate,
+          regularMinutes: 0, otMinutes: 0, workDays: 0,
+          regularPay: 0, otPay: 0,
+          minDate: '', maxDate: '',
+        };
+      }
+      const rp = employeeData[empId]._ratePeriods[rateKey];
+      rp.regularMinutes += payableMinutes;
+      rp.otMinutes += approvedOT;
+      rp.workDays += 1;
+      rp.regularPay += recPay;
+      rp.otPay += 0;
+      const dateStr = new Date(record.date).toISOString().split('T')[0];
+      if (!rp.minDate || dateStr < rp.minDate) rp.minDate = dateStr;
+      if (!rp.maxDate || dateStr > rp.maxDate) rp.maxDate = dateStr;
 
       employeeData[empId].records.push({
         date: record.date,
@@ -1194,9 +1268,9 @@ export const getPayrollExportData = async (
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
       const breakHours = Math.round((emp.breakMinutes / 60) * 100) / 100;
 
-      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
-      const overtimePay =
-        Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
+      // Use pre-calculated date-effective pay instead of flat rate * hours
+      const regularPay = Math.round(emp._regularPay * 100) / 100;
+      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
 
       const empAdjustments = adjustmentsByEmployee[emp.employeeId] || [];
       const totalBonuses =
@@ -1263,63 +1337,96 @@ export const getPayrollExportData = async (
     };
 
     if (format === "csv") {
-      // Generate CSV with full payroll data
-      const csvHeaders = [
-        "Employee ID",
-        "First Name",
-        "Last Name",
-        "Email",
-        "Client",
-        "Work Days",
-        "Regular Hours",
-        "Overtime Hours",
-        "Total Hours",
-        "Break Hours",
-        "Hourly Rate",
-        "Overtime Rate",
-        "Regular Pay",
-        "Overtime Pay",
-        "Bonuses",
-        "Deductions",
-        "Gross Pay",
-      ];
-
       const escapeCsv = (val: any) => {
         const str = String(val ?? "");
         return str.includes(",") || str.includes('"')
           ? `"${str.replace(/"/g, '""')}"`
           : str;
       };
+      const fmtMoney = (val: number) => `$${val.toFixed(2)}`;
 
-      const csvRows = exportData.map((emp) => [
-        emp.employeeId,
-        escapeCsv(emp.firstName),
-        escapeCsv(emp.lastName),
-        escapeCsv(emp.email),
-        escapeCsv(emp.client),
-        emp.workDays,
-        emp.regularHours,
-        emp.overtimeHours,
-        emp.totalHours,
-        emp.breakHours,
-        emp.hourlyRate,
-        emp.overtimeRate,
-        emp.regularPay,
-        emp.overtimePay,
-        emp.totalBonuses,
-        emp.totalDeductions,
-        emp.grossPay,
-      ]);
+      const lines: string[] = [];
 
-      const csv = [
-        csvHeaders.join(","),
-        ...csvRows.map((row) => row.join(",")),
-      ].join("\n");
+      // Employee table
+      const csvHeaders = [
+        "Employee Name",
+        "Period",
+        "Client",
+        "Work Days",
+        "Total Hours",
+        "OT Hours",
+        "Rate ($/hr)",
+        "Gross Pay",
+      ];
+      lines.push(csvHeaders.join(","));
+
+      const fmtShortDate = (d: string) => {
+        const dt = new Date(d + 'T00:00:00Z');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+      };
+
+      for (const emp of exportData) {
+        const ratePeriods = Object.values(emp._ratePeriods || {}) as any[];
+        const hasMultipleRates = ratePeriods.length > 1;
+
+        if (hasMultipleRates) {
+          for (const rp of ratePeriods) {
+            const totalHrs = Math.round((rp.regularMinutes / 60) * 100) / 100;
+            const otHrs = Math.round((rp.otMinutes / 60) * 100) / 100;
+            const periodLabel = `${fmtShortDate(rp.minDate)} - ${fmtShortDate(rp.maxDate)}`;
+
+            lines.push([
+              escapeCsv(`${emp.firstName} ${emp.lastName}`),
+              escapeCsv(periodLabel),
+              escapeCsv(emp.client),
+              rp.workDays,
+              totalHrs,
+              otHrs > 0 ? otHrs : '-',
+              fmtMoney(rp.rate),
+              fmtMoney(Math.round((rp.regularPay + rp.otPay) * 100) / 100),
+            ].join(","));
+          }
+          lines.push([
+            escapeCsv(`${emp.firstName} ${emp.lastName} - TOTAL`),
+            "",
+            escapeCsv(emp.client),
+            emp.workDays,
+            emp.totalHours,
+            emp.overtimeHours > 0 ? emp.overtimeHours : '-',
+            "",
+            fmtMoney(emp.grossPay),
+          ].join(","));
+        } else {
+          lines.push([
+            escapeCsv(`${emp.firstName} ${emp.lastName}`),
+            "",
+            escapeCsv(emp.client),
+            emp.workDays,
+            emp.totalHours,
+            emp.overtimeHours > 0 ? emp.overtimeHours : '-',
+            fmtMoney(emp.hourlyRate),
+            fmtMoney(emp.grossPay),
+          ].join(","));
+        }
+      }
+
+      lines.push([
+        "TOTAL",
+        "",
+        "",
+        "",
+        totals.totalHours,
+        totals.overtimeHours > 0 ? totals.overtimeHours : '-',
+        "",
+        fmtMoney(totals.totalGrossPay),
+      ].join(","));
+
+      const csv = lines.join("\n");
 
       res.setHeader("Content-Type", "text/csv");
       res.setHeader(
         "Content-Disposition",
-        `attachment; filename=payroll-${periodStart}-${periodEnd}.csv`,
+        `attachment; filename=payroll-report-${periodStart}-to-${periodEnd}.csv`,
       );
       return res.send(csv);
     }
@@ -1432,53 +1539,73 @@ export const getEmployeePayrollSummary = async (
       ]),
     );
 
-    // Group by employee
+    // Fetch billing rate change history for date-effective rate lookup
+    const rateChangeHistory2 = employeeIds.length > 0
+      ? await prisma.rateChangeHistory.findMany({
+          where: { employeeId: { in: employeeIds }, rateType: 'BILLING_RATE' },
+          orderBy: { changeDate: 'asc' },
+        })
+      : [];
+
+    const empRateTimeline2 = new Map<string, { date: Date; rate: number }[]>();
+    for (const change of rateChangeHistory2) {
+      const timeline = empRateTimeline2.get(change.employeeId) || [];
+      timeline.push({ date: new Date(change.changeDate), rate: change.newValue ? Number(change.newValue) : 0 });
+      empRateTimeline2.set(change.employeeId, timeline);
+    }
+
+    const getFallbackRate2 = (record: any): { hourlyRate: number; overtimeRate: number } => {
+      const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
+      const policy = policyMap.get(record.clientId);
+      const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
+      const groupAssignment = record.employee.groupAssignments?.[0];
+      const clientGroupBillingRate = groupAssignment?.groupId
+        ? (clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null) : null;
+      const groupBillingRate = groupAssignment?.group?.billingRate ? Number(groupAssignment.group.billingRate) : null;
+
+      const hr = assignment?.hourlyRate ? Number(assignment.hourlyRate)
+        : employeeBillingRate ? employeeBillingRate
+        : clientGroupBillingRate ? clientGroupBillingRate
+        : groupBillingRate ? groupBillingRate
+        : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
+
+      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+        : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
+      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      return { hourlyRate: hr, overtimeRate: otr };
+    };
+
+    const getRateForDate2 = (empId: string, recordDate: Date, record: any): { hourlyRate: number; overtimeRate: number } => {
+      const timeline = empRateTimeline2.get(empId);
+      if (!timeline || timeline.length === 0) return getFallbackRate2(record);
+
+      let effectiveRate: number | null = null;
+      for (let i = timeline.length - 1; i >= 0; i--) {
+        if (timeline[i].date <= recordDate) { effectiveRate = timeline[i].rate; break; }
+      }
+      if (effectiveRate === null) {
+        const firstChange = rateChangeHistory2.find(c => c.employeeId === empId);
+        if (firstChange?.oldValue) effectiveRate = Number(firstChange.oldValue);
+        else return getFallbackRate2(record);
+      }
+
+      const hr = effectiveRate || 0;
+      const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
+      const policy = policyMap.get(record.clientId);
+      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+        : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
+      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      return { hourlyRate: hr, overtimeRate: otr };
+    };
+
+    // Group by employee with date-effective rates
     const employeeSummary: Record<string, any> = {};
 
     records.forEach((record) => {
       const empId = record.employeeId;
+      const rates = getRateForDate2(empId, new Date(record.date), record);
+
       if (!employeeSummary[empId]) {
-        // Get rates: assignment override > employee billing rate > client-group billing rate > group billing rate > client default
-        const assignment = assignmentMap.get(
-          `${record.clientId}-${record.employeeId}`,
-        );
-        const policy = policyMap.get(record.clientId);
-        const employeeBillingRate = record.employee.billingRate
-          ? Number(record.employee.billingRate)
-          : null;
-        const groupAssignment = record.employee.groupAssignments?.[0];
-        const clientGroupBillingRate = groupAssignment?.groupId
-          ? (clientGroupRateMap.get(
-              `${record.clientId}-${groupAssignment.groupId}`,
-            ) ?? null)
-          : null;
-        const groupBillingRate = groupAssignment?.group?.billingRate
-          ? Number(groupAssignment.group.billingRate)
-          : null;
-
-        const hourlyRate = assignment?.hourlyRate
-          ? Number(assignment.hourlyRate)
-          : employeeBillingRate
-            ? employeeBillingRate
-            : clientGroupBillingRate
-              ? clientGroupBillingRate
-              : groupBillingRate
-                ? groupBillingRate
-                : policy?.defaultHourlyRate
-                  ? Number(policy.defaultHourlyRate)
-                  : 0;
-
-        let overtimeRate = assignment?.overtimeRate
-          ? Number(assignment.overtimeRate)
-          : policy?.defaultOvertimeRate
-            ? Number(policy.defaultOvertimeRate)
-            : 0;
-
-        // If overtime rate is 0, default to 1.5x hourly rate
-        if (overtimeRate === 0 && hourlyRate > 0) {
-          overtimeRate = hourlyRate * 1.5;
-        }
-
         employeeSummary[empId] = {
           employee: record.employee,
           client: record.client,
@@ -1491,15 +1618,16 @@ export const getEmployeePayrollSummary = async (
           approvedDays: 0,
           pendingDays: 0,
           rejectedDays: 0,
-          hourlyRate,
-          overtimeRate,
+          hourlyRate: rates.hourlyRate,
+          overtimeRate: rates.overtimeRate,
+          _regularPay: 0,
+          _overtimePay: 0,
         };
       }
 
       employeeSummary[empId].workDays += 1;
 
       if (record.status === "APPROVED" || record.status === "AUTO_APPROVED") {
-        // Calculate approved OT from the record's own fields
         let approvedOTMinutes = 0;
         if (record.shiftExtensionStatus === "APPROVED") {
           approvedOTMinutes += record.shiftExtensionMinutes || 0;
@@ -1507,14 +1635,14 @@ export const getEmployeePayrollSummary = async (
         if (record.extraTimeStatus === "APPROVED") {
           approvedOTMinutes += record.extraTimeMinutes || 0;
         }
-        const deniedOTMinutes = Math.max(
-          0,
-          (record.overtimeMinutes || 0) - approvedOTMinutes,
-        );
-        const payableMinutes = Math.max(
-          0,
-          (record.totalMinutes || 0) - deniedOTMinutes,
-        );
+        const deniedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
+        const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
+        const payableRegular = payableMinutes - approvedOTMinutes;
+
+        // Calculate per-record pay with date-effective rate
+        // Total hours × rate (total already includes OT, no separate OT rate)
+        employeeSummary[empId]._regularPay += Math.round((payableMinutes / 60) * rates.hourlyRate * 100) / 100;
+        employeeSummary[empId]._overtimePay += 0;
 
         employeeSummary[empId].totalMinutes += payableMinutes;
         employeeSummary[empId].overtimeMinutes += approvedOTMinutes;
@@ -1582,15 +1710,14 @@ export const getEmployeePayrollSummary = async (
           : emp.rejectedDays > 0
             ? "flagged"
             : "ready";
-      // Round hours first, then calculate pay — what you display is what you bill
+      // Round hours first, then use pre-calculated date-effective pay
       const totalHours = Math.round((emp.totalMinutes / 60) * 100) / 100;
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
       const regularHours = Math.round((totalHours - overtimeHours) * 100) / 100;
 
-      // Calculate gross pay from rounded hours
-      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
-      const overtimePay =
-        Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
+      // Use pre-calculated date-effective pay (accounts for mid-period rate changes)
+      const regularPay = Math.round(emp._regularPay * 100) / 100;
+      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
 
       // Apply adjustments (bonuses add, deductions subtract)
       const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
