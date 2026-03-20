@@ -343,7 +343,7 @@ const Profile = () => {
               </Badge>
               <span className="text-sm text-gray-500 flex items-center gap-1">
                 <Globe className="w-4 h-4" />
-                {client?.timezone || 'UTC'}
+                Eastern Time (EST)
               </span>
             </div>
           </div>

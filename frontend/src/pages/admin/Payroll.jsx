@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DollarSign,
@@ -26,6 +26,8 @@ import {
   Minus,
   Trash2,
   X,
+  View,
+  EyeIcon,
 } from "lucide-react";
 import {
   Card,
@@ -68,6 +70,10 @@ const Payroll = () => {
   const [showLockModal, setShowLockModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportData, setReportData] = useState(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportPeriod, setReportPeriod] = useState(null);
   const [selectedPeriod, setSelectedPeriod] = useState(null);
   const [unlockReason, setUnlockReason] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
@@ -1130,7 +1136,32 @@ const Payroll = () => {
                         </Button>
                       </>
                     )}
-                    <Button variant="ghost" size="sm" icon={Download}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      icon={EyeIcon}
+                      onClick={async () => {
+                        const pStart = period.periodStart?.split('T')[0] || period.start;
+                        const pEnd = period.periodEnd?.split('T')[0] || period.end;
+                        setReportPeriod({ start: pStart, end: pEnd });
+                        setShowReportModal(true);
+                        setReportLoading(true);
+                        try {
+                          const res = await payrollService.exportData(pStart, pEnd);
+                          if (res.success) {
+                            setReportData(res.data);
+                          } else {
+                            setError(res.error || 'Failed to load report');
+                            setShowReportModal(false);
+                          }
+                        } catch (err) {
+                          setError(err.message || 'Failed to load report');
+                          setShowReportModal(false);
+                        } finally {
+                          setReportLoading(false);
+                        }
+                      }}
+                    >
                       Report
                     </Button>
                   </div>
@@ -1164,6 +1195,139 @@ const Payroll = () => {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Report Modal */}
+      <Modal
+        isOpen={showReportModal}
+        onClose={() => { setShowReportModal(false); setReportData(null); }}
+        title={`Payroll Report — ${reportPeriod ? formatPeriodLabel(reportPeriod.start, reportPeriod.end) : ''}`}
+        size="xl"
+      >
+        {reportLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : reportData?.employees?.length > 0 ? (
+          <div className="space-y-4">
+            {/* Summary stats */}
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+                <Users className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-sm text-blue-700 font-semibold">{reportData.totals?.totalEmployees || 0} Employees</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+                <Clock className="w-3.5 h-3.5 text-green-500" />
+                <span className="text-sm text-green-700 font-semibold">{reportData.totals?.totalHours || 0}h Total</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
+                <DollarSign className="w-3.5 h-3.5 text-purple-500" />
+                <span className="text-sm text-purple-700 font-semibold">${(reportData.totals?.totalGrossPay || 0).toLocaleString()}</span>
+              </div>
+            </div>
+
+            {/* Employee table */}
+            <div className="overflow-x-auto border border-gray-200 rounded-lg">
+              <table className="w-full">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Employee</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Period</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Client</th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Days</th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Total Hours</th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">OT Hours</th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Rate</th>
+                    <th className="text-right px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Gross Pay</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {reportData.employees.map((emp, idx) => {
+                    const ratePeriods = Object.values(emp._ratePeriods || {});
+                    const hasMultipleRates = ratePeriods.length > 1;
+                    const fmtShort = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+
+                    if (hasMultipleRates) {
+                      return (
+                        <Fragment key={idx}>
+                          {ratePeriods.map((rp, rpIdx) => {
+                            const totalH = Math.round((rp.regularMinutes / 60) * 100) / 100;
+                            const otH = Math.round((rp.otMinutes / 60) * 100) / 100;
+                            return (
+                              <tr key={`${idx}-${rpIdx}`} className="hover:bg-gray-50/50">
+                                <td className="px-3 py-2 text-sm text-gray-900">{emp.firstName} {emp.lastName}</td>
+                                <td className="px-3 py-2 text-xs text-gray-500">{fmtShort(rp.minDate)} - {fmtShort(rp.maxDate)}</td>
+                                <td className="px-3 py-2 text-sm text-gray-600">{emp.client}</td>
+                                <td className="px-3 py-2 text-sm text-center">{rp.workDays}</td>
+                                <td className="px-3 py-2 text-sm text-center">{totalH}</td>
+                                <td className="px-3 py-2 text-sm text-center">{otH > 0 ? <span className="text-orange-600">{otH}</span> : <span className="text-gray-300">-</span>}</td>
+                                <td className="px-3 py-2 text-sm text-center font-medium">${rp.rate}/hr</td>
+                                <td className="px-3 py-2 text-sm text-right font-semibold">${(Math.round((rp.regularPay + rp.otPay) * 100) / 100).toFixed(2)}</td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="bg-gray-50/80 border-b-2 border-gray-200">
+                            <td className="px-3 py-2 text-sm font-semibold text-gray-700" colSpan={3}>{emp.firstName} {emp.lastName} — Total</td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.workDays}</td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.totalHours}</td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.overtimeHours > 0 ? <span className="text-orange-600">{emp.overtimeHours}</span> : '-'}</td>
+                            <td className="px-3 py-2"></td>
+                            <td className="px-3 py-2 text-sm text-right font-bold text-green-700">${emp.grossPay.toFixed(2)}</td>
+                          </tr>
+                        </Fragment>
+                      );
+                    }
+
+                    return (
+                      <tr key={idx} className="hover:bg-gray-50/50">
+                        <td className="px-3 py-2 text-sm text-gray-900">{emp.firstName} {emp.lastName}</td>
+                        <td className="px-3 py-2 text-xs text-gray-400">—</td>
+                        <td className="px-3 py-2 text-sm text-gray-600">{emp.client}</td>
+                        <td className="px-3 py-2 text-sm text-center">{emp.workDays}</td>
+                        <td className="px-3 py-2 text-sm text-center">{emp.totalHours}</td>
+                        <td className="px-3 py-2 text-sm text-center">{emp.overtimeHours > 0 ? <span className="text-orange-600">{emp.overtimeHours}</span> : <span className="text-gray-300">-</span>}</td>
+                        <td className="px-3 py-2 text-sm text-center font-medium">${emp.hourlyRate}/hr</td>
+                        <td className="px-3 py-2 text-sm text-right font-semibold text-green-700">${emp.grossPay.toFixed(2)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-gray-100 border-t-2 border-gray-300">
+                    <td className="px-3 py-2.5 text-sm font-bold text-gray-900" colSpan={4}>GRAND TOTAL</td>
+                    <td className="px-3 py-2.5 text-sm text-center font-bold">{reportData.totals?.totalHours}</td>
+                    <td className="px-3 py-2.5 text-sm text-center font-bold">{reportData.totals?.overtimeHours > 0 ? <span className="text-orange-600">{reportData.totals.overtimeHours}</span> : '-'}</td>
+                    <td className="px-3 py-2.5"></td>
+                    <td className="px-3 py-2.5 text-sm text-right font-bold text-green-700">${(reportData.totals?.totalGrossPay || 0).toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Download button */}
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Download}
+                onClick={async () => {
+                  try {
+                    await payrollService.downloadCsv(reportPeriod.start, reportPeriod.end);
+                  } catch (err) {
+                    setError(err.message || 'Failed to download');
+                  }
+                }}
+              >
+                Download CSV
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <FileText className="w-8 h-8 mx-auto mb-2 text-gray-300" />
+            <p>No payroll data for this period</p>
+          </div>
+        )}
       </Modal>
 
       {/* Lock Modal */}

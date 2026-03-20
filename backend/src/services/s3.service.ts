@@ -54,7 +54,7 @@ const saveLocally = (file: Express.Multer.File, folder: string): { url: string; 
   fs.writeFileSync(filePath, file.buffer);
 
   const key = `${folder}/${uniqueFilename}`;
-  const url = `${API_BASE_URL}/${key}`;
+  const url = `${API_BASE_URL}/uploads/${key}`;
 
   return { url, key };
 };

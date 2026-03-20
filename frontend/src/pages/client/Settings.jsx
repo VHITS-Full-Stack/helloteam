@@ -23,14 +23,14 @@ const Settings = () => {
 
   const [policies, setPolicies] = useState({
     allowPaidLeave: false,
-    paidLeaveType: null,
+    paidLeaveEntitlementType: null,
     annualPaidLeaveDays: 0,
     allowUnpaidLeave: true,
     requireTwoWeeksNotice: true,
     allowOvertime: true,
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
-    autoApproveMinutes: 1440,
+    autoApproveMinutes: 15,
   });
 
   const [assignedEmployees, setAssignedEmployees] = useState([]);
@@ -265,7 +265,7 @@ const Settings = () => {
                     <span className="text-gray-600">Timezone</span>
                   </div>
                   <span className="font-medium text-gray-900">
-                    {timezones.find(tz => tz.value === companyInfo.timezone)?.label || companyInfo.timezone}
+                    Eastern Time (EST)
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
@@ -334,182 +334,99 @@ const Settings = () => {
             <Card>
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Workforce Policies</h3>
               <div className="space-y-6">
-                {/* Leave Policies */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Leave Policies</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-gray-900">Allow Paid Leave</p>
-                        <p className="text-sm text-gray-500">Enable paid time off for employees</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={policies.allowPaidLeave}
-                          onChange={(e) => handlePolicyChange('allowPaidLeave', e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                      </label>
-                    </div>
-
-                    {policies.allowPaidLeave && (
-                      <>
-                        <div className="p-4 bg-gray-50 rounded-xl">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Paid Leave Type
-                          </label>
-                          <div className="relative">
-                            <select
-                              className="input appearance-none pr-9"
-                              value={policies.paidLeaveType || ''}
-                              onChange={(e) => handlePolicyChange('paidLeaveType', e.target.value || null)}
-                            >
-                              <option value="">Select type</option>
-                              <option value="fixed">Fixed Annual Days</option>
-                              <option value="fixed-half-yearly">Fixed Half-Yearly</option>
-                              <option value="accrued">Accrued Monthly</option>
-                              <option value="milestone">Milestone Based</option>
-                            </select>
-                            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                {/* Dynamic policy sections */}
+                {[
+                  {
+                    title: 'Leave Policies',
+                    toggles: [
+                      { key: 'allowPaidLeave', label: 'Allow Paid Leave', desc: 'Enable paid time off for employees' },
+                      { key: 'allowUnpaidLeave', label: 'Allow Unpaid Leave', desc: 'Allow employees to request unpaid time off', showWhen: true },
+                      { key: 'requireTwoWeeksNotice', label: 'Require Two Weeks Notice', desc: 'Require advance notice for leave requests', showWhen: true },
+                    ],
+                  },
+                  {
+                    title: 'Overtime Policies',
+                    toggles: [
+                      { key: 'allowOvertime', label: 'Allow Overtime', desc: 'Allow employees to work overtime hours' },
+                      { key: 'overtimeRequiresApproval', label: 'Overtime Requires Approval', desc: 'Overtime must be approved before payment', showWhen: () => policies.allowOvertime },
+                    ],
+                  },
+                  {
+                    title: 'Timesheet Approval',
+                    toggles: [
+                      { key: 'autoApproveTimesheets', label: 'Auto-Approve Timesheets', desc: 'Automatically approve scheduled timesheets after a set time (overtime timesheets are never auto-approved)' },
+                    ],
+                  },
+                ].map((section) => (
+                  <div key={section.title}>
+                    <h4 className="font-medium text-gray-900 mb-4">{section.title}</h4>
+                    <div className="space-y-4">
+                      {section.toggles.map((toggle) => {
+                        const visible = toggle.showWhen === undefined ? true : typeof toggle.showWhen === 'function' ? toggle.showWhen() : toggle.showWhen;
+                        if (!visible) return null;
+                        return (
+                          <div key={toggle.key} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                            <div>
+                              <p className="font-medium text-gray-900">{toggle.label}</p>
+                              <p className="text-sm text-gray-500">{toggle.desc}</p>
+                            </div>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                              <input
+                                type="checkbox"
+                                className="sr-only peer"
+                                checked={policies[toggle.key] || false}
+                                onChange={(e) => handlePolicyChange(toggle.key, e.target.checked)}
+                              />
+                              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
+                            </label>
                           </div>
-                        </div>
+                        );
+                      })}
 
+                      {/* Conditional sub-fields for paid leave */}
+                      {section.title === 'Leave Policies' && policies.allowPaidLeave && (
+                        <>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Paid Leave Type</label>
+                            <div className="relative">
+                              <select
+                                className="input appearance-none pr-9"
+                                value={policies.paidLeaveEntitlementType || ''}
+                                onChange={(e) => handlePolicyChange('paidLeaveEntitlementType', e.target.value || null)}
+                              >
+                                <option value="">Select type</option>
+                                <option value="FIXED">Fixed Annual Days</option>
+                                <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly</option>
+                                <option value="ACCRUED">Accrued Monthly</option>
+                                <option value="MILESTONE">Milestone Based</option>
+                              </select>
+                              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                            </div>
+                          </div>
+                          <div className="p-4 bg-gray-50 rounded-xl">
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Annual Paid Leave Days</label>
+                            <div className="flex items-center gap-2">
+                              <input type="number" className="input w-24" value={policies.annualPaidLeaveDays} onChange={(e) => handlePolicyChange('annualPaidLeaveDays', parseInt(e.target.value) || 0)} min={0} />
+                              <span className="text-gray-500">days per year</span>
+                            </div>
+                          </div>
+                        </>
+                      )}
+
+                      {/* Conditional sub-fields for auto-approve */}
+                      {section.title === 'Timesheet Approval' && policies.autoApproveTimesheets && (
                         <div className="p-4 bg-gray-50 rounded-xl">
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Annual Paid Leave Days
-                          </label>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Auto-Approve After</label>
                           <div className="flex items-center gap-2">
-                            <input
-                              type="number"
-                              className="input w-24"
-                              value={policies.annualPaidLeaveDays}
-                              onChange={(e) => handlePolicyChange('annualPaidLeaveDays', parseInt(e.target.value) || 0)}
-                              min={0}
-                            />
-                            <span className="text-gray-500">days per year</span>
+                            <input type="number" className="input w-24" value={policies.autoApproveMinutes} onChange={(e) => handlePolicyChange('autoApproveMinutes', parseInt(e.target.value) || 1440)} min={1} />
+                            <span className="text-gray-500">minutes</span>
                           </div>
+                          <p className="text-xs text-gray-400 mt-2">Scheduled timesheets will be automatically approved after this many minutes past the shift end time. Default: 1440 minutes (24 hours).</p>
                         </div>
-                      </>
-                    )}
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-gray-900">Allow Unpaid Leave</p>
-                        <p className="text-sm text-gray-500">Allow employees to request unpaid time off</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={policies.allowUnpaidLeave}
-                          onChange={(e) => handlePolicyChange('allowUnpaidLeave', e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                      </label>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-gray-900">Require Two Weeks Notice</p>
-                        <p className="text-sm text-gray-500">Require advance notice for leave requests</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={policies.requireTwoWeeksNotice}
-                          onChange={(e) => handlePolicyChange('requireTwoWeeksNotice', e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                      </label>
+                      )}
                     </div>
                   </div>
-                </div>
-
-                {/* Overtime Policies */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Overtime Policies</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-gray-900">Allow Overtime</p>
-                        <p className="text-sm text-gray-500">Allow employees to work overtime hours</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={policies.allowOvertime}
-                          onChange={(e) => handlePolicyChange('allowOvertime', e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                      </label>
-                    </div>
-
-                    {policies.allowOvertime && (
-                      <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                        <div>
-                          <p className="font-medium text-gray-900">Overtime Requires Approval</p>
-                          <p className="text-sm text-gray-500">Overtime must be approved before payment</p>
-                        </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            className="sr-only peer"
-                            checked={policies.overtimeRequiresApproval}
-                            onChange={(e) => handlePolicyChange('overtimeRequiresApproval', e.target.checked)}
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                        </label>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Timesheet Approval */}
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-4">Timesheet Approval</h4>
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
-                      <div>
-                        <p className="font-medium text-gray-900">Auto-Approve Timesheets</p>
-                        <p className="text-sm text-gray-500">Automatically approve scheduled timesheets after a set time (overtime timesheets are never auto-approved)</p>
-                      </div>
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="sr-only peer"
-                          checked={policies.autoApproveTimesheets}
-                          onChange={(e) => handlePolicyChange('autoApproveTimesheets', e.target.checked)}
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary" />
-                      </label>
-                    </div>
-
-                    {policies.autoApproveTimesheets && (
-                      <div className="p-4 bg-gray-50 rounded-xl">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Auto-Approve After
-                        </label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            className="input w-24"
-                            value={policies.autoApproveMinutes}
-                            onChange={(e) => handlePolicyChange('autoApproveMinutes', parseInt(e.target.value) || 1440)}
-                            min={1}
-                          />
-                          <span className="text-gray-500">minutes</span>
-                        </div>
-                        <p className="text-xs text-gray-400 mt-2">
-                          Scheduled timesheets will be automatically approved after this many minutes past the shift end time. Default: 1440 minutes (24 hours).
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                ))}
               </div>
             </Card>
           )}

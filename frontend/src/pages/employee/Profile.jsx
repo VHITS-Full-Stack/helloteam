@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import authService from '../../services/auth.service';
 
 const Profile = () => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, refreshUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState('personal');
   const [showPassword, setShowPassword] = useState(false);
@@ -15,6 +15,7 @@ const Profile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
   const fileInputRef = useRef(null);
 
   // Profile data - initialized from auth context (no extra API call needed)
@@ -222,7 +223,6 @@ const Profile = () => {
 
       if (response.success) {
         setSuccess('Profile photo updated successfully');
-        // Update local profile state with new photo URL
         setProfile(prev => ({
           ...prev,
           employee: {
@@ -230,6 +230,7 @@ const Profile = () => {
             profilePhoto: response.data.profilePhoto,
           },
         }));
+        refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(response.error || 'Failed to upload photo');
@@ -248,17 +249,13 @@ const Profile = () => {
   };
 
   const handlePhotoDelete = async () => {
-    if (!window.confirm('Are you sure you want to delete your profile photo?')) {
-      return;
-    }
-
+    setShowDeletePhotoModal(false);
     try {
       setUploadingPhoto(true);
       const response = await authService.deleteProfilePhoto();
 
       if (response.success) {
         setSuccess('Profile photo deleted successfully');
-        // Update local profile state
         setProfile(prev => ({
           ...prev,
           employee: {
@@ -266,6 +263,7 @@ const Profile = () => {
             profilePhoto: null,
           },
         }));
+        refreshUser();
         setTimeout(() => setSuccess(''), 3000);
       } else {
         setError(response.error || 'Failed to delete photo');
@@ -347,29 +345,24 @@ const Profile = () => {
               <Avatar name={fullName} size="xl" />
             )}
 
-            {/* Upload/Change button */}
-            <button
-              onClick={handlePhotoSelect}
-              disabled={uploadingPhoto}
-              className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
-              title={employee?.profilePhoto ? 'Change photo' : 'Upload photo'}
-            >
-              {uploadingPhoto ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Camera className="w-4 h-4" />
-              )}
-            </button>
-
-            {/* Delete button (only show if photo exists) */}
-            {employee?.profilePhoto && (
+            {/* Camera when no photo, Delete when photo exists */}
+            {employee?.profilePhoto ? (
               <button
-                onClick={handlePhotoDelete}
+                onClick={() => setShowDeletePhotoModal(true)}
                 disabled={uploadingPhoto}
-                className="absolute bottom-0 left-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
+                className="absolute bottom-0 right-0 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors disabled:opacity-50"
                 title="Delete photo"
               >
-                <Trash2 className="w-4 h-4" />
+                {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            ) : (
+              <button
+                onClick={handlePhotoSelect}
+                disabled={uploadingPhoto}
+                className="absolute bottom-0 right-0 p-2 bg-primary text-white rounded-full shadow-lg hover:bg-primary-dark transition-colors disabled:opacity-50"
+                title="Upload photo"
+              >
+                {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               </button>
             )}
           </div>
@@ -742,6 +735,19 @@ const Profile = () => {
               </div>
             </div>
           </Card>
+        </div>
+      )}
+      {/* Delete Photo Confirmation Modal */}
+      {showDeletePhotoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowDeletePhotoModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Profile Photo</h3>
+            <p className="text-sm text-gray-500 mb-5">Are you sure you want to delete your profile photo? This action cannot be undone.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setShowDeletePhotoModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+              <button onClick={handlePhotoDelete} className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors">Delete</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
