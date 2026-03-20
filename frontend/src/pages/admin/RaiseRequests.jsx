@@ -17,6 +17,8 @@ const RaiseRequests = () => {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [changePayRate, setChangePayRate] = useState(false);
+  const [newPayRate, setNewPayRate] = useState("");
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -71,6 +73,8 @@ const RaiseRequests = () => {
 
   const openApproveModal = (request) => {
     setSelectedRequest(request);
+    setChangePayRate(false);
+    setNewPayRate("");
     setShowApproveModal(true);
   };
 
@@ -78,7 +82,11 @@ const RaiseRequests = () => {
     if (!selectedRequest) return;
     try {
       setActionLoading(selectedRequest.id);
-      const response = await adminPortalService.approveRaiseRequest(selectedRequest.id);
+      const payload = {};
+      if (selectedRequest.type === "RAISE" && changePayRate && newPayRate !== "") {
+        payload.newPayRate = parseFloat(newPayRate);
+      }
+      const response = await adminPortalService.approveRaiseRequest(selectedRequest.id, payload);
       if (response.success) {
         setShowApproveModal(false);
         setSelectedRequest(null);
@@ -465,7 +473,7 @@ const RaiseRequests = () => {
               {selectedRequest.type === "BONUS" ? (
                 <>Approve <span className="font-semibold text-amber-700">${selectedRequest.amount?.toFixed(2)}</span> bonus for </>
               ) : (
-                <>Approve bill rate change to <span className="font-semibold text-primary-700">${selectedRequest.billRate?.toFixed(2)}/hr</span> for </>
+                <>Approve bill rate change to <span className="font-semibold text-primary-700">${selectedRequest.billRate?.toFixed(2)}</span> for </>
               )}
               <span className="font-semibold">{selectedRequest.employee.firstName} {selectedRequest.employee.lastName}</span> from {selectedRequest.client.companyName}?
             </p>
@@ -473,7 +481,54 @@ const RaiseRequests = () => {
               <p className="text-xs text-gray-400 mb-4">This will add a bonus to the employee's payroll.</p>
             )}
             {selectedRequest.type === "RAISE" && (
-              <p className="text-xs text-gray-400 mb-4">This will update the employee's billing rate and create a rate change history entry.</p>
+              <div className="mb-4 space-y-3">
+                <p className="text-xs text-gray-400">This will update the employee's billing rate and create a rate change history entry.</p>
+                <div>
+                  <label className="text-sm font-medium text-gray-700">Do you want to change the pay rate?</label>
+                  <div className="flex items-center gap-4 mt-1.5">
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="changePayRate"
+                        checked={!changePayRate}
+                        onChange={() => { setChangePayRate(false); setNewPayRate(""); }}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm text-gray-600">No</span>
+                    </label>
+                    <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="changePayRate"
+                        checked={changePayRate}
+                        onChange={() => setChangePayRate(true)}
+                        className="accent-primary"
+                      />
+                      <span className="text-sm text-gray-600">Yes</span>
+                    </label>
+                  </div>
+                </div>
+                {changePayRate && (
+                  <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-500">Current Pay Rate:</span>
+                      <span className="font-semibold text-gray-700">${selectedRequest.currentPayRate != null ? selectedRequest.currentPayRate.toFixed(2) : "0.00"}/hr</span>
+                    </div>
+                    <div>
+                      <label className="text-sm text-gray-500">New Pay Rate ($/hr)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={newPayRate}
+                        onChange={(e) => setNewPayRate(e.target.value)}
+                        placeholder="Enter new pay rate"
+                        className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
             <div className="flex justify-end gap-3">
               <button onClick={() => setShowApproveModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>

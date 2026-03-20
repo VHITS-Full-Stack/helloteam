@@ -1811,7 +1811,7 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
   try {
     const { raiseId } = req.params;
     const userId = req.user?.userId;
-    const { adminNotes } = req.body;
+    const { adminNotes, newPayRate } = req.body;
 
     const request = await prisma.clientRequest.findUnique({
       where: { id: raiseId },
@@ -1849,8 +1849,8 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
 
       res.json({ success: true, message: 'Bonus approved and added to payroll' });
     } else {
-      // Approve raise — update rates
-      const newPayRate = Number(request.payRate);
+      // Approve raise — update rates (admin can override pay rate)
+      const finalPayRate = newPayRate != null ? Number(newPayRate) : Number(request.payRate);
       const newBillRate = Number(request.billRate);
 
       const clientEmployee = await prisma.clientEmployee.findFirst({
@@ -1872,7 +1872,7 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
 
         await tx.employee.update({
           where: { id: request.employeeId },
-          data: { billingRate: newBillRate, payableRate: newPayRate },
+          data: { billingRate: newBillRate, payableRate: finalPayRate },
         });
 
         const changeDate = request.effectiveDate || new Date();
@@ -1885,11 +1885,11 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
             },
           });
         }
-        if (newPayRate !== oldPayableRate) {
+        if (finalPayRate !== oldPayableRate) {
           await tx.rateChangeHistory.create({
             data: {
               employeeId: request.employeeId, clientId: request.clientId, changedBy: userId!,
-              changeDate, rateType: 'PAYABLE_RATE', oldValue: oldPayableRate, newValue: newPayRate,
+              changeDate, rateType: 'PAYABLE_RATE', oldValue: oldPayableRate, newValue: finalPayRate,
               source: 'CLIENT_RAISE_REQUEST', notes: `Raise approved — requested by ${request.client.companyName}`,
             },
           });

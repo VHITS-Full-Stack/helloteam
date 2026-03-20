@@ -91,8 +91,8 @@ const adminPortalService = {
     return response;
   },
 
-  approveRaiseRequest: async (raiseId, adminNotes) => {
-    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, { adminNotes });
+  approveRaiseRequest: async (raiseId, data = {}) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, data);
     return response;
   },
 

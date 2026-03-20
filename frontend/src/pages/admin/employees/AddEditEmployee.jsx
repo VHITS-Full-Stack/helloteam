@@ -217,28 +217,32 @@ const AddEmployee = () => {
 
           {/* Rates & Deduction */}
           <div>
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Rates & Deduction</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">{isEdit ? 'Deduction' : 'Rates & Deduction'}</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input
-                label="Payable Rate ($/hr)"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="e.g. 25.00"
-                value={formData.payableRate}
-                onChange={(e) => setFormData({ ...formData, payableRate: e.target.value })}
-                required
-              />
-              <Input
-                label="Billing Rate ($/hr)"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="e.g. 45.00"
-                value={formData.billingRate}
-                onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
-                required
-              />
+              {!isEdit && (
+                <Input
+                  label="Payable Rate ($/hr)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 25.00"
+                  value={formData.payableRate}
+                  onChange={(e) => setFormData({ ...formData, payableRate: e.target.value })}
+                  required
+                />
+              )}
+              {!isEdit && (
+                <Input
+                  label="Billing Rate ($/hr)"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 45.00"
+                  value={formData.billingRate}
+                  onChange={(e) => setFormData({ ...formData, billingRate: e.target.value })}
+                  required
+                />
+              )}
               <Input
                 label="Deduction ($)"
                 type="number"
