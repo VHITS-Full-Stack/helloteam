@@ -555,8 +555,8 @@ export const generateWeeklyInvoicesForWeek = async (
     if (clientId) {
       clientWhere.id = clientId;
     } else if (cronMode) {
-      // Cron job: only WEEKLY/BI_WEEKLY agreement clients
-      clientWhere.agreementType = { in: ['WEEKLY', 'BI_WEEKLY'] };
+      // Cron job: only WEEKLY agreement clients (BI_WEEKLY handled by separate bi-weekly job)
+      clientWhere.agreementType = 'WEEKLY';
     }
 
     const clients = await prisma.client.findMany({
@@ -573,11 +573,6 @@ export const generateWeeklyInvoicesForWeek = async (
 
     for (const client of clients) {
       try {
-        // BI_WEEKLY clients only generate on even ISO week numbers
-        if (client.agreementType === 'BI_WEEKLY' && week % 2 !== 0) {
-          console.log(`[Invoice] Skipping bi-weekly client ${client.companyName} on odd week ${week}`);
-          continue;
-        }
 
         const weekStr = String(week).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
@@ -612,11 +607,12 @@ export const generateWeeklyInvoicesForWeek = async (
 };
 
 /**
- * Weekly cron handler: generates invoices for the previous week (Mon–Sun) for WEEKLY and BI_WEEKLY clients.
+ * Weekly cron handler: runs every Wednesday, generates invoices for the previous week (Mon–Sun)
+ * for WEEKLY agreement clients only.
  */
 export const runWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => {
   const now = new Date();
-  // Get previous week's Monday
+  // Get previous week's Monday (Wednesday - 9 days = previous Monday)
   const prevWeekDate = new Date(now);
   prevWeekDate.setUTCDate(now.getUTCDate() - 7);
   const monday = getMondayOfWeek(prevWeekDate);
@@ -629,7 +625,8 @@ export const runWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => 
 };
 
 /**
- * Monthly cron handler: generates invoices for the previous month for MONTHLY clients.
+ * Monthly cron handler: runs on the 3rd of every month, generates invoices for the
+ * previous full month (1st–end) for MONTHLY agreement clients.
  */
 export const runMonthlyInvoiceGeneration = async (io?: Server): Promise<void> => {
   const now = new Date();
@@ -640,6 +637,122 @@ export const runMonthlyInvoiceGeneration = async (io?: Server): Promise<void> =>
   console.log(`[Invoice] Starting monthly invoice generation for ${year}-${String(month).padStart(2, '0')}`);
   const result = await generateInvoicesForPeriod(year, month, io, undefined, true);
   console.log(`[Invoice] Monthly completed: ${result.generated} invoices generated, ${result.errors.length} errors`);
+};
+
+/**
+ * Bi-weekly invoice generation for a specific half-month period.
+ * half=1: period is 1st–15th; half=2: period is 16th–end of month.
+ */
+export const generateBiWeeklyInvoicesForPeriod = async (
+  year: number,
+  month: number, // 1-indexed
+  half: 1 | 2,
+  io?: Server,
+  clientId?: string,
+  cronMode: boolean = false
+): Promise<{ generated: number; errors: string[] }> => {
+  const errors: string[] = [];
+  let generated = 0;
+
+  try {
+    let periodStart: Date;
+    let periodEnd: Date;
+
+    if (half === 1) {
+      // 1st – 15th
+      periodStart = new Date(Date.UTC(year, month - 1, 1));
+      periodEnd = new Date(Date.UTC(year, month - 1, 15));
+    } else {
+      // 16th – last day of month
+      periodStart = new Date(Date.UTC(year, month - 1, 16));
+      periodEnd = new Date(Date.UTC(year, month, 0)); // last day of month
+    }
+
+    const clientWhere: any = {
+      user: { status: 'ACTIVE' },
+    };
+    if (clientId) {
+      clientWhere.id = clientId;
+    } else {
+      // Always filter to BI_WEEKLY clients — generating half-month invoices for other types is wrong
+      clientWhere.agreementType = 'BI_WEEKLY';
+    }
+
+    const clients = await prisma.client.findMany({
+      where: clientWhere,
+      include: {
+        clientPolicies: true,
+        user: { select: { id: true, email: true } },
+        employees: {
+          where: { isActive: true },
+          select: { employeeId: true, hourlyRate: true, overtimeRate: true },
+        },
+      },
+    });
+
+    for (const client of clients) {
+      try {
+        const monthStr = String(month).padStart(2, '0');
+        const clientPrefix = client.id.substring(0, 6).toUpperCase();
+        const invoiceNumber = `INV-${year}-${monthStr}-H${half}-${clientPrefix}`;
+
+        const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
+        const dueDate = new Date(periodEnd);
+        dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+        const success = await generateInvoiceForClient(
+          client as any,
+          periodStart,
+          periodEnd,
+          dueDate,
+          invoiceNumber,
+          io,
+        );
+        if (success) generated++;
+      } catch (clientError: any) {
+        const errMsg = `Failed to generate bi-weekly invoice for client ${client.companyName}: ${clientError.message}`;
+        console.error(`[Invoice] ${errMsg}`);
+        errors.push(errMsg);
+      }
+    }
+  } catch (error) {
+    console.error('[Invoice] Bi-weekly job failed:', error);
+    errors.push(`Job failed: ${(error as Error).message}`);
+  }
+
+  return { generated, errors };
+};
+
+/**
+ * Bi-weekly cron handler: runs on the 3rd and 17th of every month.
+ * - 17th: generates invoices for 1st–15th of current month
+ * - 3rd: generates invoices for 16th–end of previous month
+ */
+export const runBiWeeklyInvoiceGeneration = async (io?: Server): Promise<void> => {
+  const now = new Date();
+  const dayOfMonth = now.getUTCDate();
+
+  let year: number;
+  let month: number; // 1-indexed
+  let half: 1 | 2;
+
+  if (dayOfMonth >= 15 && dayOfMonth <= 19) {
+    // Running on 17th: generate for 1st–15th of current month
+    year = now.getUTCFullYear();
+    month = now.getUTCMonth() + 1; // 1-indexed
+    half = 1;
+  } else {
+    // Running on 3rd: generate for 16th–end of previous month
+    const prevMonth = new Date(now);
+    prevMonth.setUTCMonth(prevMonth.getUTCMonth() - 1);
+    year = prevMonth.getUTCFullYear();
+    month = prevMonth.getUTCMonth() + 1; // 1-indexed
+    half = 2;
+  }
+
+  console.log(`[Invoice] Starting bi-weekly invoice generation for ${year}-${String(month).padStart(2, '0')} half ${half}`);
+  const result = await generateBiWeeklyInvoicesForPeriod(year, month, half, io, undefined, true);
+  console.log(`[Invoice] Bi-weekly completed: ${result.generated} invoices generated, ${result.errors.length} errors`);
 };
 
 // ============================================
@@ -944,6 +1057,60 @@ export const previewWeeklyInvoicesForWeek = async (
     const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
 
     const preview = await previewInvoiceForClient(client as any, monday, sunday, invoiceNumber);
+    if (preview) previews.push(preview);
+  }
+  return previews;
+};
+
+/**
+ * Preview bi-weekly invoice generation (dry run).
+ */
+export const previewBiWeeklyInvoicesForPeriod = async (
+  year: number,
+  month: number,
+  half: 1 | 2,
+  clientId?: string,
+): Promise<InvoicePreviewItem[]> => {
+  let periodStart: Date;
+  let periodEnd: Date;
+
+  if (half === 1) {
+    periodStart = new Date(Date.UTC(year, month - 1, 1));
+    periodEnd = new Date(Date.UTC(year, month - 1, 15));
+  } else {
+    periodStart = new Date(Date.UTC(year, month - 1, 16));
+    periodEnd = new Date(Date.UTC(year, month, 0));
+  }
+
+  const clientWhere: any = {
+    user: { status: 'ACTIVE' },
+  };
+  if (clientId) {
+    clientWhere.id = clientId;
+  } else {
+    // Only preview BI_WEEKLY clients for half-month periods
+    clientWhere.agreementType = 'BI_WEEKLY';
+  }
+
+  const clients = await prisma.client.findMany({
+    where: clientWhere,
+    include: {
+      clientPolicies: true,
+      user: { select: { id: true, email: true } },
+      employees: {
+        where: { isActive: true },
+        select: { employeeId: true, hourlyRate: true, overtimeRate: true },
+      },
+    },
+  });
+
+  const previews: InvoicePreviewItem[] = [];
+  for (const client of clients) {
+    const monthStr = String(month).padStart(2, '0');
+    const clientPrefix = client.id.substring(0, 6).toUpperCase();
+    const invoiceNumber = `INV-${year}-${monthStr}-H${half}-${clientPrefix}`;
+
+    const preview = await previewInvoiceForClient(client as any, periodStart, periodEnd, invoiceNumber);
     if (preview) previews.push(preview);
   }
   return previews;

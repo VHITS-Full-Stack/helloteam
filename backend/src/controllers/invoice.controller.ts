@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
-import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek } from '../jobs/invoiceGeneration.job';
+import { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, generateBiWeeklyInvoicesForPeriod, previewInvoicesForPeriod, previewWeeklyInvoicesForWeek, previewBiWeeklyInvoicesForPeriod } from '../jobs/invoiceGeneration.job';
 import { getISOWeekNumber } from '../utils/timezone';
 import { sendInvoiceEmail } from '../services/email.service';
 import { createNotification } from './notification.controller';
@@ -612,7 +612,7 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
 // Preview: dry-run invoice generation to show what would be created
 export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, frequency = 'monthly', clientId } = req.body;
+    const { year, month, week, half, frequency = 'monthly', clientId } = req.body;
 
     let preview;
     if (frequency === 'weekly') {
@@ -621,6 +621,12 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
       preview = await previewWeeklyInvoicesForWeek(year, week, clientId);
+    } else if (frequency === 'bi-weekly') {
+      if (!year || !month || month < 1 || month > 12 || !half || (half !== 1 && half !== 2)) {
+        res.status(400).json({ success: false, error: 'Valid year, month (1-12), and half (1 or 2) are required' });
+        return;
+      }
+      preview = await previewBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, clientId);
     } else {
       if (!year || !month || month < 1 || month > 12) {
         res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
@@ -652,7 +658,7 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
 // Supports both monthly (year + month) and weekly (year + week) frequency
 export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, frequency = 'monthly', clientId } = req.body;
+    const { year, month, week, half, frequency = 'monthly', clientId } = req.body;
     const io = req.app.get('io');
 
     if (frequency === 'weekly') {
@@ -676,6 +682,27 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
       res.json({
         success: true,
         message: `Weekly invoice generation completed: ${result.generated} invoices generated`,
+        data: result,
+      });
+    } else if (frequency === 'bi-weekly') {
+      // Bi-weekly invoice generation (half-month periods)
+      if (!year || !month || month < 1 || month > 12 || !half || (half !== 1 && half !== 2)) {
+        res.status(400).json({ success: false, error: 'Valid year, month (1-12), and half (1 or 2) are required for bi-weekly generation' });
+        return;
+      }
+
+      const now = new Date();
+      const requestedDate = new Date(year, month - 1, half === 1 ? 1 : 16);
+      if (requestedDate > now) {
+        res.status(400).json({ success: false, error: 'Cannot generate invoices for future periods' });
+        return;
+      }
+
+      const result = await generateBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, io, clientId);
+
+      res.json({
+        success: true,
+        message: `Bi-weekly invoice generation completed: ${result.generated} invoices generated`,
         data: result,
       });
     } else {

@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { runAutoApproval } from './autoApproval.job';
-import { runMonthlyInvoiceGeneration, runWeeklyInvoiceGeneration } from './invoiceGeneration.job';
+import { runMonthlyInvoiceGeneration, runWeeklyInvoiceGeneration, runBiWeeklyInvoiceGeneration } from './invoiceGeneration.job';
 import { runShiftEndJob } from './shiftEnd.job';
 import { runOTBillingReminder } from './otBillingReminder.job';
 import { runAggressiveOTReminder } from './aggressiveOTReminder.job';
@@ -23,17 +23,26 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Auto-approval job scheduled (every 5 minutes)');
 
-  // Monthly invoice generation: runs on the 1st of every month at 12:05 AM EST (05:05 UTC)
-  cron.schedule('5 5 1 * *', async () => {
+  // Monthly invoice generation: runs on the 3rd of every month at 12:05 AM EST (05:05 UTC)
+  // Generates invoices for previous month (1st-end) for MONTHLY clients
+  cron.schedule('5 5 3 * *', async () => {
     await runMonthlyInvoiceGeneration(io);
   });
-  console.log('[Jobs] Monthly invoice generation scheduled (1st of month, 12:05 AM EST)');
+  console.log('[Jobs] Monthly invoice generation scheduled (3rd of month, 12:05 AM EST)');
 
-  // Weekly invoice generation: runs every Monday at 12:10 AM EST (05:10 UTC)
-  cron.schedule('10 5 * * 1', async () => {
+  // Weekly invoice generation: runs every Wednesday at 12:10 AM EST (05:10 UTC)
+  // Generates invoices for previous week (Mon-Sun) for WEEKLY clients
+  cron.schedule('10 5 * * 3', async () => {
     await runWeeklyInvoiceGeneration(io);
   });
-  console.log('[Jobs] Weekly invoice generation scheduled (Monday, 12:10 AM EST)');
+  console.log('[Jobs] Weekly invoice generation scheduled (Wednesday, 12:10 AM EST)');
+
+  // Bi-weekly invoice generation: runs on 3rd and 17th at 12:15 AM EST (05:15 UTC)
+  // 17th: generates for 1st-15th period; 3rd: generates for 16th-end of prev month
+  cron.schedule('15 5 3,17 * *', async () => {
+    await runBiWeeklyInvoiceGeneration(io);
+  });
+  console.log('[Jobs] Bi-weekly invoice generation scheduled (3rd & 17th, 12:15 AM EST)');
 
   // OT billing cycle reminder: runs daily at 09:00 UTC
   // Notifies clients 3 days before billing cycle ends about unapproved OT
@@ -66,7 +75,7 @@ export const initializeJobs = (io: Server): void => {
   console.log('[Jobs] All cron jobs initialized');
 };
 
-export { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek } from './invoiceGeneration.job';
+export { generateInvoicesForPeriod, generateWeeklyInvoicesForWeek, generateBiWeeklyInvoicesForPeriod, previewBiWeeklyInvoicesForPeriod } from './invoiceGeneration.job';
 export { runAutoApproval } from './autoApproval.job';
 export { runShiftEndJob } from './shiftEnd.job';
 export { runOTBillingReminder } from './otBillingReminder.job';
