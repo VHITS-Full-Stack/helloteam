@@ -201,8 +201,6 @@ const generateInvoiceForClient = async (
   if (allRecords.length === 0) return false;
 
   // Aggregate by employee, using TimeRecord's own shiftExtension/extraTime fields
-  // to determine approved OT minutes (instead of relying on overtimeRequest records,
-  // which may not exist for OT worked without a prior request).
   const employeeAgg = new Map<string, EmployeeTimeAggregation>();
   for (const record of allRecords) {
     const key = record.employeeId;
@@ -216,7 +214,6 @@ const generateInvoiceForClient = async (
     }
     const agg = employeeAgg.get(key)!;
 
-    // Calculate approved OT directly from the TimeRecord's own fields
     let approvedOTMinutes = 0;
     if ((record as any).shiftExtensionStatus === 'APPROVED') {
       approvedOTMinutes += (record as any).shiftExtensionMinutes || 0;
@@ -228,7 +225,6 @@ const generateInvoiceForClient = async (
     const totalOT = record.overtimeMinutes || 0;
     const deniedOTMinutes = Math.max(0, totalOT - approvedOTMinutes);
 
-    // Regular hours + approved OT only (denied/unapproved OT deducted)
     agg.totalMinutes += Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
     agg.overtimeMinutes += approvedOTMinutes;
   }
@@ -316,7 +312,6 @@ const generateInvoiceForClient = async (
     totalOTHoursAll += otHours;
     subtotal += lineAmount;
 
-    // Annotate if this employee has late-approved OT from previous periods
     const lateOtPeriods = lateOtByEmployee.get(empId);
     const lineNotes = lateOtPeriods?.length
       ? `Includes late-approved OT from: ${lateOtPeriods.join(', ')}`

@@ -2695,6 +2695,19 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
         clientPolicies: {
           select: { defaultHourlyRate: true },
         },
+        agreement: {
+          select: {
+            paymentMethod: true,
+            ccCardholderName: true,
+            ccCardType: true,
+            ccCardNumber: true,
+            ccExpiration: true,
+            achBankName: true,
+            achAccountHolder: true,
+            achAccountNumber: true,
+            achAccountType: true,
+          },
+        },
       },
     });
 
@@ -2791,6 +2804,21 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
           billingEmail: client.user?.email || null,
           billingAddress: client.address || null,
         },
+        paymentMethod: client.agreement ? {
+          method: client.agreement.paymentMethod || null,
+          creditCard: client.agreement.ccCardNumber ? {
+            cardholderName: client.agreement.ccCardholderName,
+            cardType: client.agreement.ccCardType,
+            lastFour: client.agreement.ccCardNumber.slice(-4),
+            expiration: client.agreement.ccExpiration || null,
+          } : null,
+          ach: client.agreement.achAccountNumber ? {
+            accountHolder: client.agreement.achAccountHolder,
+            bankName: client.agreement.achBankName,
+            accountType: client.agreement.achAccountType,
+            lastFour: client.agreement.achAccountNumber.slice(-4),
+          } : null,
+        } : null,
       },
     });
   } catch (error: any) {

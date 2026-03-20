@@ -187,6 +187,7 @@ const Invoices = () => {
   const [deleteInvoiceId, setDeleteInvoiceId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [markPaidInvoiceId, setMarkPaidInvoiceId] = useState(null);
+  const [markSentInvoiceId, setMarkSentInvoiceId] = useState(null);
 
   const handleDelete = async () => {
     if (!deleteInvoiceId) return;
@@ -541,9 +542,9 @@ const Invoices = () => {
                         {invoice.status === 'DRAFT' && (
                           <>
                             <button
-                              onClick={() => handleStatusUpdate(invoice.id, 'SENT')}
+                              onClick={() => setMarkSentInvoiceId(invoice.id)}
                               className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title="Mark as Sent"
+                              title="Mark as Sent to client"
                               disabled={updatingId === invoice.id}
                             >
                               <Send className="w-4 h-4" />
@@ -1013,10 +1014,10 @@ const Invoices = () => {
                     variant="primary"
                     size="sm"
                     icon={Send}
-                    onClick={() => handleStatusUpdate(selectedInvoice.id, 'SENT')}
+                    onClick={() => { setMarkSentInvoiceId(selectedInvoice.id); setShowDetailModal(false); }}
                     loading={updatingId === selectedInvoice.id}
                   >
-                    Mark as Sent
+                    Mark as Sent to client
                   </Button>
                 </>
               )}
@@ -1075,6 +1076,42 @@ const Invoices = () => {
               disabled={deleting}
             >
               {deleting ? 'Deleting...' : 'Delete Invoice'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Mark as Sent Confirmation Modal */}
+      <Modal
+        isOpen={!!markSentInvoiceId}
+        onClose={() => setMarkSentInvoiceId(null)}
+        title="Send Invoice to Client"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="p-2 bg-blue-50 rounded-lg flex-shrink-0">
+              <Send className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-gray-900 font-medium">Are you sure you want to send this invoice to the client?</p>
+              <p className="text-sm text-gray-500 mt-1">The client will be notified via email and the invoice status will be updated to Sent.</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setMarkSentInvoiceId(null)} disabled={updatingId === markSentInvoiceId}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={Send}
+              onClick={async () => {
+                await handleStatusUpdate(markSentInvoiceId, 'SENT');
+                setMarkSentInvoiceId(null);
+              }}
+              loading={updatingId === markSentInvoiceId}
+            >
+              Send Invoice
             </Button>
           </div>
         </div>
