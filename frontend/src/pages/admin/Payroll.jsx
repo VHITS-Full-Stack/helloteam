@@ -644,40 +644,40 @@ const Payroll = () => {
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
           <Clock className="w-3.5 h-3.5 text-green-500" />
           <span className="text-sm text-green-600">Hours</span>
-          <span className="text-sm font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toLocaleString()}</span>
+          <span className="text-sm font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toFixed(2)}</span>
         </div>
         {(totals.overtimeHours || summary.overtimeHours || 0) > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
             <span className="text-sm text-orange-600">OT</span>
-            <span className="text-sm font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toLocaleString()}</span>
+            <span className="text-sm font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toFixed(2)}</span>
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
           <span className="text-sm text-blue-600">Approved</span>
-          <span className="text-sm font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toLocaleString()}</span>
+          <span className="text-sm font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toFixed(2)}</span>
         </div>
         {(totals.pendingHours || summary.pendingHours || 0) > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-lg">
             <span className="text-sm text-yellow-600">Pending</span>
-            <span className="text-sm font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toLocaleString()}</span>
+            <span className="text-sm font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toFixed(2)}</span>
           </div>
         )}
         {totalBonuses > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
             <span className="text-sm text-teal-600">Bonuses</span>
-            <span className="text-sm font-bold text-teal-700">+${Math.round(totalBonuses).toLocaleString()}</span>
+            <span className="text-sm font-bold text-teal-700">+${totalBonuses.toFixed(2)}</span>
           </div>
         )}
         {totalDeductions > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
             <span className="text-sm text-red-600">Deductions</span>
-            <span className="text-sm font-bold text-red-700">-${Math.round(totalDeductions).toLocaleString()}</span>
+            <span className="text-sm font-bold text-red-700">-${totalDeductions.toFixed(2)}</span>
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
           <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-sm text-emerald-600">Gross Pay</span>
-          <span className="text-sm font-bold text-emerald-700">${(totals.totalGrossPay || 0).toLocaleString()}</span>
+          <span className="text-sm font-bold text-emerald-700">${(totals.totalGrossPay || 0).toFixed(2)}</span>
         </div>
       </div>
 
@@ -744,16 +744,16 @@ const Payroll = () => {
                       {/* Hours Worked */}
                       <TableCell className="text-center whitespace-nowrap">
                         <div>
-                          <span className="font-semibold text-gray-900">{emp.approvedHours}h</span>
+                          <span className="font-semibold text-gray-900">{(emp.approvedHours || 0).toFixed(2)}h</span>
                           {emp.overtimeHours > 0 && (
-                            <p className="text-[10px] text-orange-600">incl. {emp.overtimeHours}h OT</p>
+                            <p className="text-[10px] text-orange-600">incl. {(emp.overtimeHours || 0).toFixed(2)}h OT</p>
                           )}
                         </div>
                       </TableCell>
                       {/* PTO Hours */}
                       <TableCell className="text-center whitespace-nowrap">
                         {(emp.ptoHours || 0) > 0 ? (
-                          <span className="text-purple-600 font-medium">{emp.ptoHours}h</span>
+                          <span className="text-purple-600 font-medium">{(emp.ptoHours || 0).toFixed(2)}h</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -761,7 +761,7 @@ const Payroll = () => {
                       {/* VTO Hours */}
                       <TableCell className="text-center whitespace-nowrap">
                         {(emp.vtoHours || 0) > 0 ? (
-                          <span className="text-blue-600 font-medium">{emp.vtoHours}h</span>
+                          <span className="text-blue-600 font-medium">{(emp.vtoHours || 0).toFixed(2)}h</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -769,19 +769,19 @@ const Payroll = () => {
                       {/* Pending Approval */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.pendingHours > 0 ? (
-                          <span className="text-amber-600 font-medium">{emp.pendingHours}h</span>
+                          <span className="text-amber-600 font-medium">{(emp.pendingHours || 0).toFixed(2)}h</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </TableCell>
                       {/* Total Hours (Approved + PTO) */}
                       <TableCell className="text-center whitespace-nowrap">
-                        <span className="font-bold text-blue-700">{emp.totalHoursWithPTO || emp.totalHours}h</span>
+                        <span className="font-bold text-blue-700">{(emp.totalHoursWithPTO || emp.totalHours || 0).toFixed(2)}h</span>
                       </TableCell>
                       {/* Total Bonuses */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.totalBonuses > 0 ? (
-                          <span className="text-green-600 font-medium">+${emp.totalBonuses.toLocaleString()}</span>
+                          <span className="text-green-600 font-medium">+${(emp.totalBonuses || 0).toFixed(2)}</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -789,14 +789,14 @@ const Payroll = () => {
                       {/* Total Deductions */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.totalDeductions > 0 ? (
-                          <span className="text-red-600 font-medium">-${emp.totalDeductions.toLocaleString()}</span>
+                          <span className="text-red-600 font-medium">-${(emp.totalDeductions || 0).toFixed(2)}</span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </TableCell>
                       {/* Gross Pay */}
                       <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
-                        {emp.grossPay > 0 ? `$${emp.grossPay.toLocaleString()}` : "—"}
+                        {emp.grossPay > 0 ? `$${(emp.grossPay || 0).toFixed(2)}` : "—"}
                       </TableCell>
                       {/* Action */}
                       <TableCell className="text-center">

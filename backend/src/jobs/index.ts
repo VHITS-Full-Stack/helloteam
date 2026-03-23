@@ -6,6 +6,7 @@ import { runOTBillingReminder } from './otBillingReminder.job';
 import { runAggressiveOTReminder } from './aggressiveOTReminder.job';
 import { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';
 import { runPayrollGeneration } from './payrollGeneration.job';
+import { runExpiredOTRequestJob } from './expiredOTRequest.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -72,6 +73,13 @@ export const initializeJobs = (io: Server): void => {
   });
   console.log('[Jobs] Payroll auto-generation scheduled (7th & 21st, midnight EST)');
 
+  // Expired OT request auto-rejection: runs daily at 01:00 UTC (9 PM EST previous day)
+  // Rejects pre-requested OT that the client never approved and the date has passed
+  cron.schedule('0 1 * * *', async () => {
+    await runExpiredOTRequestJob(io);
+  });
+  console.log('[Jobs] Expired OT request auto-rejection scheduled (daily, 01:00 UTC)');
+
   console.log('[Jobs] All cron jobs initialized');
 };
 
@@ -82,3 +90,4 @@ export { runOTBillingReminder } from './otBillingReminder.job';
 export { runAggressiveOTReminder } from './aggressiveOTReminder.job';
 export { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';
 export { runPayrollGeneration } from './payrollGeneration.job';
+export { runExpiredOTRequestJob } from './expiredOTRequest.job';
