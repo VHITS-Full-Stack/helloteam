@@ -336,7 +336,7 @@ const Approvals = () => {
           <button
             key={key}
             onClick={() => { setActiveType(key); setStatusFilter('all'); setEmployeeFilter('all'); setClientFilterId('all'); setSelectedItems([]); setPage(1); }}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${activeType === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${activeType === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
           >
             <Icon className="w-4 h-4" />
             {label}

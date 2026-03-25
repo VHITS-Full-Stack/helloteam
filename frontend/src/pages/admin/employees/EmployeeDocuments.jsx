@@ -170,6 +170,31 @@ const EmployeeDocuments = () => {
                   Confirm Reject All
                 </Button>
               </div>
+            ) : bulkAction === 'confirmApprove' ? (
+              <div className="flex items-center gap-3 flex-1 ml-6">
+                <p className="text-sm text-green-700 flex-1">Are you sure you want to approve all documents?</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setBulkAction(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700"
+                  loading={bulkAction === 'approvingAll'}
+                  onClick={async () => {
+                    setBulkAction('approvingAll');
+                    await approveKyc();
+                    setBulkAction(null);
+                    navigate(`/admin/employees/${id}`);
+                  }}
+                >
+                  Yes, Approve All
+                </Button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <Button
@@ -187,14 +212,8 @@ const EmployeeDocuments = () => {
                   size="sm"
                   icon={CheckCircle}
                   className="text-green-600 border-green-300 hover:bg-green-50"
-                  loading={bulkAction === 'approvingAll'}
                   disabled={!!bulkAction}
-                  onClick={async () => {
-                    setBulkAction('approvingAll');
-                    await approveKyc();
-                    setBulkAction(null);
-                    navigate(`/admin/employees/${id}`);
-                  }}
+                  onClick={() => setBulkAction('confirmApprove')}
                 >
                   Approve All
                 </Button>
