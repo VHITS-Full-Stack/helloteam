@@ -329,7 +329,7 @@ const EmployeeDetail = () => {
               </p>
             </div>
             <Link to="/admin/raise-requests">
-              <Button variant="ghost" size="sm">Review</Button>
+              <Button className="review-btn" variant="ghost" size="sm">Review</Button>
             </Link>
           </div>
           <div className="space-y-1.5 ml-6">

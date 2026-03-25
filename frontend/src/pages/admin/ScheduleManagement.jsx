@@ -50,12 +50,15 @@ const ScheduleManagement = () => {
   const [success, setSuccess] = useState(null);
   const [copyMenuOpen, setCopyMenuOpen] = useState(null);
   const copyMenuRef = useRef(null);
+  const searchDropdownRef = useRef(null);
 
-  // Employee selection
+  // Employee selection (multi-select)
   const [employees, setEmployees] = useState([]);
   const [employeeSearch, setEmployeeSearch] = useState('');
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  // Keep single selectedEmployee for backward compat (first selected)
+  const selectedEmployee = selectedEmployees.length > 0 ? selectedEmployees[0] : null;
 
   // Schedule state
   const [weeklySchedule, setWeeklySchedule] = useState(
@@ -65,9 +68,10 @@ const ScheduleManagement = () => {
     }))
   );
   const [existingSchedules, setExistingSchedules] = useState([]);
-  const [effectiveFrom, setEffectiveFrom] = useState(
-    new Date().toISOString().split('T')[0]
-  );
+  const [effectiveFrom, setEffectiveFrom] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
 
   // Modal
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -143,13 +147,13 @@ const ScheduleManagement = () => {
 
   // Pre-select employee from URL parameter
   useEffect(() => {
-    if (employeeIdFromUrl && employees.length > 0 && !selectedEmployee) {
+    if (employeeIdFromUrl && employees.length > 0 && selectedEmployees.length === 0) {
       const employee = employees.find(emp => emp.id === employeeIdFromUrl);
       if (employee) {
-        setSelectedEmployee(employee);
+        setSelectedEmployees([employee]);
       }
     }
-  }, [employeeIdFromUrl, employees, selectedEmployee]);
+  }, [employeeIdFromUrl, employees, selectedEmployees.length]);
 
   useEffect(() => {
     if (selectedEmployee) {
@@ -157,13 +161,22 @@ const ScheduleManagement = () => {
     }
   }, [selectedEmployee, fetchEmployeeSchedule]);
 
-  // Handle employee selection
+  // Handle employee selection (toggle in multi-select)
   const handleSelectEmployee = (employee) => {
-    setSelectedEmployee(employee);
-    setShowEmployeeDropdown(false);
+    setSelectedEmployees(prev => {
+      const alreadySelected = prev.find(e => e.id === employee.id);
+      if (alreadySelected) {
+        return prev.filter(e => e.id !== employee.id);
+      }
+      return [...prev, employee];
+    });
     setEmployeeSearch('');
     setError(null);
     setSuccess(null);
+  };
+
+  const handleRemoveEmployee = (employeeId) => {
+    setSelectedEmployees(prev => prev.filter(e => e.id !== employeeId));
   };
 
   // Handle schedule change
@@ -202,6 +215,19 @@ const ScheduleManagement = () => {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [copyMenuOpen]);
+
+  // Close employee dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchDropdownRef.current && !searchDropdownRef.current.contains(e.target)) {
+        setShowEmployeeDropdown(false);
+      }
+    };
+    if (showEmployeeDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showEmployeeDropdown]);
 
   // Copy a day's schedule to another day or all days
   const copyDayTo = (fromIndex, toIndex) => {
@@ -251,10 +277,10 @@ const ScheduleManagement = () => {
     });
   };
 
-  // Save schedule
+  // Save schedule for all selected employees
   const handleSaveSchedule = async () => {
-    if (!selectedEmployee) {
-      setError('Please select an employee first');
+    if (selectedEmployees.length === 0) {
+      setError('Please select at least one employee');
       return;
     }
 
@@ -276,17 +302,34 @@ const ScheduleManagement = () => {
     setSuccess(null);
 
     try {
-      const response = await scheduleService.bulkUpdateSchedule(
-        selectedEmployee.id,
-        schedulesToSave,
-        effectiveFrom
-      );
+      let totalEntries = 0;
+      let failedCount = 0;
+      for (const emp of selectedEmployees) {
+        try {
+          const response = await scheduleService.bulkUpdateSchedule(
+            emp.id,
+            schedulesToSave,
+            effectiveFrom
+          );
+          if (response.success) {
+            totalEntries += response.schedules?.length || 0;
+          } else {
+            failedCount++;
+          }
+        } catch {
+          failedCount++;
+        }
+      }
 
-      if (response.success) {
-        setSuccess(`Schedule saved successfully! ${response.schedules?.length || 0} entries created.`);
-        fetchEmployeeSchedule(selectedEmployee.id);
+      if (failedCount === 0) {
+        setSuccess(`Schedule saved for ${selectedEmployees.length} employee${selectedEmployees.length > 1 ? 's' : ''}! ${totalEntries} entries created.`);
       } else {
-        setError(response.error || 'Failed to save schedule');
+        setSuccess(`Schedule saved for ${selectedEmployees.length - failedCount} of ${selectedEmployees.length} employees. ${failedCount} failed.`);
+      }
+
+      // Refresh schedule for the first selected employee
+      if (selectedEmployee) {
+        fetchEmployeeSchedule(selectedEmployee.id);
       }
     } catch (err) {
       console.error('Error saving schedule:', err);
@@ -358,9 +401,11 @@ const ScheduleManagement = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
-  // Filter employees for dropdown
+  // Filter employees for dropdown (exclude already selected)
+  const selectedIds = new Set(selectedEmployees.map(e => e.id));
   const filteredEmployees = Array.isArray(employees)
     ? employees.filter(emp =>
+        !selectedIds.has(emp.id) &&
         `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(employeeSearch.toLowerCase())
       )
     : [];
@@ -376,62 +421,84 @@ const ScheduleManagement = () => {
       </div>
 
       {/* Employee Selection */}
-      <Card padding="md">
+      <Card padding="md" className="overflow-visible relative z-20">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[250px] relative">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Select Employee
+          <div className="w-72 relative" ref={searchDropdownRef}>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Select Employees
             </label>
+            {/* Selected employee chips */}
+            {selectedEmployees.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-1.5">
+                {selectedEmployees.map(emp => (
+                  <span
+                    key={emp.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium"
+                  >
+                    {emp.firstName} {emp.lastName}
+                    <button
+                      onClick={() => handleRemoveEmployee(emp.id)}
+                      className="hover:text-red-500 transition-colors"
+                    >
+                      <XCircle className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+                {selectedEmployees.length > 1 && (
+                  <button
+                    onClick={() => {
+                      setSelectedEmployees([]);
+                      setWeeklySchedule(DAYS_OF_WEEK.map(day => ({
+                        dayOfWeek: day.value,
+                        ...DEFAULT_SCHEDULE,
+                      })));
+                    }}
+                    className="text-[11px] text-gray-400 hover:text-red-500 transition-colors px-1"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+            )}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search employees..."
-                value={selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName}` : employeeSearch}
+                placeholder={selectedEmployees.length > 0 ? "Add more..." : "Search employees..."}
+                value={employeeSearch}
                 onChange={(e) => {
                   setEmployeeSearch(e.target.value);
-                  setSelectedEmployee(null);
                   setShowEmployeeDropdown(true);
                 }}
                 onFocus={() => setShowEmployeeDropdown(true)}
-                className={`input pl-11 w-full ${selectedEmployee ? 'pr-10' : ''}`}
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
               />
-              {selectedEmployee && (
-                <button
-                  onClick={() => {
-                    setSelectedEmployee(null);
-                    setEmployeeSearch('');
-                    setWeeklySchedule(DAYS_OF_WEEK.map(day => ({
-                      dayOfWeek: day.value,
-                      ...DEFAULT_SCHEDULE,
-                    })));
-                  }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 z-10"
-                >
-                  <XCircle className="w-5 h-5" />
-                </button>
-              )}
             </div>
 
             {/* Employee Dropdown */}
-            {showEmployeeDropdown && !selectedEmployee && (
-              <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-auto">
+            {showEmployeeDropdown && (
+              <div className="absolute z-[100] left-0 w-72 mt-1 bg-white border border-gray-200 rounded-lg shadow-2xl max-h-44 overflow-auto">
                 {filteredEmployees.length > 0 ? (
-                  filteredEmployees.map(emp => (
-                    <button
-                      key={emp.id}
-                      onClick={() => handleSelectEmployee(emp)}
-                      className="w-full px-4 py-2 text-left hover:bg-gray-50 flex items-center gap-3"
-                    >
-                      <Avatar name={`${emp.firstName} ${emp.lastName}`} src={emp.profilePhoto} size="sm" />
-                      <div>
-                        <p className="font-medium">{emp.firstName} {emp.lastName}</p>
-                        <p className="text-sm text-gray-500">{emp.email}</p>
-                      </div>
-                    </button>
-                  ))
+                  filteredEmployees.map(emp => {
+                    const isSelected = selectedIds.has(emp.id);
+                    return (
+                      <button
+                        key={emp.id}
+                        onClick={() => handleSelectEmployee(emp)}
+                        className={`w-full px-3 py-2 text-left flex items-center gap-2.5 transition-colors border-b border-gray-50 last:border-0 ${isSelected ? 'bg-primary/5' : 'hover:bg-gray-50'}`}
+                      >
+                        <span className="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
+                          {emp.firstName?.[0]}{emp.lastName?.[0]}
+                        </span>
+                        <p className="font-medium text-sm text-gray-900 flex-1">{emp.firstName} {emp.lastName}</p>
+                        {isSelected && (
+                          <CheckCircle className="w-4 h-4 text-primary flex-shrink-0" />
+                        )}
+                      </button>
+                    );
+                  })
                 ) : (
-                  <div className="px-4 py-3 text-gray-500 text-center">
+                  <div className="px-3 py-3 text-gray-400 text-center text-xs">
                     No employees found
                   </div>
                 )}
@@ -440,15 +507,14 @@ const ScheduleManagement = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-600 mb-1">
               Effective From
             </label>
             <input
               type="date"
               value={effectiveFrom}
               onChange={(e) => setEffectiveFrom(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-              className="input"
+              className="py-1.5 px-2.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
             />
           </div>
 
@@ -654,7 +720,7 @@ const ScheduleManagement = () => {
               onClick={handleSaveSchedule}
               disabled={saving}
             >
-              {saving ? 'Saving...' : 'Save Schedule'}
+              {saving ? 'Saving...' : selectedEmployees.length > 1 ? `Save for ${selectedEmployees.length} Employees` : 'Save Schedule'}
             </Button>
           </div>
         </Card>

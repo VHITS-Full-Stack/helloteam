@@ -28,6 +28,15 @@ export const errorHandler = (
     return;
   }
 
+  // Handle payload too large (Express body-parser error)
+  if ((err as any).type === 'entity.too.large') {
+    res.status(413).json({
+      success: false,
+      error: 'Request entity too large. Please reduce the size of your request.',
+    });
+    return;
+  }
+
   console.error('Unexpected error:', err);
 
   res.status(500).json({

@@ -4,6 +4,14 @@ import { Card, Button, Badge } from '../../components/common';
 import scheduleService from '../../services/schedule.service';
 import { formatTime12 } from '../../utils/formatTime';
 
+// Helper: local date to YYYY-MM-DD (avoids UTC shift from toISOString)
+const toLocalDateStr = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const Schedule = () => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState('week');
@@ -31,7 +39,7 @@ const Schedule = () => {
 
   // Fetch schedule data for a week
   const fetchWeekSchedule = useCallback(async (weekStart) => {
-    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekStartStr = toLocalDateStr(weekStart);
     const result = await scheduleService.getMySchedule(weekStartStr);
     if (result?.success) {
       return result.schedule || [];
@@ -176,7 +184,7 @@ const Schedule = () => {
     // Add days of the current month
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = toLocalDateStr(date);
       const daySchedule = scheduleData.find(s => s.date === dateStr);
 
       week.push({

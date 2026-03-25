@@ -28,12 +28,16 @@ const EmployeeDocuments = () => {
   const [confirmApproveDoc, setConfirmApproveDoc] = useState(null);
   const [bulkAction, setBulkAction] = useState(null);
 
+  const [bulkRejectReason, setBulkRejectReason] = useState('');
+
   const {
     employee,
     loading,
     error,
     reviewDocument,
     finalizeKycReview,
+    approveKyc,
+    rejectKyc,
   } = useEmployeeData({ mode: 'detail', id });
 
   if (loading) {
@@ -124,6 +128,81 @@ const EmployeeDocuments = () => {
           {kycStatus === 'RESUBMITTED' && 'Employee has resubmitted their documents. Please review the updated documents below.'}
         </p>
       </div>
+
+      {/* Overall Approve / Reject */}
+      {(kycStatus === 'PENDING' || kycStatus === 'RESUBMITTED') && (
+        <Card padding="md">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800">Quick Action</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Approve or reject all documents at once</p>
+            </div>
+            {bulkAction === 'rejecting' ? (
+              <div className="flex items-center gap-3 flex-1 ml-6">
+                <input
+                  type="text"
+                  placeholder="Rejection reason..."
+                  value={bulkRejectReason}
+                  onChange={(e) => setBulkRejectReason(e.target.value)}
+                  className="flex-1 px-3 py-1.5 border border-red-300 rounded-lg text-sm focus:ring-2 focus:ring-red-400 focus:border-red-400 outline-none"
+                />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { setBulkAction(null); setBulkRejectReason(''); }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700"
+                  disabled={!bulkRejectReason.trim()}
+                  loading={bulkAction === 'rejectingAll'}
+                  onClick={async () => {
+                    setBulkAction('rejectingAll');
+                    await rejectKyc(bulkRejectReason);
+                    setBulkAction(null);
+                    setBulkRejectReason('');
+                    navigate(`/admin/employees/${id}`);
+                  }}
+                >
+                  Confirm Reject All
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={XCircle}
+                  className="text-red-600 border-red-300 hover:bg-red-50"
+                  onClick={() => setBulkAction('rejecting')}
+                  disabled={!!bulkAction}
+                >
+                  Reject All
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={CheckCircle}
+                  className="text-green-600 border-green-300 hover:bg-green-50"
+                  loading={bulkAction === 'approvingAll'}
+                  disabled={!!bulkAction}
+                  onClick={async () => {
+                    setBulkAction('approvingAll');
+                    await approveKyc();
+                    setBulkAction(null);
+                    navigate(`/admin/employees/${id}`);
+                  }}
+                >
+                  Approve All
+                </Button>
+              </div>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Document Cards - Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -22,17 +22,24 @@ export const getMySchedule = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    // Calculate week range
+    // Helper: format date as YYYY-MM-DD without timezone shift
+    const toDateStr = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    // Calculate week range — parse date parts manually to avoid UTC shift
     let startDate: Date;
     if (weekStart) {
-      startDate = new Date(weekStart as string);
+      const [y, m, d] = (weekStart as string).split('-').map(Number);
+      startDate = new Date(y, m - 1, d, 0, 0, 0, 0);
     } else {
       // Default to current week (starting Sunday)
       const now = new Date();
-      startDate = new Date(now);
-      startDate.setDate(now.getDate() - now.getDay());
+      startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0, 0);
     }
-    startDate.setHours(0, 0, 0, 0);
 
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 7);
@@ -61,7 +68,7 @@ export const getMySchedule = async (req: AuthenticatedRequest, res: Response): P
       const daySchedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
 
       weekSchedule.push({
-        date: dayDate.toISOString().split('T')[0],
+        date: toDateStr(dayDate),
         dayOfWeek,
         dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
         isScheduled: !!daySchedule,
@@ -125,12 +132,14 @@ export const getTodaySchedule = async (req: AuthenticatedRequest, res: Response)
       },
     });
 
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
     if (!schedule) {
       res.json({
         success: true,
         isScheduled: false,
         message: 'No schedule for today',
-        date: today.toISOString().split('T')[0],
+        date: todayStr,
         dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
       });
       return;
@@ -139,7 +148,7 @@ export const getTodaySchedule = async (req: AuthenticatedRequest, res: Response)
     res.json({
       success: true,
       isScheduled: true,
-      date: today.toISOString().split('T')[0],
+      date: todayStr,
       dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dayOfWeek],
       startTime: schedule.startTime,
       endTime: schedule.endTime,
