@@ -43,12 +43,20 @@ import {
   TableCell,
 } from "../../components/common";
 import payrollService from "../../services/payroll.service";
+import adminPortalService from "../../services/adminPortal.service";
 
 const Payroll = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState("employees");
+
+  // Unapproved OT & Next Payroll
+  const [unapprovedOTData, setUnapprovedOTData] = useState(null);
+  const [sendingOTPush, setSendingOTPush] = useState(false);
+  const [showUpdatePayrollDate, setShowUpdatePayrollDate] = useState(false);
+  const [newPayrollDate, setNewPayrollDate] = useState("");
+  const [updatingPayrollDate, setUpdatingPayrollDate] = useState(false);
 
   // Period selection
   const [periodStart, setPeriodStart] = useState("");
@@ -224,7 +232,7 @@ const Payroll = () => {
       setLoading(true);
       setError("");
 
-      const [dashboardRes, employeeSummaryRes, periodsRes] = await Promise.all([
+      const [dashboardRes, employeeSummaryRes, periodsRes, unapprovedOTRes] = await Promise.all([
         payrollService.getDashboard(periodStart, periodEnd),
         payrollService.getEmployeeSummary(
           periodStart,
@@ -232,6 +240,7 @@ const Payroll = () => {
           selectedClient || undefined,
         ),
         payrollService.getPeriods({ limit: 10 }),
+        adminPortalService.getClientWiseUnapprovedOT(),
       ]);
 
       if (dashboardRes.success) {
@@ -244,6 +253,10 @@ const Payroll = () => {
 
       if (periodsRes.success) {
         setPeriods(periodsRes.data?.periods || []);
+      }
+
+      if (unapprovedOTRes?.success) {
+        setUnapprovedOTData(unapprovedOTRes.data);
       }
     } catch (err) {
       console.error("Error fetching payroll data:", err);
@@ -564,6 +577,81 @@ const Payroll = () => {
     }
   };
 
+  const handleSendOTPush = async () => {
+    try {
+      setSendingOTPush(true);
+      const response = await payrollService.sendReminders(0);
+      if (response.success) {
+        setSuccessMsg("OT approval reminders sent to all clients and employees");
+      } else {
+        setError(response.error || "Failed to send reminders");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to send OT reminders");
+    } finally {
+      setSendingOTPush(false);
+    }
+  };
+
+  const handleUpdatePayrollDate = async () => {
+    if (!newPayrollDate) return;
+    try {
+      setUpdatingPayrollDate(true);
+      // Find the current period and update its cutoff
+      const currentPeriod = periods.find(p => {
+        const pStart = p.periodStart?.split('T')[0] || p.start;
+        const pEnd = p.periodEnd?.split('T')[0] || p.end;
+        return pStart === periodStart && pEnd === periodEnd;
+      });
+      if (currentPeriod) {
+        const response = await payrollService.updateCutoff(currentPeriod.id, newPayrollDate, 'Payroll date updated by admin for early processing');
+        if (response.success) {
+          setSuccessMsg("Next payroll date updated. Employees and clients will be notified.");
+          setShowUpdatePayrollDate(false);
+          setNewPayrollDate("");
+          fetchData();
+        } else {
+          setError(response.error || "Failed to update payroll date");
+        }
+      } else {
+        setError("No active payroll period found for the selected dates");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to update payroll date");
+    } finally {
+      setUpdatingPayrollDate(false);
+    }
+  };
+
+  // Compute next payroll date from current period
+  const nextPayrollDate = (() => {
+    const currentPeriod = periods.find(p => {
+      const pStart = p.periodStart?.split('T')[0] || p.start;
+      const pEnd = p.periodEnd?.split('T')[0] || p.end;
+      return pStart === periodStart && pEnd === periodEnd;
+    });
+    if (currentPeriod?.cutoffDate) {
+      return new Date(currentPeriod.cutoffDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    // Fallback: end of period + 1 day
+    if (periodEnd) {
+      const d = new Date(periodEnd + 'T00:00:00Z');
+      d.setDate(d.getDate() + 1);
+      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    }
+    return null;
+  })();
+
+  const unapprovedOTEntries = unapprovedOTData?.clients?.flatMap(client =>
+    client.employees.map(emp => ({
+      employee: emp.name,
+      client: client.clientName,
+      hours: emp.hours,
+      count: emp.count,
+      amountAtRisk: 0, // placeholder
+    }))
+  ) || [];
+
   if (loading && !dashboardData) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -638,6 +726,121 @@ const Payroll = () => {
           </button>
         </div>
       )}
+
+      {/* Next Payroll Date + Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Next Payroll Date</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {nextPayrollDate || 'Not set'}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">Period: {periodStart} to {periodEnd}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Calendar}
+                onClick={() => { setShowUpdatePayrollDate(true); setNewPayrollDate(""); }}
+              >
+                Update Date
+              </Button>
+            </div>
+          </div>
+        </Card>
+        <Card>
+          <div className="flex flex-col items-center justify-center h-full gap-2">
+            <AlertTriangle className="w-8 h-8 text-amber-500" />
+            <p className="text-2xl font-bold text-amber-700">{unapprovedOTData?.totalCount || 0}</p>
+            <p className="text-xs text-gray-500">Unapproved OT Entries</p>
+            <Button
+              variant="danger"
+              size="sm"
+              icon={Send}
+              onClick={handleSendOTPush}
+              disabled={sendingOTPush || (unapprovedOTData?.totalCount || 0) === 0}
+            >
+              {sendingOTPush ? "Sending..." : "Send OT Push Reminder"}
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* Unapproved OT Table */}
+      {unapprovedOTEntries.length > 0 && (
+        <Card padding="none">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500" />
+              <h3 className="text-sm font-semibold text-red-700">Unapproved Overtime — Action Required Before Payroll</h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/approvals?type=autoOvertime')}>
+              View All
+            </Button>
+          </div>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Employee</TableHeader>
+                <TableHeader>Client</TableHeader>
+                <TableHeader className="text-center">Total Hours</TableHeader>
+                <TableHeader className="text-center">Entries</TableHeader>
+                <TableHeader className="text-center">Status</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {unapprovedOTEntries.map((entry, idx) => (
+                <TableRow key={idx}>
+                  <TableCell><span className="font-medium text-gray-900">{entry.employee}</span></TableCell>
+                  <TableCell><span className="text-gray-600">{entry.client}</span></TableCell>
+                  <TableCell className="text-center"><span className="font-semibold text-red-600">{entry.hours}</span></TableCell>
+                  <TableCell className="text-center">{entry.count} {entry.count === 1 ? 'entry' : 'entries'}</TableCell>
+                  <TableCell className="text-center"><Badge variant="danger">Pending</Badge></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+
+      {/* Update Payroll Date Modal */}
+      <Modal
+        isOpen={showUpdatePayrollDate}
+        onClose={() => setShowUpdatePayrollDate(false)}
+        title="Update Next Payroll Date"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowUpdatePayrollDate(false)}>Cancel</Button>
+            <Button variant="primary" icon={Calendar} onClick={handleUpdatePayrollDate} disabled={updatingPayrollDate || !newPayrollDate}>
+              {updatingPayrollDate ? "Updating..." : "Update Date"}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Use this to run payroll early before holidays or special dates. All employees and clients will be notified.
+          </p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Payroll Date</label>
+            <input
+              type="date"
+              className="input w-full"
+              value={newPayrollDate}
+              onChange={(e) => setNewPayrollDate(e.target.value)}
+            />
+          </div>
+          <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
+            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-700">
+              Changing the payroll date will notify all employees and clients. Any unapproved overtime must be resolved before this date.
+            </p>
+          </div>
+        </div>
+      </Modal>
 
       {/* Stats Pills */}
       <div className="flex flex-wrap gap-3">
