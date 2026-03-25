@@ -83,6 +83,7 @@ const EmployeeDashboard = () => {
     requestedHours: "",
     requestedStartTime: "",
     requestedEndTime: "",
+    durationHours: "",
     reason: "",
   });
   const [overtimeLoading, setOvertimeLoading] = useState(false);
@@ -347,7 +348,10 @@ const EmployeeDashboard = () => {
       const today = new Date();
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay()); // Sunday
-      const weekStartStr = startOfWeek.toISOString().split("T")[0];
+      const y = startOfWeek.getFullYear();
+      const m = String(startOfWeek.getMonth() + 1).padStart(2, "0");
+      const d = String(startOfWeek.getDate()).padStart(2, "0");
+      const weekStartStr = `${y}-${m}-${d}`;
       const res = await scheduleService.getMySchedule(weekStartStr);
       if (res.success && res.schedule) {
         setWeekSchedule(res.schedule);
@@ -585,6 +589,30 @@ const EmployeeDashboard = () => {
     }
   };
 
+  // Get today's scheduled shift end time from weekSchedule
+  const getTodayShiftEndTime = () => {
+    const now = new Date();
+    const todayDow = now.getDay(); // 0-6, matches weekSchedule dayOfWeek
+    const todaySchedule = weekSchedule.find((s) => s.dayOfWeek === todayDow);
+    if (todaySchedule && todaySchedule.isScheduled && todaySchedule.endTime) {
+      return todaySchedule.endTime; // "HH:MM" format
+    }
+    return null;
+  };
+
+  // Calculate end time from shift end + duration for SHIFT_EXTENSION
+  const getCalculatedEndTime = () => {
+    const shiftEnd = getTodayShiftEndTime();
+    if (!shiftEnd) return null;
+    const hours = parseInt(overtimeForm.durationHours) || 0;
+    if (hours === 0) return null;
+    const [endH, endM] = shiftEnd.split(":").map(Number);
+    const totalMinutes = endH * 60 + endM + hours * 60;
+    const calcH = Math.floor(totalMinutes / 60) % 24;
+    const calcM = totalMinutes % 60;
+    return `${String(calcH).padStart(2, "0")}:${String(calcM).padStart(2, "0")}`;
+  };
+
   // Handle overtime request submission
   const handleOvertimeSubmit = async (e) => {
     e.preventDefault();
@@ -601,12 +629,20 @@ const EmployeeDashboard = () => {
       setOvertimeError("Overtime requests must be for today only");
       return;
     }
-    if (
-      overtimeForm.type === "SHIFT_EXTENSION" &&
-      (!overtimeForm.requestedStartTime || !overtimeForm.requestedEndTime)
-    ) {
-      setOvertimeError("Please enter start and end times for the extension");
-      return;
+    if (overtimeForm.type === "SHIFT_EXTENSION") {
+      const shiftEnd = getTodayShiftEndTime();
+      if (!shiftEnd) {
+        setOvertimeError("No scheduled shift found for today");
+        return;
+      }
+      const durH = parseInt(overtimeForm.durationHours) || 0;
+      if (durH === 0) {
+        setOvertimeError("Please enter the overtime duration");
+        return;
+      }
+      // Set start/end times from shift end + duration
+      overtimeForm.requestedStartTime = shiftEnd;
+      overtimeForm.requestedEndTime = getCalculatedEndTime();
     }
 
     if (
@@ -700,7 +736,8 @@ const EmployeeDashboard = () => {
         requestedHours: "",
         requestedStartTime: "",
         requestedEndTime: "",
-        reason: "",
+        durationHours: "",
+            reason: "",
       });
       fetchOvertimeRequests();
       setTimeout(() => {
@@ -1806,45 +1843,57 @@ const EmployeeDashboard = () => {
               </div>
 
               {overtimeForm.type === "SHIFT_EXTENSION" ? (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Time
+                      Shift End Time
                     </label>
                     <input
                       type="time"
-                      value={overtimeForm.requestedStartTime}
-                      onChange={(e) =>
-                        setOvertimeForm({
-                          ...overtimeForm,
-                          requestedStartTime: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                      required
+                      value={getTodayShiftEndTime() || ""}
+                      disabled
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Time
+                      Overtime Duration
                     </label>
-                    <input
-                      type="time"
-                      value={overtimeForm.requestedEndTime}
-                      onChange={(e) =>
-                        setOvertimeForm({
-                          ...overtimeForm,
-                          requestedEndTime: e.target.value,
-                        })
-                      }
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="1"
+                        max="12"
+                        placeholder="Enter hours"
+                        value={overtimeForm.durationHours}
+                        onChange={(e) =>
+                          setOvertimeForm({
+                            ...overtimeForm,
+                            durationHours: e.target.value,
+                          })
+                        }
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors pr-14"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
+                        hours
+                      </span>
+                    </div>
                   </div>
-                  <p className="col-span-2 text-xs text-gray-500">
-                    Specific time range for the extension (same fields as
-                    Off-Shift)
-                  </p>
+                  {getCalculatedEndTime() && (
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg">
+                      <p className="text-sm text-gray-700">
+                        <span className="font-medium">Estimated End Time:</span>{" "}
+                        <span className="text-primary font-semibold">
+                          {formatTime12(getCalculatedEndTime())}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                  {!getTodayShiftEndTime() && (
+                    <p className="text-xs text-amber-600">
+                      No scheduled shift found for today. Please contact your admin.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-3">

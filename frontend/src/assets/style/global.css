@@ -3,12 +3,17 @@ html {
   font-family: var(--font-body);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
 }
 
 body {
-  background-color: var(--color-primary-50); 
+  background-color: var(--color-primary-50);
   color: var(--color-primary-900);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -94,8 +99,12 @@ body {
 
 /* Animation Keyframes */
 @keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }
 
 @keyframes slideIn {
@@ -111,14 +120,25 @@ body {
 }
 
 @keyframes pulseSoft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
 }
 
 @keyframes bounceSoft {
-  0% { transform: scale(0.95); }
-  50% { transform: scale(1.02); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* Animation Classes */
@@ -132,4 +152,9 @@ body {
 
 .animate-pulse-soft {
   animation: pulseSoft 2s infinite;
+}
+.review-btn,
+.view-all-btn {
+  cursor: pointer;
+  text-decoration: underline;
 }

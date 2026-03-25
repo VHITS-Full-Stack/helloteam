@@ -178,7 +178,7 @@ export const generatePayslips = async (
       const totalDeductions = Math.round(
         empAdjustments.filter((a) => a.type === "DEDUCTION").reduce((sum, a) => sum + Number(a.amount), 0) * 100,
       ) / 100;
-      const grossPay = Math.round((regularPay + overtimePay + totalBonuses - totalDeductions) * 100) / 100;
+      const grossPay = Math.max(0, Math.round((regularPay + overtimePay + totalBonuses - totalDeductions) * 100) / 100);
 
       // Upsert payslip
       await prisma.payslip.upsert({

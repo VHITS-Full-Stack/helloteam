@@ -775,13 +775,13 @@ const TimeRecords = () => {
                                           {formatDuration(ot.requestedMinutes)}
                                         </span>
                                         <span className="text-[10px] text-gray-400">{ot.type === "SHIFT_EXTENSION" ? "ext" : "off"}</span>
-                                        {ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? (
+                                        {/* {ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? (
                                           <span className="text-green-500 text-[10px]">✓</span>
                                         ) : ot.status === "REJECTED" ? (
                                           <span className="text-red-400 text-[10px]">✗</span>
                                         ) : (
                                           <Clock className="w-3 h-3 text-amber-400" />
-                                        )}
+                                        )} */}
                                       </span>
                                     ))}
                                   </div>

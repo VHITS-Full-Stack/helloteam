@@ -63,20 +63,22 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
       }
     } else if (portalType === "admin") {
       try {
-        const [res, raiseRes] = await Promise.all([
-          adminPortalService.getPendingActions(),
-          adminPortalService.getRaiseRequests({ status: "PENDING" }),
-        ]);
+        const res = await adminPortalService.getPendingActions();
         if (res.success && res.counts) {
           setPendingApprovalCount(
             (res.counts.pendingLeave || 0) + (res.counts.pendingOvertime || 0),
           );
         }
+      } catch (e) {
+        console.error("Failed to fetch admin pending counts:", e);
+      }
+      try {
+        const raiseRes = await adminPortalService.getRaiseRequests({ status: "PENDING" });
         if (raiseRes.success) {
           setPendingBonusRaiseCount((raiseRes.data?.requests || []).length);
         }
       } catch (e) {
-        console.error("Failed to fetch admin pending counts:", e);
+        console.error("Failed to fetch admin raise counts:", e);
       }
     }
   }, [portalType]);

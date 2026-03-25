@@ -232,16 +232,17 @@ const Payroll = () => {
       setLoading(true);
       setError("");
 
-      const [dashboardRes, employeeSummaryRes, periodsRes, unapprovedOTRes] = await Promise.all([
-        payrollService.getDashboard(periodStart, periodEnd),
-        payrollService.getEmployeeSummary(
-          periodStart,
-          periodEnd,
-          selectedClient || undefined,
-        ),
-        payrollService.getPeriods({ limit: 10 }),
-        adminPortalService.getClientWiseUnapprovedOT(),
-      ]);
+      const [dashboardRes, employeeSummaryRes, periodsRes, unapprovedOTRes] =
+        await Promise.all([
+          payrollService.getDashboard(periodStart, periodEnd),
+          payrollService.getEmployeeSummary(
+            periodStart,
+            periodEnd,
+            selectedClient || undefined,
+          ),
+          payrollService.getPeriods({ limit: 10 }),
+          adminPortalService.getClientWiseUnapprovedOT(),
+        ]);
 
       if (dashboardRes.success) {
         setDashboardData(dashboardRes.data);
@@ -582,7 +583,9 @@ const Payroll = () => {
       setSendingOTPush(true);
       const response = await payrollService.sendReminders(0);
       if (response.success) {
-        setSuccessMsg("OT approval reminders sent to all clients and employees");
+        setSuccessMsg(
+          "OT approval reminders sent to all clients and employees",
+        );
       } else {
         setError(response.error || "Failed to send reminders");
       }
@@ -598,15 +601,21 @@ const Payroll = () => {
     try {
       setUpdatingPayrollDate(true);
       // Find the current period and update its cutoff
-      const currentPeriod = periods.find(p => {
-        const pStart = p.periodStart?.split('T')[0] || p.start;
-        const pEnd = p.periodEnd?.split('T')[0] || p.end;
+      const currentPeriod = periods.find((p) => {
+        const pStart = p.periodStart?.split("T")[0] || p.start;
+        const pEnd = p.periodEnd?.split("T")[0] || p.end;
         return pStart === periodStart && pEnd === periodEnd;
       });
       if (currentPeriod) {
-        const response = await payrollService.updateCutoff(currentPeriod.id, newPayrollDate, 'Payroll date updated by admin for early processing');
+        const response = await payrollService.updateCutoff(
+          currentPeriod.id,
+          newPayrollDate,
+          "Payroll date updated by admin for early processing",
+        );
         if (response.success) {
-          setSuccessMsg("Next payroll date updated. Employees and clients will be notified.");
+          setSuccessMsg(
+            "Next payroll date updated. Employees and clients will be notified.",
+          );
           setShowUpdatePayrollDate(false);
           setNewPayrollDate("");
           fetchData();
@@ -625,32 +634,43 @@ const Payroll = () => {
 
   // Compute next payroll date from current period
   const nextPayrollDate = (() => {
-    const currentPeriod = periods.find(p => {
-      const pStart = p.periodStart?.split('T')[0] || p.start;
-      const pEnd = p.periodEnd?.split('T')[0] || p.end;
+    const currentPeriod = periods.find((p) => {
+      const pStart = p.periodStart?.split("T")[0] || p.start;
+      const pEnd = p.periodEnd?.split("T")[0] || p.end;
       return pStart === periodStart && pEnd === periodEnd;
     });
     if (currentPeriod?.cutoffDate) {
-      return new Date(currentPeriod.cutoffDate).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      return new Date(currentPeriod.cutoffDate).toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
     }
     // Fallback: end of period + 1 day
     if (periodEnd) {
-      const d = new Date(periodEnd + 'T00:00:00Z');
+      const d = new Date(periodEnd + "T00:00:00Z");
       d.setDate(d.getDate() + 1);
-      return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      return d.toLocaleDateString("en-US", {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      });
     }
     return null;
   })();
 
-  const unapprovedOTEntries = unapprovedOTData?.clients?.flatMap(client =>
-    client.employees.map(emp => ({
-      employee: emp.name,
-      client: client.clientName,
-      hours: emp.hours,
-      count: emp.count,
-      amountAtRisk: 0, // placeholder
-    }))
-  ) || [];
+  const unapprovedOTEntries =
+    unapprovedOTData?.clients?.flatMap((client) =>
+      client.employees.map((emp) => ({
+        employee: emp.name,
+        client: client.clientName,
+        hours: emp.hours,
+        count: emp.count,
+        amountAtRisk: 0, // placeholder
+      })),
+    ) || [];
 
   if (loading && !dashboardData) {
     return (
@@ -665,8 +685,14 @@ const Payroll = () => {
   const employees = employeeSummary?.employees || [];
   const totals = employeeSummary?.totals || {};
 
-  const totalBonuses = employees.reduce((sum, e) => sum + (e.totalBonuses || 0), 0);
-  const totalDeductions = employees.reduce((sum, e) => sum + (e.totalDeductions || 0), 0);
+  const totalBonuses = employees.reduce(
+    (sum, e) => sum + (e.totalBonuses || 0),
+    0,
+  );
+  const totalDeductions = employees.reduce(
+    (sum, e) => sum + (e.totalDeductions || 0),
+    0,
+  );
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -674,7 +700,9 @@ const Payroll = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Payroll</h2>
-          <p className="text-sm text-gray-500">Process and manage employee payroll</p>
+          <p className="text-sm text-gray-500">
+            Process and manage employee payroll
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Period Selector */}
@@ -686,20 +714,35 @@ const Payroll = () => {
               onChange={handlePeriodChange}
             >
               {payPeriods.map((period, idx) => (
-                <option key={idx} value={idx}>{period.label}</option>
+                <option key={idx} value={idx}>
+                  {period.label}
+                </option>
               ))}
             </select>
             <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
-          <Button variant="ghost" size="sm" icon={RefreshCw} onClick={fetchData} disabled={loading} />
-          <Button variant="outline" size="sm" icon={Download} onClick={() => setShowExportModal(true)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={RefreshCw}
+            onClick={fetchData}
+            disabled={loading}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Download}
+            onClick={() => setShowExportModal(true)}
+          >
             Export
           </Button>
           <Button
             variant={totals.payrollProcessed ? "outline" : "primary"}
             size="sm"
             icon={totals.payrollProcessed ? CheckCircle : Send}
-            onClick={() => !totals.payrollProcessed && setShowProcessModal(true)}
+            onClick={() =>
+              !totals.payrollProcessed && setShowProcessModal(true)
+            }
             disabled={totals.payrollProcessed}
           >
             {totals.payrollProcessed ? "Processed" : "Process Payroll"}
@@ -712,7 +755,10 @@ const Payroll = () => {
         <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
           <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
           <span className="text-sm text-red-700 flex-1">{error}</span>
-          <button onClick={() => setError("")} className="text-red-400 hover:text-red-600">
+          <button
+            onClick={() => setError("")}
+            className="text-red-400 hover:text-red-600"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -721,7 +767,10 @@ const Payroll = () => {
         <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-xl">
           <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
           <span className="text-sm text-green-700 flex-1">{successMsg}</span>
-          <button onClick={() => setSuccessMsg("")} className="text-green-400 hover:text-green-600">
+          <button
+            onClick={() => setSuccessMsg("")}
+            className="text-green-400 hover:text-green-600"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -732,18 +781,25 @@ const Payroll = () => {
         <Card className="lg:col-span-2">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Next Payroll Date</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
-                {nextPayrollDate || 'Not set'}
+              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Next Payroll Date
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">Period: {periodStart} to {periodEnd}</p>
+              <p className="text-2xl font-bold text-gray-900 mt-1">
+                {nextPayrollDate || "Not set"}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Period: {periodStart} to {periodEnd}
+              </p>
             </div>
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 icon={Calendar}
-                onClick={() => { setShowUpdatePayrollDate(true); setNewPayrollDate(""); }}
+                onClick={() => {
+                  setShowUpdatePayrollDate(true);
+                  setNewPayrollDate("");
+                }}
               >
                 Update Date
               </Button>
@@ -753,14 +809,18 @@ const Payroll = () => {
         <Card>
           <div className="flex flex-col items-center justify-center h-full gap-2">
             <AlertTriangle className="w-8 h-8 text-amber-500" />
-            <p className="text-2xl font-bold text-amber-700">{unapprovedOTData?.totalCount || 0}</p>
+            <p className="text-2xl font-bold text-amber-700">
+              {unapprovedOTData?.totalCount || 0}
+            </p>
             <p className="text-xs text-gray-500">Unapproved OT Entries</p>
             <Button
               variant="danger"
               size="sm"
               icon={Send}
               onClick={handleSendOTPush}
-              disabled={sendingOTPush || (unapprovedOTData?.totalCount || 0) === 0}
+              disabled={
+                sendingOTPush || (unapprovedOTData?.totalCount || 0) === 0
+              }
             >
               {sendingOTPush ? "Sending..." : "Send OT Push Reminder"}
             </Button>
@@ -774,9 +834,15 @@ const Payroll = () => {
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-500" />
-              <h3 className="text-sm font-semibold text-red-700">Unapproved Overtime — Action Required Before Payroll</h3>
+              <h3 className="text-sm font-semibold text-red-700">
+                Unapproved Overtime — Action Required Before Payroll
+              </h3>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/approvals?type=autoOvertime')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/admin/approvals?type=autoOvertime")}
+            >
               View All
             </Button>
           </div>
@@ -793,11 +859,25 @@ const Payroll = () => {
             <TableBody>
               {unapprovedOTEntries.map((entry, idx) => (
                 <TableRow key={idx}>
-                  <TableCell><span className="font-medium text-gray-900">{entry.employee}</span></TableCell>
-                  <TableCell><span className="text-gray-600">{entry.client}</span></TableCell>
-                  <TableCell className="text-center"><span className="font-semibold text-red-600">{entry.hours}</span></TableCell>
-                  <TableCell className="text-center">{entry.count} {entry.count === 1 ? 'entry' : 'entries'}</TableCell>
-                  <TableCell className="text-center"><Badge variant="danger">Pending</Badge></TableCell>
+                  <TableCell>
+                    <span className="font-medium text-gray-900">
+                      {entry.employee}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-gray-600">{entry.client}</span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <span className="font-semibold text-red-600">
+                      {entry.hours}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    {entry.count} {entry.count === 1 ? "entry" : "entries"}
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <Badge variant="danger">Pending</Badge>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -813,8 +893,18 @@ const Payroll = () => {
         size="sm"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setShowUpdatePayrollDate(false)}>Cancel</Button>
-            <Button variant="primary" icon={Calendar} onClick={handleUpdatePayrollDate} disabled={updatingPayrollDate || !newPayrollDate}>
+            <Button
+              variant="ghost"
+              onClick={() => setShowUpdatePayrollDate(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              icon={Calendar}
+              onClick={handleUpdatePayrollDate}
+              disabled={updatingPayrollDate || !newPayrollDate}
+            >
               {updatingPayrollDate ? "Updating..." : "Update Date"}
             </Button>
           </>
@@ -822,10 +912,13 @@ const Payroll = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Use this to run payroll early before holidays or special dates. All employees and clients will be notified.
+            Use this to run payroll early before holidays or special dates. All
+            employees and clients will be notified.
           </p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Payroll Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              New Payroll Date
+            </label>
             <input
               type="date"
               className="input w-full"
@@ -836,7 +929,8 @@ const Payroll = () => {
           <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
             <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-sm text-amber-700">
-              Changing the payroll date will notify all employees and clients. Any unapproved overtime must be resolved before this date.
+              Changing the payroll date will notify all employees and clients.
+              Any unapproved overtime must be resolved before this date.
             </p>
           </div>
         </div>
@@ -847,40 +941,54 @@ const Payroll = () => {
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
           <Clock className="w-3.5 h-3.5 text-green-500" />
           <span className="text-sm text-green-600">Hours</span>
-          <span className="text-sm font-bold text-green-700">{(totals.totalHours || summary.totalHours || 0).toFixed(2)}</span>
+          <span className="text-sm font-bold text-green-700">
+            {(totals.totalHours || summary.totalHours || 0).toFixed(2)}
+          </span>
         </div>
         {(totals.overtimeHours || summary.overtimeHours || 0) > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
             <span className="text-sm text-orange-600">OT</span>
-            <span className="text-sm font-bold text-orange-700">{(totals.overtimeHours || summary.overtimeHours || 0).toFixed(2)}</span>
+            <span className="text-sm font-bold text-orange-700">
+              {(totals.overtimeHours || summary.overtimeHours || 0).toFixed(2)}
+            </span>
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
           <span className="text-sm text-blue-600">Approved</span>
-          <span className="text-sm font-bold text-blue-700">{(totals.approvedHours || summary.approvedHours || 0).toFixed(2)}</span>
+          <span className="text-sm font-bold text-blue-700">
+            {(totals.approvedHours || summary.approvedHours || 0).toFixed(2)}
+          </span>
         </div>
         {(totals.pendingHours || summary.pendingHours || 0) > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-lg">
             <span className="text-sm text-yellow-600">Pending</span>
-            <span className="text-sm font-bold text-yellow-700">{(totals.pendingHours || summary.pendingHours || 0).toFixed(2)}</span>
+            <span className="text-sm font-bold text-yellow-700">
+              {(totals.pendingHours || summary.pendingHours || 0).toFixed(2)}
+            </span>
           </div>
         )}
         {totalBonuses > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
             <span className="text-sm text-teal-600">Bonuses</span>
-            <span className="text-sm font-bold text-teal-700">+${totalBonuses.toFixed(2)}</span>
+            <span className="text-sm font-bold text-teal-700">
+              +${totalBonuses.toFixed(2)}
+            </span>
           </div>
         )}
         {totalDeductions > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
             <span className="text-sm text-red-600">Deductions</span>
-            <span className="text-sm font-bold text-red-700">-${totalDeductions.toFixed(2)}</span>
+            <span className="text-sm font-bold text-red-700">
+              -${totalDeductions.toFixed(2)}
+            </span>
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
           <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
           <span className="text-sm text-emerald-600">Gross Pay</span>
-          <span className="text-sm font-bold text-emerald-700">${(totals.totalGrossPay || 0).toFixed(2)}</span>
+          <span className="text-sm font-bold text-emerald-700">
+            ${(totals.totalGrossPay || 0).toFixed(2)}
+          </span>
         </div>
       </div>
 
@@ -897,66 +1005,99 @@ const Payroll = () => {
           />
         </div>
 
-          {employees.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Hours Worked</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">PTO Hours</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">VTO Hours</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Pending Approval</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Total Hours</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Total Bonuses</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Total Deductions</TableHeader>
-                  <TableHeader className="text-center whitespace-nowrap">Gross Pay</TableHeader>
-                  <TableHeader className="text-center">Action</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {employees
-                  .filter((emp) => {
-                    if (!employeeSearch.trim()) return true;
-                    const name =
-                      `${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`.toLowerCase();
-                    return name.includes(employeeSearch.toLowerCase().trim());
-                  })
-                  .map((emp) => (
-                    <React.Fragment key={emp.employee.id}>
+        {employees.length > 0 ? (
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Employee</TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Hours Worked
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  PTO Hours
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  VTO Hours
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Pending Approval
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Total Hours
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Total Bonuses
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Total Deductions
+                </TableHeader>
+                <TableHeader className="text-center whitespace-nowrap">
+                  Gross Pay
+                </TableHeader>
+                <TableHeader className="text-center">Action</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {employees
+                .filter((emp) => {
+                  if (!employeeSearch.trim()) return true;
+                  const name =
+                    `${emp.employee?.firstName || ""} ${emp.employee?.lastName || ""}`.toLowerCase();
+                  return name.includes(employeeSearch.toLowerCase().trim());
+                })
+                .map((emp) => (
+                  <React.Fragment key={emp.employee.id}>
                     <TableRow
                       className="cursor-pointer hover:bg-gray-50"
-                      onClick={() => setExpandedEmployee(expandedEmployee === emp.employee.id ? null : emp.employee.id)}
+                      onClick={() =>
+                        setExpandedEmployee(
+                          expandedEmployee === emp.employee.id
+                            ? null
+                            : emp.employee.id,
+                        )
+                      }
                     >
                       {/* Employee */}
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${expandedEmployee === emp.employee.id ? 'rotate-90' : ''}`} />
+                          <ChevronRight
+                            className={`w-4 h-4 text-gray-400 transition-transform ${expandedEmployee === emp.employee.id ? "rotate-90" : ""}`}
+                          />
                           <Avatar
-                            name={`${emp.employee?.firstName || ''} ${emp.employee?.lastName || ''}`}
+                            name={`${emp.employee?.firstName || ""} ${emp.employee?.lastName || ""}`}
                             src={emp.employee?.profilePhoto}
                             size="sm"
                           />
                           <div>
                             <span className="font-medium text-gray-900">
-                              {emp.employee?.firstName || ''} {emp.employee?.lastName || ''}
+                              {emp.employee?.firstName || ""}{" "}
+                              {emp.employee?.lastName || ""}
                             </span>
-                            <p className="text-xs text-gray-500">{emp.client?.companyName || "-"}</p>
+                            <p className="text-xs text-gray-500">
+                              {emp.client?.companyName || "-"}
+                            </p>
                           </div>
                         </div>
                       </TableCell>
                       {/* Hours Worked */}
                       <TableCell className="text-center whitespace-nowrap">
                         <div>
-                          <span className="font-semibold text-gray-900">{(emp.approvedHours || 0).toFixed(2)}h</span>
+                          <span className="font-semibold text-gray-900">
+                            {(emp.approvedHours || 0).toFixed(2)}h
+                          </span>
                           {emp.overtimeHours > 0 && (
-                            <p className="text-[10px] text-orange-600">incl. {(emp.overtimeHours || 0).toFixed(2)}h OT</p>
+                            <p className="text-[10px] text-orange-600">
+                              incl. {(emp.overtimeHours || 0).toFixed(2)}h OT
+                            </p>
                           )}
                         </div>
                       </TableCell>
                       {/* PTO Hours */}
                       <TableCell className="text-center whitespace-nowrap">
                         {(emp.ptoHours || 0) > 0 ? (
-                          <span className="text-purple-600 font-medium">{(emp.ptoHours || 0).toFixed(2)}h</span>
+                          <span className="text-purple-600 font-medium">
+                            {(emp.ptoHours || 0).toFixed(2)}h
+                          </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -964,7 +1105,9 @@ const Payroll = () => {
                       {/* VTO Hours */}
                       <TableCell className="text-center whitespace-nowrap">
                         {(emp.vtoHours || 0) > 0 ? (
-                          <span className="text-blue-600 font-medium">{(emp.vtoHours || 0).toFixed(2)}h</span>
+                          <span className="text-blue-600 font-medium">
+                            {(emp.vtoHours || 0).toFixed(2)}h
+                          </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -972,19 +1115,30 @@ const Payroll = () => {
                       {/* Pending Approval */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.pendingHours > 0 ? (
-                          <span className="text-amber-600 font-medium">{(emp.pendingHours || 0).toFixed(2)}h</span>
+                          <span className="text-amber-600 font-medium">
+                            {(emp.pendingHours || 0).toFixed(2)}h
+                          </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </TableCell>
                       {/* Total Hours (Approved + PTO) */}
                       <TableCell className="text-center whitespace-nowrap">
-                        <span className="font-bold text-blue-700">{(emp.totalHoursWithPTO || emp.totalHours || 0).toFixed(2)}h</span>
+                        <span className="font-bold text-blue-700">
+                          {(
+                            emp.totalHoursWithPTO ||
+                            emp.totalHours ||
+                            0
+                          ).toFixed(2)}
+                          h
+                        </span>
                       </TableCell>
                       {/* Total Bonuses */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.totalBonuses > 0 ? (
-                          <span className="text-green-600 font-medium">+${(emp.totalBonuses || 0).toFixed(2)}</span>
+                          <span className="text-green-600 font-medium">
+                            +${(emp.totalBonuses || 0).toFixed(2)}
+                          </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
@@ -992,14 +1146,18 @@ const Payroll = () => {
                       {/* Total Deductions */}
                       <TableCell className="text-center whitespace-nowrap">
                         {emp.totalDeductions > 0 ? (
-                          <span className="text-red-600 font-medium">-${(emp.totalDeductions || 0).toFixed(2)}</span>
+                          <span className="text-red-600 font-medium">
+                            -${(emp.totalDeductions || 0).toFixed(2)}
+                          </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
                       </TableCell>
                       {/* Gross Pay */}
                       <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
-                        {emp.grossPay > 0 ? `$${(emp.grossPay || 0).toFixed(2)}` : "—"}
+                        {emp.grossPay > 0
+                          ? `$${(emp.grossPay || 0).toFixed(2)}`
+                          : "—"}
                       </TableCell>
                       {/* Action */}
                       <TableCell className="text-center">
@@ -1021,44 +1179,145 @@ const Payroll = () => {
                     {/* Expanded Detail Row */}
                     {expandedEmployee === emp.employee.id && (
                       <tr>
-                        <td colSpan={10} className="px-0 py-0 bg-gray-50 border-b border-gray-200">
+                        <td
+                          colSpan={10}
+                          className="px-0 py-0 bg-gray-50 border-b border-gray-200"
+                        >
                           <div className="px-6 py-4">
                             {/* Time Records */}
                             <div className="mb-4">
-                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Time Records</h4>
+                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                Time Records
+                              </h4>
                               {emp.records && emp.records.length > 0 ? (
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
                                     <thead>
                                       <tr className="border-b border-gray-200">
-                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Date</th>
-                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Clock In</th>
-                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Clock Out</th>
-                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Hours</th>
-                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">OT</th>
-                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Break</th>
-                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">Status</th>
+                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Date
+                                        </th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Clock In
+                                        </th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Clock Out
+                                        </th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Hours
+                                        </th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          OT
+                                        </th>
+                                        <th className="text-center py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Break
+                                        </th>
+                                        <th className="text-left py-1.5 px-3 text-[11px] font-medium text-gray-400 uppercase">
+                                          Status
+                                        </th>
                                       </tr>
                                     </thead>
                                     <tbody>
                                       {emp.records
-                                        .sort((a, b) => new Date(a.date) - new Date(b.date))
+                                        .sort(
+                                          (a, b) =>
+                                            new Date(a.date) - new Date(b.date),
+                                        )
                                         .map((rec) => {
-                                          const totalH = Math.round(((rec.totalMinutes || 0) / 60) * 100) / 100;
-                                          const otH = Math.round(((rec.overtimeMinutes || 0) / 60) * 100) / 100;
-                                          const breakH = Math.round(((rec.breakMinutes || 0) / 60) * 100) / 100;
-                                          const dateStr = new Date(rec.date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
-                                          const fmtTime = (d) => d ? new Date(d).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '—';
-                                          const statusBg = rec.status === 'APPROVED' || rec.status === 'AUTO_APPROVED' ? 'bg-green-100 text-green-700' : rec.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+                                          const totalH =
+                                            Math.round(
+                                              ((rec.totalMinutes || 0) / 60) *
+                                                100,
+                                            ) / 100;
+                                          const otH =
+                                            Math.round(
+                                              ((rec.overtimeMinutes || 0) /
+                                                60) *
+                                                100,
+                                            ) / 100;
+                                          const breakH =
+                                            Math.round(
+                                              ((rec.breakMinutes || 0) / 60) *
+                                                100,
+                                            ) / 100;
+                                          const dateStr = new Date(
+                                            rec.date,
+                                          ).toLocaleDateString("en-US", {
+                                            weekday: "short",
+                                            month: "short",
+                                            day: "numeric",
+                                            timeZone: "UTC",
+                                          });
+                                          const fmtTime = (d) =>
+                                            d
+                                              ? new Date(d).toLocaleTimeString(
+                                                  "en-US",
+                                                  {
+                                                    hour: "numeric",
+                                                    minute: "2-digit",
+                                                    hour12: true,
+                                                  },
+                                                )
+                                              : "—";
+                                          const statusBg =
+                                            rec.status === "APPROVED" ||
+                                            rec.status === "AUTO_APPROVED"
+                                              ? "bg-green-100 text-green-700"
+                                              : rec.status === "PENDING"
+                                                ? "bg-amber-100 text-amber-700"
+                                                : "bg-red-100 text-red-700";
                                           return (
-                                            <tr key={rec.id} className="border-b border-gray-100 last:border-0">
-                                              <td className="py-1.5 px-3 text-gray-900">{dateStr}</td>
-                                              <td className="py-1.5 px-3 text-center text-gray-600">{fmtTime(rec.clockIn)}</td>
-                                              <td className="py-1.5 px-3 text-center text-gray-600">{fmtTime(rec.clockOut)}</td>
-                                              <td className="py-1.5 px-3 text-center font-medium">{totalH}h</td>
-                                              <td className="py-1.5 px-3 text-center">{otH > 0 ? <span className="text-orange-600">{otH}h</span> : <span className="text-gray-300">—</span>}</td>
-                                              <td className="py-1.5 px-3 text-center">{breakH > 0 ? <span className="text-yellow-600">{breakH}h</span> : <span className="text-gray-300">—</span>}</td>
-                                              <td className="py-1.5 px-3"><span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusBg}`}>{rec.status === 'AUTO_APPROVED' ? 'Auto Approved' : rec.status?.charAt(0) + rec.status?.slice(1).toLowerCase()}</span></td>
+                                            <tr
+                                              key={rec.id}
+                                              className="border-b border-gray-100 last:border-0"
+                                            >
+                                              <td className="py-1.5 px-3 text-gray-900">
+                                                {dateStr}
+                                              </td>
+                                              <td className="py-1.5 px-3 text-center text-gray-600">
+                                                {fmtTime(rec.clockIn)}
+                                              </td>
+                                              <td className="py-1.5 px-3 text-center text-gray-600">
+                                                {fmtTime(rec.clockOut)}
+                                              </td>
+                                              <td className="py-1.5 px-3 text-center font-medium">
+                                                {totalH}h
+                                              </td>
+                                              <td className="py-1.5 px-3 text-center">
+                                                {otH > 0 ? (
+                                                  <span className="text-orange-600">
+                                                    {otH}h
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-gray-300">
+                                                    —
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="py-1.5 px-3 text-center">
+                                                {breakH > 0 ? (
+                                                  <span className="text-yellow-600">
+                                                    {breakH}h
+                                                  </span>
+                                                ) : (
+                                                  <span className="text-gray-300">
+                                                    —
+                                                  </span>
+                                                )}
+                                              </td>
+                                              <td className="py-1.5 px-3">
+                                                <span
+                                                  className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${statusBg}`}
+                                                >
+                                                  {rec.status ===
+                                                  "AUTO_APPROVED"
+                                                    ? "Auto Approved"
+                                                    : rec.status?.charAt(0) +
+                                                      rec.status
+                                                        ?.slice(1)
+                                                        .toLowerCase()}
+                                                </span>
+                                              </td>
                                             </tr>
                                           );
                                         })}
@@ -1066,23 +1325,39 @@ const Payroll = () => {
                                   </table>
                                 </div>
                               ) : (
-                                <p className="text-sm text-gray-400">No time records for this period</p>
+                                <p className="text-sm text-gray-400">
+                                  No time records for this period
+                                </p>
                               )}
                             </div>
                             {/* Adjustments */}
                             <div className="flex items-start gap-8">
                               <div>
-                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Bonuses & Deductions</h4>
-                                {emp.adjustments && emp.adjustments.length > 0 ? (
+                                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                  Bonuses & Deductions
+                                </h4>
+                                {emp.adjustments &&
+                                emp.adjustments.length > 0 ? (
                                   <div className="space-y-1">
                                     {emp.adjustments.map((adj) => (
-                                      <div key={adj.id} className="flex items-center gap-3">
-                                        <span className={`text-sm font-semibold ${adj.type === 'BONUS' ? 'text-green-600' : 'text-red-600'}`}>
-                                          {adj.type === 'BONUS' ? '+' : '-'}${adj.amount.toLocaleString()}
+                                      <div
+                                        key={adj.id}
+                                        className="flex items-center gap-3"
+                                      >
+                                        <span
+                                          className={`text-sm font-semibold ${adj.type === "BONUS" ? "text-green-600" : "text-red-600"}`}
+                                        >
+                                          {adj.type === "BONUS" ? "+" : "-"}$
+                                          {adj.amount.toLocaleString()}
                                         </span>
-                                        <span className="text-xs text-gray-500">{adj.reason}</span>
+                                        <span className="text-xs text-gray-500">
+                                          {adj.reason}
+                                        </span>
                                         <button
-                                          onClick={(e) => { e.stopPropagation(); setDeleteAdjustmentId(adj.id); }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setDeleteAdjustmentId(adj.id);
+                                          }}
                                           className="p-0.5 hover:bg-red-50 rounded text-red-400 hover:text-red-600"
                                           title="Delete"
                                         >
@@ -1092,18 +1367,27 @@ const Payroll = () => {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-sm text-gray-400">No adjustments</p>
+                                  <p className="text-sm text-gray-400">
+                                    No adjustments
+                                  </p>
                                 )}
                               </div>
                               {emp.employeeDeduction > 0 && (
                                 <div>
-                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Default Deduction</h4>
-                                  <span className="text-sm font-semibold text-red-600">-${emp.employeeDeduction.toLocaleString()}</span>
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    Default Deduction
+                                  </h4>
+                                  <span className="text-sm font-semibold text-red-600">
+                                    -${emp.employeeDeduction.toLocaleString()}
+                                  </span>
                                 </div>
                               )}
-                              {emp.status !== 'completed' && (
+                              {emp.status !== "completed" && (
                                 <button
-                                  onClick={(e) => { e.stopPropagation(); openAdjustmentModal(emp, 'BONUS'); }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openAdjustmentModal(emp, "BONUS");
+                                  }}
                                   className="mt-5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                                 >
                                   + Add Adjustment
@@ -1115,15 +1399,15 @@ const Payroll = () => {
                       </tr>
                     )}
                   </React.Fragment>
-                  ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-              <p>No employee data for this period</p>
-            </div>
-          )}
+                ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <div className="text-center py-8 text-gray-500">
+            <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+            <p>No employee data for this period</p>
+          </div>
+        )}
       </Card>
 
       {/* {activeTab === "unapproved" && (
@@ -1344,9 +1628,13 @@ const Payroll = () => {
                       size="sm"
                       icon={EyeIcon}
                       onClick={() => {
-                        const pStart = period.periodStart?.split('T')[0] || period.start;
-                        const pEnd = period.periodEnd?.split('T')[0] || period.end;
-                        navigate(`/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`);
+                        const pStart =
+                          period.periodStart?.split("T")[0] || period.start;
+                        const pEnd =
+                          period.periodEnd?.split("T")[0] || period.end;
+                        navigate(
+                          `/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`,
+                        );
                       }}
                     >
                       Report
@@ -1387,8 +1675,11 @@ const Payroll = () => {
       {/* Report Modal */}
       <Modal
         isOpen={showReportModal}
-        onClose={() => { setShowReportModal(false); setReportData(null); }}
-        title={`Payroll Report — ${reportPeriod ? formatPeriodLabel(reportPeriod.start, reportPeriod.end) : ''}`}
+        onClose={() => {
+          setShowReportModal(false);
+          setReportData(null);
+        }}
+        title={`Payroll Report — ${reportPeriod ? formatPeriodLabel(reportPeriod.start, reportPeriod.end) : ""}`}
         size="xl"
       >
         {reportLoading ? (
@@ -1401,15 +1692,21 @@ const Payroll = () => {
             <div className="flex flex-wrap gap-3">
               <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
                 <Users className="w-3.5 h-3.5 text-blue-500" />
-                <span className="text-sm text-blue-700 font-semibold">{reportData.totals?.totalEmployees || 0} Employees</span>
+                <span className="text-sm text-blue-700 font-semibold">
+                  {reportData.totals?.totalEmployees || 0} Employees
+                </span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
                 <Clock className="w-3.5 h-3.5 text-green-500" />
-                <span className="text-sm text-green-700 font-semibold">{reportData.totals?.totalHours || 0}h Total</span>
+                <span className="text-sm text-green-700 font-semibold">
+                  {reportData.totals?.totalHours || 0}h Total
+                </span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
                 <DollarSign className="w-3.5 h-3.5 text-purple-500" />
-                <span className="text-sm text-purple-700 font-semibold">${(reportData.totals?.totalGrossPay || 0).toLocaleString()}</span>
+                <span className="text-sm text-purple-700 font-semibold">
+                  ${(reportData.totals?.totalGrossPay || 0).toLocaleString()}
+                </span>
               </div>
             </div>
 
@@ -1418,48 +1715,121 @@ const Payroll = () => {
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Employee</th>
-                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Period</th>
-                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Client</th>
-                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Days</th>
-                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Total Hours</th>
-                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">OT Hours</th>
-                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Rate</th>
-                    <th className="text-right px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">Gross Pay</th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Employee
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Period
+                    </th>
+                    <th className="text-left px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Client
+                    </th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Days
+                    </th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Total Hours
+                    </th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      OT Hours
+                    </th>
+                    <th className="text-center px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Rate
+                    </th>
+                    <th className="text-right px-3 py-2.5 text-[11px] font-bold text-gray-500 uppercase">
+                      Gross Pay
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {reportData.employees.map((emp, idx) => {
                     const ratePeriods = Object.values(emp._ratePeriods || {});
                     const hasMultipleRates = ratePeriods.length > 1;
-                    const fmtShort = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+                    const fmtShort = (d) =>
+                      new Date(d + "T00:00:00Z").toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      });
 
                     if (hasMultipleRates) {
                       return (
                         <Fragment key={idx}>
                           {ratePeriods.map((rp, rpIdx) => {
-                            const totalH = Math.round((rp.regularMinutes / 60) * 100) / 100;
-                            const otH = Math.round((rp.otMinutes / 60) * 100) / 100;
+                            const totalH =
+                              Math.round((rp.regularMinutes / 60) * 100) / 100;
+                            const otH =
+                              Math.round((rp.otMinutes / 60) * 100) / 100;
                             return (
-                              <tr key={`${idx}-${rpIdx}`} className="hover:bg-gray-50/50">
-                                <td className="px-3 py-2 text-sm text-gray-900">{emp.firstName} {emp.lastName}</td>
-                                <td className="px-3 py-2 text-xs text-gray-500">{fmtShort(rp.minDate)} - {fmtShort(rp.maxDate)}</td>
-                                <td className="px-3 py-2 text-sm text-gray-600">{emp.client}</td>
-                                <td className="px-3 py-2 text-sm text-center">{rp.workDays}</td>
-                                <td className="px-3 py-2 text-sm text-center">{totalH}</td>
-                                <td className="px-3 py-2 text-sm text-center">{otH > 0 ? <span className="text-orange-600">{otH}</span> : <span className="text-gray-300">-</span>}</td>
-                                <td className="px-3 py-2 text-sm text-center font-medium">${rp.rate}</td>
-                                <td className="px-3 py-2 text-sm text-right font-semibold">${(Math.round((rp.regularPay + rp.otPay) * 100) / 100).toFixed(2)}</td>
+                              <tr
+                                key={`${idx}-${rpIdx}`}
+                                className="hover:bg-gray-50/50"
+                              >
+                                <td className="px-3 py-2 text-sm text-gray-900">
+                                  {emp.firstName} {emp.lastName}
+                                </td>
+                                <td className="px-3 py-2 text-xs text-gray-500">
+                                  {fmtShort(rp.minDate)} -{" "}
+                                  {fmtShort(rp.maxDate)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-600">
+                                  {emp.client}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center">
+                                  {rp.workDays}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center">
+                                  {totalH}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center">
+                                  {otH > 0 ? (
+                                    <span className="text-orange-600">
+                                      {otH}
+                                    </span>
+                                  ) : (
+                                    <span className="text-gray-300">-</span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-center font-medium">
+                                  ${rp.rate}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-right font-semibold">
+                                  $
+                                  {(
+                                    Math.round(
+                                      (rp.regularPay + rp.otPay) * 100,
+                                    ) / 100
+                                  ).toFixed(2)}
+                                </td>
                               </tr>
                             );
                           })}
                           <tr className="bg-gray-50/80 border-b-2 border-gray-200">
-                            <td className="px-3 py-2 text-sm font-semibold text-gray-700" colSpan={3}>{emp.firstName} {emp.lastName} — Total</td>
-                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.workDays}</td>
-                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.totalHours}</td>
-                            <td className="px-3 py-2 text-sm text-center font-semibold">{emp.overtimeHours > 0 ? <span className="text-orange-600">{emp.overtimeHours}</span> : '-'}</td>
+                            <td
+                              className="px-3 py-2 text-sm font-semibold text-gray-700"
+                              colSpan={3}
+                            >
+                              {emp.firstName} {emp.lastName} — Total
+                            </td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">
+                              {emp.workDays}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">
+                              {emp.totalHours}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-center font-semibold">
+                              {emp.overtimeHours > 0 ? (
+                                <span className="text-orange-600">
+                                  {emp.overtimeHours}
+                                </span>
+                              ) : (
+                                "-"
+                              )}
+                            </td>
                             <td className="px-3 py-2"></td>
-                            <td className="px-3 py-2 text-sm text-right font-bold text-green-700">${emp.grossPay.toFixed(2)}</td>
+                            <td className="px-3 py-2 text-sm text-right font-bold text-green-700">
+                              ${emp.grossPay.toFixed(2)}
+                            </td>
                           </tr>
                         </Fragment>
                       );
@@ -1467,25 +1837,62 @@ const Payroll = () => {
 
                     return (
                       <tr key={idx} className="hover:bg-gray-50/50">
-                        <td className="px-3 py-2 text-sm text-gray-900">{emp.firstName} {emp.lastName}</td>
+                        <td className="px-3 py-2 text-sm text-gray-900">
+                          {emp.firstName} {emp.lastName}
+                        </td>
                         <td className="px-3 py-2 text-xs text-gray-400">—</td>
-                        <td className="px-3 py-2 text-sm text-gray-600">{emp.client}</td>
-                        <td className="px-3 py-2 text-sm text-center">{emp.workDays}</td>
-                        <td className="px-3 py-2 text-sm text-center">{emp.totalHours}</td>
-                        <td className="px-3 py-2 text-sm text-center">{emp.overtimeHours > 0 ? <span className="text-orange-600">{emp.overtimeHours}</span> : <span className="text-gray-300">-</span>}</td>
-                        <td className="px-3 py-2 text-sm text-center font-medium">${emp.hourlyRate}</td>
-                        <td className="px-3 py-2 text-sm text-right font-semibold text-green-700">${emp.grossPay.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm text-gray-600">
+                          {emp.client}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-center">
+                          {emp.workDays}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-center">
+                          {emp.totalHours}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-center">
+                          {emp.overtimeHours > 0 ? (
+                            <span className="text-orange-600">
+                              {emp.overtimeHours}
+                            </span>
+                          ) : (
+                            <span className="text-gray-300">-</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-center font-medium">
+                          ${emp.hourlyRate}
+                        </td>
+                        <td className="px-3 py-2 text-sm text-right font-semibold text-green-700">
+                          ${emp.grossPay.toFixed(2)}
+                        </td>
                       </tr>
                     );
                   })}
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-100 border-t-2 border-gray-300">
-                    <td className="px-3 py-2.5 text-sm font-bold text-gray-900" colSpan={4}>GRAND TOTAL</td>
-                    <td className="px-3 py-2.5 text-sm text-center font-bold">{reportData.totals?.totalHours}</td>
-                    <td className="px-3 py-2.5 text-sm text-center font-bold">{reportData.totals?.overtimeHours > 0 ? <span className="text-orange-600">{reportData.totals.overtimeHours}</span> : '-'}</td>
+                    <td
+                      className="px-3 py-2.5 text-sm font-bold text-gray-900"
+                      colSpan={4}
+                    >
+                      GRAND TOTAL
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-center font-bold">
+                      {reportData.totals?.totalHours}
+                    </td>
+                    <td className="px-3 py-2.5 text-sm text-center font-bold">
+                      {reportData.totals?.overtimeHours > 0 ? (
+                        <span className="text-orange-600">
+                          {reportData.totals.overtimeHours}
+                        </span>
+                      ) : (
+                        "-"
+                      )}
+                    </td>
                     <td className="px-3 py-2.5"></td>
-                    <td className="px-3 py-2.5 text-sm text-right font-bold text-green-700">${(reportData.totals?.totalGrossPay || 0).toFixed(2)}</td>
+                    <td className="px-3 py-2.5 text-sm text-right font-bold text-green-700">
+                      ${(reportData.totals?.totalGrossPay || 0).toFixed(2)}
+                    </td>
                   </tr>
                 </tfoot>
               </table>
@@ -1499,9 +1906,12 @@ const Payroll = () => {
                 icon={Download}
                 onClick={async () => {
                   try {
-                    await payrollService.downloadCsv(reportPeriod.start, reportPeriod.end);
+                    await payrollService.downloadCsv(
+                      reportPeriod.start,
+                      reportPeriod.end,
+                    );
                   } catch (err) {
-                    setError(err.message || 'Failed to download');
+                    setError(err.message || "Failed to download");
                   }
                 }}
               >
@@ -1658,7 +2068,7 @@ const Payroll = () => {
             <div className="p-4 bg-green-50 rounded-xl">
               <p className="text-sm text-green-600">Gross Pay</p>
               <p className="text-2xl font-bold text-green-700">
-                ${(totals.totalGrossPay || 0).toLocaleString()}
+                ${Math.max(0, totals.totalGrossPay || 0).toLocaleString()}
               </p>
             </div>
           </div>

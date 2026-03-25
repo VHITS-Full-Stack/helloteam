@@ -562,7 +562,7 @@ const TimeRecords = () => {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Break</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Regular</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Overtime</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">OT Without Prior Approval</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">OT Without Prior Approval</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -678,7 +678,7 @@ const TimeRecords = () => {
                                       {formatDuration(ot.requestedMinutes)}
                                     </span>
                                     <span className="text-[10px] text-gray-400">{ot.type === 'SHIFT_EXTENSION' ? 'ext' : 'off'}</span>
-                                    {(ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') && <span className="text-[10px] text-green-600">✓</span>}
+                                    {/* {(ot.status === 'APPROVED' || ot.status === 'AUTO_APPROVED') && <span className="text-[10px] text-green-600">✓</span>}
                                     {ot.status === 'REJECTED' && <span className="text-[10px] text-red-500">✗</span>}
                                     {ot.status === 'PENDING' && (
                                       <div className="inline-flex items-center gap-0.5 ml-1">
@@ -689,7 +689,7 @@ const TimeRecords = () => {
                                           <X className="w-3 h-3" />
                                         </button>
                                       </div>
-                                    )}
+                                    )} */}
                                   </div>
                                 ))}
                               </div>
