@@ -1,27 +1,27 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
-import { Button, Input, Card } from '../../components/common';
-import { useAuth } from '../../context/AuthContext';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { Mail, ArrowLeft, CheckCircle, AlertCircle } from "lucide-react";
+import { Button, Input, Card } from "../../components/common";
+import { useAuth } from "../../context/AuthContext";
 
 const ForgotPassword = () => {
   const { forgotPassword } = useAuth();
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const [validationError, setValidationError] = useState('');
+  const [validationError, setValidationError] = useState("");
 
   const validateEmail = () => {
     if (!email) {
-      setValidationError('Email is required');
+      setValidationError("Email is required");
       return false;
     }
     if (!/\S+@\S+\.\S+/.test(email)) {
-      setValidationError('Please enter a valid email address');
+      setValidationError("Please enter a valid email address");
       return false;
     }
-    setValidationError('');
+    setValidationError("");
     return true;
   };
 
@@ -33,7 +33,7 @@ const ForgotPassword = () => {
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const result = await forgotPassword(email);
@@ -41,10 +41,12 @@ const ForgotPassword = () => {
       if (result.success) {
         setSuccess(true);
       } else {
-        setError(result.error || 'Failed to send reset email. Please try again.');
+        setError(
+          result.error || "Failed to send reset email. Please try again.",
+        );
       }
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred');
+      setError(err.message || "An unexpected error occurred");
     } finally {
       setLoading(false);
     }
@@ -64,10 +66,12 @@ const ForgotPassword = () => {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Check Your Email</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">
+              Check Your Email
+            </h2>
             <p className="text-gray-600 mb-6">
-              If an account exists with <strong>{email}</strong>, we've sent a password reset link.
-              Please check your inbox and spam folder.
+              If an account exists with <strong>{email}</strong>, we've sent a
+              password reset link. Please check your inbox and spam folder.
             </p>
             <div className="space-y-3">
               <Button
@@ -75,17 +79,20 @@ const ForgotPassword = () => {
                 fullWidth
                 onClick={() => {
                   setSuccess(false);
-                  setEmail('');
+                  setEmail("");
                 }}
               >
                 Send Another Link
               </Button>
-              <Link to="/login">
-                <Button variant="outline" fullWidth>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Login
-                </Button>
-              </Link>
+             <div className="mt-4 text-center">
+            <Link
+              to="/login"
+              className="inline-flex items-center text-sm text-primary hover:text-primary-dark font-medium transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              Back to Login
+            </Link>
+          </div>
             </div>
           </Card>
         </div>
@@ -110,7 +117,7 @@ const ForgotPassword = () => {
               alt="Hello Team"
               className="h-14 w-auto"
               onError={(e) => {
-                e.target.style.display = 'none';
+                e.target.style.display = "none";
               }}
             />
           </div>
@@ -143,8 +150,8 @@ const ForgotPassword = () => {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                setValidationError('');
-                setError('');
+                setValidationError("");
+                setError("");
               }}
               error={validationError}
               required
@@ -158,11 +165,11 @@ const ForgotPassword = () => {
               loading={loading}
               disabled={loading}
             >
-              {loading ? 'Sending...' : 'Send Reset Link'}
+              {loading ? "Sending..." : "Send Reset Link"}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-4 text-center">
             <Link
               to="/login"
               className="inline-flex items-center text-sm text-primary hover:text-primary-dark font-medium transition-colors"
@@ -175,7 +182,9 @@ const ForgotPassword = () => {
 
         {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-6">
-          Powered by <span className="font-semibold text-primary">Hello Team</span> &copy; 2025
+          Powered by{" "}
+          <span className="font-semibold text-primary">Hello Team</span> &copy;
+          2025
         </p>
       </div>
     </div>
