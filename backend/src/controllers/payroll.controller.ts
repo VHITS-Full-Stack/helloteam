@@ -359,87 +359,102 @@ export const finalizePayrollPeriod = async (
   }
 };
 
-// Send payroll deadline reminders
+// Send unapproved OT reminders to clients and employees
 export const sendPayrollReminders = async (
   req: AuthenticatedRequest,
   res: Response,
 ) => {
   try {
-    const { daysBeforeCutoff = 3 } = req.body;
-
-    // Find all open payroll periods with cutoff within specified days
-    const cutoffThreshold = new Date();
-    cutoffThreshold.setDate(cutoffThreshold.getDate() + daysBeforeCutoff);
-
-    const upcomingPeriods = await prisma.payrollPeriod.findMany({
+    // Find all pending OT requests
+    const pendingOT = await prisma.overtimeRequest.findMany({
       where: {
-        status: "OPEN",
-        cutoffDate: {
-          gte: new Date(),
-          lte: cutoffThreshold,
-        },
+        status: 'PENDING',
+      },
+      select: {
+        id: true,
+        clientId: true,
+        employeeId: true,
+        requestedMinutes: true,
+        date: true,
       },
     });
 
-    const remindersSent = [];
+    if (pendingOT.length === 0) {
+      return res.json({
+        success: true,
+        data: { clientsNotified: 0, employeesNotified: 0 },
+        message: 'No pending OT to send reminders for.',
+      });
+    }
 
-    for (const period of upcomingPeriods) {
-      // Get client info with user
+    // Group by client
+    const byClient: Record<string, { clientId: string; employeeIds: Set<string>; count: number; totalMinutes: number }> = {};
+    for (const ot of pendingOT) {
+      if (!byClient[ot.clientId]) {
+        byClient[ot.clientId] = { clientId: ot.clientId, employeeIds: new Set(), count: 0, totalMinutes: 0 };
+      }
+      byClient[ot.clientId].employeeIds.add(ot.employeeId);
+      byClient[ot.clientId].count++;
+      byClient[ot.clientId].totalMinutes += ot.requestedMinutes || 0;
+    }
+
+    let clientsNotified = 0;
+    let employeesNotified = 0;
+
+    for (const group of Object.values(byClient)) {
+      // Notify the client
       const client = await prisma.client.findUnique({
-        where: { id: period.clientId },
-        include: {
-          user: true,
-        },
+        where: { id: group.clientId },
+        include: { user: { select: { id: true, email: true } } },
       });
 
-      if (!client) continue;
+      if (client) {
+        const totalHours = Math.round((group.totalMinutes / 60) * 100) / 100;
+        await createBulkNotifications(
+          [client.user.id],
+          'PAYROLL_REMINDER',
+          'Unapproved Overtime — Action Required',
+          `You have ${group.count} unapproved overtime ${group.count === 1 ? 'entry' : 'entries'} (${totalHours}h total) pending approval. Please review and approve before payroll processing.`,
+          { count: group.count, totalMinutes: group.totalMinutes },
+          '/client/approvals?type=auto-overtime'
+        );
 
-      // Count pending time records
-      const pendingCount = await prisma.timeRecord.count({
-        where: {
-          clientId: period.clientId,
-          date: {
-            gte: period.periodStart,
-            lte: period.periodEnd,
-          },
-          status: "PENDING",
-        },
+        const clientName = client.contactPerson || client.companyName;
+        await sendPayrollReminderEmail(
+          client.user.email,
+          clientName,
+          0,
+          group.count,
+          'as soon as possible',
+        ).catch((err: any) => console.error('Failed to send client OT reminder email:', err));
+
+        clientsNotified++;
+      }
+
+      // Notify each employee with pending OT
+      const employees = await prisma.employee.findMany({
+        where: { id: { in: Array.from(group.employeeIds) } },
+        select: { id: true, userId: true, firstName: true },
       });
 
-      // Calculate days remaining
-      const now = new Date();
-      const cutoff = new Date(period.cutoffDate);
-      const daysRemaining = Math.ceil(
-        (cutoff.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-      );
-
-      // Send in-app notification
-      await notifyPayrollDeadline(client.user.id, daysRemaining, pendingCount);
-
-      // Send email notification - use contactPerson from client
-      const clientName = client.contactPerson || client.companyName;
-      await sendPayrollReminderEmail(
-        client.user.email,
-        clientName,
-        daysRemaining,
-        pendingCount,
-        cutoff.toLocaleDateString(),
-      );
-
-      remindersSent.push({
-        clientId: client.id,
-        clientName,
-        daysRemaining,
-        pendingCount,
-      });
+      const employeeUserIds = employees.map(e => e.userId);
+      if (employeeUserIds.length > 0) {
+        await createBulkNotifications(
+          employeeUserIds,
+          'PAYROLL_REMINDER',
+          'Overtime Pending Approval',
+          'You have overtime entries pending client approval. Please ensure your time entries are accurate. Contact your manager if you have questions.',
+          {},
+          '/employee/payslips'
+        );
+        employeesNotified += employeeUserIds.length;
+      }
     }
 
     res.json({
       success: true,
-      data: {
-        remindersSent: remindersSent.length,
-        details: remindersSent,
-      },
+      data: { clientsNotified, employeesNotified },
+      message: `Reminders sent to ${clientsNotified} client(s) and ${employeesNotified} employee(s).`,
     });
   } catch (error) {
     console.error("Send payroll reminders error:", error);

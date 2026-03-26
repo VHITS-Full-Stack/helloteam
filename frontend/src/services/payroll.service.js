@@ -119,9 +119,9 @@ const payrollService = {
     document.body.removeChild(a);
   },
 
-  // Send payroll reminders
-  sendReminders: async (daysBeforeCutoff = 3) => {
-    const response = await api.post('/payroll/send-reminders', { daysBeforeCutoff });
+  // Send unapproved OT reminders to clients and employees
+  sendReminders: async () => {
+    const response = await api.post('/payroll/send-reminders');
     return response;
   },
 

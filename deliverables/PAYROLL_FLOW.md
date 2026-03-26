@@ -58,7 +58,7 @@ If OT is approved **after** a payroll period has been finalized:
 | Card | Description |
 |------|-------------|
 | **Next Payroll Date** | Shows cutoff date for the current period. Admin can update with confirmation. Notifications sent to all employees and clients. |
-| **Unapproved OT** | Shows count of pending OT entries. Admin can send push reminders to clients. |
+| **Unapproved OT** | Shows count of pending OT entries. Admin can send reminders (see Notifications section below). |
 
 ### Employees Tab
 
@@ -134,7 +134,39 @@ When admin clicks "Process Payroll" and confirms:
 
 ---
 
-## 7. Employee Side
+## 7. Notifications & Reminders
+
+### Payroll Date Updated (triggered when admin updates payroll cutoff date)
+
+| Recipient | Channel | Message |
+|-----------|---------|---------|
+| All active employees | In-app notification | "The next payroll date has been updated to [date]. Please ensure all your time entries are submitted and approved before this date." |
+| All active clients | In-app notification | "The next payroll date has been updated to [date]. Please ensure all time entries are approved before this date." |
+
+- Employee notification links to `/employee/payslips`
+- Client notification links to `/client/approvals`
+
+### Send OT Reminder (triggered manually by admin from Payroll page)
+
+| Recipient | Channel | Message |
+|-----------|---------|---------|
+| Clients with pending OT | In-app notification + Email | "You have X unapproved overtime entries (Yh total) pending approval. Please review and approve before payroll processing." |
+| Employees with pending OT | In-app notification | "You have overtime entries pending client approval. Please ensure your time entries are accurate." |
+
+- Client notification links to `/client/approvals?type=auto-overtime`
+- Groups pending OT by client and sends one notification per client
+- Shows summary: "Reminders sent to X client(s) and Y employee(s)"
+- If no pending OT exists, shows: "No pending OT to send reminders for"
+
+### Payroll Deadline Reminder (automated cron job)
+
+| Recipient | Channel | Trigger |
+|-----------|---------|---------|
+| Clients | In-app notification + Email | 3 days and 1 day before cutoff date |
+
+---
+
+## 8. Employee Side
 
 | Feature | Description |
 |---------|-------------|
@@ -144,7 +176,7 @@ When admin clicks "Process Payroll" and confirms:
 
 ---
 
-## 8. Client Side
+## 9. Client Side
 
 | Feature | Description |
 |---------|-------------|
@@ -154,7 +186,7 @@ When admin clicks "Process Payroll" and confirms:
 
 ---
 
-## 9. Payroll Audit Logs
+## 10. Payroll Audit Logs
 
 Separate page (`/admin/payroll/audit-logs`) in the sidebar showing:
 
@@ -167,7 +199,7 @@ Logs are stored in `PayrollDateLog` table and created automatically whenever `up
 
 ---
 
-## 10. Payroll Report
+## 11. Payroll Report
 
 Accessed from Payroll Periods tab → Report button.
 

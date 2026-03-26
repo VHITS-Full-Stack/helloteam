@@ -535,10 +535,10 @@ const Payroll = () => {
   const handleSendOTPush = async () => {
     try {
       setSendingOTPush(true);
-      const response = await payrollService.sendReminders(0);
+      const response = await payrollService.sendReminders();
       if (response.success) {
         setSuccessMsg(
-          "OT approval reminders sent to all clients and employees",
+          response.message || "OT approval reminders sent to all clients and employees",
         );
       } else {
         setError(response.error || "Failed to send reminders");
