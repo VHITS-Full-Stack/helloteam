@@ -18,6 +18,7 @@ const PayrollEmployeeDetail = () => {
   const navigate = useNavigate();
   const periodStart = searchParams.get("periodStart");
   const periodEnd = searchParams.get("periodEnd");
+  const tab = searchParams.get("tab");
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -107,7 +108,7 @@ const PayrollEmployeeDetail = () => {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => navigate("/admin/payroll")}
+          onClick={() => navigate(`/admin/payroll?tab=${tab || 'periods'}`)}
           className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Payroll
@@ -124,7 +125,7 @@ const PayrollEmployeeDetail = () => {
     return (
       <div className="space-y-4">
         <button
-          onClick={() => navigate("/admin/payroll")}
+          onClick={() => navigate(`/admin/payroll?tab=${tab || 'periods'}`)}
           className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
         >
           <ChevronLeft className="w-4 h-4" /> Back to Payroll
@@ -146,7 +147,7 @@ const PayrollEmployeeDetail = () => {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => navigate("/admin/payroll")}
+          onClick={() => navigate(`/admin/payroll?tab=${tab || 'periods'}`)}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ChevronLeft className="w-5 h-5 text-gray-500" />

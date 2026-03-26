@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, Fragment } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   DollarSign,
   Download,
@@ -49,9 +49,19 @@ import adminPortalService from "../../services/adminPortal.service";
 
 const Payroll = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("employees");
+  const [activeTab, setActiveTab] = useState(
+    tabParam === "periods" ? "periods" : "employees",
+  );
+
+  useEffect(() => {
+    if (tabParam === "employees" || tabParam === "periods") {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
 
   // Unapproved OT & Next Payroll
   const [unapprovedOTData, setUnapprovedOTData] = useState(null);
@@ -1569,7 +1579,7 @@ const Payroll = () => {
                               const pEnd =
                                 period.periodEnd?.split("T")[0] || period.end;
                               navigate(
-                                `/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`,
+                                `/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}&tab=periods`,
                               );
                             }}
                           >
