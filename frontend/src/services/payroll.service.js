@@ -154,6 +154,12 @@ const payrollService = {
     return response;
   },
 
+  // Get payroll date change logs
+  getDateLogs: async () => {
+    const response = await api.get('/payroll/date-logs');
+    return response;
+  },
+
   // Delete payroll adjustment
   deleteAdjustment: async (id) => {
     const response = await api.delete(`/payroll/adjustments/${id}`);

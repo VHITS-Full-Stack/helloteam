@@ -90,6 +90,7 @@ const AddEmployee = () => {
                 placeholder="Enter first name"
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                maxLength={50}
                 required
               />
               <Input
@@ -97,6 +98,7 @@ const AddEmployee = () => {
                 placeholder="Enter last name"
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                maxLength={50}
                 required
               />
             </div>
@@ -210,6 +212,7 @@ const AddEmployee = () => {
                 type="date"
                 value={formData.hireDate}
                 onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
                 required
               />
             </div>

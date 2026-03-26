@@ -450,6 +450,72 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
       }
     }
 
+    // Check if OT was approved after payroll period was finalized — add adjustment to next period
+    try {
+      const finalizedPeriod = await prisma.payrollPeriod.findFirst({
+        where: {
+          clientId: request.clientId,
+          periodStart: { lte: request.date },
+          periodEnd: { gte: request.date },
+          status: 'FINALIZED',
+        },
+      });
+
+      if (finalizedPeriod) {
+        // Calculate OT pay for the late-approved overtime
+        const employee = await prisma.employee.findUnique({
+          where: { id: request.employeeId },
+          select: {
+            billingRate: true,
+            clientAssignments: {
+              where: { clientId: request.clientId, isActive: true },
+              select: { hourlyRate: true, overtimeRate: true },
+            },
+          },
+        });
+
+        const assignment = employee?.clientAssignments?.[0];
+        const hourlyRate = assignment?.hourlyRate ? Number(assignment.hourlyRate)
+          : employee?.billingRate ? Number(employee.billingRate) : 0;
+        let overtimeRate = assignment?.overtimeRate ? Number(assignment.overtimeRate) : 0;
+        if (overtimeRate === 0 && hourlyRate > 0) overtimeRate = hourlyRate * 1.5;
+
+        const otHours = (request.requestedMinutes || 0) / 60;
+        const otPay = Math.round(otHours * overtimeRate * 100) / 100;
+
+        if (otPay > 0) {
+          // Find the next payroll period after the finalized one
+          let nextPeriod = await prisma.payrollPeriod.findFirst({
+            where: {
+              clientId: request.clientId,
+              periodStart: { gt: finalizedPeriod.periodEnd },
+              status: { in: ['OPEN', 'LOCKED'] },
+            },
+            orderBy: { periodStart: 'asc' },
+          });
+
+          // Use the next period's dates, or calculate next period dates
+          const adjPeriodStart = nextPeriod?.periodStart || new Date(finalizedPeriod.periodEnd.getTime() + 86400000);
+          const adjPeriodEnd = nextPeriod?.periodEnd || new Date(adjPeriodStart.getTime() + 14 * 86400000);
+
+          await prisma.payrollAdjustment.create({
+            data: {
+              employeeId: request.employeeId,
+              type: 'BONUS',
+              amount: otPay,
+              reason: `Outstanding approved OT from ${request.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${otHours.toFixed(1)}h × $${overtimeRate}/hr)`,
+              periodStart: adjPeriodStart,
+              periodEnd: adjPeriodEnd,
+              createdBy: userId || 'system',
+            },
+          });
+          console.log(`[OT Approve] Outstanding approved OT adjustment of $${otPay} created for employee ${request.employeeId} in next period`);
+        }
+      }
+    } catch (adjErr) {
+      console.error('[OT Approve] Failed to create late-approved OT adjustment:', adjErr);
+    }
+
     // Notify the employee
     const employee = await prisma.employee.findUnique({
       where: { id: request.employeeId },

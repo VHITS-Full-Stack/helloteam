@@ -1093,16 +1093,19 @@ export const approveEmployeeKyc = async (req: AuthenticatedRequest, res: Respons
       },
     });
 
+    // Activate the user so they can log in
+    await prisma.user.update({
+      where: { id: employee.userId },
+      data: { status: 'ACTIVE' },
+    });
+
     const email = employee.personalEmail || employee.user?.email;
     if (email) {
-      const loginUrl = `${config.frontendUrl}/login`;
-      await sendNotificationEmail(
+      await sendWelcomeEmail(
         email,
-        'KYC Approved - You Can Now Access the Portal',
-        `Congratulations, ${employee.firstName}! Your identity documents have been verified and approved. You can now log in and access the Hello Team employee portal.`,
-        loginUrl,
-        'Log In to Your Portal',
-      ).catch((err) => console.error('Failed to send KYC approved email:', err));
+        employee.firstName,
+        'Welcome@123',
+      ).catch((err) => console.error('Failed to send KYC approved welcome email:', err));
     }
 
     res.json({ success: true, message: 'KYC approved successfully', data: updated });

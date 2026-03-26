@@ -27,6 +27,9 @@ function useEmployeeList() {
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
+  const [filters, setFilters] = useState({ status: '', clientId: '' });
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
   const [employees, setEmployees] = useState([]);
   const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
   const [loading, setLoading] = useState(true);
@@ -44,6 +47,8 @@ function useEmployeeList() {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQueryRef.current,
+        status: filtersRef.current.status,
+        clientId: filtersRef.current.clientId,
       });
 
       if (response.success) {
@@ -102,6 +107,15 @@ function useEmployeeList() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (pagination.page === 1) {
+      fetchEmployees();
+    } else {
+      setPagination(prev => ({ ...prev, page: 1 }));
+    }
+  }, [filters.status, filters.clientId]);
+
   const refresh = () => {
     fetchEmployees();
     fetchStats();
@@ -112,9 +126,11 @@ function useEmployeeList() {
     stats,
     pagination,
     searchQuery,
+    filters,
     loading,
     error,
     setSearchQuery,
+    setFilters,
     setError,
     setPagination,
     refresh,

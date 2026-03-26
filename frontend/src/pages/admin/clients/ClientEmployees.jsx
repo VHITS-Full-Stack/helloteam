@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Users,
@@ -13,21 +13,15 @@ import {
   RefreshCw,
   Sun,
   ChevronDown,
-} from 'lucide-react';
-import {
-  Card,
-  Button,
-  Badge,
-  Avatar,
-  Modal,
-} from '../../../components/common';
-import { useClientData } from '../../../hooks/useClientData';
+} from "lucide-react";
+import { Card, Button, Badge, Avatar, Modal } from "../../../components/common";
+import { useClientData } from "../../../hooks/useClientData";
 
 const ClientEmployees = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [showAssignSection, setShowAssignSection] = useState(false);
-  const [searchFilter, setSearchFilter] = useState('');
+  const [searchFilter, setSearchFilter] = useState("");
 
   const {
     client,
@@ -62,13 +56,13 @@ const ClientEmployees = () => {
     handleSaveHolidayConfig,
     closeHolidayConfigModal,
     refresh,
-  } = useClientData({ mode: 'detail', id });
+  } = useClientData({ mode: "detail", id });
 
   const getStatusBadge = (status) => {
     switch (status) {
-      case 'ACTIVE':
+      case "ACTIVE":
         return <Badge variant="success">Active</Badge>;
-      case 'INACTIVE':
+      case "INACTIVE":
         return <Badge variant="default">Inactive</Badge>;
       default:
         return <Badge variant="default">{status}</Badge>;
@@ -101,8 +95,10 @@ const ClientEmployees = () => {
         <div className="text-center">
           <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
           <h3 className="font-semibold text-gray-900">Client Not Found</h3>
-          <p className="text-gray-500 mb-4">The client you're looking for doesn't exist.</p>
-          <Button variant="primary" onClick={() => navigate('/admin/clients')}>
+          <p className="text-gray-500 mb-4">
+            The client you're looking for doesn't exist.
+          </p>
+          <Button variant="primary" onClick={() => navigate("/admin/clients")}>
             Back to Clients
           </Button>
         </div>
@@ -115,11 +111,16 @@ const ClientEmployees = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(`/admin/clients/${id}`)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400">
+          <button
+            onClick={() => navigate(`/admin/clients/${id}`)}
+            className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400"
+          >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Assigned Employees</h2>
+            <h2 className="text-lg font-bold text-gray-900">
+              Assigned Employees
+            </h2>
             <p className="text-xs text-gray-500">{client.companyName}</p>
           </div>
         </div>
@@ -151,7 +152,10 @@ const ClientEmployees = () => {
           <div className="flex-1">
             <p className="text-sm text-red-600">{error}</p>
           </div>
-          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
+          <button
+            onClick={() => setError("")}
+            className="text-red-400 hover:text-red-600"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -161,7 +165,9 @@ const ClientEmployees = () => {
       {showAssignSection && (
         <Card>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-gray-900">Available Employees</h3>
+            <h3 className="text-sm font-semibold text-gray-900">
+              Available Employees
+            </h3>
             <button
               onClick={() => setShowAssignSection(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -185,7 +191,9 @@ const ClientEmployees = () => {
             <div className="text-center py-4">
               <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-gray-500">
-                {searchFilter ? 'No employees match your search' : 'No available employees to assign'}
+                {searchFilter
+                  ? "No employees match your search"
+                  : "No available employees to assign"}
               </p>
             </div>
           ) : (
@@ -205,10 +213,13 @@ const ClientEmployees = () => {
                       <p className="font-medium text-gray-900">
                         {employee.firstName} {employee.lastName}
                       </p>
-                      <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                      <p className="text-sm text-gray-500">
+                        {employee.user?.email}
+                      </p>
                       {employee.clientAssignments?.length > 0 && (
                         <p className="text-xs text-yellow-600">
-                          Currently: {employee.clientAssignments[0]?.client?.companyName}
+                          Currently:{" "}
+                          {employee.clientAssignments[0]?.client?.companyName}
                         </p>
                       )}
                     </div>
@@ -220,7 +231,9 @@ const ClientEmployees = () => {
                     onClick={() => handleAssignEmployee(employee.id)}
                     disabled={submitting}
                   >
-                    {employee.clientAssignments?.length > 0 ? 'Reassign' : 'Assign'}
+                    {employee.clientAssignments?.length > 0
+                      ? "Reassign"
+                      : "Assign"}
                   </Button>
                 </div>
               ))}
@@ -256,27 +269,32 @@ const ClientEmployees = () => {
             {clientEmployees.map((employee) => {
               // Determine effective billing rate: assignment override > employee rate > client-group rate > group rate
               const assignmentRate = employee.assignmentHourlyRate;
-              const employeeRate = employee.billingRate ? Number(employee.billingRate) : null;
-              const clientGroupRate = employee.clientGroupBillingRate ? Number(employee.clientGroupBillingRate) : null;
-              const groupRate = employee.groupAssignments?.[0]?.group?.billingRate
+              const employeeRate = employee.billingRate
+                ? Number(employee.billingRate)
+                : null;
+              const clientGroupRate = employee.clientGroupBillingRate
+                ? Number(employee.clientGroupBillingRate)
+                : null;
+              const groupRate = employee.groupAssignments?.[0]?.group
+                ?.billingRate
                 ? Number(employee.groupAssignments[0].group.billingRate)
                 : null;
               const groupName = employee.groupAssignments?.[0]?.group?.name;
 
               let effectiveRate = null;
-              let rateSource = '';
+              let rateSource = "";
               if (assignmentRate) {
                 effectiveRate = assignmentRate;
-                rateSource = 'custom';
+                rateSource = "custom";
               } else if (employeeRate) {
                 effectiveRate = employeeRate;
-                rateSource = 'employee';
+                rateSource = "employee";
               } else if (clientGroupRate) {
                 effectiveRate = clientGroupRate;
-                rateSource = 'group';
+                rateSource = "group";
               } else if (groupRate) {
                 effectiveRate = groupRate;
-                rateSource = 'group';
+                rateSource = "group";
               }
 
               return (
@@ -294,7 +312,9 @@ const ClientEmployees = () => {
                       <p className="font-medium text-gray-900">
                         {employee.firstName} {employee.lastName}
                       </p>
-                      <p className="text-sm text-gray-500">{employee.user?.email}</p>
+                      <p className="text-sm text-gray-500">
+                        {employee.user?.email}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -306,9 +326,10 @@ const ClientEmployees = () => {
                             ${Number(effectiveRate).toFixed(2)}
                           </p>
                           <p className="text-xs text-gray-400">
-                            {rateSource === 'custom' && 'Custom rate'}
-                            {rateSource === 'employee' && 'Employee rate'}
-                            {rateSource === 'group' && `${groupName || 'Group'} rate`}
+                            {rateSource === "custom" && "Custom rate"}
+                            {rateSource === "employee" && "Employee rate"}
+                            {rateSource === "group" &&
+                              `${groupName || "Group"} rate`}
                           </p>
                         </>
                       ) : (
@@ -358,10 +379,18 @@ const ClientEmployees = () => {
         {selectedEmployee && (
           <form onSubmit={handleUpdateEmployeeRate} className="space-y-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <Avatar src={selectedEmployee.profilePhoto} name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`} size="sm" />
+              <Avatar
+                src={selectedEmployee.profilePhoto}
+                name={`${selectedEmployee.firstName} ${selectedEmployee.lastName}`}
+                size="sm"
+              />
               <div>
-                <p className="font-medium text-gray-900">{selectedEmployee.firstName} {selectedEmployee.lastName}</p>
-                <p className="text-sm text-gray-500">{selectedEmployee.user?.email}</p>
+                <p className="font-medium text-gray-900">
+                  {selectedEmployee.firstName} {selectedEmployee.lastName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {selectedEmployee.user?.email}
+                </p>
               </div>
             </div>
 
@@ -369,7 +398,9 @@ const ClientEmployees = () => {
             <div className="space-y-2">
               {rateFormData.employeeBillingRate > 0 && (
                 <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-sm text-green-800 font-medium mb-1">Employee Billing Rate</p>
+                  <p className="text-sm text-green-800 font-medium mb-1">
+                    Employee Billing Rate
+                  </p>
                   <p className="text-sm text-green-600">
                     ${Number(rateFormData.employeeBillingRate).toFixed(2)}
                   </p>
@@ -378,34 +409,47 @@ const ClientEmployees = () => {
               {rateFormData.clientGroupBillingRate > 0 && (
                 <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                   <p className="text-sm text-purple-800 font-medium mb-1">
-                    Client Group Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
+                    Client Group Rate
+                    {rateFormData.groupName
+                      ? ` (${rateFormData.groupName})`
+                      : ""}
                   </p>
                   <p className="text-sm text-purple-600">
                     ${Number(rateFormData.clientGroupBillingRate).toFixed(2)}
                   </p>
                 </div>
               )}
-              {rateFormData.groupBillingRate > 0 && !rateFormData.clientGroupBillingRate && (
-                <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                  <p className="text-sm text-purple-800 font-medium mb-1">
-                    Group Default Rate{rateFormData.groupName ? ` (${rateFormData.groupName})` : ''}
-                  </p>
-                  <p className="text-sm text-purple-600">
-                    ${Number(rateFormData.groupBillingRate).toFixed(2)}
-                  </p>
-                </div>
-              )}
-              {(Number(rateFormData.defaultHourlyRate) > 0 || Number(rateFormData.defaultOvertimeRate) > 0) && (
+              {rateFormData.groupBillingRate > 0 &&
+                !rateFormData.clientGroupBillingRate && (
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-sm text-purple-800 font-medium mb-1">
+                      Group Default Rate
+                      {rateFormData.groupName
+                        ? ` (${rateFormData.groupName})`
+                        : ""}
+                    </p>
+                    <p className="text-sm text-purple-600">
+                      ${Number(rateFormData.groupBillingRate).toFixed(2)}
+                    </p>
+                  </div>
+                )}
+              {(Number(rateFormData.defaultHourlyRate) > 0 ||
+                Number(rateFormData.defaultOvertimeRate) > 0) && (
                 <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm text-blue-800 font-medium mb-1">Client Default Rates</p>
+                  <p className="text-sm text-blue-800 font-medium mb-1">
+                    Client Default Rates
+                  </p>
                   <p className="text-sm text-blue-600">
-                    Hourly: ${Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
-                    Overtime: ${Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) || '1.5x hourly'}
+                    Hourly: $
+                    {Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
+                    Overtime: $
+                    {Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) ||
+                      "1.5x hourly"}
                   </p>
                 </div>
               )}
             </div>
-{/* 
+            {/* 
             <p className="text-sm text-gray-500">
               Set a custom rate for this employee on this client. Leave blank to use the fallback rates (employee rate &rarr; group rate &rarr; client default).
             </p> */}
@@ -465,44 +509,71 @@ const ClientEmployees = () => {
         {selectedPtoEmployee && (
           <form onSubmit={handleUpdateEmployeePtoConfig} className="space-y-4">
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-              <Avatar src={selectedPtoEmployee.profilePhoto} name={`${selectedPtoEmployee.firstName} ${selectedPtoEmployee.lastName}`} size="sm" />
+              <Avatar
+                src={selectedPtoEmployee.profilePhoto}
+                name={`${selectedPtoEmployee.firstName} ${selectedPtoEmployee.lastName}`}
+                size="sm"
+              />
               <div>
-                <p className="font-medium text-gray-900">{selectedPtoEmployee.firstName} {selectedPtoEmployee.lastName}</p>
-                <p className="text-sm text-gray-500">{selectedPtoEmployee.user?.email}</p>
+                <p className="font-medium text-gray-900">
+                  {selectedPtoEmployee.firstName} {selectedPtoEmployee.lastName}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {selectedPtoEmployee.user?.email}
+                </p>
               </div>
             </div>
 
             {/* Client Default PTO Info */}
             {ptoFormData.clientDefaults && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium mb-1">Client Default PTO</p>
-                <p className="text-sm text-blue-600">
-                  {ptoFormData.clientDefaults.allowPaidLeave
-                    ? `${ptoFormData.clientDefaults.paidLeaveEntitlementType.replace(/_/g, ' ')} — ${ptoFormData.clientDefaults.annualPaidLeaveDays} days`
-                    : 'Paid leave disabled'}
-                  {' | '}
-                  Unpaid: {ptoFormData.clientDefaults.allowUnpaidLeave ? 'Allowed' : 'Disabled'}
+                <p className="text-sm text-blue-800 font-medium mb-1">
+                  Client Default PTO
                 </p>
                 <p className="text-sm text-blue-600">
-                  Paid Holidays: {ptoFormData.clientDefaults.allowPaidHolidays ? 'Allowed' : 'Disabled'}
-                  {' | '}
-                  Unpaid Holidays: {ptoFormData.clientDefaults.allowUnpaidHolidays ? 'Allowed' : 'Disabled'}
+                  {ptoFormData.clientDefaults.allowPaidLeave
+                    ? `${ptoFormData.clientDefaults.paidLeaveEntitlementType.replace(/_/g, " ")} — ${ptoFormData.clientDefaults.annualPaidLeaveDays} days`
+                    : "Paid leave disabled"}
+                  {" | "}
+                  Unpaid:{" "}
+                  {ptoFormData.clientDefaults.allowUnpaidLeave
+                    ? "Allowed"
+                    : "Disabled"}
+                </p>
+                <p className="text-sm text-blue-600">
+                  Paid Holidays:{" "}
+                  {ptoFormData.clientDefaults.allowPaidHolidays
+                    ? "Allowed"
+                    : "Disabled"}
+                  {" | "}
+                  Unpaid Holidays:{" "}
+                  {ptoFormData.clientDefaults.allowUnpaidHolidays
+                    ? "Allowed"
+                    : "Disabled"}
                 </p>
               </div>
             )}
 
             <p className="text-sm text-gray-500">
-              Leave fields as "Use client default" to inherit the client policy. Set a value to override for this employee only.
+              Leave fields as "Use client default" to inherit the client policy.
+              Set a value to override for this employee only.
             </p>
 
             <div className="space-y-3">
               {/* Allow Paid Leave */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Leave</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Allow Paid Leave
+                </label>
                 <div className="relative">
                   <select
                     value={ptoFormData.ptoAllowPaidLeave}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidLeave: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAllowPaidLeave: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
                     <option value="">Use client default</option>
@@ -515,11 +586,18 @@ const ClientEmployees = () => {
 
               {/* Entitlement Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Entitlement Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Entitlement Type
+                </label>
                 <div className="relative">
                   <select
                     value={ptoFormData.ptoEntitlementType}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoEntitlementType: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoEntitlementType: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
                     <option value="">Use client default</option>
@@ -534,33 +612,48 @@ const ClientEmployees = () => {
               </div>
 
               {/* Conditional: Annual Days (for FIXED / FIXED_HALF_YEARLY) */}
-              {(ptoFormData.ptoEntitlementType === 'FIXED' || ptoFormData.ptoEntitlementType === 'FIXED_HALF_YEARLY') && (
+              {(ptoFormData.ptoEntitlementType === "FIXED" ||
+                ptoFormData.ptoEntitlementType === "FIXED_HALF_YEARLY") && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {ptoFormData.ptoEntitlementType === 'FIXED_HALF_YEARLY' ? 'Days per Half-Year' : 'Annual Days'}
+                    {ptoFormData.ptoEntitlementType === "FIXED_HALF_YEARLY"
+                      ? "Days per Half-Year"
+                      : "Annual Days"}
                   </label>
                   <input
                     type="number"
                     min="0"
                     placeholder="Use client default"
                     value={ptoFormData.ptoAnnualDays}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAnnualDays: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAnnualDays: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
               )}
 
               {/* Conditional: Accrual Rate (for ACCRUED) */}
-              {ptoFormData.ptoEntitlementType === 'ACCRUED' && (
+              {ptoFormData.ptoEntitlementType === "ACCRUED" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Accrual Rate (days/month)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Accrual Rate (days/month)
+                  </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     placeholder="Use client default"
                     value={ptoFormData.ptoAccrualRatePerMonth}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAccrualRatePerMonth: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAccrualRatePerMonth: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
@@ -568,37 +661,58 @@ const ClientEmployees = () => {
 
               {/* Max Carryover Days */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Carryover Days</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Max Carryover Days
+                </label>
                 <input
                   type="number"
                   min="0"
                   placeholder="Use client default"
                   value={ptoFormData.ptoMaxCarryoverDays}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoMaxCarryoverDays: e.target.value })}
+                  onChange={(e) =>
+                    setPtoFormData({
+                      ...ptoFormData,
+                      ptoMaxCarryoverDays: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
 
               {/* Carryover Expiry */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Carryover Expiry (months)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Carryover Expiry (months)
+                </label>
                 <input
                   type="number"
                   min="0"
                   placeholder="Use client default"
                   value={ptoFormData.ptoCarryoverExpiryMonths}
-                  onChange={(e) => setPtoFormData({ ...ptoFormData, ptoCarryoverExpiryMonths: e.target.value })}
+                  onChange={(e) =>
+                    setPtoFormData({
+                      ...ptoFormData,
+                      ptoCarryoverExpiryMonths: e.target.value,
+                    })
+                  }
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
 
               {/* Allow Unpaid Leave */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Leave</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Allow Unpaid Leave
+                </label>
                 <div className="relative">
                   <select
                     value={ptoFormData.ptoAllowUnpaidLeave}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidLeave: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAllowUnpaidLeave: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
                     <option value="">Use client default</option>
@@ -611,16 +725,25 @@ const ClientEmployees = () => {
 
               {/* Holiday Settings Divider */}
               <div className="pt-2 border-t border-gray-200">
-                <p className="text-sm font-medium text-gray-900">Holiday Settings</p>
+                <p className="text-sm font-medium text-gray-900">
+                  Holiday Settings
+                </p>
               </div>
 
               {/* Allow Paid Holidays */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Paid Holidays</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Allow Paid Holidays
+                </label>
                 <div className="relative">
                   <select
                     value={ptoFormData.ptoAllowPaidHolidays}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowPaidHolidays: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAllowPaidHolidays: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
                     <option value="">Use client default</option>
@@ -633,11 +756,18 @@ const ClientEmployees = () => {
 
               {/* Allow Unpaid Holidays */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allow Unpaid Holidays</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Allow Unpaid Holidays
+                </label>
                 <div className="relative">
                   <select
                     value={ptoFormData.ptoAllowUnpaidHolidays}
-                    onChange={(e) => setPtoFormData({ ...ptoFormData, ptoAllowUnpaidHolidays: e.target.value })}
+                    onChange={(e) =>
+                      setPtoFormData({
+                        ...ptoFormData,
+                        ptoAllowUnpaidHolidays: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
                     <option value="">Use client default</option>
@@ -686,7 +816,9 @@ const ClientEmployees = () => {
         <div className="space-y-4">
           <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-700">
-              This applies to all employees of <strong>{client?.companyName}</strong>. Use per-employee PTO config (Calendar icon) to override for individual employees.
+              This applies to all employees of{" "}
+              <strong>{client?.companyName}</strong>. Use per-employee PTO
+              config (Calendar icon) to override for individual employees.
             </p>
           </div>
 
@@ -695,12 +827,21 @@ const ClientEmployees = () => {
               <input
                 type="checkbox"
                 checked={holidayConfigForm.allowPaidHolidays}
-                onChange={(e) => setHolidayConfigForm({ ...holidayConfigForm, allowPaidHolidays: e.target.checked })}
+                onChange={(e) =>
+                  setHolidayConfigForm({
+                    ...holidayConfigForm,
+                    allowPaidHolidays: e.target.checked,
+                  })
+                }
                 className="rounded border-gray-300"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Allow Paid Holidays</span>
-                <p className="text-xs text-gray-500">Employees will be paid for designated holidays</p>
+                <span className="text-sm font-medium text-gray-900">
+                  Allow Paid Holidays
+                </span>
+                <p className="text-xs text-gray-500">
+                  Employees will be paid for designated holidays
+                </p>
               </div>
             </label>
 
@@ -708,12 +849,21 @@ const ClientEmployees = () => {
               <input
                 type="checkbox"
                 checked={holidayConfigForm.allowUnpaidHolidays}
-                onChange={(e) => setHolidayConfigForm({ ...holidayConfigForm, allowUnpaidHolidays: e.target.checked })}
+                onChange={(e) =>
+                  setHolidayConfigForm({
+                    ...holidayConfigForm,
+                    allowUnpaidHolidays: e.target.checked,
+                  })
+                }
                 className="rounded border-gray-300"
               />
               <div>
-                <span className="text-sm font-medium text-gray-900">Allow Unpaid Holidays</span>
-                <p className="text-xs text-gray-500">Employees can take unpaid days off on holidays</p>
+                <span className="text-sm font-medium text-gray-900">
+                  Allow Unpaid Holidays
+                </span>
+                <p className="text-xs text-gray-500">
+                  Employees can take unpaid days off on holidays
+                </p>
               </div>
             </label>
           </div>
@@ -725,10 +875,18 @@ const ClientEmployees = () => {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" onClick={closeHolidayConfigModal} disabled={savingHolidayConfig}>
+            <Button
+              variant="ghost"
+              onClick={closeHolidayConfigModal}
+              disabled={savingHolidayConfig}
+            >
               Cancel
             </Button>
-            <Button variant="primary" onClick={handleSaveHolidayConfig} loading={savingHolidayConfig}>
+            <Button
+              variant="primary"
+              onClick={handleSaveHolidayConfig}
+              loading={savingHolidayConfig}
+            >
               Save for All Employees
             </Button>
           </div>

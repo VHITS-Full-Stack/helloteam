@@ -433,6 +433,7 @@ const Profile = () => {
                       style={{ paddingLeft: '2.5rem' }}
                       value={formData.firstName}
                       onChange={handleInputChange}
+                      maxLength={50}
                     />
                   </div>
                 </div>
@@ -444,6 +445,7 @@ const Profile = () => {
                     className="input"
                     value={formData.lastName}
                     onChange={handleInputChange}
+                    maxLength={50}
                   />
                 </div>
               </div>

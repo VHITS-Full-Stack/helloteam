@@ -10,12 +10,12 @@ import {
   RefreshCw,
   CheckCircle,
   Clock,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Card,
   Button,
   Badge,
-  Input,
   Avatar
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
@@ -40,9 +40,11 @@ const Clients = () => {
     stats,
     pagination,
     searchQuery,
+    filters,
     loading,
     error,
     setSearchQuery,
+    setFilters,
     setError,
     setPagination,
     refresh,
@@ -115,61 +117,86 @@ const Clients = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 rounded-lg">
-              <Building className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalClients}</p>
-              <p className="text-sm text-gray-500">Total Clients</p>
-            </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Building className="w-5 h-5 text-blue-600" />
           </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Building className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeClients}</p>
-              <p className="text-sm text-gray-500">Active Clients</p>
-            </div>
+          <div>
+            <p className="text-xl font-bold text-blue-700">{stats.totalClients}</p>
+            <p className="text-xs text-blue-600">Total Clients</p>
           </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalAssignedEmployees}</p>
-              <p className="text-sm text-gray-500">Assigned Employees</p>
-            </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <CheckCircle className="w-5 h-5 text-green-600" />
           </div>
-        </Card>
-        <Card padding="sm">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Users className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeAssignedEmployees}</p>
-              <p className="text-sm text-gray-500">Active Assigned</p>
-            </div>
+          <div>
+            <p className="text-xl font-bold text-green-700">{stats.activeClients}</p>
+            <p className="text-xs text-green-600">Active Clients</p>
           </div>
-        </Card>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-purple-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-purple-700">{stats.totalAssignedEmployees}</p>
+            <p className="text-xs text-purple-600">Assigned Employees</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-amber-700">{stats.activeAssignedEmployees}</p>
+            <p className="text-xs text-amber-600">Active Assigned</p>
+          </div>
+        </div>
       </div>
 
-      {/* Search */}
-      <Card padding="sm">
-        <Input
-          icon={Search}
-          placeholder="Search clients..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </Card>
+      {/* Search and Filter */}
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search clients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+        <div className="relative">
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            className="appearance-none pl-4 pr-9 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+        {filters.status && (
+          <button
+            onClick={() => setFilters({ status: '' })}
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        )}
+      </div>
 
       {/* Client Table */}
       {loading ? (
@@ -200,6 +227,7 @@ const Clients = () => {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employees</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Groups</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Leave</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -267,6 +295,15 @@ const Clients = () => {
                       </Badge>
                     </td>
 
+                    {/* Created Date */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-sm text-gray-500 whitespace-nowrap">
+                        {client.createdAt
+                          ? new Date(client.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                          : '—'}
+                      </span>
+                    </td>
+
                     {/* Actions */}
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
@@ -293,23 +330,63 @@ const Clients = () => {
           <p className="text-sm text-gray-500">
             Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
           </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
+          <div className="flex items-center gap-1">
+            <button
               disabled={pagination.page === 1}
               onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Previous
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
+            </button>
+            {(() => {
+              const pages = [];
+              const total = pagination.totalPages;
+              const current = pagination.page;
+
+              const addPage = (p) => {
+                pages.push(
+                  <button
+                    key={p}
+                    onClick={() => setPagination(prev => ({ ...prev, page: p }))}
+                    className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                      p === current
+                        ? 'bg-primary text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              };
+
+              const addEllipsis = (key) => {
+                pages.push(
+                  <span key={key} className="w-9 h-9 flex items-center justify-center text-sm text-gray-400">
+                    ...
+                  </span>
+                );
+              };
+
+              if (total <= 7) {
+                for (let i = 1; i <= total; i++) addPage(i);
+              } else {
+                addPage(1);
+                if (current > 3) addEllipsis('start');
+                for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+                  addPage(i);
+                }
+                if (current < total - 2) addEllipsis('end');
+                addPage(total);
+              }
+              return pages;
+            })()}
+            <button
               disabled={pagination.page === pagination.totalPages}
               onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               Next
-            </Button>
+            </button>
           </div>
         </div>
       )}
