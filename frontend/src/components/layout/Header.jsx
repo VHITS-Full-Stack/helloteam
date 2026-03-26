@@ -333,7 +333,7 @@ const Header = ({
                               e.stopPropagation();
                               handleDeleteNotification(notification.id);
                             }}
-                            className="p-1 text-gray-300 hover:text-danger opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                             title="Delete notification"
                           >
                             <Trash2 className="w-4 h-4" />
