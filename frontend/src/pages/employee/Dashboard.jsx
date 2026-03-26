@@ -35,6 +35,7 @@ import {
   StickyNote,
   Loader2,
   Check,
+  DollarSign,
 } from "lucide-react";
 import {
   Card,
@@ -49,6 +50,7 @@ import overtimeService from "../../services/overtime.service";
 import scheduleService from "../../services/schedule.service";
 import taskService from "../../services/task.service";
 import chatService from "../../services/chat.service";
+import payrollService from "../../services/payroll.service";
 import {
   playClockInSound,
   playClockOutSound,
@@ -105,6 +107,9 @@ const EmployeeDashboard = () => {
 
   // Unread messages count
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+
+  // Next payroll date state
+  const [nextPayrollDate, setNextPayrollDate] = useState(null);
 
   // Clock-in warning states
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
@@ -245,6 +250,18 @@ const EmployeeDashboard = () => {
     }
   }, []);
 
+  // Fetch next payroll date
+  const fetchNextPayrollDate = useCallback(async () => {
+    try {
+      const res = await payrollService.getCurrentPeriod();
+      if (res.success && res.data) {
+        setNextPayrollDate(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch payroll date:", err);
+    }
+  }, []);
+
   // Save activity notes
   const saveNotes = useCallback(
     async (notesText) => {
@@ -367,12 +384,14 @@ const EmployeeDashboard = () => {
     fetchTasks();
     fetchUnreadCount();
     fetchWeekSchedule();
+    fetchNextPayrollDate();
   }, [
     fetchWorkSessionData,
     fetchOvertimeRequests,
     fetchTasks,
     fetchUnreadCount,
     fetchWeekSchedule,
+    fetchNextPayrollDate,
   ]);
 
   // Detect if session is in extension mode (resumed after shift end)
@@ -1148,7 +1167,7 @@ const EmployeeDashboard = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Stats Row */}
           <div className="overflow-x-auto pb-2">
-            <div className="grid grid-cols-4 gap-4 min-w-[560px]">
+            <div className="grid grid-cols-5 gap-4 min-w-[700px]">
               <Card className="text-center">
                 <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
                   <Clock className="w-6 h-6 text-primary" />
@@ -1216,6 +1235,35 @@ const EmployeeDashboard = () => {
                       ? "Moderate"
                       : "Needs Attention"}
                 </Badge>
+              </Card>
+
+              <Card className="text-center">
+                <div className="w-12 h-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                  <DollarSign className="w-6 h-6 text-emerald-600" />
+                </div>
+                {nextPayrollDate ? (
+                  <>
+                    <p className="text-lg font-bold text-gray-900">
+                      {new Date(nextPayrollDate.cutoffDate).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        timeZone: "UTC",
+                      })}
+                    </p>
+                    <p className="text-xs text-gray-500">Next Payroll Date</p>
+                    <p className="text-xs text-gray-400 mt-2">
+                      {nextPayrollDate.daysUntilCutoff > 0
+                        ? `${nextPayrollDate.daysUntilCutoff} days left`
+                        : "Due today"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-lg font-bold text-gray-400">—</p>
+                    <p className="text-xs text-gray-500">Next Payroll Date</p>
+                    {/* <p className="text-xs text-gray-400 mt-2">Not set</p> */}
+                  </>
+                )}
               </Card>
             </div>
           </div>

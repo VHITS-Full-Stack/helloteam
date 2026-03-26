@@ -28,6 +28,7 @@ import {
   X,
   View,
   EyeIcon,
+  Search,
 } from "lucide-react";
 import {
   Card,
@@ -43,6 +44,7 @@ import {
   TableCell,
 } from "../../components/common";
 import payrollService from "../../services/payroll.service";
+import { formatHours } from "../../utils/formatTime";
 import adminPortalService from "../../services/adminPortal.service";
 
 const Payroll = () => {
@@ -57,6 +59,9 @@ const Payroll = () => {
   const [showUpdatePayrollDate, setShowUpdatePayrollDate] = useState(false);
   const [newPayrollDate, setNewPayrollDate] = useState("");
   const [updatingPayrollDate, setUpdatingPayrollDate] = useState(false);
+  const [showPayrollHistory, setShowPayrollHistory] = useState(false);
+  const [confirmPayrollDate, setConfirmPayrollDate] = useState(false);
+  const [payrollDateLogs, setPayrollDateLogs] = useState([]);
 
   // Period selection
   const [periodStart, setPeriodStart] = useState("");
@@ -69,12 +74,11 @@ const Payroll = () => {
   // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
   const [employeeSummary, setEmployeeSummary] = useState(null);
-  // const [unapprovedRecords, setUnapprovedRecords] = useState([]);
-  // const [disputedRecords, setDisputedRecords] = useState([]);
   const [periods, setPeriods] = useState([]);
 
   // Modals
   const [showProcessModal, setShowProcessModal] = useState(false);
+  const [confirmFinalize, setConfirmFinalize] = useState(false);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -267,48 +271,10 @@ const Payroll = () => {
     }
   }, [periodStart, periodEnd, selectedClient]);
 
-  // // Fetch unapproved records when tab changes
-  // const fetchUnapproved = useCallback(async () => {
-  //   if (!periodStart || !periodEnd) return;
-  //   try {
-  //     const response = await payrollService.getUnapprovedRecords({
-  //       periodStart,
-  //       periodEnd,
-  //       clientId: selectedClient || undefined,
-  //     });
-  //     if (response.success) {
-  //       setUnapprovedRecords(response.data?.records || []);
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching unapproved records:", err);
-  //   }
-  // }, [periodStart, periodEnd, selectedClient]);
-
-  // // Fetch disputed records
-  // const fetchDisputed = useCallback(async () => {
-  //   try {
-  //     const response = await payrollService.getDisputedRecords({
-  //       clientId: selectedClient || undefined,
-  //     });
-  //     if (response.success) {
-  //       setDisputedRecords(response.data?.records || []);
-  //     }
-  //   } catch (err) {
-  //     console.error("Error fetching disputed records:", err);
-  //   }
-  // }, [selectedClient]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  // useEffect(() => {
-  //   if (activeTab === "unapproved") {
-  //     fetchUnapproved();
-  //   } else if (activeTab === "disputed") {
-  //     fetchDisputed();
-  //   }
-  // }, [activeTab, fetchUnapproved, fetchDisputed]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
@@ -455,36 +421,22 @@ const Payroll = () => {
     try {
       setActionLoading(true);
 
-      // If a specific period is selected (from Clients tab), finalize that
+      // Determine period dates
+      const pStart = selectedPeriod
+        ? (selectedPeriod.periodStart?.split("T")[0] || periodStart)
+        : periodStart;
+      const pEnd = selectedPeriod
+        ? (selectedPeriod.periodEnd?.split("T")[0] || periodEnd)
+        : periodEnd;
+
+      // Generate payslips for all employees across all clients
+      const response = await payrollService.generatePayslips(pStart, pEnd);
+
+      // Also finalize period status if selected
       if (selectedPeriod) {
-        const response = await payrollService.finalizePeriod(selectedPeriod.id);
-        if (response.success) {
-          const msgs = [];
-          if (response.payslips?.generated > 0) {
-            msgs.push(
-              `Payroll finalized. ${response.payslips.generated} payslip(s) generated.`,
-            );
-          } else {
-            msgs.push("Payroll period finalized.");
-          }
-          if (response.warnings?.length > 0) {
-            msgs.push(...response.warnings);
-          }
-          setSuccessMsg(msgs.join(" "));
-          setShowProcessModal(false);
-          setSelectedPeriod(null);
-          fetchData();
-        } else {
-          setError(response.error || "Failed to finalize period");
-        }
-        return;
+        await payrollService.finalizePeriod(selectedPeriod.id).catch(() => {});
       }
 
-      // Otherwise, generate payslips for the current period dates
-      const response = await payrollService.generatePayslips(
-        periodStart,
-        periodEnd,
-      );
       if (response.success) {
         const msgs = [];
         if (response.data?.generated > 0) {
@@ -492,13 +444,15 @@ const Payroll = () => {
             `${response.data.generated} payslip(s) generated for employees.`,
           );
         } else {
-          msgs.push("No payslips to generate (no approved records found).");
+          msgs.push("Payroll processed. No new payslips to generate.");
         }
         if (response.data?.warnings?.length > 0) {
           msgs.push(...response.data.warnings);
         }
         setSuccessMsg(msgs.join(" "));
         setShowProcessModal(false);
+        setConfirmFinalize(false);
+        setSelectedPeriod(null);
         fetchData();
       } else {
         setError(response.error || "Failed to process payroll");
@@ -618,12 +572,55 @@ const Payroll = () => {
           );
           setShowUpdatePayrollDate(false);
           setNewPayrollDate("");
+          setConfirmPayrollDate(false);
+          setPayrollDateLogs([]);
           fetchData();
         } else {
           setError(response.error || "Failed to update payroll date");
         }
       } else {
-        setError("No active payroll period found for the selected dates");
+        // No period exists — create periods for all clients, then update cutoff
+        try {
+          const clientList = dashboardData?.clients || [];
+          if (clientList.length === 0) {
+            setError("No clients found. Please create a client first.");
+            return;
+          }
+          let createdPeriodId = null;
+          for (const client of clientList) {
+            try {
+              const createRes = await payrollService.createPeriod({
+                clientId: client.clientId,
+                periodStart,
+                periodEnd,
+                cutoffDate: newPayrollDate,
+              });
+              if (createRes.success && !createdPeriodId) {
+                createdPeriodId = createRes.data.id;
+              }
+            } catch (e) {
+              // Skip if period already exists for this client
+            }
+          }
+          if (createdPeriodId) {
+            // Update cutoff to trigger notifications
+            await payrollService.updateCutoff(
+              createdPeriodId,
+              newPayrollDate,
+              "Payroll date set by admin",
+            );
+          }
+          setSuccessMsg(
+            "Payroll period created and date set. Employees and clients will be notified.",
+          );
+          setShowUpdatePayrollDate(false);
+          setNewPayrollDate("");
+          setConfirmPayrollDate(false);
+          setPayrollDateLogs([]);
+          fetchData();
+        } catch (createErr) {
+          setError(createErr.message || "Failed to create payroll period");
+        }
       }
     } catch (err) {
       setError(err.message || "Failed to update payroll date");
@@ -705,22 +702,6 @@ const Payroll = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Period Selector */}
-          <span className="text-sm font-bold text-gray-500">Report Dates:</span>
-          <div className="relative">
-            <select
-              className="appearance-none border border-gray-200 rounded-lg pl-3 pr-8 py-1.5 text-sm font-medium text-gray-700 bg-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-              value={selectedPeriodIdx}
-              onChange={handlePeriodChange}
-            >
-              {payPeriods.map((period, idx) => (
-                <option key={idx} value={idx}>
-                  {period.label}
-                </option>
-              ))}
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
           <Button
             variant="ghost"
             size="sm"
@@ -776,57 +757,169 @@ const Payroll = () => {
         </div>
       )}
 
-      {/* Next Payroll Date + Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-2">
-          <div className="flex items-center justify-between">
+      {/* Next Payroll Date & Unapproved OT */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="flex items-center justify-between px-5 py-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white rounded-xl shadow-sm">
+              <Calendar className="w-6 h-6 text-blue-600" />
+            </div>
             <div>
-              <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Next Payroll Date
-              </p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-xs font-medium text-blue-500 uppercase tracking-wider">Next Payroll Date</p>
+              <p className="text-xl font-bold text-blue-800 mt-0.5">
                 {nextPayrollDate || "Not set"}
               </p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-xs text-blue-500 mt-0.5">
                 Period: {periodStart} to {periodEnd}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={Calendar}
-                onClick={() => {
-                  setShowUpdatePayrollDate(true);
-                  setNewPayrollDate("");
-                }}
-              >
-                Update Date
-              </Button>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Calendar}
+            onClick={() => { setShowUpdatePayrollDate(true); setNewPayrollDate(""); }}
+            className="border-blue-300 text-blue-700 hover:bg-blue-100"
+          >
+            Update Date
+          </Button>
+        </div>
+
+        <div className={`flex items-center justify-between px-5 py-4 rounded-xl border ${
+          (unapprovedOTData?.totalCount || 0) > 0
+            ? 'bg-red-50 border-red-200'
+            : 'bg-green-50 border-green-200'
+        }`}>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white rounded-xl shadow-sm">
+              {(unapprovedOTData?.totalCount || 0) > 0
+                ? <AlertTriangle className="w-6 h-6 text-red-500" />
+                : <CheckCircle className="w-6 h-6 text-green-500" />
+              }
+            </div>
+            <div>
+              <p className={`text-xs font-medium uppercase tracking-wider ${
+                (unapprovedOTData?.totalCount || 0) > 0 ? 'text-red-500' : 'text-green-500'
+              }`}>Unapproved Overtime</p>
+              <p className={`text-xl font-bold mt-0.5 ${
+                (unapprovedOTData?.totalCount || 0) > 0 ? 'text-red-800' : 'text-green-800'
+              }`}>
+                {(unapprovedOTData?.totalCount || 0) > 0
+                  ? `${unapprovedOTData.totalCount} entries pending`
+                  : 'All clear'}
+              </p>
+              <p className={`text-xs mt-0.5 ${
+                (unapprovedOTData?.totalCount || 0) > 0 ? 'text-red-500' : 'text-green-500'
+              }`}>
+                {(unapprovedOTData?.totalCount || 0) > 0
+                  ? 'Must be resolved before payroll'
+                  : 'No pending overtime'}
+              </p>
             </div>
           </div>
-        </Card>
-        <Card>
-          <div className="flex flex-col items-center justify-center h-full gap-2">
-            <AlertTriangle className="w-8 h-8 text-amber-500" />
-            <p className="text-2xl font-bold text-amber-700">
-              {unapprovedOTData?.totalCount || 0}
-            </p>
-            <p className="text-xs text-gray-500">Unapproved OT Entries</p>
+          {(unapprovedOTData?.totalCount || 0) > 0 && (
             <Button
               variant="danger"
               size="sm"
               icon={Send}
               onClick={handleSendOTPush}
-              disabled={
-                sendingOTPush || (unapprovedOTData?.totalCount || 0) === 0
-              }
+              disabled={sendingOTPush}
             >
-              {sendingOTPush ? "Sending..." : "Send OT Push Reminder"}
+              {sendingOTPush ? "Sending..." : "Send Reminder"}
             </Button>
-          </div>
-        </Card>
+          )}
+        </div>
       </div>
+
+      {/* Update Payroll Date Modal */}
+      <Modal
+        isOpen={showUpdatePayrollDate}
+        onClose={() => { setShowUpdatePayrollDate(false); setConfirmPayrollDate(false); }}
+        title="Update Next Payroll Date"
+        size="sm"
+        footer={
+          confirmPayrollDate ? (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmPayrollDate(false)}
+                disabled={updatingPayrollDate}
+              >
+                Back
+              </Button>
+              <Button
+                variant="danger"
+                icon={CheckCircle}
+                onClick={handleUpdatePayrollDate}
+                disabled={updatingPayrollDate}
+              >
+                {updatingPayrollDate ? "Updating..." : "Yes, Confirm Update"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setShowUpdatePayrollDate(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon={Calendar}
+                onClick={() => setConfirmPayrollDate(true)}
+                disabled={!newPayrollDate}
+              >
+                Update Date
+              </Button>
+            </>
+          )
+        }
+      >
+        {confirmPayrollDate ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+              <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-red-800">
+                Are you sure you want to change the payroll date?
+              </p>
+              <p className="text-lg font-bold text-red-900 mt-2">
+                {new Date(newPayrollDate + "T00:00:00").toLocaleDateString("en-US", {
+                  weekday: "long", month: "long", day: "numeric", year: "numeric",
+                })}
+              </p>
+              <p className="text-xs text-red-600 mt-2">
+                All employees and clients will be notified about this change.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              Use this to run payroll early before holidays or special dates. All
+              employees and clients will be notified.
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Payroll Date
+              </label>
+              <input
+                type="date"
+                className="input w-full"
+                value={newPayrollDate}
+                onChange={(e) => setNewPayrollDate(e.target.value)}
+              />
+            </div>
+            <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">
+                Changing the payroll date will notify all employees and clients.
+                Any unapproved overtime must be resolved before this date.
+              </p>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Unapproved OT Table */}
       {unapprovedOTEntries.length > 0 && (
@@ -835,7 +928,7 @@ const Payroll = () => {
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-red-500" />
               <h3 className="text-sm font-semibold text-red-700">
-                Unapproved Overtime — Action Required Before Payroll
+                Unapproved Overtime — Action Required
               </h3>
             </div>
             <Button
@@ -851,7 +944,7 @@ const Payroll = () => {
               <TableRow>
                 <TableHeader>Employee</TableHeader>
                 <TableHeader>Client</TableHeader>
-                <TableHeader className="text-center">Total Hours</TableHeader>
+                <TableHeader className="text-center">Hours</TableHeader>
                 <TableHeader className="text-center">Entries</TableHeader>
                 <TableHeader className="text-center">Status</TableHeader>
               </TableRow>
@@ -885,159 +978,131 @@ const Payroll = () => {
         </Card>
       )}
 
-      {/* Update Payroll Date Modal */}
-      <Modal
-        isOpen={showUpdatePayrollDate}
-        onClose={() => setShowUpdatePayrollDate(false)}
-        title="Update Next Payroll Date"
-        size="sm"
-        footer={
-          <>
-            <Button
-              variant="ghost"
-              onClick={() => setShowUpdatePayrollDate(false)}
+      {/* Tabs */}
+      <div className="border-b border-gray-200">
+        <div className="flex gap-0">
+          {[
+            { key: "employees", label: "Employees", count: employees.length },
+            { key: "periods", label: "Payroll Periods", count: periods.length },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.key
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+              }`}
             >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              icon={Calendar}
-              onClick={handleUpdatePayrollDate}
-              disabled={updatingPayrollDate || !newPayrollDate}
-            >
-              {updatingPayrollDate ? "Updating..." : "Update Date"}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-gray-600">
-            Use this to run payroll early before holidays or special dates. All
-            employees and clients will be notified.
-          </p>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              New Payroll Date
-            </label>
-            <input
-              type="date"
-              className="input w-full"
-              value={newPayrollDate}
-              onChange={(e) => setNewPayrollDate(e.target.value)}
-            />
-          </div>
-          <div className="p-3 bg-amber-50 rounded-lg flex items-start gap-2">
-            <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-amber-700">
-              Changing the payroll date will notify all employees and clients.
-              Any unapproved overtime must be resolved before this date.
-            </p>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Stats Pills */}
-      <div className="flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
-          <Clock className="w-3.5 h-3.5 text-green-500" />
-          <span className="text-sm text-green-600">Hours</span>
-          <span className="text-sm font-bold text-green-700">
-            {(totals.totalHours || summary.totalHours || 0).toFixed(2)}
-          </span>
-        </div>
-        {(totals.overtimeHours || summary.overtimeHours || 0) > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
-            <span className="text-sm text-orange-600">OT</span>
-            <span className="text-sm font-bold text-orange-700">
-              {(totals.overtimeHours || summary.overtimeHours || 0).toFixed(2)}
-            </span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
-          <span className="text-sm text-blue-600">Approved</span>
-          <span className="text-sm font-bold text-blue-700">
-            {(totals.approvedHours || summary.approvedHours || 0).toFixed(2)}
-          </span>
-        </div>
-        {(totals.pendingHours || summary.pendingHours || 0) > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-lg">
-            <span className="text-sm text-yellow-600">Pending</span>
-            <span className="text-sm font-bold text-yellow-700">
-              {(totals.pendingHours || summary.pendingHours || 0).toFixed(2)}
-            </span>
-          </div>
-        )}
-        {totalBonuses > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
-            <span className="text-sm text-teal-600">Bonuses</span>
-            <span className="text-sm font-bold text-teal-700">
-              +${totalBonuses.toFixed(2)}
-            </span>
-          </div>
-        )}
-        {totalDeductions > 0 && (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
-            <span className="text-sm text-red-600">Deductions</span>
-            <span className="text-sm font-bold text-red-700">
-              -${totalDeductions.toFixed(2)}
-            </span>
-          </div>
-        )}
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
-          <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
-          <span className="text-sm text-emerald-600">Gross Pay</span>
-          <span className="text-sm font-bold text-emerald-700">
-            ${(totals.totalGrossPay || 0).toFixed(2)}
-          </span>
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={`ml-2 px-1.5 py-0.5 rounded-full text-xs font-semibold ${
+                  activeTab === tab.key
+                    ? "bg-primary/10 text-primary"
+                    : tab.key === "unapprovedOT" && tab.count > 0
+                      ? "bg-red-100 text-red-600"
+                      : "bg-gray-100 text-gray-500"
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Employee Table */}
-      <Card padding="none">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-700">Employees</h3>
-          <input
-            type="text"
-            placeholder="Search employee..."
-            value={employeeSearch}
-            onChange={(e) => setEmployeeSearch(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-gray-700 w-56 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
-          />
-        </div>
+      {/* Tab: Employees */}
+      {activeTab === "employees" && (
+        <>
+          {/* Stats Pills */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
+              <Clock className="w-3.5 h-3.5 text-green-500" />
+              <span className="text-sm text-green-600">Hours</span>
+              <span className="text-sm font-bold text-green-700">
+                {formatHours(totals.totalHours || summary.totalHours || 0)}
+              </span>
+            </div>
+            {(totals.overtimeHours || summary.overtimeHours || 0) > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
+                <span className="text-sm text-orange-600">OT</span>
+                <span className="text-sm font-bold text-orange-700">
+                  {formatHours(totals.overtimeHours || summary.overtimeHours || 0)}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+              <span className="text-sm text-blue-600">Approved</span>
+              <span className="text-sm font-bold text-blue-700">
+                {formatHours(totals.approvedHours || summary.approvedHours || 0)}
+              </span>
+            </div>
+            {(totals.pendingHours || summary.pendingHours || 0) > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-yellow-50 rounded-lg">
+                <span className="text-sm text-yellow-600">Pending</span>
+                <span className="text-sm font-bold text-yellow-700">
+                  {formatHours(totals.pendingHours || summary.pendingHours || 0)}
+                </span>
+              </div>
+            )}
+            {totalBonuses > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
+                <span className="text-sm text-teal-600">Bonuses</span>
+                <span className="text-sm font-bold text-teal-700">
+                  +${totalBonuses.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {totalDeductions > 0 && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 rounded-lg">
+                <span className="text-sm text-red-600">Deductions</span>
+                <span className="text-sm font-bold text-red-700">
+                  -${totalDeductions.toFixed(2)}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-lg">
+              <DollarSign className="w-3.5 h-3.5 text-emerald-500" />
+              <span className="text-sm text-emerald-600">Gross Pay</span>
+              <span className="text-sm font-bold text-emerald-700">
+                ${(totals.totalGrossPay || 0).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <Card padding="none">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-700">Employee Payroll Summary</h3>
+              <div className="relative w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search employee..."
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
 
         {employees.length > 0 ? (
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableHeader>Employee</TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Hours Worked
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  PTO Hours
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  VTO Hours
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Pending Approval
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Total Hours
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Total Bonuses
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Total Deductions
-                </TableHeader>
-                <TableHeader className="text-center whitespace-nowrap">
-                  Gross Pay
-                </TableHeader>
-                <TableHeader className="text-center">Action</TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Employee</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Hours Worked</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">PTO Hours</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">VTO Hours</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pending Approval</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Hours</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Bonuses</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Deductions</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Gross Pay</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
               {employees
                 .filter((emp) => {
                   if (!employeeSearch.trim()) return true;
@@ -1047,8 +1112,8 @@ const Payroll = () => {
                 })
                 .map((emp) => (
                   <React.Fragment key={emp.employee.id}>
-                    <TableRow
-                      className="cursor-pointer hover:bg-gray-50"
+                    <tr
+                      className="cursor-pointer hover:bg-gray-50 transition-colors"
                       onClick={() =>
                         setExpandedEmployee(
                           expandedEmployee === emp.employee.id
@@ -1057,84 +1122,72 @@ const Payroll = () => {
                         )
                       }
                     >
-                      {/* Employee */}
-                      <TableCell>
-                        <div className="flex items-center gap-3">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 min-w-0">
                           <ChevronRight
-                            className={`w-4 h-4 text-gray-400 transition-transform ${expandedEmployee === emp.employee.id ? "rotate-90" : ""}`}
+                            className={`w-3.5 h-3.5 text-gray-400 transition-transform flex-shrink-0 ${expandedEmployee === emp.employee.id ? "rotate-90" : ""}`}
                           />
                           <Avatar
                             name={`${emp.employee?.firstName || ""} ${emp.employee?.lastName || ""}`}
                             src={emp.employee?.profilePhoto}
                             size="sm"
                           />
-                          <div>
-                            <span className="font-medium text-gray-900">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">
                               {emp.employee?.firstName || ""}{" "}
                               {emp.employee?.lastName || ""}
-                            </span>
-                            <p className="text-xs text-gray-500">
+                            </p>
+                            <p className="text-xs text-gray-500 truncate">
                               {emp.client?.companyName || "-"}
                             </p>
                           </div>
                         </div>
-                      </TableCell>
-                      {/* Hours Worked */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         <div>
                           <span className="font-semibold text-gray-900">
-                            {(emp.approvedHours || 0).toFixed(2)}h
+                            {formatHours(emp.approvedHours || 0)}
                           </span>
                           {emp.overtimeHours > 0 && (
                             <p className="text-[10px] text-orange-600">
-                              incl. {(emp.overtimeHours || 0).toFixed(2)}h OT
+                              +{formatHours(emp.overtimeHours || 0)} OT
                             </p>
                           )}
                         </div>
-                      </TableCell>
-                      {/* PTO Hours */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         {(emp.ptoHours || 0) > 0 ? (
                           <span className="text-purple-600 font-medium">
-                            {(emp.ptoHours || 0).toFixed(2)}h
+                            {formatHours(emp.ptoHours || 0)}
                           </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </TableCell>
-                      {/* VTO Hours */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         {(emp.vtoHours || 0) > 0 ? (
                           <span className="text-blue-600 font-medium">
-                            {(emp.vtoHours || 0).toFixed(2)}h
+                            {formatHours(emp.vtoHours || 0)}
                           </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </TableCell>
-                      {/* Pending Approval */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         {emp.pendingHours > 0 ? (
                           <span className="text-amber-600 font-medium">
-                            {(emp.pendingHours || 0).toFixed(2)}h
+                            {formatHours(emp.pendingHours || 0)}
                           </span>
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </TableCell>
-                      {/* Total Hours (Approved + PTO) */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         <span className="font-bold text-blue-700">
-                          {(
-                            emp.totalHoursWithPTO ||
-                            emp.totalHours ||
-                            0
-                          ).toFixed(2)}
-                          h
+                          {formatHours(emp.totalHoursWithPTO || emp.totalHours || 0)}
                         </span>
-                      </TableCell>
-                      {/* Total Bonuses */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         {emp.totalBonuses > 0 ? (
                           <span className="text-green-600 font-medium">
                             +${(emp.totalBonuses || 0).toFixed(2)}
@@ -1142,9 +1195,8 @@ const Payroll = () => {
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </TableCell>
-                      {/* Total Deductions */}
-                      <TableCell className="text-center whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
                         {emp.totalDeductions > 0 ? (
                           <span className="text-red-600 font-medium">
                             -${(emp.totalDeductions || 0).toFixed(2)}
@@ -1152,15 +1204,13 @@ const Payroll = () => {
                         ) : (
                           <span className="text-gray-300">—</span>
                         )}
-                      </TableCell>
-                      {/* Gross Pay */}
-                      <TableCell className="text-center font-semibold text-green-600 whitespace-nowrap">
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm font-semibold text-green-600">
                         {emp.grossPay > 0
                           ? `$${(emp.grossPay || 0).toFixed(2)}`
                           : "—"}
-                      </TableCell>
-                      {/* Action */}
-                      <TableCell className="text-center">
+                      </td>
+                      <td className="px-2 py-3 text-center">
                         {emp.status !== "completed" ? (
                           <button
                             onClick={(e) => {
@@ -1169,13 +1219,13 @@ const Payroll = () => {
                             }}
                             className="px-2 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-lg transition-colors"
                           >
-                            Adjustment
+                            Adjust
                           </button>
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
                         )}
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                     {/* Expanded Detail Row */}
                     {expandedEmployee === emp.employee.id && (
                       <tr>
@@ -1400,8 +1450,9 @@ const Payroll = () => {
                     )}
                   </React.Fragment>
                 ))}
-            </TableBody>
-          </Table>
+              </tbody>
+            </table>
+          </div>
         ) : (
           <div className="text-center py-8 text-gray-500">
             <Users className="w-12 h-12 mx-auto mb-2 text-gray-300" />
@@ -1409,241 +1460,135 @@ const Payroll = () => {
           </div>
         )}
       </Card>
+        </>
+      )}
 
-      {/* {activeTab === "unapproved" && (
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Pending Time Approvals
-          </h3>
-          {unapprovedRecords.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader>Client</TableHeader>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader className="text-right">Hours</TableHeader>
-                  <TableHeader className="text-right">Overtime</TableHeader>
-                  <TableHeader>Status</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {unapprovedRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
-                          src={record.employee?.profilePhoto}
-                          size="sm"
-                        />
-                        <span className="font-medium text-gray-900">
-                          {record.employee?.firstName}{" "}
-                          {record.employee?.lastName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{record.client?.companyName || "-"}</TableCell>
-                    <TableCell>{formatDate(record.date)}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {Math.round((record.totalMinutes / 60) * 100) / 100}h
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {record.overtimeMinutes > 0 ? (
-                        <span className="text-orange-600">
-                          {Math.round((record.overtimeMinutes / 60) * 100) /
-                            100}
-                          h
-                        </span>
-                      ) : (
-                        "-"
-                      )}
-                    </TableCell>
-                    <TableCell>{getStatusBadge(record.status)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-              <p>All time records have been approved!</p>
-            </div>
-          )}
-        </Card>
-      )} */}
-
-      {/* {activeTab === "disputed" && (
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Disputed Time Records
-          </h3>
-          <p className="text-sm text-gray-500 mb-4">
-            Time records that have been adjusted and require client re-approval
-          </p>
-          {disputedRecords.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader>Employee</TableHeader>
-                  <TableHeader>Client</TableHeader>
-                  <TableHeader>Date</TableHeader>
-                  <TableHeader className="text-right">Hours</TableHeader>
-                  <TableHeader>Adjustment</TableHeader>
-                  <TableHeader>Adjusted By</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {disputedRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          name={`${record.employee?.firstName || ''} ${record.employee?.lastName || ''}`}
-                          src={record.employee?.profilePhoto}
-                          size="sm"
-                        />
-                        <span className="font-medium text-gray-900">
-                          {record.employee?.firstName}{" "}
-                          {record.employee?.lastName}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{record.client?.companyName || "-"}</TableCell>
-                    <TableCell>{formatDate(record.date)}</TableCell>
-                    <TableCell className="text-right font-medium">
-                      {Math.round((record.totalMinutes / 60) * 100) / 100}h
-                    </TableCell>
-                    <TableCell>
-                      {record.adjustments?.[0] && (
-                        <div className="text-xs">
-                          <p className="text-gray-500">
-                            {record.adjustments[0].reason}
-                          </p>
-                          <p className="text-gray-400">
-                            {record.adjustments[0].oldValue} →{" "}
-                            {record.adjustments[0].newValue}
-                          </p>
+      {/* Tab: Payroll Periods */}
+      {activeTab === "periods" && (
+        <Card padding="none">
+          {periods.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Period</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Cutoff Date</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Hours</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Gross Pay</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {periods.map((period) => (
+                    <tr key={period.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {formatPeriodLabel(period.periodStart, period.periodEnd)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {formatDate(period.cutoffDate)}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap text-sm">
+                        {period.totalHours && Number(period.totalHours) > 0 ? (
+                          <span className="font-semibold text-gray-900">{formatHours(Number(period.totalHours))}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap text-sm">
+                        {period.grossPay && Number(period.grossPay) > 0 ? (
+                          <span className="font-semibold text-green-600">${Number(period.grossPay).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {getStatusBadge(period.status)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1">
+                          {period.status === "OPEN" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={Lock}
+                                onClick={() => {
+                                  setSelectedPeriod(period);
+                                  setShowLockModal(true);
+                                }}
+                              >
+                                Lock
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                icon={CheckCircle}
+                                onClick={() => {
+                                  setSelectedPeriod(period);
+                                  setShowProcessModal(true);
+                                }}
+                              >
+                                Finalize
+                              </Button>
+                            </>
+                          )}
+                          {period.status === "LOCKED" && (
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={Unlock}
+                                onClick={() => {
+                                  setSelectedPeriod(period);
+                                  setShowUnlockModal(true);
+                                }}
+                              >
+                                Unlock
+                              </Button>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                icon={CheckCircle}
+                                onClick={() => {
+                                  setSelectedPeriod(period);
+                                  setShowProcessModal(true);
+                                }}
+                              >
+                                Finalize
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={EyeIcon}
+                            onClick={() => {
+                              const pStart =
+                                period.periodStart?.split("T")[0] || period.start;
+                              const pEnd =
+                                period.periodEnd?.split("T")[0] || period.end;
+                              navigate(
+                                `/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`,
+                              );
+                            }}
+                          >
+                            Report
+                          </Button>
                         </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {record.adjustments?.[0]?.adjuster && (
-                        <span className="text-sm text-gray-600">
-                          {record.adjustments[0].adjuster.admin?.firstName}{" "}
-                          {record.adjustments[0].adjuster.admin?.lastName}
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div className="text-center py-8 text-gray-500">
-              <CheckCircle className="w-12 h-12 mx-auto mb-2 text-green-300" />
-              <p>No disputed time records</p>
+            <div className="text-center py-12 text-gray-500">
+              <FileText className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+              <p className="font-medium text-gray-900">No Payroll Periods</p>
+              <p className="text-sm mt-1">Payroll periods will appear here once created</p>
             </div>
           )}
-        </Card>
-      )} */}
-
-      {/* Payroll History */}
-      {periods.length > 0 && (
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            Payroll Periods
-          </h3>
-          <div className="space-y-3">
-            {periods.map((period) => (
-              <div
-                key={period.id}
-                className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <FileText className="w-5 h-5 text-gray-400" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {formatPeriodLabel(period.periodStart, period.periodEnd)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Cutoff: {formatDate(period.cutoffDate)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-4">
-                  {period.totalHours && (
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900">
-                        {period.totalHours}h
-                      </p>
-                      <p className="text-xs text-gray-500">Total Hours</p>
-                    </div>
-                  )}
-                  {getStatusBadge(period.status)}
-                  <div className="flex items-center gap-1">
-                    {period.status === "OPEN" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        icon={Lock}
-                        onClick={() => {
-                          setSelectedPeriod(period);
-                          setShowLockModal(true);
-                        }}
-                      >
-                        Lock
-                      </Button>
-                    )}
-                    {period.status === "LOCKED" && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          icon={Unlock}
-                          onClick={() => {
-                            setSelectedPeriod(period);
-                            setShowUnlockModal(true);
-                          }}
-                        >
-                          Unlock
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={CheckCircle}
-                          onClick={() => {
-                            setSelectedPeriod(period);
-                            setShowProcessModal(true);
-                          }}
-                        >
-                          Finalize
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      icon={EyeIcon}
-                      onClick={() => {
-                        const pStart =
-                          period.periodStart?.split("T")[0] || period.start;
-                        const pEnd =
-                          period.periodEnd?.split("T")[0] || period.end;
-                        navigate(
-                          `/admin/payroll/report?periodStart=${pStart}&periodEnd=${pEnd}`,
-                        );
-                      }}
-                    >
-                      Report
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
         </Card>
       )}
 
@@ -1699,7 +1644,7 @@ const Payroll = () => {
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
                 <Clock className="w-3.5 h-3.5 text-green-500" />
                 <span className="text-sm text-green-700 font-semibold">
-                  {reportData.totals?.totalHours || 0}h Total
+                  {formatHours(reportData.totals?.totalHours || 0)} Total
                 </span>
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
@@ -1815,12 +1760,12 @@ const Payroll = () => {
                               {emp.workDays}
                             </td>
                             <td className="px-3 py-2 text-sm text-center font-semibold">
-                              {emp.totalHours}
+                              {formatHours(emp.totalHours)}
                             </td>
                             <td className="px-3 py-2 text-sm text-center font-semibold">
                               {emp.overtimeHours > 0 ? (
                                 <span className="text-orange-600">
-                                  {emp.overtimeHours}
+                                  {formatHours(emp.overtimeHours)}
                                 </span>
                               ) : (
                                 "-"
@@ -1848,12 +1793,12 @@ const Payroll = () => {
                           {emp.workDays}
                         </td>
                         <td className="px-3 py-2 text-sm text-center">
-                          {emp.totalHours}
+                          {formatHours(emp.totalHours)}
                         </td>
                         <td className="px-3 py-2 text-sm text-center">
                           {emp.overtimeHours > 0 ? (
                             <span className="text-orange-600">
-                              {emp.overtimeHours}
+                              {formatHours(emp.overtimeHours)}
                             </span>
                           ) : (
                             <span className="text-gray-300">-</span>
@@ -1878,12 +1823,12 @@ const Payroll = () => {
                       GRAND TOTAL
                     </td>
                     <td className="px-3 py-2.5 text-sm text-center font-bold">
-                      {reportData.totals?.totalHours}
+                      {formatHours(reportData.totals?.totalHours)}
                     </td>
                     <td className="px-3 py-2.5 text-sm text-center font-bold">
                       {reportData.totals?.overtimeHours > 0 ? (
                         <span className="text-orange-600">
-                          {reportData.totals.overtimeHours}
+                          {formatHours(reportData.totals.overtimeHours)}
                         </span>
                       ) : (
                         "-"
@@ -2025,87 +1970,123 @@ const Payroll = () => {
         onClose={() => {
           setShowProcessModal(false);
           setSelectedPeriod(null);
+          setConfirmFinalize(false);
         }}
         title="Finalize Payroll Period"
         size="md"
         footer={
-          <>
-            <Button variant="ghost" onClick={() => setShowProcessModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              icon={Send}
-              onClick={handleFinalizePeriod}
-              disabled={actionLoading}
-            >
-              {actionLoading ? "Processing..." : "Finalize Payroll"}
-            </Button>
-          </>
+          confirmFinalize ? (
+            <>
+              <Button
+                variant="ghost"
+                onClick={() => setConfirmFinalize(false)}
+                disabled={actionLoading}
+              >
+                Back
+              </Button>
+              <Button
+                variant="danger"
+                icon={CheckCircle}
+                onClick={handleFinalizePeriod}
+                disabled={actionLoading}
+              >
+                {actionLoading ? "Processing..." : "Yes, Finalize Payroll"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={() => setShowProcessModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                icon={Send}
+                onClick={() => setConfirmFinalize(true)}
+              >
+                Finalize Payroll
+              </Button>
+            </>
+          )
         }
       >
-        <div className="space-y-4">
-          <div className="p-4 bg-primary-50 rounded-xl">
-            <p className="text-sm text-primary-600 font-medium">Period</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">
-              {formatPeriodLabel(periodStart, periodEnd)}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Employees</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {totals.totalEmployees || employees.length || 0}
+        {confirmFinalize ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
+              <AlertTriangle className="w-10 h-10 text-red-500 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-red-800">
+                Are you sure you want to finalize this payroll period?
               </p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-500">Total Hours</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {totals.totalHours || summary.totalHours || 0}h
+              <p className="text-lg font-bold text-red-900 mt-2">
+                {formatPeriodLabel(periodStart, periodEnd)}
               </p>
-            </div>
-            <div className="p-4 bg-green-50 rounded-xl">
-              <p className="text-sm text-green-600">Gross Pay</p>
-              <p className="text-2xl font-bold text-green-700">
-                ${Math.max(0, totals.totalGrossPay || 0).toLocaleString()}
+              <div className="flex items-center justify-center gap-4 mt-3 text-sm">
+                <span className="text-gray-600">{totals.totalEmployees || employees.length || 0} employees</span>
+                <span className="text-gray-400">|</span>
+                <span className="text-gray-600">{formatHours(totals.totalHours || summary.totalHours || 0)}</span>
+                <span className="text-gray-400">|</span>
+                <span className="font-semibold text-green-700">${Math.max(0, totals.totalGrossPay || 0).toLocaleString()}</span>
+              </div>
+              <p className="text-xs text-red-600 mt-3">
+                This action will generate payslips and cannot be undone. Any unapproved overtime will be carried to the next period.
               </p>
             </div>
           </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-primary-50 rounded-xl">
+              <p className="text-sm text-primary-600 font-medium">Period</p>
+              <p className="text-xl font-bold text-gray-900 mt-1">
+                {formatPeriodLabel(periodStart, periodEnd)}
+              </p>
+            </div>
 
-          {(summary.totalUnapproved > 0 || summary.totalDisputed > 0) && (
-            <div className="p-3 bg-yellow-50 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-yellow-800">
-                  Some items need attention
+            <div className="grid grid-cols-3 gap-4">
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500">Employees</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {totals.totalEmployees || employees.length || 0}
                 </p>
-                <p className="text-sm text-yellow-700 mt-1">
-                  {summary.totalUnapproved > 0 &&
-                    `${summary.totalUnapproved} pending approval`}
-                  {summary.totalUnapproved > 0 &&
-                    summary.totalDisputed > 0 &&
-                    ", "}
-                  {summary.totalDisputed > 0 &&
-                    `${summary.totalDisputed} disputed records`}
-                  . These will be excluded from this payroll run.
+              </div>
+              <div className="p-4 bg-gray-50 rounded-xl">
+                <p className="text-sm text-gray-500">Total Hours</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {formatHours(totals.totalHours || summary.totalHours || 0)}
                 </p>
-                <p className="text-xs text-yellow-600 mt-1">
-                  Any pending OT approved after finalization will be adjusted in
-                  the next payroll period.
+              </div>
+              <div className="p-4 bg-green-50 rounded-xl">
+                <p className="text-sm text-green-600">Gross Pay</p>
+                <p className="text-2xl font-bold text-green-700">
+                  ${Math.max(0, totals.totalGrossPay || 0).toLocaleString()}
                 </p>
               </div>
             </div>
-          )}
 
-          <div>
-            <label className="label">Notes (optional)</label>
-            <textarea
-              className="input min-h-[80px] resize-none"
-              placeholder="Add any notes for this payroll run..."
-            />
+            {(summary.totalUnapproved > 0 || summary.totalDisputed > 0) && (
+              <div className="p-3 bg-yellow-50 rounded-lg flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-800">
+                    Some items need attention
+                  </p>
+                  <p className="text-sm text-yellow-700 mt-1">
+                    {summary.totalUnapproved > 0 &&
+                      `${summary.totalUnapproved} pending approval`}
+                    {summary.totalUnapproved > 0 &&
+                      summary.totalDisputed > 0 &&
+                      ", "}
+                    {summary.totalDisputed > 0 &&
+                      `${summary.totalDisputed} disputed records`}
+                    . These will be excluded from this payroll run.
+                  </p>
+                  <p className="text-xs text-yellow-600 mt-1">
+                    Any pending OT approved after finalization will be adjusted in
+                    the next payroll period as outstanding approved OT.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </Modal>
 
       {/* Adjustment Modal */}

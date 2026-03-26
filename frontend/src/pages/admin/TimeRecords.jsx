@@ -41,6 +41,7 @@ const TimeRecords = () => {
   const [otActionNotes, setOtActionNotes] = useState('');
   const [otActionReason, setOtActionReason] = useState('');
   const [otActionLoading, setOtActionLoading] = useState(false);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, totalPages: 0 });
 
   // Set default date range (current week)
   useEffect(() => {
@@ -90,8 +91,8 @@ const TimeRecords = () => {
     setLoading(true);
     try {
       const params = {
-        page: 1,
-        limit: 50,
+        page: pagination.page,
+        limit: pagination.limit,
       };
       if (selectedClient !== 'all') params.clientId = selectedClient;
       if (selectedStatus !== 'all') params.status = selectedStatus;
@@ -103,6 +104,13 @@ const TimeRecords = () => {
       if (response?.success) {
         setTimeRecords(response.data.records);
         setStats(response.data.stats);
+        if (response.data.pagination) {
+          setPagination(prev => ({
+            ...prev,
+            total: response.data.pagination.total,
+            totalPages: response.data.pagination.totalPages,
+          }));
+        }
       }
     } catch (error) {
       console.error('Failed to fetch time records:', error);
@@ -112,16 +120,22 @@ const TimeRecords = () => {
     }
   };
 
-  // Fetch on filter/date changes
+  // Fetch on filter/date/page changes
   useEffect(() => {
     if (startDate && endDate) {
       fetchTimeRecords();
     }
+  }, [selectedClient, selectedStatus, startDate, endDate, pagination.page]);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setPagination(prev => prev.page !== 1 ? { ...prev, page: 1 } : prev);
   }, [selectedClient, selectedStatus, startDate, endDate]);
 
   // Debounce search term
   useEffect(() => {
     if (!startDate || !endDate) return;
+    setPagination(prev => ({ ...prev, page: 1 }));
     const timer = setTimeout(() => {
       fetchTimeRecords();
     }, 300);
@@ -762,6 +776,73 @@ const TimeRecords = () => {
           </div>
         )}
       </Card>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-gray-500">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              disabled={pagination.page === 1}
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            {(() => {
+              const pages = [];
+              const total = pagination.totalPages;
+              const current = pagination.page;
+
+              const addPage = (p) => {
+                pages.push(
+                  <button
+                    key={p}
+                    onClick={() => setPagination(prev => ({ ...prev, page: p }))}
+                    className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                      p === current
+                        ? 'bg-primary text-white'
+                        : 'text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              };
+
+              const addEllipsis = (key) => {
+                pages.push(
+                  <span key={key} className="w-9 h-9 flex items-center justify-center text-sm text-gray-400">
+                    ...
+                  </span>
+                );
+              };
+
+              if (total <= 7) {
+                for (let i = 1; i <= total; i++) addPage(i);
+              } else {
+                addPage(1);
+                if (current > 3) addEllipsis('start');
+                for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+                  addPage(i);
+                }
+                if (current < total - 2) addEllipsis('end');
+                addPage(total);
+              }
+              return pages;
+            })()}
+            <button
+              disabled={pagination.page === pagination.totalPages}
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Adjustment Modal */}
       <Modal

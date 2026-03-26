@@ -60,6 +60,7 @@ const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
 const Payroll = lazy(() => import('../pages/admin/Payroll'));
 const PayrollEmployeeDetail = lazy(() => import('../pages/admin/PayrollEmployeeDetail'));
 const PayrollReport = lazy(() => import('../pages/admin/PayrollReport'));
+const PayrollAuditLogs = lazy(() => import('../pages/admin/PayrollAuditLogs'));
 const AdminInvoices = lazy(() => import('../pages/admin/invoices/Invoices'));
 const GenerateInvoice = lazy(() => import('../pages/admin/invoices/GenerateInvoice'));
 const InvoiceDetail = lazy(() => import('../pages/admin/invoices/InvoiceDetail'));
@@ -228,6 +229,7 @@ const AppRoutes = () => {
           <Route path="payroll" element={<Payroll />} />
           <Route path="payroll/employee/:employeeId" element={<PayrollEmployeeDetail />} />
           <Route path="payroll/report" element={<PayrollReport />} />
+          <Route path="payroll/audit-logs" element={<PayrollAuditLogs />} />
           <Route path="invoices" element={<AdminInvoices />} />
           <Route path="invoices/generate" element={<GenerateInvoice />} />
           <Route path="invoices/:id" element={<InvoiceDetail />} />

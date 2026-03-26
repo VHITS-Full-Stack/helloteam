@@ -25,6 +25,9 @@ function useClientList() {
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
+  const [filters, setFilters] = useState({ status: '' });
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [groupsModalClient, setGroupsModalClient] = useState(null);
@@ -52,6 +55,7 @@ function useClientList() {
         page: pagination.page,
         limit: pagination.limit,
         search: searchQueryRef.current,
+        status: filtersRef.current.status,
       });
 
       if (response.success) {
@@ -110,6 +114,15 @@ function useClientList() {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // Re-fetch when filters change
+  useEffect(() => {
+    if (pagination.page === 1) {
+      fetchClients();
+    } else {
+      setPagination(prev => ({ ...prev, page: 1 }));
+    }
+  }, [filters.status]);
+
   const handleDeleteClient = async () => {
     if (!selectedClient) return;
 
@@ -165,6 +178,7 @@ function useClientList() {
     stats,
     pagination,
     searchQuery,
+    filters,
     selectedClient,
     groupsModalClient,
     loading,
@@ -173,6 +187,7 @@ function useClientList() {
     showDeleteModal,
     showGroupsModal,
     setSearchQuery,
+    setFilters,
     setError,
     setPagination,
     openDeleteModal,

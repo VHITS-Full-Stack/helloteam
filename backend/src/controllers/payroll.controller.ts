@@ -2,7 +2,7 @@ import { Response } from "express";
 import prisma from "../config/database";
 import { PayrollStatus, AdjustmentType } from "@prisma/client";
 import { AuthenticatedRequest } from "../types";
-import { notifyPayrollDeadline } from "./notification.controller";
+import { notifyPayrollDeadline, createBulkNotifications } from "./notification.controller";
 import { sendPayrollReminderEmail } from "../services/email.service";
 import { generatePayslips } from "./payslip.controller";
 
@@ -58,11 +58,136 @@ export const getPayrollPeriods = async (
       prisma.payrollPeriod.count({ where }),
     ]);
 
+    // Group periods by date range
+    const periodGroupMap = new Map<string, any>();
+    for (const period of periods) {
+      const key = `${period.periodStart.toISOString()}_${period.periodEnd.toISOString()}`;
+      if (!periodGroupMap.has(key)) {
+        periodGroupMap.set(key, {
+          ...period,
+        });
+      } else {
+        const existing = periodGroupMap.get(key);
+        // Use the most relevant status (OPEN > LOCKED > FINALIZED)
+        const statusPriority: Record<string, number> = { OPEN: 0, LOCKED: 1, FINALIZED: 2 };
+        if ((statusPriority[period.status] ?? 99) < (statusPriority[existing.status] ?? 99)) {
+          existing.status = period.status;
+          existing.id = period.id;
+        }
+      }
+    }
+
+    // Calculate total hours and gross pay
+    const groupedPeriods = await Promise.all(
+      Array.from(periodGroupMap.values()).map(async (group) => {
+        const timeRecords = await prisma.timeRecord.findMany({
+          where: {
+            date: { gte: group.periodStart, lte: group.periodEnd },
+            status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+          },
+          include: {
+            employee: {
+              select: {
+                billingRate: true,
+                deduction: true,
+                clientAssignments: {
+                  where: { isActive: true },
+                  select: { hourlyRate: true, overtimeRate: true, clientId: true },
+                },
+                groupAssignments: {
+                  select: {
+                    groupId: true,
+                    group: { select: { billingRate: true } },
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // Fetch client policies and client-group rates for rate resolution
+        const periodClientIds = [...new Set(timeRecords.map(r => r.clientId))];
+        const [periodPolicies, periodClientGroups] = await Promise.all([
+          prisma.clientPolicy.findMany({ where: { clientId: { in: periodClientIds } } }),
+          prisma.clientGroup.findMany({
+            where: { clientId: { in: periodClientIds } },
+            select: { clientId: true, groupId: true, billingRate: true },
+          }),
+        ]);
+        const periodPolicyMap = new Map(periodPolicies.map(p => [p.clientId, p]));
+        const periodCGRateMap = new Map(periodClientGroups.map(cg => [`${cg.clientId}-${cg.groupId}`, cg.billingRate ? Number(cg.billingRate) : null]));
+
+        let totalMinutes = 0;
+        let totalGrossPay = 0;
+
+        // Group by employee to calculate from totals (matches detail endpoint)
+        const empTotals: Record<string, { regularMinutes: number; otMinutes: number; hourlyRate: number; overtimeRate: number; deduction: number }> = {};
+        for (const r of timeRecords) {
+          const empId = r.employeeId;
+          if (!empTotals[empId]) {
+            // Resolve rate same way as detail endpoint
+            const asn = r.employee?.clientAssignments?.[0];
+            const pol = periodPolicyMap.get(r.clientId);
+            const empBR = r.employee?.billingRate ? Number(r.employee.billingRate) : null;
+            const grpAsn = r.employee?.groupAssignments?.[0];
+            const cgRate = grpAsn?.groupId ? (periodCGRateMap.get(`${r.clientId}-${grpAsn.groupId}`) ?? null) : null;
+            const grpRate = grpAsn?.group?.billingRate ? Number(grpAsn.group.billingRate) : null;
+
+            const hr = asn?.hourlyRate ? Number(asn.hourlyRate) : empBR ? empBR : cgRate ? cgRate : grpRate ? grpRate : pol?.defaultHourlyRate ? Number(pol.defaultHourlyRate) : 0;
+            let otr = asn?.overtimeRate ? Number(asn.overtimeRate) : pol?.defaultOvertimeRate ? Number(pol.defaultOvertimeRate) : 0;
+            if (otr === 0 && hr > 0) otr = hr * 1.5;
+
+            empTotals[empId] = { regularMinutes: 0, otMinutes: 0, hourlyRate: hr, overtimeRate: otr, deduction: r.employee?.deduction ? Number(r.employee.deduction) : 0 };
+          }
+
+          let approvedOT = 0;
+          if ((r as any).shiftExtensionStatus === 'APPROVED') approvedOT += (r as any).shiftExtensionMinutes || 0;
+          if ((r as any).extraTimeStatus === 'APPROVED') approvedOT += (r as any).extraTimeMinutes || 0;
+          const deniedOT = Math.max(0, (r.overtimeMinutes || 0) - approvedOT);
+          const payableMinutes = Math.max(0, (r.totalMinutes || 0) - deniedOT);
+
+          empTotals[empId].regularMinutes += payableMinutes - approvedOT;
+          empTotals[empId].otMinutes += approvedOT;
+          totalMinutes += payableMinutes;
+        }
+
+        // Calculate pay from total hours per employee
+        const employeeIds: string[] = [];
+        for (const [empId, emp] of Object.entries(empTotals)) {
+          employeeIds.push(empId);
+          const regularHours = Math.round((emp.regularMinutes / 60) * 100) / 100;
+          const overtimeHours = Math.round((emp.otMinutes / 60) * 100) / 100;
+          totalGrossPay += Math.round(regularHours * emp.hourlyRate * 100) / 100;
+          totalGrossPay += Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
+          totalGrossPay -= emp.deduction;
+        }
+
+        // Add bonuses, subtract adjustment deductions
+        const adjustments = await prisma.payrollAdjustment.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            periodStart: { gte: new Date(group.periodStart.getTime() - 86400000), lte: new Date(group.periodStart.getTime() + 86400000) },
+            periodEnd: { gte: new Date(group.periodEnd.getTime() - 86400000), lte: new Date(group.periodEnd.getTime() + 86400000) },
+          },
+        });
+        for (const adj of adjustments) {
+          if (adj.type === 'BONUS') totalGrossPay += Number(adj.amount);
+          else totalGrossPay -= Number(adj.amount);
+        }
+
+        return {
+          ...group,
+          totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+          grossPay: Math.max(0, Math.round(totalGrossPay * 100) / 100),
+        };
+      }),
+    );
+
     res.json({
       success: true,
       data: {
-        periods,
-        total,
+        periods: groupedPeriods,
+        total: groupedPeriods.length,
       },
     });
   } catch (error) {
@@ -346,6 +471,25 @@ export const getCurrentPayrollPeriod = async (
           .json({ success: false, error: "Client not found" });
       }
       clientId = client.id;
+    } else if (role === "EMPLOYEE") {
+      // Find the employee's active client assignment
+      const employee = await prisma.employee.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+      if (!employee) {
+        return res
+          .status(404)
+          .json({ success: false, error: "Employee not found" });
+      }
+      const assignment = await prisma.clientEmployee.findFirst({
+        where: { employeeId: employee.id, isActive: true },
+        select: { clientId: true },
+        orderBy: { assignedAt: 'desc' },
+      });
+      if (assignment) {
+        clientId = assignment.clientId;
+      }
     } else {
       clientId = req.query.clientId as string;
     }
@@ -1220,11 +1364,11 @@ export const getPayrollExportData = async (
       const payableRegular = payableMinutes - approvedOT;
 
       // Calculate pay for this record using its date-effective rate
-      // Total hours × rate (total already includes OT, no separate OT rate)
-      const recTotalHours = payableMinutes / 60;
-      const recPay = Math.round(recTotalHours * rates.hourlyRate * 100) / 100;
-      employeeData[empId]._regularPay += recPay;
-      employeeData[empId]._overtimePay += 0;
+      // Regular hours × hourly rate, OT hours × overtime rate (round only final total)
+      const recRegularPay = (payableRegular / 60) * rates.hourlyRate;
+      const recOTPay = (approvedOT / 60) * rates.overtimeRate;
+      employeeData[empId]._regularPay += recRegularPay;
+      employeeData[empId]._overtimePay += recOTPay;
 
       // Track per-rate breakdown
       const rateKey = `${rates.hourlyRate}`;
@@ -1237,11 +1381,11 @@ export const getPayrollExportData = async (
         };
       }
       const rp = employeeData[empId]._ratePeriods[rateKey];
-      rp.regularMinutes += payableMinutes;
+      rp.regularMinutes += payableRegular;
       rp.otMinutes += approvedOT;
       rp.workDays += 1;
-      rp.regularPay += recPay;
-      rp.otPay += 0;
+      rp.regularPay += recRegularPay;
+      rp.otPay += recOTPay;
       const dateStr = new Date(record.date).toISOString().split('T')[0];
       if (!rp.minDate || dateStr < rp.minDate) rp.minDate = dateStr;
       if (!rp.maxDate || dateStr > rp.maxDate) rp.maxDate = dateStr;
@@ -1268,9 +1412,9 @@ export const getPayrollExportData = async (
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
       const breakHours = Math.round((emp.breakMinutes / 60) * 100) / 100;
 
-      // Use pre-calculated date-effective pay instead of flat rate * hours
-      const regularPay = Math.round(emp._regularPay * 100) / 100;
-      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
+      // Calculate pay from total hours × rate (matches detail endpoint)
+      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
+      const overtimePay = Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
 
       const empAdjustments = adjustmentsByEmployee[emp.employeeId] || [];
       const totalBonuses =
@@ -1286,10 +1430,10 @@ export const getPayrollExportData = async (
             .reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100,
         ) / 100;
 
-      const grossPay =
+      const grossPay = Math.max(0,
         Math.round(
           (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
-        ) / 100;
+        ) / 100);
 
       return {
         ...emp,
@@ -1650,9 +1794,9 @@ export const getEmployeePayrollSummary = async (
         const payableRegular = payableMinutes - approvedOTMinutes;
 
         // Calculate per-record pay with date-effective rate
-        // Total hours × rate (total already includes OT, no separate OT rate)
-        employeeSummary[empId]._regularPay += Math.round((payableMinutes / 60) * rates.hourlyRate * 100) / 100;
-        employeeSummary[empId]._overtimePay += 0;
+        // Regular hours × hourly rate, OT hours × overtime rate (round only final total)
+        employeeSummary[empId]._regularPay += (payableRegular / 60) * rates.hourlyRate;
+        employeeSummary[empId]._overtimePay += (approvedOTMinutes / 60) * rates.overtimeRate;
 
         employeeSummary[empId].totalMinutes += payableMinutes;
         employeeSummary[empId].overtimeMinutes += approvedOTMinutes;
@@ -1763,14 +1907,34 @@ export const getEmployeePayrollSummary = async (
           : emp.rejectedDays > 0
             ? "flagged"
             : "ready";
-      // Round hours first, then use pre-calculated date-effective pay
-      const totalHours = Math.round((emp.totalMinutes / 60) * 100) / 100;
+      // Calculate hours and pay from total minutes (same as detail endpoint)
+      const regularMinutes = emp.totalMinutes - emp.overtimeMinutes;
+      const regularHours = Math.round((regularMinutes / 60) * 100) / 100;
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
-      const regularHours = Math.round((totalHours - overtimeHours) * 100) / 100;
+      const totalHours = Math.round((regularHours + overtimeHours) * 100) / 100;
 
-      // Use pre-calculated date-effective pay (accounts for mid-period rate changes)
-      const regularPay = Math.round(emp._regularPay * 100) / 100;
-      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
+      // Resolve rate same way as detail endpoint (from assignment → employee → group → policy)
+      const empClientId = emp.client?.id;
+      const empAssignment = empClientId ? assignmentMap.get(`${empClientId}-${emp.employee.id}`) : null;
+      const empPolicy = empClientId ? policyMap.get(empClientId) : null;
+      const empBillingRate = emp.employee.billingRate ? Number(emp.employee.billingRate) : null;
+      const empGroupAssignment = emp.employee.groupAssignments?.[0];
+      const empClientGroupRate = empGroupAssignment?.groupId && empClientId
+        ? (clientGroupRateMap.get(`${empClientId}-${empGroupAssignment.groupId}`) ?? null) : null;
+      const empGroupRate = empGroupAssignment?.group?.billingRate ? Number(empGroupAssignment.group.billingRate) : null;
+
+      const resolvedHourlyRate = empAssignment?.hourlyRate ? Number(empAssignment.hourlyRate)
+        : empBillingRate ? empBillingRate
+        : empClientGroupRate ? empClientGroupRate
+        : empGroupRate ? empGroupRate
+        : empPolicy?.defaultHourlyRate ? Number(empPolicy.defaultHourlyRate) : 0;
+
+      let resolvedOvertimeRate = empAssignment?.overtimeRate ? Number(empAssignment.overtimeRate)
+        : empPolicy?.defaultOvertimeRate ? Number(empPolicy.defaultOvertimeRate) : 0;
+      if (resolvedOvertimeRate === 0 && resolvedHourlyRate > 0) resolvedOvertimeRate = resolvedHourlyRate * 1.5;
+
+      const regularPay = Math.round(regularHours * resolvedHourlyRate * 100) / 100;
+      const overtimePay = Math.round(overtimeHours * resolvedOvertimeRate * 100) / 100;
 
       // Apply adjustments (bonuses add, deductions subtract)
       const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
@@ -1791,13 +1955,15 @@ export const getEmployeePayrollSummary = async (
       // Total hours = approved work hours + PTO hours
       const totalHoursWithPTO = Math.round((totalHours + ptoHours) * 100) / 100;
 
-      const grossPay =
+      const grossPay = Math.max(0,
         Math.round(
           (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
-        ) / 100;
+        ) / 100);
 
       return {
         ...emp,
+        hourlyRate: resolvedHourlyRate,
+        overtimeRate: resolvedOvertimeRate,
         totalHours,
         overtimeHours,
         approvedHours: Math.round((emp.approvedMinutes / 60) * 100) / 100,
@@ -2170,10 +2336,10 @@ export const getEmployeePayrollDetail = async (
     // Include employee's fixed deduction from their profile
     const employeeDeduction = employee.deduction ? Number(employee.deduction) : 0;
     const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
-    const grossPay =
+    const grossPay = Math.max(0,
       Math.round(
         (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
-      ) / 100;
+      ) / 100);
 
     res.json({
       success: true,
@@ -2241,21 +2407,6 @@ export const triggerPayslipGeneration = async (
 
     const startDate = new Date(periodStart);
     const endDate = new Date(periodEnd);
-
-    // Check if payslips already exist for this period
-    const existingPayslips = await prisma.payslip.count({
-      where: {
-        periodStart: startDate,
-        periodEnd: endDate,
-      },
-    });
-
-    if (existingPayslips > 0) {
-      return res.status(400).json({
-        success: false,
-        error: `Payroll already processed for this period. ${existingPayslips} payslip(s) exist.`,
-      });
-    }
 
     // Check for pending OT
     const pendingOT = await prisma.timeRecord.count({
@@ -2332,6 +2483,63 @@ export const updatePayrollCutoff = async (
       },
     });
 
+    // Log the payroll date change
+    await prisma.payrollDateLog.create({
+      data: {
+        periodId: id,
+        previousDate: period.cutoffDate,
+        newDate: new Date(cutoffDate),
+        updatedBy: req.user?.userId || 'system',
+        notes: notes || null,
+      },
+    });
+
+    // Notify all active employees and the client about the payroll date change
+    try {
+      const newDateStr = new Date(cutoffDate).toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+      });
+
+      // Notify employees
+      const activeEmployees = await prisma.employee.findMany({
+        where: { user: { status: 'ACTIVE' } },
+        select: { userId: true },
+      });
+      const employeeUserIds = activeEmployees.map(e => e.userId);
+
+      // Notify all active clients
+      const activeClients = await prisma.client.findMany({
+        where: { user: { status: 'ACTIVE' } },
+        select: { userId: true },
+      });
+      const clientUserIds = activeClients.map(c => c.userId);
+
+      const allUserIds = [...employeeUserIds, ...clientUserIds];
+
+      if (employeeUserIds.length > 0) {
+        await createBulkNotifications(
+          employeeUserIds,
+          'PAYROLL_REMINDER',
+          'Payroll Date Updated',
+          `The next payroll date has been updated to ${newDateStr}. Please ensure all your time entries are submitted and approved before this date.`,
+          { periodId: id, cutoffDate },
+          '/employee/payslips'
+        );
+      }
+      if (clientUserIds.length > 0) {
+        await createBulkNotifications(
+          clientUserIds,
+          'PAYROLL_REMINDER',
+          'Payroll Date Updated',
+          `The next payroll date has been updated to ${newDateStr}. Please ensure all time entries are approved before this date.`,
+          { periodId: id, cutoffDate },
+          '/client/approvals'
+        );
+      }
+    } catch (notifErr) {
+      console.error('[Payroll] Failed to send date update notifications:', notifErr);
+    }
+
     res.json({
       success: true,
       data: updatedPeriod,
@@ -2341,6 +2549,46 @@ export const updatePayrollCutoff = async (
     res
       .status(500)
       .json({ success: false, error: "Failed to update payroll cutoff" });
+  }
+};
+
+// Get payroll date change history
+export const getPayrollDateLogs = async (
+  req: AuthenticatedRequest,
+  res: Response,
+) => {
+  try {
+    const logs = await prisma.payrollDateLog.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    });
+
+    // Get user names for updatedBy
+    const userIds = [...new Set(logs.map(l => l.updatedBy).filter(id => id !== 'system'))];
+    const users = userIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true },
+      }) : [];
+    const adminUsers = userIds.length > 0 ? await prisma.admin.findMany({
+      where: { userId: { in: userIds } },
+      select: { userId: true, firstName: true, lastName: true },
+    }) : [];
+    const userMap = new Map(users.map(u => [u.id, u.email]));
+    const adminMap = new Map(adminUsers.map(a => [a.userId, `${a.firstName} ${a.lastName}`]));
+
+    const enrichedLogs = logs.map(log => ({
+      id: log.id,
+      previousDate: log.previousDate,
+      newDate: log.newDate,
+      updatedBy: adminMap.get(log.updatedBy) || userMap.get(log.updatedBy) || 'System',
+      notes: log.notes,
+      createdAt: log.createdAt,
+    }));
+
+    res.json({ success: true, data: enrichedLogs });
+  } catch (error) {
+    console.error("Get payroll date logs error:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch payroll date logs" });
   }
 };
 

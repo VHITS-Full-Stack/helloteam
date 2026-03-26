@@ -25,6 +25,7 @@ import {
   Wallet,
   Timer,
   Gift,
+  ClipboardCheck,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -206,6 +207,13 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
       icon: Briefcase,
       label: "Payroll",
       permission: PERMISSIONS.PAYROLL.VIEW,
+      end: true,
+    },
+    {
+      to: "/admin/payroll/audit-logs",
+      icon: ClipboardCheck,
+      label: " Audit Logs",
+      permission: PERMISSIONS.PAYROLL.VIEW,
     },
     { group: "Settings" },
     {
@@ -334,6 +342,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
             <NavLink
               key={link.to}
               to={link.to}
+              end={link.end || false}
               className={({ isActive }) => `
                 relative flex items-center gap-3 px-4 py-3 rounded-xl
                 transition-all duration-200 group

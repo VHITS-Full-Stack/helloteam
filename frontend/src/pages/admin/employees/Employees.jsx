@@ -3,20 +3,20 @@ import { useState, useEffect } from 'react';
 import {
   Plus,
   Search,
-  Filter,
   Eye,
   X,
   AlertCircle,
   CheckCircle,
   RefreshCw,
-  Mail
+  Mail,
+  ChevronDown,
+  Users,
 } from 'lucide-react';
 import {
   Card,
   Button,
   Badge,
   Avatar,
-  Input,
   Table,
   TableHead,
   TableBody,
@@ -26,11 +26,13 @@ import {
 } from '../../../components/common';
 import { useEmployeeData } from '../../../hooks/useEmployeeData';
 import employeeService from '../../../services/employee.service';
+import clientService from '../../../services/client.service';
 
 const Employees = () => {
   const navigate = useNavigate();
   const [resendingId, setResendingId] = useState(null);
   const [successMsg, setSuccessMsg] = useState('');
+  const [clients, setClients] = useState([]);
 
   useEffect(() => {
     if (successMsg) {
@@ -39,14 +41,28 @@ const Employees = () => {
     }
   }, [successMsg]);
 
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const res = await clientService.getClients({ limit: 100 });
+        if (res.success) setClients(res.data.clients || []);
+      } catch (err) {
+        console.error('Failed to fetch clients:', err);
+      }
+    };
+    fetchClients();
+  }, []);
+
   const {
     employees,
     stats,
     pagination,
     searchQuery,
+    filters,
     loading,
     error,
     setSearchQuery,
+    setFilters,
     setError,
     setPagination,
     refresh,
@@ -149,40 +165,100 @@ const Employees = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Total Employees</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">On Leave</p>
-          <p className="text-2xl font-bold text-yellow-600">{stats.onLeave}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Inactive</p>
-          <p className="text-2xl font-bold text-gray-400">{stats.inactive}</p>
-        </Card>
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-blue-700">{stats.total}</p>
+            <p className="text-xs text-blue-600">Total Employees</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-green-700">{stats.active}</p>
+            <p className="text-xs text-green-600">Active</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <AlertCircle className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-amber-700">{stats.onLeave}</p>
+            <p className="text-xs text-amber-600">On Leave</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-gray-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-500">{stats.inactive}</p>
+            <p className="text-xs text-gray-500">Inactive</p>
+          </div>
+        </div>
       </div>
 
       {/* Search and Filter */}
-      <Card padding="sm">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              icon={Search}
-              placeholder="Search by name or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button variant="outline" icon={Filter}>
-            Filter
-          </Button>
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by name or email..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-      </Card>
+        <div className="relative">
+          <select
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            className="appearance-none pl-4 pr-9 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="">All Status</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="SUSPENDED">Suspended</option>
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+        <div className="relative">
+          <select
+            value={filters.clientId}
+            onChange={(e) => setFilters(prev => ({ ...prev, clientId: e.target.value }))}
+            className="appearance-none pl-4 pr-9 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="">All Clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.companyName}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+        {(filters.status || filters.clientId) && (
+          <button
+            onClick={() => setFilters({ status: '', clientId: '' })}
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        )}
+      </div>
 
       {/* Employees Table */}
       <Card padding="none">
@@ -208,12 +284,13 @@ const Employees = () => {
                 <TableHeader>Status</TableHeader>
                 <TableHeader>KYC</TableHeader>
                 <TableHeader>Hired</TableHeader>
+                <TableHeader>Created</TableHeader>
                 <TableHeader className="w-16"></TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
               {employees.map((employee) => (
-                <TableRow key={employee.id}>
+                <TableRow key={employee.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(`/admin/employees/${employee.id}`)}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar src={employee.profilePhoto} name={`${employee.firstName} ${employee.lastName}`} size="md" />
@@ -236,11 +313,18 @@ const Employees = () => {
                     })()}
                   </TableCell>
                   <TableCell>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-sm text-gray-500 whitespace-nowrap">
                       {employee.hireDate
-                        ? new Date(employee.hireDate).toLocaleDateString()
+                        ? new Date(employee.hireDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
                         : '—'
                       }
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-500 whitespace-nowrap">
+                      {employee.createdAt
+                        ? new Date(employee.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+                        : '—'}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -292,23 +376,63 @@ const Employees = () => {
             <p className="text-sm text-gray-500">
               Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
             </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
+            <div className="flex items-center gap-1">
+              <button
                 disabled={pagination.page === 1}
                 onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
+              </button>
+              {(() => {
+                const pages = [];
+                const total = pagination.totalPages;
+                const current = pagination.page;
+
+                const addPage = (p) => {
+                  pages.push(
+                    <button
+                      key={p}
+                      onClick={() => setPagination(prev => ({ ...prev, page: p }))}
+                      className={`w-9 h-9 text-sm font-medium rounded-lg transition-colors ${
+                        p === current
+                          ? 'bg-primary text-white'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                };
+
+                const addEllipsis = (key) => {
+                  pages.push(
+                    <span key={key} className="w-9 h-9 flex items-center justify-center text-sm text-gray-400">
+                      ...
+                    </span>
+                  );
+                };
+
+                if (total <= 7) {
+                  for (let i = 1; i <= total; i++) addPage(i);
+                } else {
+                  addPage(1);
+                  if (current > 3) addEllipsis('start');
+                  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
+                    addPage(i);
+                  }
+                  if (current < total - 2) addEllipsis('end');
+                  addPage(total);
+                }
+                return pages;
+              })()}
+              <button
                 disabled={pagination.page === pagination.totalPages}
                 onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 Next
-              </Button>
+              </button>
             </div>
           </div>
         )}

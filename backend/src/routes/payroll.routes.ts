@@ -20,6 +20,7 @@ import {
   deletePayrollAdjustment,
   getEmployeePayrollDetail,
   triggerPayslipGeneration,
+  getPayrollDateLogs,
 } from '../controllers/payroll.controller';
 
 const router = Router();
@@ -76,6 +77,9 @@ router.post('/send-reminders', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), sendPay
 router.get('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getPayrollAdjustments);
 router.post('/adjustments', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), addPayrollAdjustment);
 router.delete('/adjustments/:id', authorizeRoles(['SUPER_ADMIN', 'ADMIN']), deletePayrollAdjustment);
+
+// Payroll date change history
+router.get('/date-logs', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE']), getPayrollDateLogs);
 
 // Employee payslips
 router.get('/payslips/my', getMyPayslips);
