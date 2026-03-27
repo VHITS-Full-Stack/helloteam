@@ -1,20 +1,27 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Clock, Calendar as CalendarIcon, AlertCircle, RefreshCw } from 'lucide-react';
-import { Card, Button, Badge } from '../../components/common';
-import scheduleService from '../../services/schedule.service';
-import { formatTime12 } from '../../utils/formatTime';
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Calendar as CalendarIcon,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
+import { Card, Button, Badge } from "../../components/common";
+import scheduleService from "../../services/schedule.service";
+import { formatTime12 } from "../../utils/formatTime";
 
 // Helper: local date to YYYY-MM-DD (avoids UTC shift from toISOString)
 const toLocalDateStr = (date) => {
   const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 };
 
 const Schedule = () => {
   const [currentDate, setCurrentDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState('week');
+  const [viewMode, setViewMode] = useState("week");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [scheduleData, setScheduleData] = useState([]);
@@ -55,18 +62,18 @@ const Schedule = () => {
       setIsLoading(true);
       setError(null);
 
-      if (viewMode === 'week') {
+      if (viewMode === "week") {
         const weekStart = getWeekStart(currentDate);
         const [weekResult, todayResult] = await Promise.allSettled([
           fetchWeekSchedule(weekStart),
           scheduleService.getTodaySchedule(),
         ]);
 
-        if (weekResult.status === 'fulfilled') {
+        if (weekResult.status === "fulfilled") {
           setScheduleData(weekResult.value);
         }
 
-        if (todayResult.status === 'fulfilled' && todayResult.value?.success) {
+        if (todayResult.status === "fulfilled" && todayResult.value?.success) {
           setTodaySchedule(todayResult.value);
         }
       } else {
@@ -81,7 +88,11 @@ const Schedule = () => {
           // Fetch all weeks of the month
           const weeksToFetch = [];
           const firstDayOfMonth = new Date(monthStart);
-          const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+          const lastDayOfMonth = new Date(
+            currentDate.getFullYear(),
+            currentDate.getMonth() + 1,
+            0,
+          );
 
           // Start from the Sunday of the week containing the first of the month
           let weekStart = getWeekStart(firstDayOfMonth);
@@ -93,14 +104,14 @@ const Schedule = () => {
           }
 
           const weekResults = await Promise.all(
-            weeksToFetch.map(ws => fetchWeekSchedule(ws))
+            weeksToFetch.map((ws) => fetchWeekSchedule(ws)),
           );
 
           // Combine all weeks and remove duplicates
           const allDays = [];
           const seenDates = new Set();
-          weekResults.forEach(weekData => {
-            weekData.forEach(day => {
+          weekResults.forEach((weekData) => {
+            weekData.forEach((day) => {
               if (!seenDates.has(day.date)) {
                 seenDates.add(day.date);
                 allDays.push(day);
@@ -123,8 +134,8 @@ const Schedule = () => {
         }
       }
     } catch (err) {
-      console.error('Failed to fetch schedule data:', err);
-      setError('Failed to load schedule data. Please try again.');
+      console.error("Failed to fetch schedule data:", err);
+      setError("Failed to load schedule data. Please try again.");
     } finally {
       setIsLoading(false);
       fetchingRef.current = false;
@@ -138,10 +149,10 @@ const Schedule = () => {
   // Navigation handlers
   const navigate = (direction) => {
     const newDate = new Date(currentDate);
-    if (viewMode === 'week') {
-      newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    if (viewMode === "week") {
+      newDate.setDate(newDate.getDate() + (direction === "next" ? 7 : -7));
     } else {
-      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      newDate.setMonth(newDate.getMonth() + (direction === "next" ? 1 : -1));
     }
     setCurrentDate(newDate);
   };
@@ -152,9 +163,9 @@ const Schedule = () => {
 
   // Calculate weekly schedule for week view
   const weekSchedule = useMemo(() => {
-    if (viewMode !== 'week') return [];
+    if (viewMode !== "week") return [];
     const weekStart = getWeekStart(currentDate);
-    return scheduleData.filter(day => {
+    return scheduleData.filter((day) => {
       const dayDate = new Date(day.date);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 7);
@@ -164,7 +175,7 @@ const Schedule = () => {
 
   // Calculate month calendar data
   const monthCalendarData = useMemo(() => {
-    if (viewMode !== 'month') return [];
+    if (viewMode !== "month") return [];
 
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -185,7 +196,7 @@ const Schedule = () => {
     for (let day = 1; day <= lastDay.getDate(); day++) {
       const date = new Date(year, month, day);
       const dateStr = toLocalDateStr(date);
-      const daySchedule = scheduleData.find(s => s.date === dateStr);
+      const daySchedule = scheduleData.find((s) => s.date === dateStr);
 
       week.push({
         date,
@@ -204,7 +215,11 @@ const Schedule = () => {
       const remainingDays = 7 - week.length;
       for (let i = 1; i <= remainingDays; i++) {
         const nextMonthDay = new Date(year, month + 1, i);
-        week.push({ date: nextMonthDay, isCurrentMonth: false, schedule: null });
+        week.push({
+          date: nextMonthDay,
+          isCurrentMonth: false,
+          schedule: null,
+        });
       }
       calendar.push(week);
     }
@@ -214,18 +229,27 @@ const Schedule = () => {
 
   // Calculate totals
   const totals = useMemo(() => {
-    const relevantData = viewMode === 'week' ? weekSchedule : scheduleData.filter(d => {
-      const date = new Date(d.date);
-      return date.getMonth() === currentDate.getMonth() && date.getFullYear() === currentDate.getFullYear();
-    });
+    const relevantData =
+      viewMode === "week"
+        ? weekSchedule
+        : scheduleData.filter((d) => {
+            const date = new Date(d.date);
+            return (
+              date.getMonth() === currentDate.getMonth() &&
+              date.getFullYear() === currentDate.getFullYear()
+            );
+          });
 
-    const totalMinutes = relevantData.reduce((sum, d) => sum + (d.scheduledMinutes || 0), 0);
-    const workingDays = relevantData.filter(d => d.isScheduled).length;
-    const daysOff = relevantData.filter(d => !d.isScheduled).length;
+    const totalMinutes = relevantData.reduce(
+      (sum, d) => sum + (d.scheduledMinutes || 0),
+      0,
+    );
+    const workingDays = relevantData.filter((d) => d.isScheduled).length;
+    const daysOff = relevantData.filter((d) => !d.isScheduled).length;
 
     return {
       totalMinutes,
-      totalHours: Math.round(totalMinutes / 60 * 100) / 100,
+      totalHours: Math.round((totalMinutes / 60) * 100) / 100,
       workingDays,
       daysOff,
     };
@@ -237,12 +261,12 @@ const Schedule = () => {
   };
 
   const formatTime = (time) => {
-    if (!time) return '--:--';
+    if (!time) return "--:--";
     return formatTime12(time);
   };
 
   const formatMinutesToHours = (minutes) => {
-    if (!minutes) return '0h';
+    if (!minutes) return "0h";
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (mins === 0) return `${hrs}h`;
@@ -251,13 +275,16 @@ const Schedule = () => {
 
   // Get display title
   const getDisplayTitle = () => {
-    if (viewMode === 'week') {
+    if (viewMode === "week") {
       const weekStart = getWeekStart(currentDate);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 6);
-      return `${weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      return `${weekStart.toLocaleDateString("en-US", { month: "long", day: "numeric" })} - ${weekEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`;
     }
-    return currentDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    return currentDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
   };
 
   if (isLoading && scheduleData.length === 0) {
@@ -301,21 +328,21 @@ const Schedule = () => {
           </Button>
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
-              onClick={() => setViewMode('week')}
+              onClick={() => setViewMode("week")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'week'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                viewMode === "week"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
               Week
             </button>
             <button
-              onClick={() => setViewMode('month')}
+              onClick={() => setViewMode("month")}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                viewMode === 'month'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                viewMode === "month"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
             >
               Month
@@ -328,19 +355,22 @@ const Schedule = () => {
       <Card>
         <div className="flex items-center justify-between mb-6">
           <button
-            onClick={() => navigate('prev')}
+            onClick={() => navigate("prev")}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ChevronLeft className="w-5 h-5 text-gray-600" />
           </button>
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900">{getDisplayTitle()}</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {getDisplayTitle()}
+            </h3>
             <p className="text-sm text-gray-500">
-              Total: {totals.totalHours} hours scheduled ({formatMinutesToHours(totals.totalMinutes)})
+              Total: {totals.totalHours} hours scheduled (
+              {formatMinutesToHours(totals.totalMinutes)})
             </p>
           </div>
           <button
-            onClick={() => navigate('next')}
+            onClick={() => navigate("next")}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <ChevronRight className="w-5 h-5 text-gray-600" />
@@ -348,84 +378,99 @@ const Schedule = () => {
         </div>
 
         {/* Week View */}
-        {viewMode === 'week' && (
+        {viewMode === "week" && (
           <div className="grid grid-cols-7 gap-2">
-            {weekSchedule.length > 0 ? (
-              weekSchedule.map((day, index) => {
-                const dayDate = new Date(day.date);
-                const today = isToday(dayDate);
+            {weekSchedule.length > 0
+              ? weekSchedule.map((day, index) => {
+                  const dayDate = new Date(day.date);
+                  const today = isToday(dayDate);
 
-                return (
-                  <div
-                    key={day.date || index}
-                    className={`
+                  return (
+                    <div
+                      key={day.date || index}
+                      className={`
                       p-4 rounded-lg text-center transition-all
-                      ${today ? 'ring-2 ring-primary bg-primary-50' : ''}
-                      ${day.isScheduled ? 'bg-green-50' : 'bg-gray-50'}
+                      ${today ? "ring-2 ring-primary bg-primary-50" : ""}
+                      ${day.isScheduled ? "bg-green-50" : "bg-gray-50"}
                     `}
-                  >
-                    <p className={`text-sm font-medium ${today ? 'text-primary' : 'text-gray-500'}`}>
-                      {day.dayName?.slice(0, 3)}
-                    </p>
-                    <p className={`text-2xl font-bold mt-1 ${today ? 'text-primary' : 'text-gray-900'}`}>
-                      {dayDate.getDate()}
-                    </p>
-                    <div className="mt-3">
-                      {day.isScheduled ? (
-                        <>
-                          <Badge variant="success" size="sm">Working</Badge>
-                          <p className="text-xs text-gray-600 mt-2">
-                            {formatTime(day.startTime)} - {formatTime(day.endTime)}
-                          </p>
-                          <p className="text-xs font-medium text-gray-900">
-                            {formatMinutesToHours(day.scheduledMinutes)}
-                          </p>
-                        </>
-                      ) : (
+                    >
+                      <p
+                        className={`text-sm font-medium ${today ? "text-primary" : "text-gray-500"}`}
+                      >
+                        {day.dayName?.slice(0, 3)}
+                      </p>
+                      <p
+                        className={`text-2xl font-bold mt-1 ${today ? "text-primary" : "text-gray-900"}`}
+                      >
+                        {dayDate.getDate()}
+                      </p>
+                      <div className="mt-3">
+                        {day.isScheduled ? (
+                          <>
+                            <Badge variant="success" size="sm">
+                              Working
+                            </Badge>
+                            <p className="text-[10px] font-semibold text-gray-600 mt-2 whitespace-nowrap">
+                              {formatTime(day.startTime)} - {formatTime(day.endTime)} (EST)
+                            </p>
+                            <p className="text-xs font-medium text-gray-900">
+                              {formatMinutesToHours(day.scheduledMinutes)}
+                            </p>
+                          </>
+                        ) : (
                         <Badge variant="default" size="sm">Day Off</Badge>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            ) : (
-              [...Array(7)].map((_, index) => {
-                const weekStart = getWeekStart(currentDate);
-                const dayDate = new Date(weekStart);
-                dayDate.setDate(dayDate.getDate() + index);
-                const today = isToday(dayDate);
+                  );
+                })
+              : [...Array(7)].map((_, index) => {
+                  const weekStart = getWeekStart(currentDate);
+                  const dayDate = new Date(weekStart);
+                  dayDate.setDate(dayDate.getDate() + index);
+                  const today = isToday(dayDate);
 
-                return (
-                  <div
-                    key={index}
-                    className={`
+                  return (
+                    <div
+                      key={index}
+                      className={`
                       p-4 rounded-lg text-center transition-all bg-gray-50
-                      ${today ? 'ring-2 ring-primary' : ''}
+                      ${today ? "ring-2 ring-primary" : ""}
                     `}
-                  >
-                    <p className={`text-sm font-medium ${today ? 'text-primary' : 'text-gray-500'}`}>
-                      {dayDate.toLocaleDateString('en-US', { weekday: 'short' })}
-                    </p>
-                    <p className={`text-2xl font-bold mt-1 ${today ? 'text-primary' : 'text-gray-900'}`}>
-                      {dayDate.getDate()}
-                    </p>
-                    <div className="mt-3">
-                      <Badge variant="warning" size="sm">No Schedule</Badge>
+                    >
+                      <p
+                        className={`text-sm font-medium ${today ? "text-primary" : "text-gray-500"}`}
+                      >
+                        {dayDate.toLocaleDateString("en-US", {
+                          weekday: "short",
+                        })}
+                      </p>
+                      <p
+                        className={`text-2xl font-bold mt-1 ${today ? "text-primary" : "text-gray-900"}`}
+                      >
+                        {dayDate.getDate()}
+                      </p>
+                      <div className="mt-3">
+                        <Badge variant="warning" size="sm">
+                          No Schedule
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                );
-              })
-            )}
+                  );
+                })}
           </div>
         )}
 
         {/* Month View */}
-        {viewMode === 'month' && (
+        {viewMode === "month" && (
           <div>
             {/* Day Headers */}
             <div className="grid grid-cols-7 gap-1 mb-2">
-              {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <div
+                  key={day}
+                  className="text-center text-sm font-medium text-gray-500 py-2"
+                >
                   {day}
                 </div>
               ))}
@@ -444,16 +489,21 @@ const Schedule = () => {
                         key={dayIndex}
                         className={`
                           min-h-[80px] p-2 rounded-lg border transition-all
-                          ${!day.isCurrentMonth ? 'bg-gray-50 opacity-50' : ''}
-                          ${today ? 'ring-2 ring-primary bg-primary-50 border-primary' : 'border-gray-200'}
-                          ${day.isCurrentMonth && hasSchedule ? 'bg-green-50 border-green-200' : ''}
-                          ${day.isCurrentMonth && !hasSchedule && !today ? 'bg-white' : ''}
+                          ${!day.isCurrentMonth ? "bg-gray-50 opacity-50" : ""}
+                          ${today ? "ring-2 ring-primary bg-primary-50 border-primary" : "border-gray-200"}
+                          ${day.isCurrentMonth && hasSchedule ? "bg-green-50 border-green-200" : ""}
+                          ${day.isCurrentMonth && !hasSchedule && !today ? "bg-white" : ""}
                         `}
                       >
-                        <p className={`text-sm font-medium ${
-                          today ? 'text-primary' :
-                          !day.isCurrentMonth ? 'text-gray-400' : 'text-gray-900'
-                        }`}>
+                        <p
+                          className={`text-sm font-medium ${
+                            today
+                              ? "text-primary"
+                              : !day.isCurrentMonth
+                                ? "text-gray-400"
+                                : "text-gray-900"
+                          }`}
+                        >
                           {day.date.getDate()}
                         </p>
                         {day.isCurrentMonth && day.schedule && (
@@ -465,7 +515,9 @@ const Schedule = () => {
                                   {formatTime(day.schedule.startTime)}
                                 </p>
                                 <p className="text-xs font-medium text-green-600">
-                                  {formatMinutesToHours(day.schedule.scheduledMinutes)}
+                                  {formatMinutesToHours(
+                                    day.schedule.scheduledMinutes,
+                                  )}
                                 </p>
                               </>
                             ) : (
@@ -491,7 +543,9 @@ const Schedule = () => {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-gray-200 rounded" />
-                <span className="text-sm text-gray-600">Day Off / No Schedule</span>
+                <span className="text-sm text-gray-600">
+                  Day Off / No Schedule
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 ring-2 ring-primary rounded" />
@@ -510,20 +564,25 @@ const Schedule = () => {
             <div className="p-2 bg-primary-50 rounded-lg">
               <CalendarIcon className="w-5 h-5 text-primary" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Today's Schedule</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Today's Schedule
+            </h3>
           </div>
           <div className="space-y-4">
             {todaySchedule?.isScheduled ? (
               <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-gray-900">{todaySchedule.dayName}</span>
+                  <span className="font-medium text-gray-900">
+                    {todaySchedule.dayName}
+                  </span>
                   <Badge variant="success">Scheduled</Badge>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Shift Time</span>
                     <span className="font-semibold text-gray-900">
-                      {formatTime(todaySchedule.startTime)} - {formatTime(todaySchedule.endTime)}
+                      {formatTime(todaySchedule.startTime)} -{" "}
+                      {formatTime(todaySchedule.endTime)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
@@ -538,9 +597,11 @@ const Schedule = () => {
               <div className="p-4 bg-gray-50 rounded-lg text-center">
                 <CalendarIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                 <p className="text-gray-500">
-                  {todaySchedule?.message || 'No schedule for today'}
+                  {todaySchedule?.message || "No schedule for today"}
                 </p>
-                <p className="text-sm text-gray-400 mt-1">{todaySchedule?.dayName}</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  {todaySchedule?.dayName}
+                </p>
               </div>
             )}
           </div>
@@ -553,27 +614,35 @@ const Schedule = () => {
               <Clock className="w-5 h-5 text-blue-600" />
             </div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {viewMode === 'week' ? 'Weekly' : 'Monthly'} Summary
+              {viewMode === "week" ? "Weekly" : "Monthly"} Summary
             </h3>
           </div>
           <div className="space-y-3">
             <div className="p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-gray-600">Total Scheduled Hours</span>
-                <span className="text-2xl font-bold text-blue-600">{totals.totalHours}h</span>
+                <span className="text-2xl font-bold text-blue-600">
+                  {totals.totalHours}h
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-gray-500 text-sm">Minutes</span>
-                <span className="font-medium text-gray-700">{totals.totalMinutes} min</span>
+                <span className="font-medium text-gray-700">
+                  {totals.totalMinutes} min
+                </span>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-green-50 rounded-lg text-center">
-                <p className="text-2xl font-bold text-green-600">{totals.workingDays}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {totals.workingDays}
+                </p>
                 <p className="text-sm text-gray-500">Working Days</p>
               </div>
               <div className="p-3 bg-gray-100 rounded-lg text-center">
-                <p className="text-2xl font-bold text-gray-600">{totals.daysOff}</p>
+                <p className="text-2xl font-bold text-gray-600">
+                  {totals.daysOff}
+                </p>
                 <p className="text-sm text-gray-500">Days Off</p>
               </div>
             </div>
@@ -582,54 +651,84 @@ const Schedule = () => {
       </div>
 
       {/* Schedule by Day Details - Only show in week view */}
-      {viewMode === 'week' && weekSchedule.filter(d => d.isScheduled).length > 0 && (
-        <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Work Schedule Details</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Day</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Date</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Start Time</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">End Time</th>
-                  <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weekSchedule.filter(d => d.isScheduled).map((day, index) => {
-                  const dayDate = new Date(day.date);
-                  const today = isToday(dayDate);
+      {viewMode === "week" &&
+        weekSchedule.filter((d) => d.isScheduled).length > 0 && (
+          <Card>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Work Schedule Details
+            </h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                      Day
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                      Date
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                      Start Time
+                    </th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">
+                      End Time
+                    </th>
+                    <th className="text-right py-3 px-4 text-sm font-medium text-gray-500">
+                      Hours
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {weekSchedule
+                    .filter((d) => d.isScheduled)
+                    .map((day, index) => {
+                      const dayDate = new Date(day.date);
+                      const today = isToday(dayDate);
 
-                  return (
-                    <tr
-                      key={day.date || index}
-                      className={`border-b border-gray-100 ${today ? 'bg-primary-50' : ''}`}
-                    >
-                      <td className="py-3 px-4">
-                        <span className={`font-medium ${today ? 'text-primary' : 'text-gray-900'}`}>
-                          {day.dayName}
-                        </span>
-                        {today && (
-                          <Badge variant="primary" size="sm" className="ml-2">Today</Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">{formatTime(day.startTime)}</td>
-                      <td className="py-3 px-4 text-gray-600">{formatTime(day.endTime)}</td>
-                      <td className="py-3 px-4 text-right font-medium text-gray-900">
-                        {formatMinutesToHours(day.scheduledMinutes)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Card>
-      )}
+                      return (
+                        <tr
+                          key={day.date || index}
+                          className={`border-b border-gray-100 ${today ? "bg-primary-50" : ""}`}
+                        >
+                          <td className="py-3 px-4">
+                            <span
+                              className={`font-medium ${today ? "text-primary" : "text-gray-900"}`}
+                            >
+                              {day.dayName}
+                            </span>
+                            {today && (
+                              <Badge
+                                variant="primary"
+                                size="sm"
+                                className="ml-2"
+                              >
+                                Today
+                              </Badge>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {dayDate.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {formatTime(day.startTime)}
+                          </td>
+                          <td className="py-3 px-4 text-gray-600">
+                            {formatTime(day.endTime)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-medium text-gray-900">
+                            {formatMinutesToHours(day.scheduledMinutes)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        )}
     </div>
   );
 };

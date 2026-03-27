@@ -126,7 +126,6 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
     { to: "/client/billing", icon: CreditCard, label: "Billing & Invoices" },
     { to: "/client/rate-history", icon: TrendingUp, label: "Rate History" },
     { group: "Team" },
-    { to: "/client/groups", icon: FolderOpen, label: "Groups" },
     { to: "/client/chat", icon: MessageCircle, label: "Chat" },
     { to: "/client/tasks", icon: ClipboardList, label: "Tasks" },
     { group: "" },
@@ -154,6 +153,12 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
       icon: Building2,
       label: "Clients",
       permission: PERMISSIONS.CLIENTS.VIEW,
+    },
+    {
+      to: "/admin/groups",
+      icon: FolderOpen,
+      label: "Groups",
+      permission: PERMISSIONS.GROUPS.VIEW,
     },
     { group: "Management" },
     {

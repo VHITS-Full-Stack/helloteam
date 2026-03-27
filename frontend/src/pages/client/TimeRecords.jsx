@@ -52,7 +52,8 @@ const TimeRecords = () => {
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
 
-  // Week navigation
+  // Date range navigation
+  const [viewMode, setViewMode] = useState("week"); // week, month, custom
   const [weekStart, setWeekStart] = useState(() => {
     const now = new Date();
     const d = new Date(now);
@@ -60,25 +61,62 @@ const TimeRecords = () => {
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weekLabel = `${weekStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
-  const handlePrevWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() - 7);
-      return d;
-    });
+  // Compute effective date range based on viewMode
+  const getDateRange = () => {
+    if (viewMode === "month") {
+      const now = new Date(weekStart);
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return { start, end };
+    }
+    if (viewMode === "custom" && customStart && customEnd) {
+      return { start: new Date(customStart), end: new Date(customEnd) };
+    }
+    // Default: week
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + 6);
+    return { start: weekStart, end };
   };
-  const handleNextWeek = () => {
-    setWeekStart((prev) => {
-      const d = new Date(prev);
-      d.setDate(d.getDate() + 7);
-      return d;
-    });
+
+  const { start: rangeStart, end: rangeEnd } = getDateRange();
+  const rangeLabel = viewMode === "month"
+    ? rangeStart.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+    : `${rangeStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${rangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+
+  const handlePrev = () => {
+    if (viewMode === "month") {
+      setWeekStart((prev) => {
+        const d = new Date(prev);
+        d.setMonth(d.getMonth() - 1);
+        return d;
+      });
+    } else {
+      setWeekStart((prev) => {
+        const d = new Date(prev);
+        d.setDate(d.getDate() - 7);
+        return d;
+      });
+    }
   };
-  const handleCurrentWeek = () => {
+  const handleNext = () => {
+    if (viewMode === "month") {
+      setWeekStart((prev) => {
+        const d = new Date(prev);
+        d.setMonth(d.getMonth() + 1);
+        return d;
+      });
+    } else {
+      setWeekStart((prev) => {
+        const d = new Date(prev);
+        d.setDate(d.getDate() + 7);
+        return d;
+      });
+    }
+  };
+  const handleToday = () => {
     const now = new Date();
     const d = new Date(now);
     d.setDate(now.getDate() - now.getDay());
@@ -125,10 +163,9 @@ const TimeRecords = () => {
     setLoading(true);
     setError(null);
     try {
-      const startDate = weekStart.toISOString().split("T")[0];
-      const endD = new Date(weekStart);
-      endD.setDate(endD.getDate() + 6);
-      const endDate = endD.toISOString().split("T")[0];
+      const { start: rs, end: re } = getDateRange();
+      const startDate = rs.toISOString().split("T")[0];
+      const endDate = re.toISOString().split("T")[0];
       const response = await clientPortalService.getTimeRecords({
         startDate,
         endDate,
@@ -150,7 +187,7 @@ const TimeRecords = () => {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [statusFilter, weekStart]);
+  }, [statusFilter, weekStart, viewMode, customStart, customEnd]);
 
   useEffect(() => {
     fetchTimeRecords();
@@ -302,7 +339,7 @@ const TimeRecords = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `time-records-${weekStart.toISOString().slice(0, 10)}.csv`;
+    a.download = `time-records-${rangeStart.toISOString().slice(0, 10)}-to-${rangeEnd.toISOString().slice(0, 10)}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
@@ -345,6 +382,36 @@ const TimeRecords = () => {
       }
     } catch (err) {
       setError(err.message || "Failed to request revision");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApprove = async (recordIdOrIds) => {
+    try {
+      setActionLoading(true);
+      const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
+      for (const id of ids) {
+        await clientPortalService.approveTimeRecord(id);
+      }
+      fetchTimeRecords();
+    } catch (err) {
+      console.error("Failed to approve time record:", err);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (recordIdOrIds) => {
+    try {
+      setActionLoading(true);
+      const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
+      for (const id of ids) {
+        await clientPortalService.rejectTimeRecord(id, "Overtime rejected by client");
+      }
+      fetchTimeRecords();
+    } catch (err) {
+      console.error("Failed to reject time record:", err);
     } finally {
       setActionLoading(false);
     }
@@ -561,27 +628,44 @@ const TimeRecords = () => {
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button
-              onClick={handlePrevWeek}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-500" />
-            </button>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg min-w-[220px] justify-center">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="font-medium text-gray-900 text-sm">
-                {weekLabel}
-              </span>
+            {/* View mode selector */}
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              {[
+                { value: "week", label: "Week" },
+                { value: "month", label: "Month" },
+                { value: "custom", label: "Custom" },
+              ].map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => setViewMode(m.value)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === m.value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={handleNextWeek}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-500" />
-            </button>
-            <Button variant="ghost" size="sm" onClick={handleCurrentWeek}>
-              Today
-            </Button>
+
+            {viewMode === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <span className="text-gray-400 text-sm">to</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
@@ -734,7 +818,7 @@ const TimeRecords = () => {
                           Regular Hours
                         </th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                          Approved Overtime
+                          Overtime
                         </th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           OT Without Prior Approval

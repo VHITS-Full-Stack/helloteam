@@ -12,6 +12,8 @@ import {
   UserPlus,
   UserMinus,
   Building,
+  CheckCircle,
+  ChevronDown,
 } from 'lucide-react';
 import {
   Card,
@@ -33,6 +35,7 @@ import clientService from '../../../services/client.service';
 
 const Groups = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterClientId, setFilterClientId] = useState('');
   const isInitialMount = useRef(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -471,61 +474,96 @@ const Groups = () => {
           <h2 className="text-2xl font-bold text-gray-900">Group Management</h2>
           <p className="text-gray-500">Organize employees into teams and departments</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={() => fetchGroups()}>
-            Refresh
-          </Button>
-          <Button variant="primary" icon={Plus} onClick={() => { resetForm(); setShowAddModal(true); }}>
-            Add Group
-          </Button>
-        </div>
+        <Button variant="primary" icon={Plus} onClick={() => { resetForm(); setShowAddModal(true); }}>
+          Add Group
+        </Button>
       </div>
 
       {/* Error Alert */}
       {error && !showAddModal && !showEditModal && !showDeleteModal && !showManageModal && !showAssignClientModal && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-          <div className="flex-1">
-            <p className="text-sm text-red-600">{error}</p>
-          </div>
-          <button onClick={() => setError('')} className="text-red-400 hover:text-red-600">
-            <X className="w-4 h-4" />
+        <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-600">
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
+          {error}
+          <button onClick={() => setError('')} className="ml-auto text-red-400 hover:text-red-600">
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Total Groups</p>
-          <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Active</p>
-          <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-        </Card>
-        <Card padding="sm">
-          <p className="text-sm text-gray-500">Inactive</p>
-          <p className="text-2xl font-bold text-gray-400">{stats.inactive}</p>
-        </Card>
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-blue-700">{stats.total}</p>
+            <p className="text-xs text-blue-600">Total Groups</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-green-700">{stats.active}</p>
+            <p className="text-xs text-green-600">Active</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 px-4 py-3 bg-gray-100 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
+            <Users className="w-5 h-5 text-gray-400" />
+          </div>
+          <div>
+            <p className="text-xl font-bold text-gray-500">{stats.inactive}</p>
+            <p className="text-xs text-gray-500">Inactive</p>
+          </div>
+        </div>
       </div>
 
       {/* Search */}
-      <Card padding="sm">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              icon={Search}
-              placeholder="Search by name or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Button variant="outline" icon={Filter}>
-            Filter
-          </Button>
+      <div className="flex flex-col md:flex-row gap-3">
+        <div className="relative w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-      </Card>
+        <div className="relative">
+          <select
+            value={filterClientId}
+            onChange={(e) => setFilterClientId(e.target.value)}
+            className="appearance-none pl-4 pr-9 py-2.5 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="">All Clients</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>{c.companyName}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+        </div>
+        {(searchQuery || filterClientId) && (
+          <button
+            onClick={() => { setSearchQuery(''); setFilterClientId(''); }}
+            className="flex items-center gap-1.5 px-3 py-2.5 text-sm text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        )}
+      </div>
 
       {/* Groups Table */}
       <Card padding="none">
@@ -541,7 +579,18 @@ const Groups = () => {
               Create First Group
             </Button>
           </div>
-        ) : (
+        ) : (() => {
+          const filteredGroups = groups.filter(group => {
+            if (!filterClientId) return true;
+            const groupClients = getGroupClients(group);
+            return groupClients.some(c => c.id === filterClientId);
+          });
+          return filteredGroups.length === 0 ? (
+            <div className="p-8 text-center">
+              <Users className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No groups available{filterClientId ? ' for this client' : ''}</p>
+            </div>
+          ) : (
           <Table>
             <TableHead>
               <TableRow>
@@ -556,7 +605,7 @@ const Groups = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {groups.map((group) => (
+              {filteredGroups.map((group) => (
                 <TableRow key={group.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
@@ -611,30 +660,30 @@ const Groups = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2 flex-wrap">
+                    <div className="flex items-center gap-1 whitespace-nowrap">
                       <button
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors"
                         onClick={() => openManageModal(group)}
                         title="Manage Employees"
                       >
                         <UserPlus className="w-4 h-4 text-blue-500" />
                       </button>
                       <button
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-green-50 rounded-lg transition-colors"
                         onClick={() => openAssignClientModal(group)}
+                        title="Assign to Client"
                       >
-                        <Building className="w-3.5 h-3.5" />
-                        Assign to Client
+                        <Building className="w-4 h-4 text-green-500" />
                       </button>
                       <button
-                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                         onClick={() => openEditModal(group)}
                         title="Edit"
                       >
                         <Edit className="w-4 h-4 text-gray-500" />
                       </button>
                       <button
-                        className="p-2 hover:bg-red-50 rounded-lg transition-colors"
+                        className="p-1.5 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={() => openDeleteModal(group)}
                         title="Delete"
                       >
@@ -646,7 +695,8 @@ const Groups = () => {
               ))}
             </TableBody>
           </Table>
-        )}
+          );
+        })()}
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (

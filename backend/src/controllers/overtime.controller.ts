@@ -601,7 +601,15 @@ export const rejectOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
     });
 
     if (existingTimeRecord) {
+      const rejectedMins = request.requestedMinutes || 0;
       const updateData: any = { [statusField]: 'DENIED' };
+
+      // Deduct rejected OT from billing minutes — employee doesn't get paid for rejected OT
+      if (rejectedMins > 0) {
+        updateData.billingMinutes = Math.max(0, (existingTimeRecord.billingMinutes || 0) - rejectedMins);
+        updateData.overtimeMinutes = Math.max(0, (existingTimeRecord.overtimeMinutes || 0) - rejectedMins);
+      }
+
       // If the TimeRecord is still PENDING, approve the regular hours (only OT is denied)
       if (existingTimeRecord.status === 'PENDING') {
         updateData.status = 'APPROVED';

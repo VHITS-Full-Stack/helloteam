@@ -54,6 +54,16 @@ const TimesheetDetail = () => {
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const [halfFilter, setHalfFilter] = useState("full");
+  const [viewMode, setViewMode] = useState("month"); // week, month, custom
+  const [weekStart, setWeekStart] = useState(() => {
+    const now = new Date();
+    const d = new Date(now);
+    d.setDate(now.getDate() - now.getDay());
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,15 +80,31 @@ const TimesheetDetail = () => {
   const [selectedOTRecord, setSelectedOTRecord] = useState(null);
   const [otRejectReason, setOtRejectReason] = useState("");
 
+  const getDateRange = useCallback(() => {
+    if (viewMode === "week") {
+      const end = new Date(weekStart);
+      end.setDate(weekStart.getDate() + 6);
+      return { start: weekStart, end };
+    }
+    if (viewMode === "custom" && customStart && customEnd) {
+      return { start: new Date(customStart), end: new Date(customEnd) };
+    }
+    // Default: month
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    return {
+      start: new Date(year, month, 1),
+      end: new Date(year, month + 1, 0),
+    };
+  }, [viewMode, weekStart, currentMonth, customStart, customEnd]);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const year = currentMonth.getFullYear();
-      const month = currentMonth.getMonth();
-      const startDate = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      const endDate = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const { start, end } = getDateRange();
+      const startDate = start.toISOString().split("T")[0];
+      const endDate = end.toISOString().split("T")[0];
 
       const response = await clientPortalService.getTimeRecords({
         startDate,
@@ -108,7 +134,7 @@ const TimesheetDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentMonth, employeeId]);
+  }, [getDateRange, employeeId]);
 
   useEffect(() => {
     fetchData();
@@ -218,9 +244,8 @@ const TimesheetDetail = () => {
     dayDataMap[d.getUTCDate()] = rec;
   });
 
-  // Compute totals
+  // Use backend data directly
   const totalHours = record?.totalHours ?? 0;
-  const overtimeHours = record?.overtimeHours ?? 0;
   const approvedOTHours = record?.approvedOvertimeHours ?? 0;
   const regularHours = Math.max(0, totalHours - approvedOTHours);
   const pendingOTHours = record?.unapprovedOvertimeHours ?? 0;
@@ -313,46 +338,67 @@ const TimesheetDetail = () => {
         </div>
       )}
 
-      {/* Period Navigation + Half Filter */}
+      {/* Period + Stats */}
       <Card>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="inline-flex bg-gray-100 rounded-lg p-1">
-            {[
-              { key: "full", label: "Full Month" },
-              { key: "1st", label: "1st Half" },
-              { key: "2nd", label: "2nd Half" },
-            ].map((opt) => (
-              <button
-                key={opt.key}
-                onClick={() => setHalfFilter(opt.key)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${halfFilter === opt.key ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button
-              onClick={handlePreviousMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-500" />
-            </button>
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-lg min-w-[180px] justify-center">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="font-medium text-gray-900 text-sm">
-                {periodLabel}
-              </span>
+            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+              {[
+                { value: "week", label: "Week" },
+                { value: "month", label: "Month" },
+                { value: "custom", label: "Custom" },
+              ].map((m) => (
+                <button
+                  key={m.value}
+                  onClick={() => setViewMode(m.value)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                    viewMode === m.value
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {m.label}
+                </button>
+              ))}
             </div>
-            <button
-              onClick={handleNextMonth}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-500" />
-            </button>
-            <Button variant="ghost" size="sm" onClick={handleCurrentMonth}>
-              Today
-            </Button>
+            {viewMode === "custom" && (
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <span className="text-gray-400 text-xs">to</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-5">
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total</p>
+              <p className="text-sm font-bold text-gray-900">{formatHours(totalHours)}</p>
+            </div>
+            <div className="w-px h-6 bg-gray-200" />
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Regular</p>
+              <p className="text-sm font-bold text-blue-600">{formatHours(regularHours)}</p>
+            </div>
+            <div className="w-px h-6 bg-gray-200" />
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Approved OT</p>
+              <p className="text-sm font-bold text-green-600">{approvedOTHours > 0 ? formatHours(approvedOTHours) : "0h"}</p>
+            </div>
+            <div className="w-px h-6 bg-gray-200" />
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Pending OT</p>
+              <p className="text-sm font-bold text-amber-600">{pendingOTHours > 0 ? formatHours(pendingOTHours) : "0h"}</p>
+            </div>
           </div>
         </div>
       </Card>
@@ -375,69 +421,6 @@ const TimesheetDetail = () => {
         </Card>
       ) : (
         <>
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card padding="sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-primary-50 rounded-xl">
-                  <TrendingUp className="w-5 h-5 text-primary-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Total Hours
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatHours(totalHours)}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-blue-50 rounded-xl">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Regular
-                  </p>
-                  <p className="text-2xl font-bold text-blue-700">
-                    {formatHours(regularHours)}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-green-50 rounded-xl">
-                  <Timer className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Approved OT
-                  </p>
-                  <p className="text-2xl font-bold text-green-600">
-                    {approvedOTHours > 0 ? formatHours(approvedOTHours) : "0h"}
-                  </p>
-                </div>
-              </div>
-            </Card>
-            <Card padding="sm">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-amber-50 rounded-xl">
-                  <AlertCircle className="w-5 h-5 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Pending OT
-                  </p>
-                  <p className="text-2xl font-bold text-amber-600">
-                    {pendingOTHours > 0 ? formatHours(pendingOTHours) : "0h"}
-                  </p>
-                </div>
-              </div>
-            </Card>
-          </div>
 
           {/* Revision reason banner */}
           {(() => {
@@ -463,8 +446,8 @@ const TimesheetDetail = () => {
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             const today = new Date();
 
-            const rangeStart = halfFilter === "2nd" ? 16 : 1;
-            const rangeEnd = halfFilter === "1st" ? 15 : daysInMonth;
+            const rangeStart = 1;
+            const rangeEnd = daysInMonth;
 
             // Compute filtered totals
             let filteredTotalMins = 0;
@@ -489,10 +472,10 @@ const TimesheetDetail = () => {
             const filteredRegularMins = filteredTotalMins - filteredOtMins;
             const filteredOTTotal = filteredShiftExtMins + filteredExtraTimeMins;
             const totalLabel =
-              halfFilter === "1st"
-                ? "1st Half Total"
-                : halfFilter === "2nd"
-                  ? "2nd Half Total"
+              viewMode === "week"
+                ? "Weekly Total"
+                : viewMode === "custom"
+                  ? "Total"
                   : "Monthly Total";
 
             // Build filtered rows
@@ -517,8 +500,9 @@ const TimesheetDetail = () => {
                 recStatus === "holiday";
               const otEntries = rec?.overtimeEntries || [];
               const billingM = rec?.billingMinutes || 0;
-              const totalOTM = otEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-              const regularM = Math.max(0, (billingM > 0 ? billingM : totalM) - totalOTM - (rec?.breakMinutes || 0));
+              const regularM = rec?.regularMinutes != null
+                ? rec.regularMinutes
+                : Math.max(0, (billingM > 0 ? billingM : totalM) - (rec?.breakMinutes || 0));
               // Pre-requested OT
               const requestedOTEntries = otEntries.filter((ot) => !ot.isAutoGenerated);
               // Auto-generated OT (without prior approval)
@@ -559,29 +543,29 @@ const TimesheetDetail = () => {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-200">
-                        <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-4">
+                        <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4">
                           Date
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
-                          Schedule
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          Clock In
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
-                          Billing In / Out
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          Clock Out
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3 w-[60px]">
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           Break
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3 w-[75px]">
-                          Regular
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          Regular Hours
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           Overtime
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-3">
+                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           OT Without Prior Approval
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2.5 px-4">
-                          Action
+                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
+                          Actions
                         </th>
                       </tr>
                     </thead>
@@ -629,11 +613,11 @@ const TimesheetDetail = () => {
                                 )}
                               </td>
 
-                              {/* Schedule */}
-                              <td className="py-2.5 px-3 text-center text-sm text-gray-500">
-                                {schedStart && schedEnd ? (
-                                  <span className="whitespace-nowrap text-xs">
-                                    {schedStart} – {schedEnd}
+                              {/* Clock In */}
+                              <td className="py-2.5 px-3 text-center text-sm">
+                                {rec?.clockIn ? (
+                                  <span className="text-gray-900">
+                                    {formatClockTime(rec.clockIn, clientTimezone)}
                                   </span>
                                 ) : (
                                   <span className="text-gray-300">—</span>
@@ -649,41 +633,15 @@ const TimesheetDetail = () => {
                                 </td>
                               ) : (
                                 <>
-                                  {/* Billing In/Out */}
+                                  {/* Clock Out */}
                                   <td className="py-2.5 px-3 text-center text-sm">
-                                    {rec?.billingStart && rec?.billingEnd ? (
+                                    {rec?.clockOut ? (
                                       <span className="text-gray-900">
-                                        {formatClockTime(
-                                          rec.billingStart,
-                                          clientTimezone,
-                                        )}
-                                        <span className="text-gray-300 mx-1">
-                                          –
-                                        </span>
-                                        {formatClockTime(
-                                          rec.billingEnd,
-                                          clientTimezone,
-                                        )}
+                                        {formatClockTime(rec.clockOut, clientTimezone)}
                                       </span>
                                     ) : rec?.clockIn ? (
-                                      <span className="text-gray-600">
-                                        {formatClockTime(
-                                          rec.clockIn,
-                                          clientTimezone,
-                                        )}
-                                        <span className="text-gray-300 mx-1">
-                                          –
-                                        </span>
-                                        {rec?.clockOut ? (
-                                          formatClockTime(
-                                            rec.clockOut,
-                                            clientTimezone,
-                                          )
-                                        ) : (
-                                          <span className="text-green-600 font-medium">
-                                            In Progress
-                                          </span>
-                                        )}
+                                      <span className="text-green-600 font-medium">
+                                        In Progress
                                       </span>
                                     ) : (
                                       <span className="text-gray-300">—</span>

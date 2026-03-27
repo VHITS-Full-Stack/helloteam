@@ -1753,7 +1753,7 @@ const EmployeeDashboard = () => {
                       {dayDate.getDate()}
                     </p>
                     <p
-                      className={`text-xs mt-2 ${
+                      className={`text-[9px] mt-2 whitespace-nowrap ${
                         isToday
                           ? "text-primary-100"
                           : isScheduled
@@ -1761,9 +1761,11 @@ const EmployeeDashboard = () => {
                             : "text-gray-400"
                       }`}
                     >
-                      {isScheduled
-                        ? `${formatTime12(daySchedule.startTime)} - ${formatTime12(daySchedule.endTime)}`
-                        : "Off"}
+                      {isScheduled ? (
+                        `${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)} EST`
+                      ) : (
+                        "Off"
+                      )}
                     </p>
                     {approvedExtension && isScheduled && (
                       <span
