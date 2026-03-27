@@ -756,7 +756,7 @@ const EmployeeDashboard = () => {
         requestedStartTime: "",
         requestedEndTime: "",
         durationHours: "",
-            reason: "",
+        reason: "",
       });
       fetchOvertimeRequests();
       setTimeout(() => {
@@ -968,15 +968,6 @@ const EmployeeDashboard = () => {
                       timeZone: "America/New_York",
                     })}
                   </p>
-                  <div className="mt-2 pt-2 border-t border-white/15">
-                    <p className="text-primary-200 text-xs">Your Time</p>
-                    <p className="text-lg font-semibold mt-0.5">
-                      {currentTime.toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
                 </div>
 
                 {isWorking && (
@@ -1244,11 +1235,14 @@ const EmployeeDashboard = () => {
                 {nextPayrollDate ? (
                   <>
                     <p className="text-lg font-bold text-gray-900">
-                      {new Date(nextPayrollDate.cutoffDate).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        timeZone: "UTC",
-                      })}
+                      {new Date(nextPayrollDate.cutoffDate).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "numeric",
+                          timeZone: "UTC",
+                        },
+                      )}
                     </p>
                     <p className="text-xs text-gray-500">Next Payroll Date</p>
                     <p className="text-xs text-gray-400 mt-2">
@@ -1814,7 +1808,10 @@ const EmployeeDashboard = () => {
               </button>
             </div>
 
-            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
+            <form
+              onSubmit={handleOvertimeSubmit}
+              className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent"
+            >
               {overtimeError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
@@ -1909,9 +1906,9 @@ const EmployeeDashboard = () => {
                     </label>
                     <div className="grid grid-cols-3 gap-2 mb-2">
                       {[
-                        { label: '15 min', value: '15' },
-                        { label: '30 min', value: '30' },
-                        { label: '45 min', value: '45' },
+                        { label: "15 min", value: "15" },
+                        { label: "30 min", value: "30" },
+                        { label: "45 min", value: "45" },
                       ].map((opt) => (
                         <button
                           key={opt.value}
@@ -1924,8 +1921,8 @@ const EmployeeDashboard = () => {
                           }
                           className={`py-2 rounded-lg text-sm font-medium border transition-all ${
                             overtimeForm.durationHours === opt.value
-                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
-                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                              ? "border-primary bg-primary/10 text-primary ring-1 ring-primary/30"
+                              : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
                           }`}
                         >
                           {opt.label}
@@ -1965,7 +1962,8 @@ const EmployeeDashboard = () => {
                   )}
                   {!getTodayShiftEndTime() && (
                     <p className="text-xs text-amber-600">
-                      No scheduled shift found for today. Please contact your admin.
+                      No scheduled shift found for today. Please contact your
+                      admin.
                     </p>
                   )}
                 </div>
