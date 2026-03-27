@@ -11,13 +11,16 @@ import {
 import adminPortalService from '../../services/adminPortal.service';
 import overtimeService from '../../services/overtime.service';
 import clientService from '../../services/client.service';
+import groupService from '../../services/group.service';
 import { formatHours, formatDuration, formatTime12 } from '../../utils/formatTime';
 
 const TimeRecords = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState(searchParams.get('clientId') || 'all');
+  const [selectedGroup, setSelectedGroup] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [groups, setGroups] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -82,6 +85,17 @@ const TimeRecords = () => {
       }
     };
     fetchClients();
+    const fetchGroups = async () => {
+      try {
+        const response = await groupService.getGroups({ limit: 100 });
+        if (response?.success) {
+          setGroups(response.data?.groups || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch groups:', error);
+      }
+    };
+    fetchGroups();
   }, []);
 
   // Fetch time records
@@ -142,13 +156,40 @@ const TimeRecords = () => {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  // Filter by group (get employee IDs in selected group)
+  // Filter groups by selected client
+  const filteredGroups = useMemo(() => {
+    if (selectedClient === 'all') return groups;
+    return groups.filter(g =>
+      (g.clients || []).some(cg => cg.client?.id === selectedClient || cg.clientId === selectedClient)
+    );
+  }, [groups, selectedClient]);
+
+  // Reset group when client changes and selected group is no longer valid
+  useEffect(() => {
+    if (selectedGroup !== 'all' && !filteredGroups.find(g => g.id === selectedGroup)) {
+      setSelectedGroup('all');
+    }
+  }, [filteredGroups, selectedGroup]);
+
+  const groupEmployeeIds = useMemo(() => {
+    if (selectedGroup === 'all') return null;
+    const group = groups.find(g => g.id === selectedGroup);
+    if (!group) return new Set();
+    const empList = group.employees || [];
+    const ids = new Set(empList.map(ge => ge.employee?.id || ge.employeeId).filter(Boolean));
+    return ids;
+  }, [selectedGroup, groups]);
+
   // Group time records by client
   const clientGroups = useMemo(() => {
-    const groups = new Map();
+    const grouped = new Map();
     for (const record of timeRecords) {
+      // Skip if group filter is active and employee not in group
+      if (groupEmployeeIds && !groupEmployeeIds.has(record.employeeId)) continue;
       const key = record.clientId || 'unassigned';
-      if (!groups.has(key)) {
-        groups.set(key, {
+      if (!grouped.has(key)) {
+        grouped.set(key, {
           clientId: key,
           clientName: record.client || 'Unassigned',
           employees: [],
@@ -157,9 +198,9 @@ const TimeRecords = () => {
           employeeCount: 0,
         });
       }
-      const group = groups.get(key);
-      group.employees.push(record);
-      group.totalHours += record.totalHours;
+      const g = grouped.get(key);
+      g.employees.push(record);
+      g.totalHours += record.totalHours;
       // Only count pending OT as overtime
       const dailyRecords = record.dailyRecords || [];
       for (const day of dailyRecords) {
@@ -167,16 +208,16 @@ const TimeRecords = () => {
         const pendingOTMinutes = otEntries
           .filter(o => o.status === 'PENDING')
           .reduce((s, o) => s + (o.requestedMinutes || 0), 0);
-        group.overtimeHours += pendingOTMinutes / 60;
+        g.overtimeHours += pendingOTMinutes / 60;
       }
-      group.employeeCount++;
+      g.employeeCount++;
     }
-    for (const group of groups.values()) {
-      group.totalHours = Math.round(group.totalHours * 100) / 100;
-      group.overtimeHours = Math.round(group.overtimeHours * 100) / 100;
+    for (const g of grouped.values()) {
+      g.totalHours = Math.round(g.totalHours * 100) / 100;
+      g.overtimeHours = Math.round(g.overtimeHours * 100) / 100;
     }
-    return Array.from(groups.values());
-  }, [timeRecords]);
+    return Array.from(grouped.values());
+  }, [timeRecords, groupEmployeeIds]);
 
   const toggleClient = (clientId) => {
     setExpandedClients(prev => {
@@ -489,46 +530,40 @@ const TimeRecords = () => {
         </Card>
       </div> */}
 
-      {/* Date Filter */}
+      {/* Filters */}
       <Card>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
+        <div className="flex items-center gap-3">
+          {/* Search */}
+          <div className="relative flex-shrink-0">
             <Search className="w-4 h-4 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
-              className="input text-sm"
-              style={{ width: '12rem', padding: '0.5rem 0.75rem 0.5rem 2.25rem' }}
+              className="w-44 pl-9 pr-3 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="Search employee..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="h-6 w-px bg-gray-200" />
-
-          <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          {/* Date Range */}
           <input
             type="date"
-            className="input text-sm"
-            style={{ width: '10rem', padding: '0.5rem 0.75rem' }}
+            className="w-36 px-2.5 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
           />
-          <span className="text-gray-400 text-sm">to</span>
+          <span className="text-gray-400 text-xs">to</span>
           <input
             type="date"
-            className="input text-sm"
-            style={{ width: '10rem', padding: '0.5rem 0.75rem' }}
+            className="w-36 px-2.5 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
           />
 
-          <div className="h-6 w-px bg-gray-200" />
-
-          <div className="relative">
+          {/* Dropdowns */}
+          <div className="relative flex-shrink-0">
             <select
-              className="input text-sm appearance-none pr-9"
-              style={{ width: '11rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent cursor-pointer"
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
             >
@@ -536,23 +571,35 @@ const TimeRecords = () => {
                 <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
-            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          <div className="relative">
+          <div className="relative flex-shrink-0">
             <select
-              className="input text-sm appearance-none pr-9"
-              style={{ width: '9rem', padding: '0.5rem 2rem 0.5rem 0.75rem' }}
+              className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent cursor-pointer"
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+            >
+              <option value="all">All Groups</option>
+              {filteredGroups.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="relative flex-shrink-0">
+            <select
+              className="appearance-none pl-3 pr-8 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent cursor-pointer"
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
             >
               <option value="all">All Status</option>
-              <option value="approved">Approved</option>
               <option value="pending">Pending</option>
-              <option value="active">Active</option>
-              <option value="adjusted">Adjusted</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
             </select>
-            <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
       </Card>
@@ -563,7 +610,7 @@ const TimeRecords = () => {
           <div className="flex items-center justify-center py-16">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
-        ) : timeRecords.length > 0 ? (
+        ) : timeRecords.filter(r => !groupEmployeeIds || groupEmployeeIds.has(r.employeeId)).length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -582,7 +629,7 @@ const TimeRecords = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {timeRecords.flatMap((empRecord) =>
+                {timeRecords.filter(empRecord => !groupEmployeeIds || groupEmployeeIds.has(empRecord.employeeId)).flatMap((empRecord) =>
                   empRecord.dailyRecords.map((day) => (
                     <tr key={`${empRecord.employeeId}-${day.id}`} className="hover:bg-gray-50/50 transition-colors">
                       {/* Name */}

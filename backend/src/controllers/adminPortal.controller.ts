@@ -952,9 +952,18 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       });
     }
 
+    // Filter by status if provided
+    const filteredRecords = status && status !== 'all'
+      ? allRecords.filter(r => {
+          const s = status.toLowerCase();
+          if (s === 'approved') return r.status === 'approved' || r.status === 'auto_approved';
+          return r.status === s;
+        })
+      : allRecords;
+
     // Group records by employee
     const groupedMap = new Map<string, any>();
-    for (const record of allRecords) {
+    for (const record of filteredRecords) {
       if (!groupedMap.has(record.employeeId)) {
         groupedMap.set(record.employeeId, {
           employeeId: record.employeeId,
@@ -1016,11 +1025,6 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
     }
 
     let groupedRecords = Array.from(groupedMap.values());
-
-    // Filter by status if requested
-    if (status && status !== 'all') {
-      groupedRecords = groupedRecords.filter(r => r.status === status.toLowerCase());
-    }
 
     // Paginate
     const paginatedRecords = groupedRecords.slice((page - 1) * limit, page * limit);
