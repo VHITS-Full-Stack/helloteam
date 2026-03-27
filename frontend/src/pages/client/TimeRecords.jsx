@@ -201,6 +201,12 @@ const TimeRecords = () => {
             Holiday
           </Badge>
         );
+      case "ot_rejected":
+        return (
+          <Badge variant="danger" className="bg-orange-100 text-orange-800">
+            OT Rejected
+          </Badge>
+        );
       case "not_started":
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 whitespace-nowrap">
@@ -729,10 +735,7 @@ const TimeRecords = () => {
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           OT Without Prior Approval
                         </th>
-                        <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4">
-                          Action
-                        </th>
-                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[140px]">
+                        <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
                           Actions
                         </th>
                       </tr>
@@ -954,11 +957,11 @@ const TimeRecords = () => {
                                   )}
                                 </td>
 
-                                {/* Action */}
-                                <td className="py-2.5 px-4 text-center">
-                                  {pendingAutoOT.length > 0 ? (
-                                    <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                      {pendingAutoOT.map((ot) => (
+                                {/* Actions */}
+                                <td className="py-2.5 px-4 text-right">
+                                  {[...pendingRequestedOT, ...pendingAutoOT].length > 0 ? (
+                                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                      {[...pendingRequestedOT, ...pendingAutoOT].map((ot) => (
                                         <div
                                           key={ot.id}
                                           className="flex items-center gap-1"

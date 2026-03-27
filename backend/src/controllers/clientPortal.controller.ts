@@ -1627,18 +1627,20 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
             });
           } else {
-            // Active session — show all same-day OTs
-            sessionOTEntries = dayOTRequests;
+            // Active session — only show OTs created after this session started
+            const sessionStart = session.startTime.getTime();
+            sessionOTEntries = dayOTRequests.filter(ot => {
+              if (!ot.createdAt) return false;
+              return ot.createdAt.getTime() >= sessionStart - 2 * 60000;
+            });
           }
 
           // Calculate overtime from OvertimeRequest entries
+          // Rejected OT reverts to regular hours (time was still worked)
           const sessionOvertime = sessionOTEntries
             .filter(ot => ot.status !== 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-          const sessionRejectedOT = sessionOTEntries
-            .filter(ot => ot.status === 'REJECTED')
-            .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-          const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
+          const effectiveSessionMinutes = sessionMins;
 
           // If OT matching by createdAt failed but TimeRecord has off-shift/extension OT,
           // detect which session is the OT session by matching minutes.
@@ -1700,7 +1702,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
             status: isActive ? 'ACTIVE' : (() => {
               const baseStatus = dayOvertimeStatus || 'PENDING';
-              // Per-session status (same as admin):
+              // If any OT in this session was rejected, mark as OT_REJECTED
+              const hasRejectedOT = sessionOTEntries.some(ot => ot.status === 'REJECTED');
+              const hasPendingOT = sessionOTEntries.some(ot => ot.status === 'PENDING');
+              if (hasRejectedOT && !hasPendingOT) return 'OT_REJECTED';
+              if (hasPendingOT) return 'PENDING';
               // If this session has no OT but TimeRecord is APPROVED due to OT on another session,
               // show AUTO_APPROVED for this session
               if (baseStatus === 'APPROVED' && sessionOvertimeMinutes === 0) {
