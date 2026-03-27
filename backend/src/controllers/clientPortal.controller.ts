@@ -1645,14 +1645,15 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           // If OT matching by createdAt failed but TimeRecord has off-shift/extension OT,
           // detect which session is the OT session by matching minutes.
           let sessionOvertimeMinutes = Math.min(sessionOvertime, effectiveSessionMinutes);
-          if (sessionOvertimeMinutes === 0 && timeRecord) {
+          // Fallback: if no OT matched via createdAt but TimeRecord has OT data,
+          // match by comparing session duration to TimeRecord OT minutes.
+          // Skip for active sessions — they don't have final OT yet.
+          if (sessionOvertimeMinutes === 0 && timeRecord && !isActive) {
             const trExtraOT = (timeRecord.extraTimeMinutes || 0);
             const trExtOT = (timeRecord.shiftExtensionMinutes || 0);
             if (trExtraOT > 0 && Math.abs(effectiveSessionMinutes - trExtraOT) <= 2) {
-              // This session's duration matches the off-shift OT minutes — it's the OT session
               sessionOvertimeMinutes = effectiveSessionMinutes;
             } else if (trExtOT > 0 && Math.abs(effectiveSessionMinutes - trExtOT) <= 2) {
-              // This session's duration matches the shift extension OT minutes
               sessionOvertimeMinutes = effectiveSessionMinutes;
             }
           }

@@ -878,8 +878,12 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
           return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
         });
       } else {
-        // Active session — show all same-day OTs
-        sessionOTEntries = sameDayOTs;
+        // Active session — only show OTs created after this session started
+        const sessionStart = session.startTime.getTime();
+        sessionOTEntries = sameDayOTs.filter(ot => {
+          if (!ot.createdAt) return false;
+          return ot.createdAt.getTime() >= sessionStart - 2 * 60000;
+        });
       }
 
       const overtimeMinutes = sessionOTEntries

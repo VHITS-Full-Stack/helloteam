@@ -425,6 +425,9 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       },
     });
 
+    let overtimeMinutesTotal = 0;
+    let otRequiresApprovalFlag = true;
+
     if (clientAssignments.length > 0) {
       // Get client timezone for schedule lookup
       const firstClient = await prisma.client.findUnique({
@@ -433,6 +436,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       });
       const clockOutTz = firstClient?.timezone || 'UTC';
       const otRequiresApproval = firstClient?.clientPolicies?.overtimeRequiresApproval ?? true;
+      otRequiresApprovalFlag = otRequiresApproval;
 
       // Use client timezone to determine "today" date (same approach as clock-in)
       // This ensures the TimeRecord date matches the employee's local calendar date
@@ -803,6 +807,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         })
       );
 
+      overtimeMinutesTotal = overtimeMinutes;
     } else {
       console.warn(`Employee ${employee.id} clocked out but has no active client assignment. No time record created.`);
     }
@@ -825,12 +830,12 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
     (async () => {
       try {
         // OT notifications to client(s)
-        if (clientAssignments.length > 0 && overtimeMinutes > 0 && otRequiresApproval) {
+        if (clientAssignments.length > 0 && overtimeMinutesTotal > 0 && otRequiresApprovalFlag) {
           const employeeName = `${employee.firstName} ${employee.lastName}`;
           const now2 = new Date();
           const dateStr = now2.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-          const otHrs = Math.floor(overtimeMinutes / 60);
-          const otMins = overtimeMinutes % 60;
+          const otHrs = Math.floor(overtimeMinutesTotal / 60);
+          const otMins = overtimeMinutesTotal % 60;
           const overtimeHoursStr = otMins > 0 ? `${otHrs}h ${otMins}m` : `${otHrs}h`;
           const totalHrs = Math.floor(totalWorkMinutes / 60);
           const totalMins = totalWorkMinutes % 60;
@@ -1424,8 +1429,12 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
           return otCreated >= sessionStart - 2 * 60000 && otCreated <= sessionEnd + 10 * 60000;
         });
       } else {
-        // Active session — show all same-day OTs
-        matchedOTEntries = sameDayOTs;
+        // Active session — only show OTs created after this session started
+        const sessionStart = session.startTime.getTime();
+        matchedOTEntries = sameDayOTs.filter(ot => {
+          if (!ot.createdAt) return false;
+          return ot.createdAt.getTime() >= sessionStart - 2 * 60000;
+        });
       }
 
       const sessionOvertimeMinutes = matchedOTEntries.length > 0
