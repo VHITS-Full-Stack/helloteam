@@ -146,23 +146,29 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           },
         });
 
-        const notificationType = approvedOT ? 'SHIFT_ENDING_OT_APPROVED' : 'SHIFT_ENDING';
-        const notificationTitle = approvedOT ? 'Approved Overtime Available' : 'Shift Ending Soon';
+        // If OT is already approved, skip the popup — employee works without interruption.
+        // The shift end logic (line 241+) will auto-extend their shift by the approved OT minutes.
+        if (approvedOT) {
+          await prisma.workSession.update({
+            where: { id: session.id },
+            data: { shiftEndNotifiedAt: now },
+          });
+          console.log(`[Shift-End] Skipped popup for ${employee.firstName} ${employee.lastName} — OT already approved (${approvedOT.requestedMinutes}min)`);
+          continue;
+        }
+
         const endTime12 = formatTime12(schedule.endTime);
-        const notificationMessage = approvedOT
-          ? `You have approved overtime. Do you want to use it? Your shift ends at ${endTime12}.`
-          : `You will be automatically clocked out at ${endTime12}. If you need overtime, please request it now.`;
 
         await createNotification(
           employee.userId,
-          notificationType,
-          notificationTitle,
-          notificationMessage,
+          'SHIFT_ENDING',
+          'Shift Ending Soon',
+          `Your shift ends at ${endTime12}. If you need to continue working, the extra time will be tracked as overtime without prior approval.`,
           {
             sessionId: session.id,
             shiftEnd: schedule.endTime,
             clientId: assignment.clientId,
-            hasApprovedOT: !!approvedOT,
+            hasApprovedOT: false,
           },
           '/employee/dashboard'
         );
@@ -176,18 +182,18 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         // Real-time socket event
         if (io) {
           io.emit(`notification:${employee.userId}`, {
-            type: notificationType,
-            message: notificationMessage,
+            type: 'SHIFT_ENDING',
+            message: `Your shift ends at ${endTime12}. If you need to continue working, the extra time will be tracked as overtime without prior approval.`,
             data: {
               sessionId: session.id,
               shiftEnd: schedule.endTime,
               clientId: assignment.clientId,
-              hasApprovedOT: !!approvedOT,
+              hasApprovedOT: false,
             },
           });
         }
 
-        console.log(`[Shift-End] Notified ${employee.firstName} ${employee.lastName} — shift ends at ${schedule.endTime} (${minutesLeft} min)${approvedOT ? ' [OT approved]' : ''}`);
+        console.log(`[Shift-End] Notified ${employee.firstName} ${employee.lastName} — shift ends at ${schedule.endTime} (${minutesLeft} min)`);
       }
 
       // --- Controlled pause / Auto-clock-out at shift end ---
