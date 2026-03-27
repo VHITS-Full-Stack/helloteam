@@ -420,6 +420,9 @@ model ClientPolicy {
   allowOvertime            Boolean @default(true)
   overtimeRequiresApproval Boolean @default(true)
 
+  // Invoice configuration
+  invoiceByGroup Boolean @default(false) // true = generate separate invoices per group
+
   // Auto-approve configuration
   autoApproveTimesheets Boolean @default(false)
   autoApproveMinutes    Int     @default(1440)

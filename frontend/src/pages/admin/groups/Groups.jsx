@@ -133,6 +133,7 @@ const Groups = () => {
       name: '',
       description: '',
       billingRate: '',
+      clientId: '',
     });
   };
 
@@ -146,6 +147,7 @@ const Groups = () => {
         name: formData.name,
         description: formData.description,
         billingRate: formData.billingRate || null,
+        clientId: formData.clientId || undefined,
       });
       if (response.success) {
         setShowAddModal(false);
@@ -750,6 +752,19 @@ const Groups = () => {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Assign to Client</label>
+            <select
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={formData.clientId}
+              onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
+            >
+              <option value="">No client (assign later)</option>
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>{c.companyName}</option>
+              ))}
+            </select>
           </div>
           <Input
             label="Billing Rate"

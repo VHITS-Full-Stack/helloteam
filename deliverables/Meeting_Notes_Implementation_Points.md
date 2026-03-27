@@ -331,3 +331,103 @@ Client portal contains **TWO completely separate areas**:
 7. **PTO per client & per employee**
 8. **Rate Change History page**
 9. **Employee personal tasks**
+
+---
+---
+
+# Meeting Notes — March 26, 2026
+
+**Attendees:** Zevi Rubin (Client), Nikita Karanpuria (Dev), Hitendrasinh Chauhan (Dev Lead)
+
+---
+
+## 1. OT Without Prior Approval — Must Show in Timesheets & Approvals
+
+- When an employee clicks **"Continue Working"** past their shift end (without prior approval) and clocks out, that extra time **must appear** as **"OT Without Prior Approval"** in:
+  - Client Approvals page (OT Without Prior Approval tab)
+  - Client Time Records / Timesheets
+  - Admin Approvals page
+- **Bug found during demo:** OT was not showing up after the Continue Working flow. Needs fix.
+
+---
+
+## 2. Rename Overtime Column
+
+- The **"Overtime"** column in timesheets should be renamed to **"Approved Overtime"** to distinguish from unapproved OT.
+
+---
+
+## 3. "Continue Working" Warning
+
+- When employee clicks **"Continue Working"**, show a **warning** that they might not get paid (since it's not pre-approved).
+
+---
+
+## 4. Overtime Logic (Confirmed)
+
+| Scenario | Result |
+|----------|--------|
+| Employee requests extension, client **approves**, works OT | Approved Overtime |
+| Employee requests extension, **not approved**, stays late | OT Without Prior Approval |
+| Employee presses nothing, continues past shift | OT Without Prior Approval |
+| Employee clicks "Continue Working", works past shift | OT Without Prior Approval |
+
+---
+
+## 5. Sandbox / Demo Environment
+
+- Zevi needs a **sandbox** where system time can be changed for testing (no waiting in real-time for shift-end popups).
+
+---
+
+## 6. Timesheet Approval Flow (Client Side)
+
+- Regular timesheets: Client should have **Approve/Reject buttons** (not just auto-approve).
+- **Auto-approve after 24 hours** if client doesn't act.
+- OT Without Prior Approval: Regular hours auto-approve, but unapproved OT does **NOT** auto-approve — client must explicitly approve/reject.
+
+---
+
+## 7. PDF Timesheets
+
+- PDF format confirmed good by Zevi.
+- **Admin side needs:** PDF timesheet download with custom date ranges (1 week, 1 month, custom), per employee, per group filtering.
+- **Client side needs:** Custom date filtering for time records.
+
+---
+
+## 8. Groups (Admin Only)
+
+- Groups needed on **admin side only** (move from client side to admin).
+- Purpose: Organize employees for easier management (timesheets by group, review by group).
+- Invoices remain per individual employee, not per group.
+
+---
+
+## 9. CRM / Ticket Management
+
+- No CRM currently for employee tickets/support. Need to add (already in scope).
+
+---
+
+## 10. Check Digit / Payment Integration
+
+- Open Check Digit account for payment API testing.
+- Zevi to provide credentials.
+
+---
+
+## Action Items — March 26, 2026
+
+| # | Action | Owner |
+|---|--------|-------|
+| 1 | Fix OT Without Prior Approval not showing after "Continue Working" flow | Nikita |
+| 2 | Rename "Overtime" to "Approved Overtime" in timesheets | Nikita |
+| 3 | Add warning to "Continue Working" popup about possible non-payment | Nikita |
+| 4 | Add Approve/Reject buttons for regular timesheets (auto-approve after 24h) | Nikita / Hitendrasinh |
+| 5 | Add custom date range filters to client-side time records | Nikita |
+| 6 | Add PDF timesheet download from admin with date/employee/group filters | Nikita |
+| 7 | Move Groups from client to admin side | Hitendrasinh |
+| 8 | Provide sandbox with time control for testing | Hitendrasinh |
+| 9 | Add CRM / ticket management | Hitendrasinh |
+| 10 | Set up Check Digit account for payment API testing | Zevi / Hitendrasinh |

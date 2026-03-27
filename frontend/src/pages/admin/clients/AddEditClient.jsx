@@ -696,6 +696,22 @@ const AddClient = () => {
                 </div>
               )}
             </div>
+
+              {/* Invoice by Group */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Group-wise Invoicing</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Generate separate invoices for each group instead of one invoice per client
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.invoiceByGroup || false}
+                  onChange={(e) => setFormData({ ...formData, invoiceByGroup: e.target.checked })}
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
+              </div>
           </div>
 
           {/* Holiday Configuration */}

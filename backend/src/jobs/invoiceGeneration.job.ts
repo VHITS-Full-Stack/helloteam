@@ -22,6 +22,7 @@ type ClientWithRelations = {
     currency: string;
     notifyInvoice: boolean;
     paymentTermsDays: number;
+    invoiceByGroup?: boolean;
   } | null;
   employees: {
     employeeId: string;
@@ -445,6 +446,107 @@ const generateInvoiceForClient = async (
  * Generate monthly invoices for a specific month/year.
  * Only processes clients with MONTHLY agreement type (or null for backward compatibility).
  */
+/**
+ * Generate separate invoices per group for a client with invoiceByGroup enabled.
+ * Employees not in any group get a separate "Ungrouped" invoice.
+ */
+const generateGroupWiseInvoices = async (
+  client: ClientWithRelations,
+  periodStart: Date,
+  periodEnd: Date,
+  paymentTermsDays: number,
+  invoicePrefix: string,
+  io?: Server,
+): Promise<number> => {
+  // Get all groups assigned to this client with their employees
+  const clientGroups = await prisma.clientGroup.findMany({
+    where: { clientId: client.id },
+    include: {
+      group: {
+        include: {
+          employees: { select: { employeeId: true } },
+        },
+      },
+    },
+  });
+
+  // Build group -> employeeIds map
+  const groupEmployeeMap = new Map<string, { groupName: string; employeeIds: Set<string> }>();
+  const allGroupedEmployeeIds = new Set<string>();
+
+  for (const cg of clientGroups) {
+    const empIds = new Set(cg.group.employees.map(e => e.employeeId));
+    // Only include employees that are actually assigned to this client
+    const clientEmpIds = new Set(client.employees.map(e => e.employeeId));
+    const validEmpIds = new Set([...empIds].filter(id => clientEmpIds.has(id)));
+
+    if (validEmpIds.size > 0) {
+      groupEmployeeMap.set(cg.groupId, { groupName: cg.group.name, employeeIds: validEmpIds });
+      validEmpIds.forEach(id => allGroupedEmployeeIds.add(id));
+    }
+  }
+
+  // Find ungrouped employees
+  const ungroupedEmpIds = client.employees
+    .map(e => e.employeeId)
+    .filter(id => !allGroupedEmployeeIds.has(id));
+
+  let generated = 0;
+  const clientPrefix = client.id.substring(0, 6).toUpperCase();
+
+  // Generate invoice per group
+  for (const [groupId, { groupName, employeeIds }] of groupEmployeeMap) {
+    const groupPrefix = groupId.substring(0, 4).toUpperCase();
+    const invoiceNumber = `${invoicePrefix}-G${groupPrefix}-${clientPrefix}`;
+    const dueDate = new Date(periodEnd);
+    dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+    // Create a filtered client with only this group's employees
+    const filteredClient = {
+      ...client,
+      employees: client.employees.filter(e => employeeIds.has(e.employeeId)),
+    };
+
+    try {
+      const success = await generateInvoiceForClient(
+        filteredClient, periodStart, periodEnd, dueDate, invoiceNumber, io
+      );
+      if (success) {
+        console.log(`[Invoice] Generated group invoice ${invoiceNumber} for ${client.companyName} / ${groupName}`);
+        generated++;
+      }
+    } catch (err: any) {
+      console.error(`[Invoice] Failed group invoice for ${client.companyName}/${groupName}:`, err.message);
+    }
+  }
+
+  // Generate invoice for ungrouped employees
+  if (ungroupedEmpIds.length > 0) {
+    const invoiceNumber = `${invoicePrefix}-UNG-${clientPrefix}`;
+    const dueDate = new Date(periodEnd);
+    dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+    const filteredClient = {
+      ...client,
+      employees: client.employees.filter(e => ungroupedEmpIds.includes(e.employeeId)),
+    };
+
+    try {
+      const success = await generateInvoiceForClient(
+        filteredClient, periodStart, periodEnd, dueDate, invoiceNumber, io
+      );
+      if (success) {
+        console.log(`[Invoice] Generated ungrouped invoice ${invoiceNumber} for ${client.companyName}`);
+        generated++;
+      }
+    } catch (err: any) {
+      console.error(`[Invoice] Failed ungrouped invoice for ${client.companyName}:`, err.message);
+    }
+  }
+
+  return generated;
+};
+
 export const generateInvoicesForPeriod = async (
   year: number,
   month: number, // 1-indexed (1 = January)
@@ -490,22 +592,29 @@ export const generateInvoicesForPeriod = async (
       try {
         const monthStr = String(month).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
-        const invoiceNumber = `INV-${year}-${monthStr}-${clientPrefix}`;
-
-        // Per-client due date based on payment terms
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
-        const dueDate = new Date(periodEnd);
-        dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
 
-        const success = await generateInvoiceForClient(
-          client as any,
-          periodStart,
-          periodEnd,
-          dueDate,
-          invoiceNumber,
-          io,
-        );
-        if (success) generated++;
+        if (client.clientPolicies?.invoiceByGroup) {
+          // Group-wise invoicing: generate separate invoice per group
+          const groupResults = await generateGroupWiseInvoices(
+            client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}`, io
+          );
+          generated += groupResults;
+        } else {
+          const invoiceNumber = `INV-${year}-${monthStr}-${clientPrefix}`;
+          const dueDate = new Date(periodEnd);
+          dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+          const success = await generateInvoiceForClient(
+            client as any,
+            periodStart,
+            periodEnd,
+            dueDate,
+            invoiceNumber,
+            io,
+          );
+          if (success) generated++;
+        }
       } catch (clientError: any) {
         const errMsg = `Failed to generate invoice for client ${client.companyName}: ${clientError.message}`;
         console.error(`[Invoice] ${errMsg}`);
@@ -568,25 +677,30 @@ export const generateWeeklyInvoicesForWeek = async (
 
     for (const client of clients) {
       try {
-
         const weekStr = String(week).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
-        const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
-
-        // Per-client due date based on payment terms
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 7;
-        const dueDate = new Date(sunday);
-        dueDate.setUTCDate(sunday.getUTCDate() + paymentTermsDays);
 
-        const success = await generateInvoiceForClient(
-          client as any,
-          monday,
-          sunday,
-          dueDate,
-          invoiceNumber,
-          io,
-        );
-        if (success) generated++;
+        if (client.clientPolicies?.invoiceByGroup) {
+          const groupResults = await generateGroupWiseInvoices(
+            client as any, monday, sunday, paymentTermsDays, `INV-${year}-W${weekStr}`, io
+          );
+          generated += groupResults;
+        } else {
+          const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
+          const dueDate = new Date(sunday);
+          dueDate.setUTCDate(sunday.getUTCDate() + paymentTermsDays);
+
+          const success = await generateInvoiceForClient(
+            client as any,
+            monday,
+            sunday,
+            dueDate,
+            invoiceNumber,
+            io,
+          );
+          if (success) generated++;
+        }
       } catch (clientError: any) {
         const errMsg = `Failed to generate weekly invoice for client ${client.companyName}: ${clientError.message}`;
         console.error(`[Invoice] ${errMsg}`);
@@ -689,21 +803,28 @@ export const generateBiWeeklyInvoicesForPeriod = async (
       try {
         const monthStr = String(month).padStart(2, '0');
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
-        const invoiceNumber = `INV-${year}-${monthStr}-H${half}-${clientPrefix}`;
-
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
-        const dueDate = new Date(periodEnd);
-        dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
 
-        const success = await generateInvoiceForClient(
-          client as any,
-          periodStart,
-          periodEnd,
-          dueDate,
-          invoiceNumber,
-          io,
-        );
-        if (success) generated++;
+        if (client.clientPolicies?.invoiceByGroup) {
+          const groupResults = await generateGroupWiseInvoices(
+            client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}-H${half}`, io
+          );
+          generated += groupResults;
+        } else {
+          const invoiceNumber = `INV-${year}-${monthStr}-H${half}-${clientPrefix}`;
+          const dueDate = new Date(periodEnd);
+          dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+          const success = await generateInvoiceForClient(
+            client as any,
+            periodStart,
+            periodEnd,
+            dueDate,
+            invoiceNumber,
+            io,
+          );
+          if (success) generated++;
+        }
       } catch (clientError: any) {
         const errMsg = `Failed to generate bi-weekly invoice for client ${client.companyName}: ${clientError.message}`;
         console.error(`[Invoice] ${errMsg}`);

@@ -205,7 +205,7 @@ export const createGroup = async (
   res: Response,
 ): Promise<void> => {
   try {
-    const { name, description, billingRate } = req.body;
+    const { name, description, billingRate, clientId } = req.body;
 
     if (!name) {
       res.status(400).json({
@@ -220,8 +220,17 @@ export const createGroup = async (
         name,
         description,
         billingRate: billingRate ? parseFloat(billingRate) : null,
+        ...(clientId ? {
+          clients: {
+            create: {
+              clientId,
+              billingRate: billingRate ? parseFloat(billingRate) : null,
+            },
+          },
+        } : {}),
       },
       include: {
+        clients: { include: { client: { select: { id: true, companyName: true } } } },
         _count: {
           select: {
             employees: true,

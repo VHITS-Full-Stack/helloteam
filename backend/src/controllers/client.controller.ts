@@ -330,6 +330,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       overtimeRequiresApproval,
       autoApproveTimesheets,
       autoApproveMinutes,
+      invoiceByGroup,
     } = req.body;
 
     // Derive primary contact name from contacts array or legacy contactPerson field
@@ -449,6 +450,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           overtimeRequiresApproval: overtimeRequiresApproval ?? true,
           autoApproveTimesheets: autoApproveTimesheets ?? false,
           autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
+          invoiceByGroup: invoiceByGroup ?? false,
         },
       });
 
@@ -649,6 +651,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       overtimeRequiresApproval,
       autoApproveTimesheets,
       autoApproveMinutes,
+      invoiceByGroup,
       allowPaidHolidays,
       paidHolidayType,
       numberOfPaidHolidays,
@@ -759,6 +762,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(overtimeRequiresApproval !== undefined && { overtimeRequiresApproval }),
             ...(autoApproveTimesheets !== undefined && { autoApproveTimesheets }),
             ...(autoApproveMinutes !== undefined && { autoApproveMinutes: parseInt(autoApproveMinutes, 10) || 1440 }),
+            ...(invoiceByGroup !== undefined && { invoiceByGroup }),
             ...(allowPaidHolidays !== undefined && { allowPaidHolidays }),
             ...(paidHolidayType !== undefined && { paidHolidayType }),
             ...(numberOfPaidHolidays !== undefined && { numberOfPaidHolidays: parseInt(numberOfPaidHolidays, 10) || 0 }),
@@ -784,6 +788,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             overtimeRequiresApproval: overtimeRequiresApproval ?? true,
             autoApproveTimesheets: autoApproveTimesheets ?? false,
             autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
+            invoiceByGroup: invoiceByGroup ?? false,
             allowPaidHolidays: allowPaidHolidays ?? false,
             paidHolidayType: paidHolidayType || 'federal',
             numberOfPaidHolidays: parseInt(numberOfPaidHolidays, 10) || 0,
