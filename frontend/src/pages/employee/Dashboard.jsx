@@ -1791,9 +1791,9 @@ const EmployeeDashboard = () => {
 
       {/* Overtime Request Modal */}
       {showOvertimeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full my-auto max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-orange-100">
                   <TrendingUp className="w-6 h-6 text-orange-600" />
@@ -1814,7 +1814,7 @@ const EmployeeDashboard = () => {
               </button>
             </div>
 
-            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleOvertimeSubmit} className="p-6 space-y-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent">
               {overtimeError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
                   <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
