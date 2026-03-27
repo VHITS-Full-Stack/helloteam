@@ -110,11 +110,16 @@ const Employees = () => {
     } else if (employee.groupAssignments?.[0]?.group?.billingRate) {
       bill = `$${Number(employee.groupAssignments[0].group.billingRate).toFixed(2)}`;
     }
+    const otMultiplier = employee.overtimeRate != null && Number(employee.overtimeRate) > 0
+      ? `${Number(employee.overtimeRate)}x`
+      : '1x';
     return (
       <div className="text-sm">
         <span className="text-gray-700">{pay}</span>
         <span className="text-gray-300 mx-1">/</span>
         <span className="text-gray-700">{bill}</span>
+        <span className="text-gray-300 mx-1">/</span>
+        <span className="text-gray-500">{otMultiplier}</span>
       </div>
     );
   };
@@ -280,7 +285,7 @@ const Employees = () => {
               <TableRow>
                 <TableHeader>Employee</TableHeader>
                 <TableHeader>Client / Group</TableHeader>
-                <TableHeader>Rates (Pay / Bill)</TableHeader>
+                <TableHeader>Rates (Pay / Bill / OT)</TableHeader>
                 <TableHeader>Status</TableHeader>
                 <TableHeader>KYC</TableHeader>
                 <TableHeader>Hired</TableHeader>

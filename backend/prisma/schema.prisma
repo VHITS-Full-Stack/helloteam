@@ -179,40 +179,41 @@ model Session {
 // ============================================
 
 model Employee {
-  id               String           @id @default(uuid())
-  userId           String           @unique
-  firstName        String
-  lastName         String
-  profilePhoto     String?
-  countryCode      String?          @default("+1")
-  phone            String?
-  address          String?
-  emergencyContact String?
-  hireDate         DateTime?
-  terminationDate  DateTime?
-  payableRate      Decimal?         @db.Decimal(10, 2)
-  billingRate      Decimal?         @db.Decimal(10, 2)
-  deduction        Decimal?         @default(0) @db.Decimal(10, 2)
-  onboardingStatus OnboardingStatus @default(PENDING_AGREEMENT)
-  personalEmail    String?
-  kycStatus        KycStatus        @default(PENDING)
-  kycReviewedAt    DateTime?
-  kycReviewerId    String?
-  kycRejectionNote String?
-  governmentIdType       String?
-  governmentIdUrl        String?
-  governmentIdStatus     KycStatus  @default(PENDING)
-  governmentIdRejectNote String?
-  governmentId2Type       String?
-  governmentId2Url        String?
-  governmentId2Status     KycStatus  @default(PENDING)
-  governmentId2RejectNote String?
+  id                       String           @id @default(uuid())
+  userId                   String           @unique
+  firstName                String
+  lastName                 String
+  profilePhoto             String?
+  countryCode              String?          @default("+1")
+  phone                    String?
+  address                  String?
+  emergencyContact         String?
+  hireDate                 DateTime?
+  terminationDate          DateTime?
+  payableRate              Decimal?         @db.Decimal(10, 2)
+  billingRate              Decimal?         @db.Decimal(10, 2)
+  overtimeRate             Decimal?         @db.Decimal(10, 2)
+  deduction                Decimal?         @default(0) @db.Decimal(10, 2)
+  onboardingStatus         OnboardingStatus @default(PENDING_AGREEMENT)
+  personalEmail            String?
+  kycStatus                KycStatus        @default(PENDING)
+  kycReviewedAt            DateTime?
+  kycReviewerId            String?
+  kycRejectionNote         String?
+  governmentIdType         String?
+  governmentIdUrl          String?
+  governmentIdStatus       KycStatus        @default(PENDING)
+  governmentIdRejectNote   String?
+  governmentId2Type        String?
+  governmentId2Url         String?
+  governmentId2Status      KycStatus        @default(PENDING)
+  governmentId2RejectNote  String?
   proofOfAddressType       String?
   proofOfAddressUrl        String?
-  proofOfAddressStatus     KycStatus  @default(PENDING)
+  proofOfAddressStatus     KycStatus        @default(PENDING)
   proofOfAddressRejectNote String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
   // Notification preferences
   notifyScheduleChanges Boolean @default(true)
@@ -222,23 +223,23 @@ model Employee {
   notifyWeeklySummary   Boolean @default(true)
 
   // Relations
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  clientAssignments ClientEmployee[]
-  groupAssignments  GroupEmployee[]
-  workSessions      WorkSession[]
-  schedules         Schedule[]
-  timeRecords       TimeRecord[]
-  leaveRequests     LeaveRequest[]
-  supportTickets    SupportTicket[]
-  wellbeingCheckins WellbeingCheckin[]
-  emergencyContacts EmergencyContact[]
-  tasks             Task[]
-  conversations     Conversation[]
-  autoApprovalLogs    AutoApprovalLog[]
-  rateChanges         RateChangeHistory[]
-  payrollAdjustments  PayrollAdjustment[]
-  payslips            Payslip[]
-  clientRequests      ClientRequest[]
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientAssignments  ClientEmployee[]
+  groupAssignments   GroupEmployee[]
+  workSessions       WorkSession[]
+  schedules          Schedule[]
+  timeRecords        TimeRecord[]
+  leaveRequests      LeaveRequest[]
+  supportTickets     SupportTicket[]
+  wellbeingCheckins  WellbeingCheckin[]
+  emergencyContacts  EmergencyContact[]
+  tasks              Task[]
+  conversations      Conversation[]
+  autoApprovalLogs   AutoApprovalLog[]
+  rateChanges        RateChangeHistory[]
+  payrollAdjustments PayrollAdjustment[]
+  payslips           Payslip[]
+  clientRequests     ClientRequest[]
 
   @@map("employees")
 }
@@ -263,21 +264,21 @@ model Client {
   updatedAt        DateTime         @updatedAt
 
   // Relations
-  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  contacts       ClientContact[]
-  employees      ClientEmployee[]
-  groups         ClientGroup[]
-  clientPolicies ClientPolicy?
-  holidays       ClientHoliday[]
-  timeRecords    TimeRecord[]
-  leaveRequests  LeaveRequest[]
-  agreement      ClientAgreement?
-  tasks          Task[]
-  conversations  Conversation[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contacts         ClientContact[]
+  employees        ClientEmployee[]
+  groups           ClientGroup[]
+  clientPolicies   ClientPolicy?
+  holidays         ClientHoliday[]
+  timeRecords      TimeRecord[]
+  leaveRequests    LeaveRequest[]
+  agreement        ClientAgreement?
+  tasks            Task[]
+  conversations    Conversation[]
   invoices         Invoice[]
   autoApprovalLogs AutoApprovalLog[]
-  payslips           Payslip[]
-  clientRequests     ClientRequest[]
+  payslips         Payslip[]
+  clientRequests   ClientRequest[]
 
   @@map("clients")
 }
@@ -297,12 +298,12 @@ model ClientContact {
 }
 
 model ClientAgreement {
-  id            String        @id @default(uuid())
-  clientId      String        @unique
-  agreementType AgreementType
-  signedAt      DateTime?
-  signedByName  String?
-  signedByIP    String?
+  id             String        @id @default(uuid())
+  clientId       String        @unique
+  agreementType  AgreementType
+  signedAt       DateTime?
+  signedByName   String?
+  signedByIP     String?
   signatureImage String?
 
   // Business Entity Info
@@ -326,7 +327,7 @@ model ClientAgreement {
   // Credit Card (Exhibit B Section 1)
   ccCardholderName String?
   ccBillingAddress String?
-  ccCityStateZip   String?   // deprecated: kept for backward compat
+  ccCityStateZip   String? // deprecated: kept for backward compat
   ccCity           String?
   ccState          String?
   ccZip            String?
@@ -345,8 +346,8 @@ model ClientAgreement {
   // Signed PDF data (base64)
   signedPdfData String?
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -368,7 +369,7 @@ model ClientEmployee {
   ptoAllowPaidLeave        Boolean?
   ptoEntitlementType       PaidLeaveEntitlementType?
   ptoAnnualDays            Int?
-  ptoAccrualRatePerMonth   Decimal?  @db.Decimal(5, 2)
+  ptoAccrualRatePerMonth   Decimal?                  @db.Decimal(5, 2)
   ptoMaxCarryoverDays      Int?
   ptoCarryoverExpiryMonths Int?
   ptoAllowUnpaidLeave      Boolean?
@@ -402,19 +403,19 @@ model ClientPolicy {
   maxCarryoverDays         Int                      @default(0) // Max days to carry to next year
   carryoverExpiryMonths    Int? // Months until carryover expires
 
-  allowUnpaidLeave                  Boolean @default(true)
-  requireTwoWeeksNotice             Boolean @default(true)
-  requireTwoWeeksNoticePaidLeave    Boolean @default(true)
-  requireTwoWeeksNoticeUnpaidLeave  Boolean @default(true)
+  allowUnpaidLeave                 Boolean @default(true)
+  requireTwoWeeksNotice            Boolean @default(true)
+  requireTwoWeeksNoticePaidLeave   Boolean @default(true)
+  requireTwoWeeksNoticeUnpaidLeave Boolean @default(true)
 
   // Holiday settings
-  allowPaidHolidays         Boolean @default(false)
-  paidHolidayType           String  @default("federal")
-  numberOfPaidHolidays      Int     @default(0)
-  selectedFederalHolidays   String? // JSON array of selected holiday keys e.g. ["new_years","mlk","christmas"]
-  allowUnpaidHolidays       Boolean @default(false)
-  unpaidHolidayType         String  @default("federal")
-  numberOfUnpaidHolidays    Int     @default(0)
+  allowPaidHolidays       Boolean @default(false)
+  paidHolidayType         String  @default("federal")
+  numberOfPaidHolidays    Int     @default(0)
+  selectedFederalHolidays String? // JSON array of selected holiday keys e.g. ["new_years","mlk","christmas"]
+  allowUnpaidHolidays     Boolean @default(false)
+  unpaidHolidayType       String  @default("federal")
+  numberOfUnpaidHolidays  Int     @default(0)
 
   allowOvertime            Boolean @default(true)
   overtimeRequiresApproval Boolean @default(true)
@@ -450,7 +451,7 @@ model ClientHoliday {
   date            DateTime @db.Date
   name            String
   isAutoGenerated Boolean  @default(false)
-  holidayKey      String?  // Key from US_FEDERAL_HOLIDAYS e.g. "new_years", null for custom
+  holidayKey      String? // Key from US_FEDERAL_HOLIDAYS e.g. "new_years", null for custom
 
   client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
@@ -469,8 +470,8 @@ model Admin {
   countryCode String?  @default("+1")
   phone       String?
   department  String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   ticketAssignments SupportTicket[] @relation("AssignedAdmin")
@@ -483,25 +484,25 @@ model Admin {
 // ============================================
 
 model WorkSession {
-  id                   String            @id @default(uuid())
-  employeeId           String
-  startTime            DateTime
-  endTime              DateTime?
-  status               WorkSessionStatus @default(ACTIVE)
-  totalBreakMinutes    Int               @default(0)
-  notes                String?
-  ipAddress            String? // IP address at clock in
-  arrivalStatus        String? // 'Early', 'On Time', 'Late', 'No Schedule'
-  lateMinutes          Int? // Minutes late (null if not late)
-  shiftEndNotifiedAt   DateTime? // When the 5-min shift-ending warning was sent
-  shiftEndPausedAt     DateTime? // When the controlled pause started at shift end
-  shiftEndResumedAt    DateTime? // When employee chose to continue working
-  shiftEndAction       String?   // 'CONTINUE_WORKING' | 'STAY_CLOCKED_OUT' | 'AUTO_TIMEOUT'
-  scheduledStartTime   String?   // HH:MM — shift start captured at clock-in
-  scheduledEndTime     String?   // HH:MM — shift end captured at clock-in
-  isManual             Boolean           @default(false)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                 String            @id @default(uuid())
+  employeeId         String
+  startTime          DateTime
+  endTime            DateTime?
+  status             WorkSessionStatus @default(ACTIVE)
+  totalBreakMinutes  Int               @default(0)
+  notes              String?
+  ipAddress          String? // IP address at clock in
+  arrivalStatus      String? // 'Early', 'On Time', 'Late', 'No Schedule'
+  lateMinutes        Int? // Minutes late (null if not late)
+  shiftEndNotifiedAt DateTime? // When the 5-min shift-ending warning was sent
+  shiftEndPausedAt   DateTime? // When the controlled pause started at shift end
+  shiftEndResumedAt  DateTime? // When employee chose to continue working
+  shiftEndAction     String? // 'CONTINUE_WORKING' | 'STAY_CLOCKED_OUT' | 'AUTO_TIMEOUT'
+  scheduledStartTime String? // HH:MM — shift start captured at clock-in
+  scheduledEndTime   String? // HH:MM — shift end captured at clock-in
+  isManual           Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
 
   employee Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   breaks   Break[]
@@ -541,39 +542,39 @@ model Break {
 }
 
 model TimeRecord {
-  id              String         @id @default(uuid())
-  employeeId      String
-  clientId        String
-  date            DateTime       @db.Date
-  scheduledStart  DateTime?
-  scheduledEnd    DateTime?
-  actualStart     DateTime?
-  actualEnd       DateTime?
-  billingStart    DateTime?
-  billingEnd      DateTime?
-  billingMinutes  Int            @default(0)
-  isLate          Boolean        @default(false)
-  totalMinutes    Int            @default(0)
-  breakMinutes    Int            @default(0)
-  overtimeMinutes Int            @default(0)
+  id                    String               @id @default(uuid())
+  employeeId            String
+  clientId              String
+  date                  DateTime             @db.Date
+  scheduledStart        DateTime?
+  scheduledEnd          DateTime?
+  actualStart           DateTime?
+  actualEnd             DateTime?
+  billingStart          DateTime?
+  billingEnd            DateTime?
+  billingMinutes        Int                  @default(0)
+  isLate                Boolean              @default(false)
+  totalMinutes          Int                  @default(0)
+  breakMinutes          Int                  @default(0)
+  overtimeMinutes       Int                  @default(0)
   shiftExtensionStatus  ShiftExtensionStatus @default(NONE)
   shiftExtensionMinutes Int                  @default(0)
   shiftExtensionReason  String?
   extraTimeStatus       ShiftExtensionStatus @default(NONE)
   extraTimeMinutes      Int                  @default(0)
-  status          ApprovalStatus @default(PENDING)
-  approvedBy      String?
-  approvedAt      DateTime?
-  adjustedBy      String?
-  adjustedAt      DateTime?
-  adjustmentNotes     String?
-  originalMinutes     Int?
-  revisionReason      String?
-  revisionRequestedBy String?
-  revisionRequestedAt DateTime?
-  invoiceId           String?        // Set when this record is included in an invoice; null = not yet invoiced
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  status                ApprovalStatus       @default(PENDING)
+  approvedBy            String?
+  approvedAt            DateTime?
+  adjustedBy            String?
+  adjustedAt            DateTime?
+  adjustmentNotes       String?
+  originalMinutes       Int?
+  revisionReason        String?
+  revisionRequestedBy   String?
+  revisionRequestedAt   DateTime?
+  invoiceId             String? // Set when this record is included in an invoice; null = not yet invoiced
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
 
   employee    Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client      Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -623,18 +624,18 @@ model TimeAdjustment {
 // ============================================
 
 model AutoApprovalLog {
-  id             String   @id @default(uuid())
+  id             String    @id @default(uuid())
   timeRecordId   String
   employeeId     String
   clientId       String
-  recordDate     DateTime @db.Date
-  scheduledEnd   String   // The schedule endTime that was used (HH:MM)
-  approvalDelay  Int      // autoApproveMinutes setting at time of approval
-  approvedAt     DateTime @default(now())
+  recordDate     DateTime  @db.Date
+  scheduledEnd   String // The schedule endTime that was used (HH:MM)
+  approvalDelay  Int // autoApproveMinutes setting at time of approval
+  approvedAt     DateTime  @default(now())
   actualStart    DateTime?
   actualEnd      DateTime?
-  totalMinutes   Int      @default(0)
-  clientTimezone String   @default("UTC")
+  totalMinutes   Int       @default(0)
+  clientTimezone String    @default("UTC")
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -926,9 +927,9 @@ model OvertimeRequest {
   date               DateTime       @db.Date
   type               OvertimeType   @default(SHIFT_EXTENSION)
   requestedMinutes   Int
-  estimatedEndTime   String?        // HH:MM format — shift extension end time
-  requestedStartTime String?        // HH:MM format — off-shift start time
-  requestedEndTime   String?        // HH:MM format — off-shift end time
+  estimatedEndTime   String? // HH:MM format — shift extension end time
+  requestedStartTime String? // HH:MM format — off-shift start time
+  requestedEndTime   String? // HH:MM format — off-shift end time
   reason             String
   isAutoGenerated    Boolean        @default(false) // true = employee worked without prior approval, false = pre-requested
   status             OvertimeStatus @default(PENDING)
@@ -937,7 +938,7 @@ model OvertimeRequest {
   rejectedBy         String?
   rejectedAt         DateTime?
   rejectionReason    String?
-  approvalNotes      String?        // Admin/client notes on approval or rejection
+  approvalNotes      String? // Admin/client notes on approval or rejection
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -980,13 +981,13 @@ model PayrollPeriod {
 }
 
 model PayrollDateLog {
-  id            String   @id @default(uuid())
-  periodId      String
-  previousDate  DateTime?
-  newDate       DateTime
-  updatedBy     String
-  notes         String?
-  createdAt     DateTime @default(now())
+  id           String    @id @default(uuid())
+  periodId     String
+  previousDate DateTime?
+  newDate      DateTime
+  updatedBy    String
+  notes        String?
+  createdAt    DateTime  @default(now())
 
   @@index([periodId])
   @@map("payroll_date_logs")
@@ -1009,7 +1010,7 @@ model PayrollAdjustment {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  employee    Employee       @relation(fields: [employeeId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
 
   @@index([employeeId, periodStart, periodEnd])
   @@map("payroll_adjustments")
@@ -1027,25 +1028,25 @@ enum ClientRequestType {
 }
 
 model ClientRequest {
-  id               String              @id @default(uuid())
-  type             ClientRequestType
-  employeeId       String
-  clientId         String
-  requestedBy      String
+  id            String              @id @default(uuid())
+  type          ClientRequestType
+  employeeId    String
+  clientId      String
+  requestedBy   String
   // Bonus fields
-  amount           Decimal?            @db.Decimal(10, 2)
+  amount        Decimal?            @db.Decimal(10, 2)
   // Raise fields
-  payRate          Decimal?            @db.Decimal(10, 2)
-  billRate         Decimal?            @db.Decimal(10, 2)
-  effectiveDate    DateTime?           @db.Date
+  payRate       Decimal?            @db.Decimal(10, 2)
+  billRate      Decimal?            @db.Decimal(10, 2)
+  effectiveDate DateTime?           @db.Date
   // Common fields
-  reason           String?
-  status           ClientRequestStatus @default(PENDING)
-  adminNotes       String?
-  reviewedBy       String?
-  reviewedAt       DateTime?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  reason        String?
+  status        ClientRequestStatus @default(PENDING)
+  adminNotes    String?
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -1155,8 +1156,8 @@ model Conversation {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client   Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  employee Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   messages Message[]
 
   @@unique([clientId, employeeId])
@@ -1209,13 +1210,13 @@ model SystemSettings {
 // ============================================
 
 model Group {
-  id           String   @id @default(uuid())
-  name         String
-  description  String?
-  billingRate  Decimal? @db.Decimal(10, 2)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  billingRate Decimal? @db.Decimal(10, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   employees GroupEmployee[]
   clients   ClientGroup[]
@@ -1311,16 +1312,16 @@ model Invoice {
 }
 
 model InvoiceLineItem {
-  id           String  @id @default(uuid())
-  invoiceId    String
-  employeeId   String
-  employeeName String
-  hours        Decimal @default(0) @db.Decimal(10, 2)
+  id            String  @id @default(uuid())
+  invoiceId     String
+  employeeId    String
+  employeeName  String
+  hours         Decimal @default(0) @db.Decimal(10, 2)
   overtimeHours Decimal @default(0) @db.Decimal(10, 2)
-  rate         Decimal @default(0) @db.Decimal(10, 2)
-  overtimeRate Decimal @default(0) @db.Decimal(10, 2)
-  amount       Decimal @default(0) @db.Decimal(10, 2)
-  notes        String?
+  rate          Decimal @default(0) @db.Decimal(10, 2)
+  overtimeRate  Decimal @default(0) @db.Decimal(10, 2)
+  amount        Decimal @default(0) @db.Decimal(10, 2)
+  notes         String?
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
@@ -1368,7 +1369,7 @@ model Payslip {
 model DocumentType {
   id        String   @id @default(uuid())
   name      String
-  category  String   // "GOVERNMENT_ID" or "PROOF_OF_ADDRESS"
+  category  String // "GOVERNMENT_ID" or "PROOF_OF_ADDRESS"
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1384,18 +1385,18 @@ model DocumentType {
 model RateChangeHistory {
   id            String   @id @default(uuid())
   employeeId    String
-  clientId      String?  // null if it's the employee's base rate change
-  changedBy     String   // userId of admin who made the change
+  clientId      String? // null if it's the employee's base rate change
+  changedBy     String // userId of admin who made the change
   changedByName String?
   changeDate    DateTime @default(now())
 
   // What changed
-  rateType String           // 'BILLING_RATE' | 'PAYABLE_RATE' | 'HOURLY_RATE' | 'OVERTIME_RATE'
+  rateType String // 'BILLING_RATE' | 'PAYABLE_RATE' | 'HOURLY_RATE' | 'OVERTIME_RATE'
   oldValue Decimal? @db.Decimal(10, 2)
   newValue Decimal? @db.Decimal(10, 2)
 
   // Context
-  source String  // 'EMPLOYEE_PROFILE' | 'CLIENT_ASSIGNMENT'
+  source String // 'EMPLOYEE_PROFILE' | 'CLIENT_ASSIGNMENT'
   notes  String?
 
   employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)

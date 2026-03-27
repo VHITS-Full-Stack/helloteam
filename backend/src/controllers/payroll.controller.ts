@@ -1644,6 +1644,7 @@ export const getEmployeePayrollSummary = async (
             lastName: true,
             profilePhoto: true,
             billingRate: true,
+            overtimeRate: true,
             deduction: true,
             groupAssignments: {
               select: {
@@ -2148,12 +2149,24 @@ export const getEmployeePayrollDetail = async (
             ? groupBillingRate
             : defaultHourlyRate;
 
-    let overtimeRate = assignment?.overtimeRate
-      ? Number(assignment.overtimeRate)
-      : policy?.defaultOvertimeRate
+    const assignmentOvertimeRate =
+      assignment?.overtimeRate != null ? Number(assignment.overtimeRate) : 0;
+    const policyOvertimeRate =
+      policy?.defaultOvertimeRate != null
         ? Number(policy.defaultOvertimeRate)
         : 0;
-    if (overtimeRate === 0 && hourlyRate > 0) overtimeRate = hourlyRate * 1.5;
+    let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : policyOvertimeRate;
+
+    const employeeOvertimeMultiplier = employee.overtimeRate
+      ? Number(employee.overtimeRate)
+      : 0;
+    if (assignmentOvertimeRate <= 0 && employeeOvertimeMultiplier > 0 && hourlyRate > 0) {
+      // Employee-level override applies when assignment OT is missing/0.
+      overtimeRate = hourlyRate * employeeOvertimeMultiplier;
+    } else if (overtimeRate === 0 && hourlyRate > 0) {
+      // Legacy fallback when neither assignment nor policy provides OT.
+      overtimeRate = hourlyRate * 1.5;
+    }
 
     // Fetch work sessions for per-session breakdown
     const sessions = await prisma.workSession.findMany({

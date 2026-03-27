@@ -220,6 +220,16 @@ function useClientDetail(id) {
   const [rateFormData, setRateFormData] = useState({
     hourlyRate: '',
     overtimeRate: '',
+    // UI-driven overtime multiplier. If user doesn't touch it, we keep submitting overtimeRate=0
+    // so backend can apply its default rule (overtimeRate=0 => 1.5x hourly).
+    overtimeMultiplier: '1',
+    isOvertimeMultiplierDirty: false,
+    employeeBillingRate: null,
+    clientGroupBillingRate: null,
+    groupBillingRate: null,
+    groupName: null,
+    defaultHourlyRate: 0,
+    defaultOvertimeRate: 0,
   });
   const [ptoFormData, setPtoFormData] = useState({
     ptoAllowPaidLeave: '',
@@ -321,6 +331,23 @@ function useClientDetail(id) {
     fetchConnectedGroups();
   }, [id]);
 
+  const resolveEffectiveHourlyRate = (rf) => {
+    const hrOverride = rf?.hourlyRate !== '' && rf?.hourlyRate !== null ? Number(rf.hourlyRate) : 0;
+    if (hrOverride > 0) return hrOverride;
+
+    const employeeBilling = rf?.employeeBillingRate != null ? Number(rf.employeeBillingRate) : 0;
+    if (employeeBilling > 0) return employeeBilling;
+
+    const clientGroupBilling = rf?.clientGroupBillingRate != null ? Number(rf.clientGroupBillingRate) : 0;
+    if (clientGroupBilling > 0) return clientGroupBilling;
+
+    const groupBilling = rf?.groupBillingRate != null ? Number(rf.groupBillingRate) : 0;
+    if (groupBilling > 0) return groupBilling;
+
+    const defaultHourly = rf?.defaultHourlyRate != null ? Number(rf.defaultHourlyRate) : 0;
+    return defaultHourly > 0 ? defaultHourly : 0;
+  };
+
   const handleDeleteClient = async () => {
     setSubmitting(true);
     setError('');
@@ -385,21 +412,40 @@ function useClientDetail(id) {
     try {
       const response = await clientService.getEmployeeRate(id, employee.id);
       if (response.success) {
-        setRateFormData({
-          hourlyRate: response.data.hourlyRate !== null ? response.data.hourlyRate : '',
-          overtimeRate: response.data.overtimeRate !== null ? response.data.overtimeRate : '',
+        const originalHourlyRate = response.data.hourlyRate !== null ? response.data.hourlyRate : '';
+        const originalOvertimeRate = response.data.overtimeRate !== null ? response.data.overtimeRate : '';
+        const draft = {
+          hourlyRate: originalHourlyRate,
+          overtimeRate: originalOvertimeRate,
           employeeBillingRate: response.data.employeeBillingRate || null,
           clientGroupBillingRate: response.data.clientGroupBillingRate || null,
           groupBillingRate: response.data.groupBillingRate || null,
           groupName: response.data.groupName || null,
           defaultHourlyRate: response.data.defaultHourlyRate,
           defaultOvertimeRate: response.data.defaultOvertimeRate,
+        };
+
+        const effectiveHourly = resolveEffectiveHourlyRate(draft);
+        const storedOvertimeNum =
+          draft.overtimeRate === '' || draft.overtimeRate === null ? 0 : Number(draft.overtimeRate);
+
+        const computedMultiplier =
+          storedOvertimeNum > 0 && effectiveHourly > 0
+            ? (storedOvertimeNum / effectiveHourly).toFixed(3)
+            : '1';
+
+        setRateFormData({
+          ...draft,
+          overtimeMultiplier: computedMultiplier,
+          isOvertimeMultiplierDirty: false,
         });
       }
     } catch (err) {
       setRateFormData({
         hourlyRate: '',
         overtimeRate: '',
+        overtimeMultiplier: '1',
+        isOvertimeMultiplierDirty: false,
         employeeBillingRate: null,
         clientGroupBillingRate: null,
         groupBillingRate: null,
@@ -417,15 +463,38 @@ function useClientDetail(id) {
     setError('');
 
     try {
+      const effectiveHourly = resolveEffectiveHourlyRate(rateFormData);
+      const overtimeMultiplierNum = Number(rateFormData.overtimeMultiplier || 0);
+
+      // Backend expects overtimeRate in $/hour.
+      // - If user didn't touch the multiplier, submit 0 so backend uses its default rule.
+      // - If user touched the multiplier, submit (effectiveHourlyRate * multiplier).
+      const overtimeRateToSend = rateFormData.isOvertimeMultiplierDirty
+        ? Math.round(effectiveHourly * overtimeMultiplierNum * 100) / 100
+        : rateFormData.overtimeRate === '' || rateFormData.overtimeRate === null
+          ? 0
+          : Number(rateFormData.overtimeRate);
+
       const response = await clientService.updateEmployeeRate(id, selectedEmployee.id, {
         hourlyRate: rateFormData.hourlyRate,
-        overtimeRate: rateFormData.overtimeRate,
+        overtimeRate: overtimeRateToSend,
       });
 
       if (response.success) {
         setShowRateModal(false);
         setSelectedEmployee(null);
-        setRateFormData({ hourlyRate: '', overtimeRate: '' });
+        setRateFormData({
+          hourlyRate: '',
+          overtimeRate: '',
+          overtimeMultiplier: '1',
+          isOvertimeMultiplierDirty: false,
+          employeeBillingRate: null,
+          clientGroupBillingRate: null,
+          groupBillingRate: null,
+          groupName: null,
+          defaultHourlyRate: 0,
+          defaultOvertimeRate: 0,
+        });
         setError('');
       } else {
         setError(response.error || 'Failed to update employee rate');

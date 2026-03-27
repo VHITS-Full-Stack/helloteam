@@ -221,7 +221,7 @@ const AddEmployee = () => {
           {/* Rates & Deduction */}
           <div>
             <h3 className="text-sm font-semibold text-gray-900 mb-3">{isEdit ? 'Deduction' : 'Rates & Deduction'}</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {!isEdit && (
                 <Input
                   label="Payable Rate"
@@ -246,6 +246,20 @@ const AddEmployee = () => {
                   required
                 />
               )}
+              <Input
+                label="Overtime Multiplier (x)"
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g. 1"
+                value={formData.overtimeMultiplier}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    overtimeMultiplier: e.target.value,
+                  })
+                }
+              />
               <Input
                 label="Deduction ($)"
                 type="number"

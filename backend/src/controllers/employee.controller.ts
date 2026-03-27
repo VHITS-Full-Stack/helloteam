@@ -307,6 +307,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
       clientId,
       payableRate,
       billingRate,
+      overtimeRate,
       deduction,
     } = req.body;
 
@@ -364,6 +365,9 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           hireDate: hireDate ? new Date(hireDate) : null,
           payableRate: payableRate !== undefined && payableRate !== '' ? parseFloat(payableRate) : null,
           billingRate: billingRate !== undefined && billingRate !== '' ? parseFloat(billingRate) : null,
+            // Interpreted as overtime multiplier.
+            // UI sends 0 when user leaves default, so backend can keep existing 1.5x fallback behavior.
+            overtimeRate: overtimeRate !== undefined && overtimeRate !== '' ? parseFloat(overtimeRate) : 0,
           deduction: deduction !== undefined && deduction !== '' ? parseFloat(deduction) : 0,
         },
         include: {
@@ -431,6 +435,7 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
       status,
       payableRate,
       billingRate,
+      overtimeRate,
       deduction,
     } = req.body;
 
@@ -466,6 +471,7 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
     // Capture old rates for change logging
     const oldPayableRate = existingEmployee.payableRate;
     const oldBillingRate = existingEmployee.billingRate;
+    const oldOvertimeRate = existingEmployee.overtimeRate;
 
     // Update in transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -492,6 +498,9 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
           ...(hireDate && { hireDate: new Date(hireDate) }),
           ...(payableRate !== undefined && { payableRate: payableRate !== '' ? parseFloat(payableRate) : null }),
           ...(billingRate !== undefined && { billingRate: billingRate !== '' ? parseFloat(billingRate) : null }),
+              ...(overtimeRate !== undefined && {
+                overtimeRate: overtimeRate !== '' ? parseFloat(overtimeRate) : 0,
+              }),
           ...(deduction !== undefined && { deduction: deduction !== '' ? parseFloat(deduction) : 0 }),
         },
         include: {
@@ -542,6 +551,18 @@ export const updateEmployee = async (req: AuthenticatedRequest, res: Response): 
         rateType: 'BILLING_RATE',
         oldValue: oldBillingRate,
         newValue: billingRate !== '' ? parseFloat(billingRate) : null,
+        source: 'EMPLOYEE_PROFILE',
+      });
+    }
+
+    if (overtimeRate !== undefined) {
+      logRateChange({
+        employeeId: id,
+        changedBy,
+        changedByName,
+        rateType: 'OVERTIME_RATE',
+        oldValue: oldOvertimeRate,
+        newValue: overtimeRate !== '' ? parseFloat(overtimeRate) : null,
         source: 'EMPLOYEE_PROFILE',
       });
     }

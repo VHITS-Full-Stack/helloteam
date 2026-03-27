@@ -33,6 +33,8 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     groupId: '',
     payableRate: '',
     billingRate: '',
+    // UI field: overtime multiplier. Stored backend value is 0 when user leaves default (multiplier=1).
+    overtimeMultiplier: '1',
     deduction: '',
   });
 
@@ -96,6 +98,10 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
               clientId: '',
               payableRate: emp.payableRate ?? '',
               billingRate: emp.billingRate ?? '',
+              overtimeMultiplier:
+                emp.overtimeRate != null && Number(emp.overtimeRate) > 0
+                  ? String(emp.overtimeRate)
+                  : '1',
               deduction: emp.deduction ?? '',
             });
           } else {
@@ -134,12 +140,23 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
 
     try {
       let response;
+
+      // Always send the multiplier value the user set (e.g. 1, 1.5, 2).
+      // Backend uses this as: hourlyRate * multiplier.
+      const overtimeRateToSend = Number(formData.overtimeMultiplier) || 1;
+
       if (isEdit) {
-        const { clientId, groupId, ...updateData } = formData;
-        response = await employeeService.updateEmployee(id, updateData);
+        const { clientId, groupId, overtimeMultiplier, ...rest } = formData;
+        response = await employeeService.updateEmployee(id, {
+          ...rest,
+          overtimeRate: overtimeRateToSend,
+        });
       } else {
-        const { groupId, ...createData } = formData;
-        response = await employeeService.createEmployee(createData);
+        const { groupId, overtimeMultiplier, ...rest } = formData;
+        response = await employeeService.createEmployee({
+          ...rest,
+          overtimeRate: overtimeRateToSend,
+        });
 
         // Add to group if selected
         if (response.success && groupId && response.data?.id) {

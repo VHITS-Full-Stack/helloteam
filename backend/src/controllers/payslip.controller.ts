@@ -26,6 +26,7 @@ export const generatePayslips = async (
           firstName: true,
           lastName: true,
           billingRate: true,
+          overtimeRate: true,
           groupAssignments: {
             select: {
               groupId: true,
@@ -139,12 +140,19 @@ export const generatePayslips = async (
               ? groupBillingRate
               : defaultHourlyRate;
 
-      let overtimeRate = assignment?.overtimeRate
-        ? Number(assignment.overtimeRate)
-        : policy?.defaultOvertimeRate
-          ? Number(policy.defaultOvertimeRate)
-          : 0;
-      if (overtimeRate === 0 && hourlyRate > 0) overtimeRate = hourlyRate * 1.5;
+      const assignmentOvertimeRate =
+        assignment?.overtimeRate != null ? Number(assignment.overtimeRate) : 0;
+      const policyOvertimeRate =
+        policy?.defaultOvertimeRate != null ? Number(policy.defaultOvertimeRate) : 0;
+
+      let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : policyOvertimeRate;
+
+      const employeeOvertimeMultiplier = employee.overtimeRate ? Number(employee.overtimeRate) : 0;
+      if (assignmentOvertimeRate <= 0 && employeeOvertimeMultiplier > 0 && hourlyRate > 0) {
+        overtimeRate = hourlyRate * employeeOvertimeMultiplier;
+      } else if (overtimeRate === 0 && hourlyRate > 0) {
+        overtimeRate = hourlyRate * 1.5;
+      }
 
       // Calculate hours
       let totalRegularMinutes = 0;
