@@ -22,9 +22,9 @@ class ApiService {
     const token = this.getToken();
 
     const config = {
-      cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
