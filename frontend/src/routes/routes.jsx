@@ -29,6 +29,7 @@ const EmployeeOnboarding = lazy(() => import('../pages/employee/Onboarding'));
 const ClientOnboarding = lazy(() => import('../pages/client/Onboarding'));
 const ClientDashboard = lazy(() => import('../pages/client/Dashboard'));
 const ClientTasks = lazy(() => import('../pages/client/Tasks'));
+const ClientSupport = lazy(() => import('../pages/client/Support'));
 const ClientChat = lazy(() => import('../pages/client/Chat'));
 const Workforce = lazy(() => import('../pages/client/Workforce'));
 const Approvals = lazy(() => import('../pages/client/Approvals'));
@@ -75,6 +76,7 @@ const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
 const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
 const AdminRaiseRequests = lazy(() => import('../pages/admin/RaiseRequests'));
 const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
+const AdminSupport = lazy(() => import('../pages/admin/Support'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -192,6 +194,7 @@ const AppRoutes = () => {
           <Route path="workforce" element={<Workforce />} />
           <Route path="groups" element={<ClientGroups />} />
           <Route path="tasks" element={<ClientTasks />} />
+          <Route path="support" element={<ClientSupport />} />
           <Route path="chat" element={<ClientChat />} />
           <Route path="approvals" element={<Approvals />} />
           <Route path="analytics" element={<ClientAnalytics />} />
@@ -221,6 +224,7 @@ const AppRoutes = () => {
           <Route path="clients/:id/groups" element={<ClientConnectedGroups />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="support" element={<AdminSupport />} />
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="time-records" element={<AdminTimeRecords />} />

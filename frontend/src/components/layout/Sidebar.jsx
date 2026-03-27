@@ -128,6 +128,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
     { group: "Team" },
     { to: "/client/chat", icon: MessageCircle, label: "Chat" },
     { to: "/client/tasks", icon: ClipboardList, label: "Tasks" },
+    { to: "/client/support", icon: MessageSquare, label: "Support Tickets" },
     { group: "" },
     { to: "/client/profile", icon: User, label: "Profile" },
     { to: "/client/settings", icon: Settings, label: "Settings" },
@@ -192,6 +193,11 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
       icon: ClipboardList,
       label: "Tasks",
       permission: PERMISSIONS.TASKS.VIEW,
+    },
+    {
+      to: "/admin/support",
+      icon: MessageSquare,
+      label: "Support Tickets",
     },
     { group: "Billing & Payroll" },
     {

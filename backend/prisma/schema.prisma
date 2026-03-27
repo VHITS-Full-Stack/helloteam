@@ -870,6 +870,7 @@ enum NotificationType {
   SHIFT_ENDING
   SHIFT_ENDING_OT_APPROVED
   AUTO_CLOCK_OUT
+  SUPPORT_TICKET
 }
 
 enum MessageType {
