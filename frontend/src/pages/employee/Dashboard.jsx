@@ -623,10 +623,10 @@ const EmployeeDashboard = () => {
   const getCalculatedEndTime = () => {
     const shiftEnd = getTodayShiftEndTime();
     if (!shiftEnd) return null;
-    const hours = parseInt(overtimeForm.durationHours) || 0;
-    if (hours === 0) return null;
+    const mins = parseInt(overtimeForm.durationHours) || 0;
+    if (mins === 0) return null;
     const [endH, endM] = shiftEnd.split(":").map(Number);
-    const totalMinutes = endH * 60 + endM + hours * 60;
+    const totalMinutes = endH * 60 + endM + mins;
     const calcH = Math.floor(totalMinutes / 60) % 24;
     const calcM = totalMinutes % 60;
     return `${String(calcH).padStart(2, "0")}:${String(calcM).padStart(2, "0")}`;
@@ -654,8 +654,8 @@ const EmployeeDashboard = () => {
         setOvertimeError("No scheduled shift found for today");
         return;
       }
-      const durH = parseInt(overtimeForm.durationHours) || 0;
-      if (durH === 0) {
+      const durMins = parseInt(overtimeForm.durationHours) || 0;
+      if (durMins === 0) {
         setOvertimeError("Please enter the overtime duration");
         return;
       }
@@ -1907,12 +1907,38 @@ const EmployeeDashboard = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Overtime Duration
                     </label>
+                    <div className="grid grid-cols-3 gap-2 mb-2">
+                      {[
+                        { label: '15 min', value: '15' },
+                        { label: '30 min', value: '30' },
+                        { label: '45 min', value: '45' },
+                      ].map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() =>
+                            setOvertimeForm({
+                              ...overtimeForm,
+                              durationHours: opt.value,
+                            })
+                          }
+                          className={`py-2 rounded-lg text-sm font-medium border transition-all ${
+                            overtimeForm.durationHours === opt.value
+                              ? 'border-primary bg-primary/10 text-primary ring-1 ring-primary/30'
+                              : 'border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
                     <div className="relative">
                       <input
                         type="number"
-                        min="1"
-                        max="12"
-                        placeholder="Enter hours"
+                        min="5"
+                        max="720"
+                        step="5"
+                        placeholder="Enter overtime duration"
                         value={overtimeForm.durationHours}
                         onChange={(e) =>
                           setOvertimeForm({
@@ -1920,10 +1946,10 @@ const EmployeeDashboard = () => {
                             durationHours: e.target.value,
                           })
                         }
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors pr-14"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors pr-14 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">
-                        hours
+                        mins
                       </span>
                     </div>
                   </div>
