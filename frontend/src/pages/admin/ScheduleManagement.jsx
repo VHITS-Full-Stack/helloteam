@@ -25,7 +25,6 @@ import scheduleService from '../../services/schedule.service';
 import api from '../../services/api';
 
 const DAYS_OF_WEEK = [
-  { value: 0, label: 'Sunday', short: 'Sun' },
   { value: 1, label: 'Monday', short: 'Mon' },
   { value: 2, label: 'Tuesday', short: 'Tue' },
   { value: 3, label: 'Wednesday', short: 'Wed' },
@@ -568,13 +567,10 @@ const ScheduleManagement = () => {
           </div>
 
           {/* Quick Templates */}
-          <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b">
+          <div className="flex flex-wrap items-center gap-2 mb-6 pb-4 border-b">
             <span className="text-sm text-gray-500 mr-2">Quick Templates:</span>
             <Button variant="ghost" size="sm" onClick={() => applyTemplate('weekdays')}>
               Mon-Fri 9-5
-            </Button>
-            <Button variant="ghost" size="sm" onClick={() => applyTemplate('fullweek')}>
-              Full Week 9-5
             </Button>
             <Button variant="ghost" size="sm" onClick={() => applyTemplate('clear')}>
               Clear All
@@ -587,11 +583,11 @@ const ScheduleManagement = () => {
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-2">
               {DAYS_OF_WEEK.map((day, index) => (
                 <div
                   key={day.value}
-                  className={`flex items-center gap-4 p-4 rounded-lg border ${
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border ${
                     weeklySchedule[index].isWorking
                       ? 'bg-green-50 border-green-200'
                       : 'bg-gray-50 border-gray-200'
@@ -600,21 +596,21 @@ const ScheduleManagement = () => {
                   {/* Toggle */}
                   <button
                     onClick={() => toggleWorkingDay(index)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${
+                    className={`w-9 h-[18px] rounded-full relative transition-colors flex-shrink-0 ${
                       weeklySchedule[index].isWorking ? 'bg-green-500' : 'bg-gray-300'
                     }`}
                   >
                     <span
-                      className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                        weeklySchedule[index].isWorking ? 'right-1' : 'left-1'
+                      className={`absolute top-[2px] w-3.5 h-3.5 bg-white rounded-full shadow-sm transition-all ${
+                        weeklySchedule[index].isWorking ? 'left-[17px]' : 'left-[2px]'
                       }`}
                     />
                   </button>
 
                   {/* Day Name */}
-                  <div className="w-28">
-                    <p className="font-medium text-gray-900">{day.label}</p>
-                    <p className="text-xs text-gray-500">
+                  <div className="w-24">
+                    <p className={`text-xs font-medium ${weeklySchedule[index].isWorking ? 'text-gray-900' : 'text-gray-400'}`}>{day.label}</p>
+                    <p className="text-[10px] text-gray-400">
                       {weeklySchedule[index].isWorking ? 'Working' : 'Day Off'}
                     </p>
                   </div>
@@ -622,42 +618,26 @@ const ScheduleManagement = () => {
                   {/* Time Inputs */}
                   {weeklySchedule[index].isWorking && (
                     <>
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-500">Start:</label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[11px] text-gray-400">Start:</label>
                         <input
                           type="time"
                           value={weeklySchedule[index].startTime}
                           onChange={(e) => handleScheduleChange(index, 'startTime', e.target.value)}
-                          className="input py-1 px-2"
+                          className="input py-1 px-2 text-xs"
                         />
-                        <span className="text-xs text-gray-400">
-                          {(() => {
-                            const [h, m] = weeklySchedule[index].startTime.split(':').map(Number);
-                            const period = h >= 12 ? 'PM' : 'AM';
-                            const h12 = h % 12 || 12;
-                            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
-                          })()}
-                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <label className="text-sm text-gray-500">End:</label>
+                      <div className="flex items-center gap-1.5">
+                        <label className="text-[11px] text-gray-400">End:</label>
                         <input
                           type="time"
                           value={weeklySchedule[index].endTime}
                           onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
-                          className="input py-1 px-2"
+                          className="input py-1 px-2 text-xs"
                         />
-                        <span className="text-xs text-gray-400">
-                          {(() => {
-                            const [h, m] = weeklySchedule[index].endTime.split(':').map(Number);
-                            const period = h >= 12 ? 'PM' : 'AM';
-                            const h12 = h % 12 || 12;
-                            return `${h12}:${String(m).padStart(2, '0')} ${period}`;
-                          })()}
-                        </span>
                       </div>
                       <div className="flex-1 text-right">
-                        <Badge variant="default">
+                        <span className="text-xs font-semibold text-gray-700">
                           {(() => {
                             const [startH, startM] = weeklySchedule[index].startTime.split(':').map(Number);
                             const [endH, endM] = weeklySchedule[index].endTime.split(':').map(Number);
@@ -667,38 +647,38 @@ const ScheduleManagement = () => {
                             const m = mins % 60;
                             return m > 0 ? `${h}h ${m}m` : `${h}h`;
                           })()}
-                        </Badge>
+                        </span>
                       </div>
                     </>
                   )}
 
                   {/* Copy Day Button */}
                   {weeklySchedule[index].isWorking && (
-                    <div className="relative ml-auto">
+                    <div className="relative">
                       <button
                         onClick={() => setCopyMenuOpen(copyMenuOpen === index ? null : index)}
-                        className="p-1.5 text-gray-400 hover:text-primary hover:bg-white rounded-lg transition-colors"
+                        className="p-1 text-gray-500 hover:text-primary hover:bg-white rounded transition-colors"
                         title={`Copy ${day.short} to...`}
                       >
-                        <Copy className="w-4 h-4" />
+                        <Copy className="w-3 h-3" />
                       </button>
                       {copyMenuOpen === index && (
                         <div
                           ref={copyMenuRef}
-                          className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-44"
+                          className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 w-40"
                         >
                           <button
                             onClick={() => copyDayTo(index, 'all')}
-                            className="w-full px-3 py-2 text-left text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                            className="w-full px-3 py-1.5 text-left text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
                           >
                             Copy to All Days
                           </button>
-                          <div className="border-t border-gray-100 my-1" />
+                          <div className="border-t border-gray-100 my-0.5" />
                           {DAYS_OF_WEEK.filter(d => d.value !== day.value).map(targetDay => (
                             <button
                               key={targetDay.value}
                               onClick={() => copyDayTo(index, targetDay.value)}
-                              className="w-full px-3 py-1.5 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                              className="w-full px-3 py-1 text-left text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                             >
                               Copy to {targetDay.label}
                             </button>
