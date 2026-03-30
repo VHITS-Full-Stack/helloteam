@@ -905,7 +905,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       // Use billing minutes if available and session is completed, otherwise use actual work minutes
       const effectiveMinutes = (!isActive && dayTimeRecord?.billingMinutes) ? Number(dayTimeRecord.billingMinutes) : workMinutes;
       const hours = Math.round(effectiveMinutes / 60 * 100) / 100;
-      const regularHours = Math.round((hours - overtimeHours) * 100) / 100;
+      const regularHours = isActive ? 0 : Math.max(0, Math.round((hours - overtimeHours) * 100) / 100);
 
       allRecords.push({
         id: session.id,
