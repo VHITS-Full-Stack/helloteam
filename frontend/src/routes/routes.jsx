@@ -21,6 +21,7 @@ const Support = lazy(() => import('../pages/employee/Support'));
 const EmployeeTasks = lazy(() => import('../pages/employee/Tasks'));
 const EmployeeChat = lazy(() => import('../pages/employee/Chat'));
 const Profile = lazy(() => import('../pages/employee/Profile'));
+const EmployeeOvertimeRequests = lazy(() => import('../pages/employee/OvertimeRequests'));
 
 // Employee Onboarding (lazy)
 const EmployeeOnboarding = lazy(() => import('../pages/employee/Onboarding'));
@@ -169,6 +170,7 @@ const AppRoutes = () => {
           <Route path="time-clock" element={<TimeClock />} />
           <Route path="schedule" element={<Schedule />} />
           <Route path="time-records" element={<TimeRecords />} />
+          <Route path="overtime-requests" element={<EmployeeOvertimeRequests />} />
           <Route path="leave" element={<LeaveRequests />} />
           <Route path="payslips" element={<EmployeePayslips />} />
           <Route path="tasks" element={<EmployeeTasks />} />

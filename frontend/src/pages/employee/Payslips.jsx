@@ -190,10 +190,14 @@ const Payslips = () => {
                     Regular
                   </th>
                   <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                    OT
+                    Rate
                   </th>
                   <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                    Rate
+                    OT
+                  </th>
+
+                  <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
+                    OT Rate
                   </th>
                   <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
                     Total
@@ -231,6 +235,9 @@ const Payslips = () => {
                     </td>
                     <td className="px-3 py-2 text-center font-semibold text-gray-900">
                       {formatHours(rec.regularMinutes)}
+                    </td>{" "}
+                    <td className="px-3 py-2 text-center text-gray-700">
+                      ${d.hourlyRate}/h
                     </td>
                     <td className="px-3 py-2 text-center">
                       {rec.approvedOTMinutes > 0 ? (
@@ -242,7 +249,9 @@ const Payslips = () => {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center text-gray-700">
-                      ${d.hourlyRate}/h
+                      {d.hourlyRate > 0
+                        ? `${Math.round((d.overtimeRate / d.hourlyRate) * 100) / 100}x`
+                        : "-"}
                     </td>
                     <td className="px-3 py-2 text-center font-bold text-blue-700">
                       {formatHours(rec.payableMinutes)}
@@ -264,6 +273,7 @@ const Payslips = () => {
                   <td className="px-3 py-2 text-center font-bold text-blue-700">
                     {d.totalHours}h
                   </td>
+                  <td></td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -442,7 +452,13 @@ const Payslips = () => {
                     Hours
                   </th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    Rate
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                     OT
+                  </th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                    OT Rate
                   </th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                     Gross Pay
@@ -471,6 +487,9 @@ const Payslips = () => {
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 text-center">
                       {slip.totalHours}h
                     </td>
+                    <td className="px-4 py-3 text-sm text-center text-gray-700">
+                      ${slip.hourlyRate}/h
+                    </td>
                     <td className="px-4 py-3 text-sm text-center">
                       {slip.overtimeHours > 0 ? (
                         <span className="text-orange-600 font-medium">
@@ -479,6 +498,11 @@ const Payslips = () => {
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center text-gray-700">
+                      {slip.hourlyRate > 0
+                        ? `${Math.round((slip.overtimeRate / slip.hourlyRate) * 100) / 100}x`
+                        : "-"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-sm font-bold text-emerald-700">
