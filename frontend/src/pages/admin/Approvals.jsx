@@ -475,7 +475,18 @@ const Approvals = () => {
                         <p className="text-gray-900 text-sm line-clamp-2 whitespace-nowrap">{isOTType ? item.reason : item.description}</p>
                         {!isOTType && item.details && <p className="text-xs text-gray-500 mt-0.5">{item.details}</p>}
                       </TableCell>
-                      <TableCell className="!px-3">{formatDate(item.date)}</TableCell>
+                      <TableCell className="!px-3">
+                        <span className="text-sm">{formatDate(item.date)}</span>
+                        {isOTType && (item.requestedStartTime || item.estimatedEndTime) && (
+                          <p className="text-xs text-gray-400">
+                            {item.requestedStartTime && item.requestedEndTime
+                              ? `${item.requestedStartTime} - ${item.requestedEndTime}`
+                              : item.estimatedEndTime
+                                ? `until ${item.estimatedEndTime}`
+                                : ''}
+                          </p>
+                        )}
+                      </TableCell>
                       {isOTType && (
                         <TableCell className="!px-3">
                           <span className="font-semibold text-sm">{formatMinutesToHours(item.requestedMinutes)}</span>
