@@ -49,6 +49,10 @@ const TimeRecords = () => {
   const [showRejectOTModal, setShowRejectOTModal] = useState(false);
   const [rejectOTId, setRejectOTId] = useState(null);
   const [rejectOTReason, setRejectOTReason] = useState("");
+  const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showRejectConfirm, setShowRejectConfirm] = useState(false);
+  const [pendingActionIds, setPendingActionIds] = useState([]);
+  const [rejectReason, setRejectReason] = useState("");
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
@@ -388,13 +392,20 @@ const TimeRecords = () => {
     }
   };
 
-  const handleApprove = async (recordIdOrIds) => {
+  const handleApprove = (recordIdOrIds) => {
+    const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
+    setPendingActionIds(ids);
+    setShowApproveConfirm(true);
+  };
+
+  const confirmApprove = async () => {
     try {
       setActionLoading(true);
-      const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
-      for (const id of ids) {
+      for (const id of pendingActionIds) {
         await clientPortalService.approveTimeRecord(id);
       }
+      setShowApproveConfirm(false);
+      setPendingActionIds([]);
       fetchTimeRecords();
     } catch (err) {
       console.error("Failed to approve time record:", err);
@@ -403,13 +414,23 @@ const TimeRecords = () => {
     }
   };
 
-  const handleReject = async (recordIdOrIds) => {
+  const handleReject = (recordIdOrIds) => {
+    const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
+    setPendingActionIds(ids);
+    setRejectReason("");
+    setShowRejectConfirm(true);
+  };
+
+  const confirmReject = async () => {
+    if (!rejectReason.trim()) return;
     try {
       setActionLoading(true);
-      const ids = Array.isArray(recordIdOrIds) ? recordIdOrIds : [recordIdOrIds];
-      for (const id of ids) {
-        await clientPortalService.rejectTimeRecord(id, "Overtime rejected by client");
+      for (const id of pendingActionIds) {
+        await clientPortalService.rejectTimeRecord(id, rejectReason.trim());
       }
+      setShowRejectConfirm(false);
+      setPendingActionIds([]);
+      setRejectReason("");
       fetchTimeRecords();
     } catch (err) {
       console.error("Failed to reject time record:", err);
@@ -1549,6 +1570,85 @@ const TimeRecords = () => {
               >
                 {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Deny Overtime
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Approve Timesheet Confirmation */}
+      {showApproveConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowApproveConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Approve Timesheet
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Are you sure you want to approve {pendingActionIds.length > 1 ? `${pendingActionIds.length} time records` : 'this time record'}?
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowApproveConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmApprove}
+                disabled={actionLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Approve
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Timesheet Confirmation */}
+      {showRejectConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowRejectConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Reject Timesheet
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Please provide a reason for rejecting {pendingActionIds.length > 1 ? `${pendingActionIds.length} time records` : 'this time record'}.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason for rejection..."
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setShowRejectConfirm(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReject}
+                disabled={actionLoading || !rejectReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Reject
               </button>
             </div>
           </div>
