@@ -32,6 +32,7 @@ import adminPortalService from '../../services/adminPortal.service';
 import overtimeService from '../../services/overtime.service';
 import clientService from '../../services/client.service';
 import employeeService from '../../services/employee.service';
+import { formatTime12 } from '../../utils/formatTime';
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
