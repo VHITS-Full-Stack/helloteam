@@ -815,9 +815,9 @@ const Approvals = () => {
                       {(request.requestedStartTime || request.estimatedEndTime) && (
                         <p className="text-xs text-gray-400">
                           {request.requestedStartTime && request.requestedEndTime
-                            ? `${request.requestedStartTime} - ${request.requestedEndTime}`
+                            ? `${formatTime12(request.requestedStartTime)} - ${formatTime12(request.requestedEndTime)}`
                             : request.estimatedEndTime
-                              ? `until ${request.estimatedEndTime}`
+                              ? `until ${formatTime12(request.estimatedEndTime)}`
                               : ''}
                         </p>
                       )}

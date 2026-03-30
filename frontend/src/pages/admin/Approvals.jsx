@@ -480,9 +480,9 @@ const Approvals = () => {
                         {isOTType && (item.requestedStartTime || item.estimatedEndTime) && (
                           <p className="text-xs text-gray-400">
                             {item.requestedStartTime && item.requestedEndTime
-                              ? `${item.requestedStartTime} - ${item.requestedEndTime}`
+                              ? `${formatTime12(item.requestedStartTime)} - ${formatTime12(item.requestedEndTime)}`
                               : item.estimatedEndTime
-                                ? `until ${item.estimatedEndTime}`
+                                ? `until ${formatTime12(item.estimatedEndTime)}`
                                 : ''}
                           </p>
                         )}
