@@ -917,9 +917,14 @@ const TimeRecords = () => {
                       </p>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>{formatHours(emp.totalHours)} total</span>
-                        {emp.overtimeHours > 0 && (
+                        {emp.overtimeHours > 0 && emp.overtimeHours !== emp.unapprovedOvertimeHours && (
                           <span className="text-orange-600">
-                            {formatHours(emp.overtimeHours)} OT
+                            {formatHours(emp.overtimeHours - (emp.unapprovedOvertimeHours || 0))} OT
+                          </span>
+                        )}
+                        {emp.unapprovedOvertimeHours > 0 && (
+                          <span className="text-red-600">
+                            {formatHours(emp.unapprovedOvertimeHours)} Unapproved OT
                           </span>
                         )}
                       </div>

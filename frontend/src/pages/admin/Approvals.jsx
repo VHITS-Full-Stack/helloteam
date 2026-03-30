@@ -472,7 +472,7 @@ const Approvals = () => {
                         </TableCell>
                       )}
                       <TableCell className="!px-3 !whitespace-normal">
-                        <p className="text-gray-900 text-sm line-clamp-2">{isOTType ? item.reason : item.description}</p>
+                        <p className="text-gray-900 text-sm line-clamp-2 whitespace-nowrap">{isOTType ? item.reason : item.description}</p>
                         {!isOTType && item.details && <p className="text-xs text-gray-500 mt-0.5">{item.details}</p>}
                       </TableCell>
                       <TableCell className="!px-3">{formatDate(item.date)}</TableCell>

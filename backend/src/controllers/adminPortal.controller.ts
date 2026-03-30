@@ -1299,6 +1299,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         where: { status: leaveStatus },
         include: {
           employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
+          client: { select: { companyName: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: type === 'leave' ? skip : 0,
@@ -1355,7 +1356,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           type: 'leave',
           employee: `${lr.employee.firstName} ${lr.employee.lastName}`,
           profilePhoto: await refreshProfilePhotoUrl(lr.employee.profilePhoto),
-          client: 'N/A',
+          client: lr.client?.companyName || 'N/A',
           description: `${lr.leaveType} Leave Request`,
           date: `${lr.startDate.toISOString().split('T')[0]} - ${lr.endDate.toISOString().split('T')[0]}`,
           details: `${days} day${days > 1 ? 's' : ''} - ${lr.reason || 'No reason provided'}`,
