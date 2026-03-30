@@ -552,7 +552,8 @@ export const generateInvoicesForPeriod = async (
   month: number, // 1-indexed (1 = January)
   io?: Server,
   clientId?: string,
-  cronMode: boolean = false
+  cronMode: boolean = false,
+  invoiceByGroupOverride?: boolean
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -594,7 +595,11 @@ export const generateInvoicesForPeriod = async (
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
 
-        if (client.clientPolicies?.invoiceByGroup) {
+        const useGroupWise = invoiceByGroupOverride !== undefined
+          ? invoiceByGroupOverride
+          : !!client.clientPolicies?.invoiceByGroup;
+
+        if (useGroupWise) {
           // Group-wise invoicing: generate separate invoice per group
           const groupResults = await generateGroupWiseInvoices(
             client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}`, io
@@ -643,7 +648,8 @@ export const generateWeeklyInvoicesForWeek = async (
   week: number, // ISO week number (1-53)
   io?: Server,
   clientId?: string,
-  cronMode: boolean = false
+  cronMode: boolean = false,
+  invoiceByGroupOverride?: boolean
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -681,7 +687,11 @@ export const generateWeeklyInvoicesForWeek = async (
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 7;
 
-        if (client.clientPolicies?.invoiceByGroup) {
+        const useGroupWise = invoiceByGroupOverride !== undefined
+          ? invoiceByGroupOverride
+          : !!client.clientPolicies?.invoiceByGroup;
+
+        if (useGroupWise) {
           const groupResults = await generateGroupWiseInvoices(
             client as any, monday, sunday, paymentTermsDays, `INV-${year}-W${weekStr}`, io
           );
@@ -758,7 +768,8 @@ export const generateBiWeeklyInvoicesForPeriod = async (
   half: 1 | 2,
   io?: Server,
   clientId?: string,
-  cronMode: boolean = false
+  cronMode: boolean = false,
+  invoiceByGroupOverride?: boolean
 ): Promise<{ generated: number; errors: string[] }> => {
   const errors: string[] = [];
   let generated = 0;
@@ -805,7 +816,11 @@ export const generateBiWeeklyInvoicesForPeriod = async (
         const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
 
-        if (client.clientPolicies?.invoiceByGroup) {
+        const useGroupWise = invoiceByGroupOverride !== undefined
+          ? invoiceByGroupOverride
+          : !!client.clientPolicies?.invoiceByGroup;
+
+        if (useGroupWise) {
           const groupResults = await generateGroupWiseInvoices(
             client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}-H${half}`, io
           );
@@ -1096,6 +1111,7 @@ export const previewInvoicesForPeriod = async (
   year: number,
   month: number,
   clientId?: string,
+  invoiceByGroupOverride?: boolean,
 ): Promise<InvoicePreviewItem[]> => {
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 0));
@@ -1139,6 +1155,7 @@ export const previewWeeklyInvoicesForWeek = async (
   year: number,
   week: number,
   clientId?: string,
+  invoiceByGroupOverride?: boolean,
 ): Promise<InvoicePreviewItem[]> => {
   const monday = getMondayOfISOWeek(year, week);
   const sunday = new Date(monday);
@@ -1186,6 +1203,7 @@ export const previewBiWeeklyInvoicesForPeriod = async (
   month: number,
   half: 1 | 2,
   clientId?: string,
+  invoiceByGroupOverride?: boolean,
 ): Promise<InvoicePreviewItem[]> => {
   let periodStart: Date;
   let periodEnd: Date;

@@ -50,6 +50,7 @@ const GenerateInvoice = () => {
     return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
   });
   const [clientId, setClientId] = useState('all');
+  const [invoiceByGroup, setInvoiceByGroup] = useState('single'); // 'single' | 'group'
 
   // State
   const [step, setStep] = useState('params');
@@ -83,8 +84,9 @@ const GenerateInvoice = () => {
     if (clientId !== 'all') {
       params.clientId = clientId;
     }
+    params.invoiceByGroup = invoiceByGroup === 'group';
     return params;
-  }, [year, frequency, week, month, half, clientId]);
+  }, [year, frequency, week, month, half, clientId, invoiceByGroup]);
 
   const handlePreview = async () => {
     setPreviewing(true);
@@ -217,13 +219,46 @@ const GenerateInvoice = () => {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Client</label>
               <div className="relative">
-                <select value={clientId} onChange={(e) => setClientId(e.target.value)} className={selectClass}>
+                <select value={clientId} onChange={(e) => {
+                  const val = e.target.value;
+                  setClientId(val);
+                  if (val !== 'all') {
+                    const c = clients.find(cl => cl.id === val);
+                    setInvoiceByGroup(c?.clientPolicies?.invoiceByGroup ? 'group' : 'single');
+                  } else {
+                    setInvoiceByGroup('single');
+                  }
+                }} className={selectClass}>
                   <option value="all">All Clients</option>
                   {clients.map((c) => (
                     <option key={c.id} value={c.id}>{c.companyName}</option>
                   ))}
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Invoice Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Invoice Type</label>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {[
+                  { key: 'single', label: 'Single' },
+                  { key: 'group', label: 'Group-wise' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => setInvoiceByGroup(opt.key)}
+                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                      invoiceByGroup === opt.key
+                        ? 'bg-primary text-white'
+                        : 'bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
 

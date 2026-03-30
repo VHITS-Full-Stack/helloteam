@@ -293,6 +293,7 @@ const ShiftModals = () => {
                     Your shift ends at {formatTime12(shiftEndData?.shiftEnd)}.
                     If you continue working past your shift, the extra time will
                     be tracked as overtime without prior approval.
+                    You may not be compensated for unapproved overtime.
                   </p>
                 </div>
 
@@ -368,6 +369,8 @@ const ShiftModals = () => {
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                 <p className="text-amber-800 text-sm font-medium">
                   Your scheduled shift has ended. You will be automatically clocked out.
+                    If you continue working, the extra time will be tracked as overtime
+                    without prior approval. You may not be compensated for unapproved overtime.
                 </p>
               </div>
 

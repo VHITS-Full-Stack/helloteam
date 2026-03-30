@@ -612,7 +612,8 @@ export const updateInvoiceStatus = async (req: AuthenticatedRequest, res: Respon
 // Preview: dry-run invoice generation to show what would be created
 export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, half, frequency = 'monthly', clientId } = req.body;
+    const { year, month, week, half, frequency = 'monthly', clientId, invoiceByGroup } = req.body;
+    const invoiceByGroupOverride = invoiceByGroup === true ? true : invoiceByGroup === false ? false : undefined;
 
     let preview;
     if (frequency === 'weekly') {
@@ -620,19 +621,19 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         res.status(400).json({ success: false, error: 'Valid year and week (1-53) are required' });
         return;
       }
-      preview = await previewWeeklyInvoicesForWeek(year, week, clientId);
+      preview = await previewWeeklyInvoicesForWeek(year, week, clientId, invoiceByGroupOverride);
     } else if (frequency === 'bi-weekly') {
       if (!year || !month || month < 1 || month > 12 || !half || (half !== 1 && half !== 2)) {
         res.status(400).json({ success: false, error: 'Valid year, month (1-12), and half (1 or 2) are required' });
         return;
       }
-      preview = await previewBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, clientId);
+      preview = await previewBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, clientId, invoiceByGroupOverride);
     } else {
       if (!year || !month || month < 1 || month > 12) {
         res.status(400).json({ success: false, error: 'Valid year and month (1-12) are required' });
         return;
       }
-      preview = await previewInvoicesForPeriod(year, month, clientId);
+      preview = await previewInvoicesForPeriod(year, month, clientId, invoiceByGroupOverride);
     }
 
     res.json({
@@ -658,8 +659,9 @@ export const previewInvoiceGeneration = async (req: AuthenticatedRequest, res: R
 // Supports both monthly (year + month) and weekly (year + week) frequency
 export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { year, month, week, half, frequency = 'monthly', clientId } = req.body;
+    const { year, month, week, half, frequency = 'monthly', clientId, invoiceByGroup } = req.body;
     const io = req.app.get('io');
+    const invoiceByGroupOverride = invoiceByGroup === true ? true : invoiceByGroup === false ? false : undefined;
 
     if (frequency === 'weekly') {
       // Weekly invoice generation
@@ -677,7 +679,7 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
 
-      const result = await generateWeeklyInvoicesForWeek(year, week, io, clientId);
+      const result = await generateWeeklyInvoicesForWeek(year, week, io, clientId, false, invoiceByGroupOverride);
 
       res.json({
         success: true,
@@ -698,7 +700,7 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
 
-      const result = await generateBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, io, clientId);
+      const result = await generateBiWeeklyInvoicesForPeriod(year, month, half as 1 | 2, io, clientId, false, invoiceByGroupOverride);
 
       res.json({
         success: true,
@@ -721,7 +723,7 @@ export const triggerInvoiceGeneration = async (req: AuthenticatedRequest, res: R
         return;
       }
 
-      const result = await generateInvoicesForPeriod(year, month, io, clientId);
+      const result = await generateInvoicesForPeriod(year, month, io, clientId, false, invoiceByGroupOverride);
 
       res.json({
         success: true,

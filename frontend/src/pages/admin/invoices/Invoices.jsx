@@ -452,9 +452,12 @@ const Invoices = () => {
                 className="appearance-none pr-8 pl-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white"
               >
                 <option value="all">All Months</option>
-                {monthNames.map((name, i) => (
-                  <option key={i + 1} value={i + 1}>{name}</option>
-                ))}
+                {monthNames.map((name, i) => {
+                  const m = i + 1;
+                  const now = new Date();
+                  if (filterYear !== 'all' && parseInt(filterYear) === now.getFullYear() && m > now.getMonth() + 1) return null;
+                  return <option key={m} value={m}>{name}</option>;
+                })}
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -465,9 +468,7 @@ const Invoices = () => {
                 className="appearance-none pr-8 pl-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white"
               >
                 <option value="all">All Years</option>
-                {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map((year) => (
-                  <option key={year} value={year}>{year}</option>
-                ))}
+                <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -719,9 +720,12 @@ const Invoices = () => {
                       onChange={(e) => setGenerateMonth(parseInt(e.target.value))}
                       className="appearance-none pr-9 w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                     >
-                      {monthNames.map((name, i) => (
-                        <option key={i + 1} value={i + 1}>{name}</option>
-                      ))}
+                      {monthNames.map((name, i) => {
+                        const m = i + 1;
+                        const now = new Date();
+                        if (generateYear === now.getFullYear() && m > now.getMonth() + 1) return null;
+                        return <option key={m} value={m}>{name}</option>;
+                      })}
                     </select>
                     <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
@@ -733,7 +737,7 @@ const Invoices = () => {
                     value={generateYear}
                     onChange={(e) => setGenerateYear(parseInt(e.target.value))}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                    min={2020}
+                    min={new Date().getFullYear()}
                     max={new Date().getFullYear()}
                   />
                 </div>
@@ -758,7 +762,7 @@ const Invoices = () => {
                     value={generateYear}
                     onChange={(e) => setGenerateYear(parseInt(e.target.value))}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
-                    min={2020}
+                    min={new Date().getFullYear()}
                     max={new Date().getFullYear()}
                   />
                 </div>
