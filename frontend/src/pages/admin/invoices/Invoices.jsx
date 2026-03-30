@@ -493,6 +493,7 @@ const Invoices = () => {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Amount</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Due Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Created</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
@@ -530,6 +531,9 @@ const Invoices = () => {
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <p className="text-sm text-gray-600">{formatDate(invoice.dueDate)}</p>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <p className="text-sm text-gray-600">{formatDate(invoice.createdAt)}</p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">

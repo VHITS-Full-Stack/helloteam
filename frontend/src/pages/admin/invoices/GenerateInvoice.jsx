@@ -112,7 +112,13 @@ const GenerateInvoice = () => {
     try {
       const response = await invoiceService.generateInvoices(getParams());
       if (response.success) {
-        navigate('/admin/invoices');
+        if (response.data?.generated > 0) {
+          navigate('/admin/invoices');
+        } else {
+          setError(response.data?.errors?.length > 0
+            ? response.data.errors.join(', ')
+            : 'No invoices were generated. This could be because there are no approved time records for this period, or invoices already exist.');
+        }
       } else {
         setError(response.error || 'Failed to generate invoices');
       }
