@@ -618,6 +618,7 @@ const TimeRecords = () => {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Name</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Schedule</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actual In/Out</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Billing In/Out</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Break</th>
@@ -651,6 +652,19 @@ const TimeRecords = () => {
                       {/* Date */}
                       <td className="px-4 py-3 whitespace-nowrap">
                         <p className="text-sm text-gray-900">{formatDate(day.date)}</p>
+                      </td>
+
+                      {/* Schedule */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {day.scheduledStart || day.scheduledEnd ? (
+                          <div className="text-sm text-gray-700">
+                            {day.scheduledStart ? fmtTime(day.scheduledStart, empRecord.clientTimezone) : '-'}
+                            <span className="text-gray-300 mx-1">–</span>
+                            {day.scheduledEnd ? fmtTime(day.scheduledEnd, empRecord.clientTimezone) : '-'}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
                       </td>
 
                       {/* Actual In/Out */}

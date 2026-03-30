@@ -918,6 +918,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         date: dateStr,
         clockIn,
         clockOut,
+        scheduledStart: session.scheduledStartTime || null,
+        scheduledEnd: session.scheduledEndTime || null,
         billingStart: isActive ? null : (dayTimeRecord?.billingStart || null),
         billingEnd: isActive ? null : (dayTimeRecord?.billingEnd || null),
         billingMinutes: isActive ? 0 : (dayTimeRecord?.billingMinutes || 0),
@@ -987,7 +989,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
               const extraStatus = dayTimeRecord.extraTimeStatus || 'UNAPPROVED';
               entries.push({
                 id: `synth-extra-${dayTimeRecord.id}`,
-                type: 'EXTRA_TIME',
+                type: 'EXTRA_TIME' as any,
                 requestedMinutes: trExtraMins,
                 requestedStartTime: null as any,
                 requestedEndTime: null as any,
@@ -1044,6 +1046,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         date: record.date,
         clockIn: record.clockIn,
         clockOut: record.clockOut,
+        scheduledStart: record.scheduledStart,
+        scheduledEnd: record.scheduledEnd,
         billingStart: record.billingStart,
         billingEnd: record.billingEnd,
         billingMinutes: record.billingMinutes,
@@ -1869,7 +1873,8 @@ export const getRaiseRequests = async (req: AuthenticatedRequest, res: Response)
  */
 export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { raiseId } = req.params;
+    let raiseId = req.params.raiseId;
+    if (Array.isArray(raiseId)) raiseId = raiseId[0];
     const userId = req.user?.userId;
     const { adminNotes, newPayRate } = req.body;
 
@@ -1969,7 +1974,8 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
  */
 export const rejectRaiseRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { raiseId } = req.params;
+    let raiseId = req.params.raiseId;
+    if (Array.isArray(raiseId)) raiseId = raiseId[0];
     const userId = req.user?.userId;
     const { adminNotes } = req.body;
 
