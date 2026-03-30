@@ -199,7 +199,7 @@ export const getClientDashboardStats = async (req: AuthenticatedRequest, res: Re
     });
 
     const defaultRate = clientPolicy?.defaultHourlyRate ? Number(clientPolicy.defaultHourlyRate) : 0;
-    const otRate = clientPolicy?.defaultOvertimeRate ? Number(clientPolicy.defaultOvertimeRate) : defaultRate * 1.5;
+    const otRate = clientPolicy?.defaultOvertimeRate ? Number(clientPolicy.defaultOvertimeRate) : defaultRate * 1;
 
     let monthlyBilling = 0;
     for (const tr of monthlyTimeRecords) {

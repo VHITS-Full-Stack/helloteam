@@ -129,8 +129,9 @@ const PayrollReport = () => {
                     <th className="text-left px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">Client</th>
                     <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">Days</th>
                     <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">Total Hours</th>
-                    <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">OT Hours</th>
                     <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">Rate</th>
+                    <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">OT Hours</th>
+                    <th className="text-center px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">OT Rate</th>
                     <th className="text-right px-4 py-3 text-[11px] font-bold text-gray-500 uppercase">Gross Pay</th>
                   </tr>
                 </thead>
@@ -152,8 +153,9 @@ const PayrollReport = () => {
                                 <td className="px-4 py-2.5 text-sm text-gray-600">{emp.client}</td>
                                 <td className="px-4 py-2.5 text-sm text-center">{rp.workDays}</td>
                                 <td className="px-4 py-2.5 text-sm text-center">{totalH}</td>
+                                <td className="px-4 py-2.5 text-sm text-center font-medium">${rp.rate.toFixed(2)}</td>
                                 <td className="px-4 py-2.5 text-sm text-center">{otH > 0 ? <span className="text-orange-600">{otH}</span> : <span className="text-gray-300">-</span>}</td>
-                                <td className="px-4 py-2.5 text-sm text-center font-medium">${rp.rate}/hr</td>
+                                <td className="px-4 py-2.5 text-sm text-center font-medium">{rp.rate > 0 ? `${Math.round((rp.otRate / rp.rate) * 100) / 100}x` : '-'}</td>
                                 <td className="px-4 py-2.5 text-sm text-right font-semibold">${(Math.round((rp.regularPay + rp.otPay) * 100) / 100).toFixed(2)}</td>
                               </tr>
                             );
@@ -163,6 +165,7 @@ const PayrollReport = () => {
                             <td className="px-4 py-2.5 text-sm text-center font-semibold">{emp.workDays}</td>
                             <td className="px-4 py-2.5 text-sm text-center font-semibold">{formatHours(emp.totalHours)}</td>
                             <td className="px-4 py-2.5 text-sm text-center font-semibold">{emp.overtimeHours > 0 ? <span className="text-orange-600">{formatHours(emp.overtimeHours)}</span> : '-'}</td>
+                            <td className="px-4 py-2.5"></td>
                             <td className="px-4 py-2.5"></td>
                             <td className="px-4 py-2.5 text-sm text-right font-bold text-green-700">${emp.grossPay.toFixed(2)}</td>
                           </tr>
@@ -177,8 +180,9 @@ const PayrollReport = () => {
                         <td className="px-4 py-2.5 text-sm text-gray-600">{emp.client}</td>
                         <td className="px-4 py-2.5 text-sm text-center">{emp.workDays}</td>
                         <td className="px-4 py-2.5 text-sm text-center">{formatHours(emp.totalHours)}</td>
+                        <td className="px-4 py-2.5 text-sm text-center font-medium">${emp.hourlyRate.toFixed(2)}</td>
                         <td className="px-4 py-2.5 text-sm text-center">{emp.overtimeHours > 0 ? <span className="text-orange-600">{formatHours(emp.overtimeHours)}</span> : <span className="text-gray-300">-</span>}</td>
-                        <td className="px-4 py-2.5 text-sm text-center font-medium">${emp.hourlyRate}/hr</td>
+                        <td className="px-4 py-2.5 text-sm text-center font-medium">{emp.hourlyRate > 0 ? `${Math.round((emp.overtimeRate / emp.hourlyRate) * 100) / 100}x` : '-'}</td>
                         <td className="px-4 py-2.5 text-sm text-right font-semibold text-green-700">${emp.grossPay.toFixed(2)}</td>
                       </tr>
                     );
@@ -189,6 +193,7 @@ const PayrollReport = () => {
                     <td className="px-4 py-3 text-sm font-bold text-gray-900" colSpan={4}>GRAND TOTAL</td>
                     <td className="px-4 py-3 text-sm text-center font-bold">{formatHours(reportData.totals?.totalHours)}</td>
                     <td className="px-4 py-3 text-sm text-center font-bold">{reportData.totals?.overtimeHours > 0 ? <span className="text-orange-600">{formatHours(reportData.totals.overtimeHours)}</span> : '-'}</td>
+                    <td className="px-4 py-3"></td>
                     <td className="px-4 py-3"></td>
                     <td className="px-4 py-3 text-sm text-right font-bold text-green-700">${(reportData.totals?.totalGrossPay || 0).toFixed(2)}</td>
                   </tr>

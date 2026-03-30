@@ -236,7 +236,7 @@ const generateInvoiceForClient = async (
   const defaultOTRate = policy
     ? Number(policy.defaultOvertimeRate) > 0
       ? Number(policy.defaultOvertimeRate)
-      : defaultHourlyRate * 1.5
+      : defaultHourlyRate * 1
     : 0;
   const currency = policy?.currency || 'USD';
 
@@ -269,9 +269,13 @@ const generateInvoiceForClient = async (
       : groupBillingRate ? groupBillingRate
       : defaultHourlyRate;
 
-    const otr = ce?.overtimeRate ? Number(ce.overtimeRate)
-      : hr > 0 ? hr * 1.5
-      : defaultOTRate;
+    let otr = ce?.overtimeRate ? Number(ce.overtimeRate) : 0;
+    if (otr === 0 && hr > 0) {
+      const empOTMultiplier = employee?.overtimeRate ? Number(employee.overtimeRate) : 1;
+      otr = defaultOTRate > 0 ? defaultOTRate : hr * empOTMultiplier;
+    } else if (otr === 0) {
+      otr = defaultOTRate;
+    }
 
     empRateMap.set(empId, { hourlyRate: hr, overtimeRate: otr });
   };
@@ -991,7 +995,7 @@ const previewInvoiceForClient = async (
   const defaultOTRate = policy
     ? Number(policy.defaultOvertimeRate) > 0
       ? Number(policy.defaultOvertimeRate)
-      : defaultHourlyRate * 1.5
+      : defaultHourlyRate * 1
     : 0;
 
   // Fetch client-group billing rates
@@ -1028,9 +1032,13 @@ const previewInvoiceForClient = async (
       : groupBillingRate ? groupBillingRate
       : defaultHourlyRate;
 
-    const otr = ce?.overtimeRate ? Number(ce.overtimeRate)
-      : hr > 0 ? hr * 1.5
-      : defaultOTRate;
+    let otr = ce?.overtimeRate ? Number(ce.overtimeRate) : 0;
+    if (otr === 0 && hr > 0) {
+      const empOTMultiplier = employee?.overtimeRate ? Number(employee.overtimeRate) : 1;
+      otr = defaultOTRate > 0 ? defaultOTRate : hr * empOTMultiplier;
+    } else if (otr === 0) {
+      otr = defaultOTRate;
+    }
 
     empRateMap.set(empId, { hourlyRate: hr, overtimeRate: otr });
   }

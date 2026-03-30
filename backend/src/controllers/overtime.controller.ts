@@ -482,13 +482,9 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
         const assignmentOvertimeRate =
           assignment?.overtimeRate != null ? Number(assignment.overtimeRate) : 0;
         let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : 0;
-        const employeeOvertimeMultiplier = employee?.overtimeRate
-          ? Number(employee.overtimeRate)
-          : 0;
-        if (assignmentOvertimeRate <= 0 && employeeOvertimeMultiplier > 0 && hourlyRate > 0) {
+        if (overtimeRate === 0 && hourlyRate > 0) {
+          const employeeOvertimeMultiplier = employee?.overtimeRate ? Number(employee.overtimeRate) : 1;
           overtimeRate = hourlyRate * employeeOvertimeMultiplier;
-        } else if (overtimeRate === 0 && hourlyRate > 0) {
-          overtimeRate = hourlyRate * 1.5;
         }
 
         const otHours = (request.requestedMinutes || 0) / 60;
@@ -514,7 +510,7 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
               employeeId: request.employeeId,
               type: 'BONUS',
               amount: otPay,
-              reason: `Outstanding approved OT from ${request.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${otHours.toFixed(1)}h × $${overtimeRate}/hr)`,
+              reason: `Outstanding approved OT from ${request.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} (${otHours.toFixed(1)}h × $${overtimeRate})`,
               periodStart: adjPeriodStart,
               periodEnd: adjPeriodEnd,
               createdBy: userId || 'system',

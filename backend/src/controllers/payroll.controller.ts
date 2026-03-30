@@ -135,7 +135,10 @@ export const getPayrollPeriods = async (
 
             const hr = asn?.hourlyRate ? Number(asn.hourlyRate) : empBR ? empBR : cgRate ? cgRate : grpRate ? grpRate : pol?.defaultHourlyRate ? Number(pol.defaultHourlyRate) : 0;
             let otr = asn?.overtimeRate ? Number(asn.overtimeRate) : pol?.defaultOvertimeRate ? Number(pol.defaultOvertimeRate) : 0;
-            if (otr === 0 && hr > 0) otr = hr * 1.5;
+            if (otr === 0 && hr > 0) {
+              const empOTMultiplier = r.employee?.overtimeRate ? Number(r.employee.overtimeRate) : 1;
+              otr = hr * empOTMultiplier;
+            }
 
             empTotals[empId] = { regularMinutes: 0, otMinutes: 0, hourlyRate: hr, overtimeRate: otr, deduction: r.employee?.deduction ? Number(r.employee.deduction) : 0 };
           }
@@ -1297,7 +1300,10 @@ export const getPayrollExportData = async (
 
       let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      if (otr === 0 && hr > 0) {
+        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
+        otr = hr * empOTMultiplier;
+      }
 
       return { hourlyRate: hr, overtimeRate: otr };
     };
@@ -1333,7 +1339,10 @@ export const getPayrollExportData = async (
       const policy = policyMap.get(record.clientId);
       let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      if (otr === 0 && hr > 0) {
+        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
+        otr = hr * empOTMultiplier;
+      }
 
       return { hourlyRate: hr, overtimeRate: otr };
     };
@@ -1731,7 +1740,10 @@ export const getEmployeePayrollSummary = async (
 
       let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      if (otr === 0 && hr > 0) {
+        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
+        otr = hr * empOTMultiplier;
+      }
       return { hourlyRate: hr, overtimeRate: otr };
     };
 
@@ -1754,7 +1766,10 @@ export const getEmployeePayrollSummary = async (
       const policy = policyMap.get(record.clientId);
       let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) otr = hr * 1.5;
+      if (otr === 0 && hr > 0) {
+        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
+        otr = hr * empOTMultiplier;
+      }
       return { hourlyRate: hr, overtimeRate: otr };
     };
 
@@ -1947,7 +1962,7 @@ export const getEmployeePayrollSummary = async (
 
       let resolvedOvertimeRate = empAssignment?.overtimeRate ? Number(empAssignment.overtimeRate)
         : empPolicy?.defaultOvertimeRate ? Number(empPolicy.defaultOvertimeRate) : 0;
-      if (resolvedOvertimeRate === 0 && resolvedHourlyRate > 0) resolvedOvertimeRate = resolvedHourlyRate * 1.5;
+      if (resolvedOvertimeRate === 0 && resolvedHourlyRate > 0) resolvedOvertimeRate = resolvedHourlyRate * 1;
 
       const regularPay = Math.round(regularHours * resolvedHourlyRate * 100) / 100;
       const overtimePay = Math.round(overtimeHours * resolvedOvertimeRate * 100) / 100;
@@ -2157,15 +2172,9 @@ export const getEmployeePayrollDetail = async (
         : 0;
     let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : policyOvertimeRate;
 
-    const employeeOvertimeMultiplier = employee.overtimeRate
-      ? Number(employee.overtimeRate)
-      : 0;
-    if (assignmentOvertimeRate <= 0 && employeeOvertimeMultiplier > 0 && hourlyRate > 0) {
-      // Employee-level override applies when assignment OT is missing/0.
+    if (overtimeRate === 0 && hourlyRate > 0) {
+      const employeeOvertimeMultiplier = employee.overtimeRate ? Number(employee.overtimeRate) : 1;
       overtimeRate = hourlyRate * employeeOvertimeMultiplier;
-    } else if (overtimeRate === 0 && hourlyRate > 0) {
-      // Legacy fallback when neither assignment nor policy provides OT.
-      overtimeRate = hourlyRate * 1.5;
     }
 
     // Fetch work sessions for per-session breakdown

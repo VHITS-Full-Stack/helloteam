@@ -147,11 +147,9 @@ export const generatePayslips = async (
 
       let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : policyOvertimeRate;
 
-      const employeeOvertimeMultiplier = employee.overtimeRate ? Number(employee.overtimeRate) : 0;
-      if (assignmentOvertimeRate <= 0 && employeeOvertimeMultiplier > 0 && hourlyRate > 0) {
+      if (overtimeRate === 0 && hourlyRate > 0) {
+        const employeeOvertimeMultiplier = employee.overtimeRate ? Number(employee.overtimeRate) : 1;
         overtimeRate = hourlyRate * employeeOvertimeMultiplier;
-      } else if (overtimeRate === 0 && hourlyRate > 0) {
-        overtimeRate = hourlyRate * 1.5;
       }
 
       // Calculate hours

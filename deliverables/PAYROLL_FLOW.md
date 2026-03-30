@@ -46,7 +46,7 @@ Each month has **2 pay periods**:
 
 If OT is approved **after** a payroll period has been finalized:
 - System automatically creates a **bonus adjustment** in the **next** payroll period.
-- Labeled as: "Outstanding approved OT from [date] ([hours]h x $[rate]/hr)"
+- Labeled as: "Outstanding approved OT from [date] ([hours]h x $[rate])"
 - This ensures employees are paid for late-approved overtime.
 
 ---
