@@ -147,8 +147,6 @@ const Approvals = () => {
   }, [activeTab, dateRange.startDate, dateRange.endDate]);
 
   const fetchAutoOvertimeRequests = useCallback(async () => {
-    if (fetchingAutoOvertimeRef.current) return;
-    fetchingAutoOvertimeRef.current = true;
     setLoading(true);
     setError(null);
     try {
@@ -168,7 +166,6 @@ const Approvals = () => {
       setError('Failed to load overtime without prior approval');
     } finally {
       setLoading(false);
-      fetchingAutoOvertimeRef.current = false;
     }
   }, [activeTab, dateRange.startDate, dateRange.endDate]);
 
@@ -533,9 +530,9 @@ const Approvals = () => {
         >
           <AlertCircle className="w-4 h-4 inline mr-2" />
           Overtime Requests
-          {overtimeSummary.pending > 0 && (
+          {(overtimeSummary.pending - (autoOvertimeSummary.pending || 0)) > 0 && (
             <span className="ml-2 px-2 py-0.5 bg-warning text-warning-dark text-xs rounded-full">
-              {overtimeSummary.pending}
+              {overtimeSummary.pending - (autoOvertimeSummary.pending || 0)}
             </span>
           )}
         </button>
@@ -566,7 +563,7 @@ const Approvals = () => {
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">
-                {activeType === 'leave' ? summary.pending : activeType === 'autoOvertime' ? autoOvertimeSummary.pending : overtimeSummary.pending}
+                {activeType === 'leave' ? summary.pending : activeType === 'autoOvertime' ? autoOvertimeSummary.pending : Math.max(0, (overtimeSummary.pending || 0) - (autoOvertimeSummary.pending || 0))}
               </p>
               <p className="text-sm text-gray-500">Pending</p>
             </div>

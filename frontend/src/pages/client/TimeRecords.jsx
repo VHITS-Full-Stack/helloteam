@@ -53,6 +53,11 @@ const TimeRecords = () => {
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [pendingActionIds, setPendingActionIds] = useState([]);
   const [rejectReason, setRejectReason] = useState("");
+  const [showOTSelectionModal, setShowOTSelectionModal] = useState(false);
+  const [otSelectionAction, setOTSelectionAction] = useState('approve'); // 'approve' | 'reject'
+  const [otSelectionEntries, setOTSelectionEntries] = useState([]);
+  const [otSelectedIds, setOTSelectedIds] = useState([]);
+  const [otSelectionRejectReason, setOTSelectionRejectReason] = useState("");
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
@@ -499,6 +504,46 @@ const TimeRecords = () => {
     }
   };
 
+  const openOTSelectionModal = (pendingOTs, action) => {
+    setOTSelectionEntries(pendingOTs);
+    setOTSelectionAction(action);
+    setOTSelectedIds(pendingOTs.map(ot => ot.id));
+    setOTSelectionRejectReason("");
+    setShowOTSelectionModal(true);
+  };
+
+  const toggleOTSelection = (id) => {
+    setOTSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const confirmOTSelection = async () => {
+    if (otSelectedIds.length === 0) return;
+    try {
+      setActionLoading(true);
+      if (otSelectionAction === 'approve') {
+        for (const id of otSelectedIds) {
+          await clientPortalService.approveOvertime(id);
+        }
+      } else {
+        if (!otSelectionRejectReason.trim()) return;
+        for (const id of otSelectedIds) {
+          await clientPortalService.rejectOvertime(id, otSelectionRejectReason.trim());
+        }
+      }
+      setShowOTSelectionModal(false);
+      setOTSelectionEntries([]);
+      setOTSelectedIds([]);
+      setOTSelectionRejectReason("");
+      fetchTimeRecords();
+    } catch (err) {
+      setError(err.message || `Failed to ${otSelectionAction} overtime`);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Prepare employee groups with filtered day records
   const employeeGroups = timeRecords
     .sort((a, b) => (a.employee || "").localeCompare(b.employee || ""))
@@ -837,10 +882,10 @@ const TimeRecords = () => {
                           <td className="py-2.5 px-4 text-right">
                             {pendingOTs.length > 0 ? (
                               <div className="flex items-center justify-end gap-1">
-                                    <button onClick={() => handleApproveAllOT(pendingOTs.map(ot => ot.id))} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50">
+                                    <button onClick={() => openOTSelectionModal(pendingOTs, 'approve')} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50">
                                       <Check className="w-3 h-3" /> Approve
                                     </button>
-                                    <button onClick={() => pendingOTs.forEach(ot => handleRejectOT(ot.id))} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50">
+                                    <button onClick={() => openOTSelectionModal(pendingOTs, 'reject')} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50">
                                       <X className="w-3 h-3" /> Deny
                                     </button>
                               </div>
@@ -1237,10 +1282,7 @@ const TimeRecords = () => {
                                     .length > 0 ? (
                                     <div className="flex items-center justify-end gap-1.5">
                                       <button
-                                        onClick={() => {
-                                          const allPendingIds = [...pendingRequestedOT, ...pendingAutoOT].map(ot => ot.id);
-                                          handleApproveAllOT(allPendingIds);
-                                        }}
+                                        onClick={() => openOTSelectionModal([...pendingRequestedOT, ...pendingAutoOT], 'approve')}
                                         disabled={actionLoading}
                                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
                                       >
@@ -1248,10 +1290,7 @@ const TimeRecords = () => {
                                         Approve
                                       </button>
                                       <button
-                                        onClick={() => {
-                                          const allPendingIds = [...pendingRequestedOT, ...pendingAutoOT].map(ot => ot.id);
-                                          allPendingIds.forEach(id => handleRejectOT(id));
-                                        }}
+                                        onClick={() => openOTSelectionModal([...pendingRequestedOT, ...pendingAutoOT], 'reject')}
                                         disabled={actionLoading}
                                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
                                       >
@@ -1386,29 +1425,22 @@ const TimeRecords = () => {
                             </div>
                             {pendingAutoOT.length > 0 && (
                               <div className="flex items-center gap-2 mt-2">
-                                {pendingAutoOT.map((ot) => (
-                                  <div
-                                    key={ot.id}
-                                    className="flex items-center gap-1"
-                                  >
-                                    <button
-                                      onClick={() => handleApproveOT(ot.id)}
-                                      disabled={actionLoading}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
-                                    >
-                                      <Check className="w-3 h-3" />
-                                      Approve
-                                    </button>
-                                    <button
-                                      onClick={() => handleRejectOT(ot.id)}
-                                      disabled={actionLoading}
-                                      className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
-                                    >
-                                      <X className="w-3 h-3" />
-                                      Deny
-                                    </button>
-                                  </div>
-                                ))}
+                                <button
+                                  onClick={() => openOTSelectionModal(pendingAutoOT, 'approve')}
+                                  disabled={actionLoading}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => openOTSelectionModal(pendingAutoOT, 'reject')}
+                                  disabled={actionLoading}
+                                  className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
+                                >
+                                  <X className="w-3 h-3" />
+                                  Deny
+                                </button>
                               </div>
                             )}
                           </>
@@ -1556,6 +1588,89 @@ const TimeRecords = () => {
               >
                 {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Deny Overtime
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* OT Selection Modal */}
+      {showOTSelectionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setShowOTSelectionModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              {otSelectionAction === 'approve' ? 'Approve Overtime' : 'Reject Overtime'}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Select the overtime entries to {otSelectionAction}:
+            </p>
+            <div className="space-y-2 mb-4">
+              {otSelectionEntries.map((ot) => (
+                <label
+                  key={ot.id}
+                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                    otSelectedIds.includes(ot.id)
+                      ? otSelectionAction === 'approve' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={otSelectedIds.includes(ot.id)}
+                    onChange={() => toggleOTSelection(ot.id)}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-gray-900">
+                        {formatHours(ot.requestedMinutes / 60)}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        ot.type === 'SHIFT_EXTENSION' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
+                      }`}>
+                        {ot.type === 'SHIFT_EXTENSION' ? 'Shift Extension' : 'Off-Shift'}
+                      </span>
+                    </div>
+                    {ot.reason && (
+                      <p className="text-xs text-gray-500 mt-0.5 break-words">{ot.reason}</p>
+                    )}
+                  </div>
+                </label>
+              ))}
+            </div>
+            {otSelectionAction === 'reject' && (
+              <div className="mb-4">
+                <textarea
+                  value={otSelectionRejectReason}
+                  onChange={(e) => setOTSelectionRejectReason(e.target.value)}
+                  placeholder="Reason for rejection..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowOTSelectionModal(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmOTSelection}
+                disabled={actionLoading || otSelectedIds.length === 0 || (otSelectionAction === 'reject' && !otSelectionRejectReason.trim())}
+                className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2 ${
+                  otSelectionAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                }`}
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                {otSelectionAction === 'approve' ? `Approve (${otSelectedIds.length})` : `Reject (${otSelectedIds.length})`}
               </button>
             </div>
           </div>

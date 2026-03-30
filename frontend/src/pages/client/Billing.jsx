@@ -602,6 +602,9 @@ const Billing = () => {
                                 Rate
                               </th>
                               <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">
+                                OT Rate
+                              </th>
+                              <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">
                                 Amount
                               </th>
                             </tr>
@@ -626,6 +629,9 @@ const Billing = () => {
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
                                   {formatCurrency(item.rate)}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-600 text-right">
+                                  {Number(item.rate) > 0 ? `${Math.round((Number(item.overtimeRate) / Number(item.rate)) * 100) / 100}x` : '-'}
                                 </td>
                                 <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
                                   {formatCurrency(item.amount)}

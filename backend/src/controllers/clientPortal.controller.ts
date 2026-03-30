@@ -1696,7 +1696,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
         for (const session of daySessions) {
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
-          const endRef = session.endTime || (isActive ? now : null);
+          const endRef = session.endTime || null;
           // Always calculate per-session from actual clock in/out (same as admin)
           const sessionMins = (() => {
             if (!endRef) return 0;
