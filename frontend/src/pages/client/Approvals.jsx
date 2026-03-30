@@ -810,7 +810,18 @@ const Approvals = () => {
                     <TableCell className="!whitespace-normal !px-3">
                       <p className="text-gray-900 text-sm line-clamp-2" title={request.reason}>{request.reason}</p>
                     </TableCell>
-                    <TableCell className="!px-3">{formatDate(request.date)}</TableCell>
+                    <TableCell className="!px-3">
+                      <span className="text-sm">{formatDate(request.date)}</span>
+                      {(request.requestedStartTime || request.estimatedEndTime) && (
+                        <p className="text-xs text-gray-400">
+                          {request.requestedStartTime && request.requestedEndTime
+                            ? `${request.requestedStartTime} - ${request.requestedEndTime}`
+                            : request.estimatedEndTime
+                              ? `until ${request.estimatedEndTime}`
+                              : ''}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell className="!px-3">
                       <Badge variant="warning">
                         {formatMinutesToHours(request.requestedMinutes)}
