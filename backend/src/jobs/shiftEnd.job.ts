@@ -136,8 +136,10 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
       if (minutesUntilEnd <= 30 && minutesUntilEnd > 0 && !session.shiftEndNotifiedAt) {
         const minutesLeft = Math.round(minutesUntilEnd);
 
-        // Check if employee already has an approved OT request for today
-        const approvedOT = await prisma.overtimeRequest.findFirst({
+        // Check if employee has approved OT that starts at or before shift end (continuous OT)
+        // If OT starts AFTER shift end (e.g., off-shift 7:45 when shift ends 7:30),
+        // still show popup and clock out at shift end — employee will clock in separately for OT
+        const approvedOTRequests30 = await prisma.overtimeRequest.findMany({
           where: {
             employeeId: employee.id,
             clientId: assignment.clientId,
@@ -146,14 +148,24 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           },
         });
 
-        // If OT is already approved, skip the popup — employee works without interruption.
-        // The shift end logic (line 241+) will auto-extend their shift by the approved OT minutes.
-        if (approvedOT) {
+        const hasContinuousOT = approvedOTRequests30.some(ot => {
+          // SHIFT_EXTENSION always extends from shift end — continuous
+          if (ot.type === 'SHIFT_EXTENSION') return true;
+          // OFF_SHIFT: check if start time is at or before shift end
+          if (ot.requestedStartTime) {
+            const otStartUTC = buildScheduleTimestamp(clientTimezone, ot.requestedStartTime, now);
+            return otStartUTC.getTime() <= shiftEndUTC.getTime();
+          }
+          // No start time specified — treat as continuous
+          return true;
+        });
+
+        if (hasContinuousOT) {
           await prisma.workSession.update({
             where: { id: session.id },
             data: { shiftEndNotifiedAt: now },
           });
-          console.log(`[Shift-End] Skipped popup for ${employee.firstName} ${employee.lastName} — OT already approved (${approvedOT.requestedMinutes}min)`);
+          console.log(`[Shift-End] Skipped popup for ${employee.firstName} ${employee.lastName} — continuous OT approved`);
           continue;
         }
 
@@ -245,28 +257,56 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
         });
 
         if (approvedOTRequests.length > 0) {
-          // Sum all approved OT minutes to get total extended time
-          const totalApprovedOTMinutes = approvedOTRequests.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-          const extendedEndUTC = new Date(shiftEndUTC.getTime() + totalApprovedOTMinutes * 60000);
-          const minutesUntilExtendedEnd = (extendedEndUTC.getTime() - now.getTime()) / 60000;
+          // Only consider OT that is continuous (starts at or before shift end)
+          // OFF_SHIFT OT that starts AFTER shift end = separate session, don't extend
+          const continuousOT = approvedOTRequests.filter(ot => {
+            if (ot.type === 'SHIFT_EXTENSION') return true;
+            if (ot.requestedStartTime) {
+              const otStartUTC = buildScheduleTimestamp(clientTimezone, ot.requestedStartTime, now);
+              return otStartUTC.getTime() <= shiftEndUTC.getTime();
+            }
+            return true;
+          });
 
-          console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: approved OT ${totalApprovedOTMinutes}min, extendedEndUTC=${extendedEndUTC.toISOString()}, minutesUntilExtendedEnd=${minutesUntilExtendedEnd.toFixed(1)}`);
+          if (continuousOT.length > 0) {
+            // Calculate extended end from continuous OT only
+            let extendedEndUTC: Date;
+            const otWithEndTime = continuousOT
+              .filter(ot => ot.requestedEndTime || ot.estimatedEndTime)
+              .map(ot => {
+                const endTimeStr = ot.requestedEndTime || ot.estimatedEndTime;
+                return buildScheduleTimestamp(clientTimezone, endTimeStr!, now);
+              });
 
-          if (minutesUntilExtendedEnd > 0) {
-            // Still within approved OT window — let them work
+            if (otWithEndTime.length > 0) {
+              extendedEndUTC = new Date(Math.max(...otWithEndTime.map(d => d.getTime())));
+            } else {
+              const totalContinuousOTMinutes = continuousOT.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+              extendedEndUTC = new Date(shiftEndUTC.getTime() + totalContinuousOTMinutes * 60000);
+            }
+
+            const minutesUntilExtendedEnd = (extendedEndUTC.getTime() - now.getTime()) / 60000;
+
+            console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: continuous OT, extendedEndUTC=${extendedEndUTC.toISOString()}, minutesUntilExtendedEnd=${minutesUntilExtendedEnd.toFixed(1)}`);
+
+            if (minutesUntilExtendedEnd > 0) {
+              // Still within approved OT window — let them work
+              continue;
+            }
+
+            // Approved OT time has elapsed — auto-clock-out at extended end time
+            if (!session.shiftEndAction) {
+              await prisma.workSession.update({
+                where: { id: session.id },
+                data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
+              });
+              await autoClockOut(session, employee, extendedEndUTC, schedule, io);
+              console.log(`[Shift-End] Auto-clock-out after approved OT for ${employee.firstName} ${employee.lastName} at ${extendedEndUTC.toISOString()}`);
+            }
             continue;
           }
-
-          // Approved OT time has elapsed — auto-clock-out at extended end time
-          if (!session.shiftEndAction) {
-            await prisma.workSession.update({
-              where: { id: session.id },
-              data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
-            });
-            await autoClockOut(session, employee, extendedEndUTC, schedule, io);
-            console.log(`[Shift-End] Auto-clock-out after approved OT for ${employee.firstName} ${employee.lastName} at ${extendedEndUTC.toISOString()}`);
-          }
-          continue;
+          // Non-continuous OT (starts after shift end) — proceed with normal clock-out
+          // Employee will clock in separately for the off-shift OT session
         }
 
         // If already handled (employee responded to pause), skip
