@@ -141,7 +141,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
     try {
       let response;
 
-      // Always send the multiplier value the user set (e.g. 1, 1.5, 2).
+      // Always send the multiplier value the user set (e.g. 1).
       // Backend uses this as: hourlyRate * multiplier.
       const overtimeRateToSend = Number(formData.overtimeMultiplier) || 1;
 

@@ -843,6 +843,96 @@ export const approveTimeRecord = async (req: AuthenticatedRequest, res: Response
     // Create approval log
     await createClientApprovalLog(recordId, userId!, 'APPROVED', approverName);
 
+    // Check if this approval is for a finalized payroll period — create adjustment for next period
+    try {
+      const finalizedPeriod = await prisma.payrollPeriod.findFirst({
+        where: {
+          clientId: client.id,
+          periodStart: { lte: timeRecord.date },
+          periodEnd: { gte: timeRecord.date },
+          status: 'FINALIZED',
+        },
+      });
+
+      if (finalizedPeriod) {
+        const employee = await prisma.employee.findUnique({
+          where: { id: timeRecord.employeeId },
+          select: {
+            billingRate: true,
+            overtimeRate: true,
+            clientAssignments: {
+              where: { clientId: client.id, isActive: true },
+              select: { hourlyRate: true, overtimeRate: true },
+            },
+          },
+        });
+
+        const assignment = employee?.clientAssignments?.[0];
+        const hourlyRate = assignment?.hourlyRate ? Number(assignment.hourlyRate)
+          : employee?.billingRate ? Number(employee.billingRate) : 0;
+        let overtimeRate = assignment?.overtimeRate ? Number(assignment.overtimeRate) : 0;
+        if (overtimeRate === 0 && hourlyRate > 0) {
+          const empOTMultiplier = employee?.overtimeRate ? Number(employee.overtimeRate) : 1;
+          overtimeRate = hourlyRate * empOTMultiplier;
+        }
+
+        // Calculate approved OT minutes
+        let approvedOTMinutes = 0;
+        if (statusUpdates.shiftExtensionStatus === 'APPROVED') {
+          approvedOTMinutes += timeRecord.shiftExtensionMinutes || 0;
+        }
+        if (statusUpdates.extraTimeStatus === 'APPROVED') {
+          approvedOTMinutes += timeRecord.extraTimeMinutes || 0;
+        }
+
+        // Calculate total payable minutes (regular + OT)
+        const totalOT = timeRecord.overtimeMinutes || 0;
+        const deniedOT = Math.max(0, totalOT - approvedOTMinutes);
+        const payableMinutes = Math.max(0, (timeRecord.totalMinutes || 0) - deniedOT);
+        const regularMinutes = payableMinutes - approvedOTMinutes;
+
+        const regularPay = Math.round((regularMinutes / 60) * hourlyRate * 100) / 100;
+        const otPay = Math.round((approvedOTMinutes / 60) * overtimeRate * 100) / 100;
+        const totalPay = regularPay + otPay;
+
+        if (totalPay > 0) {
+          let nextPeriod = await prisma.payrollPeriod.findFirst({
+            where: {
+              clientId: client.id,
+              periodStart: { gt: finalizedPeriod.periodEnd },
+              status: { in: ['OPEN', 'LOCKED'] },
+            },
+            orderBy: { periodStart: 'asc' },
+          });
+
+          const adjPeriodStart = nextPeriod?.periodStart || new Date(finalizedPeriod.periodEnd.getTime() + 86400000);
+          const adjPeriodEnd = nextPeriod?.periodEnd || new Date(adjPeriodStart.getTime() + 14 * 86400000);
+
+          const dateLabel = timeRecord.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const totalHrs = (payableMinutes / 60).toFixed(1);
+          const otHrs = (approvedOTMinutes / 60).toFixed(1);
+          const reason = approvedOTMinutes > 0
+            ? `Late-approved timesheet from ${dateLabel} (${totalHrs}h regular + ${otHrs}h OT)`
+            : `Late-approved timesheet from ${dateLabel} (${totalHrs}h × $${hourlyRate})`;
+
+          await prisma.payrollAdjustment.create({
+            data: {
+              employeeId: timeRecord.employeeId,
+              type: 'BONUS',
+              amount: totalPay,
+              reason,
+              periodStart: adjPeriodStart,
+              periodEnd: adjPeriodEnd,
+              createdBy: userId || 'system',
+            },
+          });
+          console.log(`[Timesheet Approve] Late-approved adjustment of $${totalPay} created for employee ${timeRecord.employeeId} in next period`);
+        }
+      }
+    } catch (adjErr) {
+      console.error('[Timesheet Approve] Failed to create late-approved adjustment:', adjErr);
+    }
+
     res.json({
       success: true,
       message: 'Time record approved',
