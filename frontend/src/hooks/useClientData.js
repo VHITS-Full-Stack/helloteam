@@ -221,7 +221,7 @@ function useClientDetail(id) {
     hourlyRate: '',
     overtimeRate: '',
     // UI-driven overtime multiplier. If user doesn't touch it, we keep submitting overtimeRate=0
-    // so backend can apply its default rule (overtimeRate=0 => 1.5x hourly).
+    // so backend can apply its default rule (overtimeRate=0 => 1x hourly).
     overtimeMultiplier: '1',
     isOvertimeMultiplierDirty: false,
     employeeBillingRate: null,

@@ -901,7 +901,7 @@ const AddClient = () => {
                   onChange={(e) => setFormData({ ...formData, defaultOvertimeRate: e.target.value })}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 />
-                <p className="text-xs text-gray-500 mt-1">Leave as 0 to use 1.5x hourly rate</p>
+                <p className="text-xs text-gray-500 mt-1">Leave as 0 to use 1x hourly rate</p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>

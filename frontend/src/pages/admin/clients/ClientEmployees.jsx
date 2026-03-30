@@ -444,7 +444,7 @@ const ClientEmployees = () => {
                     {Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
                     Overtime: $
                     {Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) ||
-                      "1.5x hourly"}
+                      "1x"}
                   </p>
                 </div>
               )}

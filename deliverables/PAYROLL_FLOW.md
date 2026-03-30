@@ -95,7 +95,7 @@ Regular Minutes = Payable Minutes - Approved OT Minutes
 OT Minutes = Approved OT Minutes
 
 Regular Pay = (Regular Minutes / 60) x Hourly Rate
-OT Pay = (OT Minutes / 60) x Overtime Rate (default: 1.5x hourly)
+OT Pay = (OT Minutes / 60) x Overtime Rate (default: 1x hourly)
 Gross Pay = Regular Pay + OT Pay + Bonuses - Deductions - Employee Default Deduction
 ```
 
@@ -109,7 +109,7 @@ Rates are resolved in this priority (first match wins):
 4. `Group.billingRate` — Group default billing rate
 5. `ClientPolicy.defaultHourlyRate` — Client policy default
 
-Overtime rate follows the same priority. If no overtime rate is set, defaults to **1.5x hourly rate**.
+Overtime rate follows the same priority. If no overtime rate is set, defaults to **1x hourly rate**.
 
 ---
 

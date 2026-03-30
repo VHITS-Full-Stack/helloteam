@@ -366,7 +366,7 @@ export const createEmployee = async (req: AuthenticatedRequest, res: Response): 
           payableRate: payableRate !== undefined && payableRate !== '' ? parseFloat(payableRate) : null,
           billingRate: billingRate !== undefined && billingRate !== '' ? parseFloat(billingRate) : null,
             // Interpreted as overtime multiplier.
-            // UI sends 0 when user leaves default, so backend can keep existing 1.5x fallback behavior.
+            // UI sends 0 when user leaves default, so backend can keep existing 1x fallback behavior.
             overtimeRate: overtimeRate !== undefined && overtimeRate !== '' ? parseFloat(overtimeRate) : 0,
           deduction: deduction !== undefined && deduction !== '' ? parseFloat(deduction) : 0,
         },

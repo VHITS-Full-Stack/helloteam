@@ -389,7 +389,7 @@ model ClientPolicy {
 
   // Billing/Rate settings
   defaultHourlyRate   Decimal @default(0) @db.Decimal(10, 2)
-  defaultOvertimeRate Decimal @default(0) @db.Decimal(10, 2) // If 0, uses 1.5x hourly rate
+  defaultOvertimeRate Decimal @default(1) @db.Decimal(10, 2) // If 0, uses 1 hourly rate
   currency            String  @default("USD")
   paymentTermsDays    Int     @default(15) // Days after period end for invoice due date
 

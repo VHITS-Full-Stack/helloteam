@@ -136,7 +136,7 @@ export const sendPasswordResetEmail = async (
       If you didn't request a password reset, you can safely ignore this email. Your password will remain unchanged.
     </p>
     <hr style="${styles.hr}">
-    <p style="color: ${colors.muted}; font-size: 12px; line-height: 1.5;">
+    <p style="color: ${colors.muted}; font-size: 12px; line-height: 1;">
       If the button doesn't work, copy and paste this link into your browser:<br>
       <a href="${resetUrl}" style="${styles.link}">${resetUrl}</a>
     </p>

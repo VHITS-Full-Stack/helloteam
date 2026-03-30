@@ -1394,7 +1394,7 @@ const Settings = () => {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-medium text-gray-500">Client</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-500">Standard</th>
-                      <th className="text-right py-3 px-4 font-medium text-gray-500">Overtime (1.5x)</th>
+                      <th className="text-right py-3 px-4 font-medium text-gray-500">Overtime (1x)</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-500">Holiday (2x)</th>
                       <th className="text-right py-3 px-4 font-medium text-gray-500">Actions</th>
                     </tr>

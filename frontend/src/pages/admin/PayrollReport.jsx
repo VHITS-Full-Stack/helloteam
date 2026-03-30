@@ -118,6 +118,9 @@ const PayrollReport = () => {
             </div>
           </div>
 
+          {/* Report date */}
+          <p className="text-xs text-gray-400 text-right font-bold">Generated: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
+
           {/* Employee table */}
           <Card padding="none" className="overflow-hidden">
             <div className="overflow-x-auto">

@@ -751,9 +751,9 @@ async function main() {
 
       // Rates
       const hourlyRate = emp.id === e1.id ? 25 : emp.id === e2.id ? 28 : 26;
-      const overtimeRate = hourlyRate * 1.5;
+      const overtimeRate = hourlyRate * 1;
       const billingRate = emp.id === e1.id ? 35 : emp.id === e2.id ? 40 : 38;
-      const billingOTRate = billingRate * 1.5;
+      const billingOTRate = billingRate * 1;
 
       const regularPay = Math.round(regularHours * hourlyRate * 100) / 100;
       const overtimePay = Math.round(overtimeHours * overtimeRate * 100) / 100;
@@ -847,7 +847,7 @@ async function main() {
         const empRegularH = Math.round((empTotalMin - empOTMin) / 60 * 100) / 100;
         const empOTH = Math.round(empOTMin / 60 * 100) / 100;
         const billingRate = emp.id === e1.id ? 35 : emp.id === e2.id ? 40 : 38;
-        const billingOTRate = billingRate * 1.5;
+        const billingOTRate = billingRate * 1;
         const lineAmount = Math.round((empRegularH * billingRate + empOTH * billingOTRate) * 100) / 100;
 
         const empName = emp.id === e1.id ? 'John Doe' : emp.id === e2.id ? 'Jigar Patel' : 'Sarah Johnson';
