@@ -837,16 +837,12 @@ const TimeRecords = () => {
                           <td className="py-2.5 px-4 text-right">
                             {pendingOTs.length > 0 ? (
                               <div className="flex items-center justify-end gap-1">
-                                {pendingOTs.map((ot) => (
-                                  <div key={ot.id} className="flex items-center gap-1">
-                                    <button onClick={() => handleApproveOT(ot.id)} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50">
+                                    <button onClick={() => handleApproveAllOT(pendingOTs.map(ot => ot.id))} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50">
                                       <Check className="w-3 h-3" /> Approve
                                     </button>
-                                    <button onClick={() => handleRejectOT(ot.id)} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50">
+                                    <button onClick={() => pendingOTs.forEach(ot => handleRejectOT(ot.id))} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50">
                                       <X className="w-3 h-3" /> Deny
                                     </button>
-                                  </div>
-                                ))}
                               </div>
                             ) : rec.timeRecordId && status === "pending" ? (
                               <button onClick={() => handleApprove(rec.timeRecordId)} disabled={actionLoading} className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50">
@@ -1239,39 +1235,29 @@ const TimeRecords = () => {
                                 <td className="py-2.5 px-4 text-right">
                                   {[...pendingRequestedOT, ...pendingAutoOT]
                                     .length > 0 ? (
-                                    <div className="flex items-center justify-end gap-1.5 flex-wrap">
-                                      {[
-                                        ...pendingRequestedOT,
-                                        ...pendingAutoOT,
-                                      ].map((ot) => (
-                                        <div
-                                          key={ot.id}
-                                          className="flex items-center gap-1"
-                                        >
-                                          <button
-                                            onClick={() =>
-                                              handleApproveOT(ot.id)
-                                            }
-                                            disabled={actionLoading}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
-                                            title={`Approve ${formatHours(ot.requestedMinutes / 60)} OT`}
-                                          >
-                                            <Check className="w-3 h-3" />
-                                            Approve
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              handleRejectOT(ot.id)
-                                            }
-                                            disabled={actionLoading}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
-                                            title={`Deny ${formatHours(ot.requestedMinutes / 60)} OT`}
-                                          >
-                                            <X className="w-3 h-3" />
-                                            Deny
-                                          </button>
-                                        </div>
-                                      ))}
+                                    <div className="flex items-center justify-end gap-1.5">
+                                      <button
+                                        onClick={() => {
+                                          const allPendingIds = [...pendingRequestedOT, ...pendingAutoOT].map(ot => ot.id);
+                                          handleApproveAllOT(allPendingIds);
+                                        }}
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                                      >
+                                        <Check className="w-3 h-3" />
+                                        Approve
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const allPendingIds = [...pendingRequestedOT, ...pendingAutoOT].map(ot => ot.id);
+                                          allPendingIds.forEach(id => handleRejectOT(id));
+                                        }}
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
+                                      >
+                                        <X className="w-3 h-3" />
+                                        Deny
+                                      </button>
                                     </div>
                                   ) : (
                                     <span className="text-gray-300">—</span>
