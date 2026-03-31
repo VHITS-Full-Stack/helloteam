@@ -39,9 +39,16 @@ export const buildScheduleTimestamp = (timezone: string, timeStr: string, refDat
   const month = dp.find((p) => p.type === 'month')?.value;
   const day = dp.find((p) => p.type === 'day')?.value;
   const isoAsUTC = new Date(`${year}-${month}-${day}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00Z`);
-  const utcStr = refDate.toLocaleString('en-US', { timeZone: 'UTC' });
-  const tzStr = refDate.toLocaleString('en-US', { timeZone: timezone });
-  const offsetMs = new Date(utcStr).getTime() - new Date(tzStr).getTime();
+  // Calculate timezone offset reliably using formatToParts (avoids new Date(localeString) parsing issues)
+  const getPartsMs = (tz: string) => {
+    const p = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+    }).formatToParts(refDate);
+    const v = (t: string) => parseInt(p.find(x => x.type === t)?.value || '0');
+    return Date.UTC(v('year'), v('month') - 1, v('day'), v('hour'), v('minute'), v('second'));
+  };
+  const offsetMs = getPartsMs('UTC') - getPartsMs(timezone);
   return new Date(isoAsUTC.getTime() + offsetMs);
 };
 
