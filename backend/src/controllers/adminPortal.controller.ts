@@ -973,6 +973,16 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         } else {
           // No pre-requested OT: keep the regular schedule visible but clear late/arrival
           // (late against regular schedule is not meaningful for off-shift sessions)
+          // If this session has no stored schedule, try the first session of the day
+          if (!effectiveScheduledStart && !effectiveScheduledEnd) {
+            const empDayKey = `${session.employeeId}_${dateStr}`;
+            const empDaySessions = sessionsByEmpDate.get(empDayKey) || [];
+            const firstSession = empDaySessions[0];
+            if (firstSession && firstSession.id !== session.id) {
+              effectiveScheduledStart = firstSession.scheduledStartTime || null;
+              effectiveScheduledEnd = firstSession.scheduledEndTime || null;
+            }
+          }
           effectiveArrivalStatus = 'No Schedule';
           effectiveLateMinutes = null;
           effectiveIsLate = false;
