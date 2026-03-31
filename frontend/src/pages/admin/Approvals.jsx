@@ -332,7 +332,7 @@ const Approvals = () => {
           { key: 'leave', label: 'Leave Requests', icon: Calendar },
           { key: 'overtime', label: 'Overtime Requests', icon: Timer },
           { key: 'autoOvertime', label: 'OT Without Prior Approval', icon: AlertCircle },
-          // { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
+          { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -437,6 +437,8 @@ const Approvals = () => {
                   {isOTType && <TableHeader className="!px-3">Type</TableHeader>}
                   <TableHeader className="!px-3">{isOTType ? 'Reason' : 'Description'}</TableHeader>
                   <TableHeader className="!px-3">Date</TableHeader>
+                  {activeType === 'timesheet' && <TableHeader className="!px-3">Schedule</TableHeader>}
+                  {activeType === 'timesheet' && <TableHeader className="!px-3">Clock In/Out</TableHeader>}
                   {isOTType && <TableHeader className="!px-3">Hours</TableHeader>}
                   <TableHeader className="!px-3">Status</TableHeader>
                   <TableHeader className="!px-3">Submitted</TableHeader>
@@ -488,6 +490,30 @@ const Approvals = () => {
                           </p>
                         )}
                       </TableCell>
+                      {activeType === 'timesheet' && (
+                        <TableCell className="!px-3">
+                          {item.scheduledStart && item.scheduledEnd ? (
+                            <span className="text-sm text-gray-700">
+                              {formatTime12(typeof item.scheduledStart === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledStart) ? item.scheduledStart : new Date(item.scheduledStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }))}
+                              <span className="text-gray-300 mx-0.5">–</span>
+                              {formatTime12(typeof item.scheduledEnd === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledEnd) ? item.scheduledEnd : new Date(item.scheduledEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }))}
+                            </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </TableCell>
+                      )}
+                      {activeType === 'timesheet' && (
+                        <TableCell className="!px-3">
+                          {item.clockIn ? (
+                            <span className="text-sm text-gray-700">
+                              {new Date(item.clockIn).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              <span className="text-gray-300 mx-0.5">–</span>
+                              {item.clockOut
+                                ? new Date(item.clockOut).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                                : <span className="text-green-600">Active</span>}
+                            </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </TableCell>
+                      )}
                       {isOTType && (
                         <TableCell className="!px-3">
                           <span className="font-semibold text-sm">{formatMinutesToHours(item.requestedMinutes)}</span>
