@@ -882,7 +882,8 @@ const TimeRecords = () => {
                             )}
                           </div>
                           {(day.isLate || day.arrivalStatus === "Late") &&
-                            (day.overtimeHours === 0 || day.regularHours === 0) && (
+                            (day.overtimeHours === 0 ||
+                              day.regularHours === 0) && (
                               <span className="inline-flex items-center px-1.5 py-0.5 text-[9px] font-semibold rounded-full bg-red-100 text-red-700 mt-0.5">
                                 Late
                                 {day.lateMinutes
@@ -976,9 +977,10 @@ const TimeRecords = () => {
 
                         {/* Regular */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                          {day.regularHours != null
+                          {day.regularHours !== null &&
+                          day.regularHours !== undefined
                             ? formatHours(day.regularHours)
-                            : day.hours != null
+                            : day.hours !== null && day.hours !== undefined
                               ? formatHours(day.hours)
                               : "-"}
                         </td>
@@ -1287,11 +1289,12 @@ const TimeRecords = () => {
                         Session {idx + 1}
                       </span>
                       <div className="flex items-center gap-2">
-                        {session.hours != null && (
-                          <span className="text-xs text-gray-500">
-                            {formatHours(session.hours)}
-                          </span>
-                        )}
+                        {session.hours !== null &&
+                          session.hours !== undefined && (
+                            <span className="text-xs text-gray-500">
+                              {formatHours(session.hours)}
+                            </span>
+                          )}
                         {session.breakMinutes > 0 && (
                           <span className="inline-flex items-center gap-1 text-[10px] text-yellow-600">
                             <Coffee className="w-3 h-3" />
@@ -1524,6 +1527,7 @@ const TimeRecords = () => {
 
       {/* OT Approve/Deny Modal */}
       {otActionModal.show && (
+        // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           onClick={() =>

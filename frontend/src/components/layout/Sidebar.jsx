@@ -85,7 +85,8 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
   }, [portalType]);
 
   useEffect(() => {
-    fetchPendingCounts();
+    // Use microtask to avoid synchronous setState in effect body
+    queueMicrotask(() => fetchPendingCounts());
     // Re-fetch when approvals are updated
     const handleUpdate = () => fetchPendingCounts();
     window.addEventListener("approvals-updated", handleUpdate);
@@ -262,7 +263,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
       // Check if user has the required permission
       return hasPermission(link.permission);
     });
-  }, [permissionsLoading, hasPermission]);
+  }, [permissionsLoading, hasPermission, adminLinksConfig]);
 
   const links = {
     employee: employeeLinks,
