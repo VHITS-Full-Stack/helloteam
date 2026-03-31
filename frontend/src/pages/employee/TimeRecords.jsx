@@ -913,8 +913,12 @@ const TimeRecords = () => {
                                 Schedule:
                               </span>
                               <span className="text-xs font-medium text-gray-700">
-                                {formatTime(session.scheduledStart)} –{" "}
-                                {formatTime(session.scheduledEnd)}
+                                {typeof session.scheduledStart === 'string' && /^\d{1,2}:\d{2}$/.test(session.scheduledStart)
+                                  ? formatTime12(session.scheduledStart)
+                                  : formatTime(session.scheduledStart)} –{" "}
+                                {typeof session.scheduledEnd === 'string' && /^\d{1,2}:\d{2}$/.test(session.scheduledEnd)
+                                  ? formatTime12(session.scheduledEnd)
+                                  : formatTime(session.scheduledEnd)}
                               </span>
                             </div>
                           )}
