@@ -80,6 +80,8 @@ const ShiftModals = () => {
         const sessionRes = await workSessionService.getCurrentSession();
         if (!sessionRes.success || !sessionRes.session || sessionRes.session.status === 'COMPLETED') return;
 
+        const currentSessionId = sessionRes.session.id;
+
         const response = await notificationService.getNotifications({
           unreadOnly: 'true',
           limit: '5',
@@ -91,6 +93,13 @@ const ShiftModals = () => {
               !n.isRead
           );
           if (shiftNotif) {
+            // Only show modal if notification belongs to the current active session
+            const notifSessionId = shiftNotif.data?.sessionId;
+            if (notifSessionId && notifSessionId !== currentSessionId) {
+              // Old notification from a previous session — mark as read and skip
+              notificationService.markAsRead(shiftNotif.id).catch(() => {});
+              return;
+            }
             setShiftEndData(shiftNotif.data || {});
             setShowShiftEndModal(true);
             notificationService.markAsRead(shiftNotif.id).catch(() => {});

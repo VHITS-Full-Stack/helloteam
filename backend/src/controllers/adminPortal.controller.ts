@@ -907,6 +907,52 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const hours = Math.round(effectiveMinutes / 60 * 100) / 100;
       const regularHours = isActive ? 0 : Math.max(0, Math.round((hours - overtimeHours) * 100) / 100);
 
+      // Detect off-shift sessions: session started after schedule end
+      const isOffShiftSession = (() => {
+        if (!session.scheduledEndTime || !session.startTime) return false;
+        const [endH, endM] = session.scheduledEndTime.split(':').map(Number);
+        const schedEndMinutes = endH * 60 + endM;
+        const sessionStart = new Date(session.startTime);
+        const startInTz = new Date(sessionStart.toLocaleString('en-US', { timeZone: clientInfo?.timezone || 'UTC' }));
+        const sessionStartMinutes = startInTz.getHours() * 60 + startInTz.getMinutes();
+        return sessionStartMinutes > schedEndMinutes;
+      })();
+
+      // For off-shift sessions, override schedule, late, and regular hours using OT request times
+      let effectiveScheduledStart = session.scheduledStartTime || null;
+      let effectiveScheduledEnd = session.scheduledEndTime || null;
+      let effectiveArrivalStatus = session.arrivalStatus || null;
+      let effectiveLateMinutes = session.lateMinutes || null;
+      let effectiveIsLate = dayTimeRecord?.isLate || false;
+      let effectiveRegularHours = regularHours;
+
+      if (isOffShiftSession) {
+        const offShiftOT = sessionOTEntries.find(ot => ot.type === 'OFF_SHIFT');
+        if (offShiftOT?.requestedStartTime && offShiftOT?.requestedEndTime) {
+          effectiveScheduledStart = offShiftOT.requestedStartTime;
+          effectiveScheduledEnd = offShiftOT.requestedEndTime;
+
+          // Recalculate late against OT requestedStartTime
+          const otStart = new Date(offShiftOT.requestedStartTime);
+          const otStartMinutes = otStart.getHours() * 60 + otStart.getMinutes();
+          const sessionStart = new Date(session.startTime);
+          const startInTz = new Date(sessionStart.toLocaleString('en-US', { timeZone: clientInfo?.timezone || 'UTC' }));
+          const sessionStartMinutes = startInTz.getHours() * 60 + startInTz.getMinutes();
+          const diffMin = sessionStartMinutes - otStartMinutes;
+          if (diffMin > 0) {
+            effectiveArrivalStatus = 'Late';
+            effectiveLateMinutes = diffMin;
+            effectiveIsLate = true;
+          } else {
+            effectiveArrivalStatus = diffMin < 0 ? 'Early' : 'On Time';
+            effectiveLateMinutes = null;
+            effectiveIsLate = false;
+          }
+        }
+        // Off-shift sessions: all time is OT, regular = 0
+        effectiveRegularHours = 0;
+      }
+
       allRecords.push({
         id: session.id,
         employee: `${emp.firstName} ${emp.lastName}`,
@@ -918,14 +964,14 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         date: dateStr,
         clockIn,
         clockOut,
-        scheduledStart: session.scheduledStartTime || null,
-        scheduledEnd: session.scheduledEndTime || null,
+        scheduledStart: effectiveScheduledStart,
+        scheduledEnd: effectiveScheduledEnd,
         billingStart: isActive ? null : (dayTimeRecord?.billingStart || null),
         billingEnd: isActive ? null : (dayTimeRecord?.billingEnd || null),
         billingMinutes: isActive ? 0 : (dayTimeRecord?.billingMinutes || 0),
-        isLate: dayTimeRecord?.isLate || false,
+        isLate: effectiveIsLate,
         hours,
-        regularHours,
+        regularHours: effectiveRegularHours,
         overtimeHours,
         breaks: breakHours,
         status: (() => {
@@ -944,8 +990,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
           return trStatus;
         })(),
         notes: session.notes || null,
-        arrivalStatus: session.arrivalStatus || null,
-        lateMinutes: session.lateMinutes || null,
+        arrivalStatus: effectiveArrivalStatus,
+        lateMinutes: effectiveLateMinutes,
         sessions: [{
           id: session.id,
           clockIn: session.startTime,
@@ -1553,6 +1599,36 @@ export const finalApproveTimeRecord = async (req: AuthenticatedRequest, res: Res
         approvedAt: new Date(),
       },
     });
+
+    // Also approve any matching OvertimeRequest records so the pending count stays in sync
+    await prisma.overtimeRequest.updateMany({
+      where: {
+        employeeId: record.employeeId,
+        clientId: record.clientId,
+        date: record.date,
+        status: { in: ['PENDING'] },
+      },
+      data: {
+        status: 'APPROVED',
+        approvedBy: adminId,
+        approvedAt: new Date(),
+      },
+    });
+
+    // Also update shiftExtensionStatus / extraTimeStatus on the time record if unapproved
+    const statusUpdates: any = {};
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.shiftExtensionStatus || '') && (record.shiftExtensionMinutes || 0) > 0) {
+      statusUpdates.shiftExtensionStatus = 'APPROVED';
+    }
+    if (['PENDING', 'UNAPPROVED', 'NONE'].includes(record.extraTimeStatus || '') && (record.extraTimeMinutes || 0) > 0) {
+      statusUpdates.extraTimeStatus = 'APPROVED';
+    }
+    if (Object.keys(statusUpdates).length > 0) {
+      await prisma.timeRecord.update({
+        where: { id: recordId },
+        data: statusUpdates,
+      });
+    }
 
     // Create approval log
     await createApprovalLog(recordId, adminId!, 'APPROVED', approverName);

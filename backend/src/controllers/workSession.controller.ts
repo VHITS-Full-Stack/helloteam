@@ -255,15 +255,23 @@ export const clockIn = async (req: AuthenticatedRequest, res: Response): Promise
     if (schedule) {
       const [scheduleHour, scheduleMinute] = schedule.startTime.split(':').map(Number);
       const scheduledStartMinutes = scheduleHour * 60 + scheduleMinute;
-      const timeDiffMinutes = nowTotalMinutes - scheduledStartMinutes;
+      const [endH, endM] = (schedule.endTime || '23:59').split(':').map(Number);
+      const scheduleEndMinutes = endH * 60 + endM;
 
-      if (timeDiffMinutes < 0) {
-        arrivalStatus = 'Early';
-      } else if (timeDiffMinutes < 1) {
-        arrivalStatus = 'On Time';
+      // If clocking in after schedule end, this is an off-shift/post-shift session — don't mark late against schedule start
+      if (nowTotalMinutes > scheduleEndMinutes) {
+        arrivalStatus = 'No Schedule';
       } else {
-        arrivalStatus = 'Late';
-        lateMinutes = timeDiffMinutes;
+        const timeDiffMinutes = nowTotalMinutes - scheduledStartMinutes;
+
+        if (timeDiffMinutes < 0) {
+          arrivalStatus = 'Early';
+        } else if (timeDiffMinutes < 1) {
+          arrivalStatus = 'On Time';
+        } else {
+          arrivalStatus = 'Late';
+          lateMinutes = timeDiffMinutes;
+        }
       }
     }
 
@@ -2176,6 +2184,22 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
     }
 
     if (!session) {
+      // Check if there's an active off-shift session (started after schedule end) — no pause needed
+      const activeSession = await prisma.workSession.findFirst({
+        where: {
+          employeeId: employee.id,
+          status: { in: ['ACTIVE', 'ON_BREAK'] },
+        },
+        orderBy: { startTime: 'desc' },
+      });
+
+      if (activeSession) {
+        // Active session exists but wasn't paused — likely an off-shift/post-shift session
+        // Return graceful response instead of error
+        res.json({ success: true, message: 'No shift-end action needed for this session. Use regular clock-out.' });
+        return;
+      }
+
       res.status(404).json({ success: false, error: 'No active shift-end pause found' });
       return;
     }
