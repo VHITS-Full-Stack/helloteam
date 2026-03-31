@@ -735,9 +735,13 @@ const TimeRecords = () => {
                               <td className="py-2.5 px-3 text-center text-sm">
                                 {session.scheduledStart && session.scheduledEnd ? (
                                   <span className="text-gray-700">
-                                    {formatTime(session.scheduledStart)}
+                                    {typeof session.scheduledStart === 'string' && /^\d{1,2}:\d{2}$/.test(session.scheduledStart)
+                                      ? formatTime12(session.scheduledStart)
+                                      : formatTime(session.scheduledStart)}
                                     <span className="text-gray-300 mx-0.5">–</span>
-                                    {formatTime(session.scheduledEnd)}
+                                    {typeof session.scheduledEnd === 'string' && /^\d{1,2}:\d{2}$/.test(session.scheduledEnd)
+                                      ? formatTime12(session.scheduledEnd)
+                                      : formatTime(session.scheduledEnd)}
                                   </span>
                                 ) : (
                                   <span className="text-gray-300">—</span>
