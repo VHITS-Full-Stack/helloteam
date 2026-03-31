@@ -1394,15 +1394,17 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       const breakMinutes = computedBreakMinutes;
 
       // Calculate per-session minutes
+      // Prefer billing start/end when available (accurate), fallback to session clock times
       const sessionCalcMinutes = (() => {
         if (!session.endTime) return 0;
-        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        const start = timeRecord?.billingStart || session.startTime;
+        const end = timeRecord?.billingEnd || session.endTime;
+        const rawMs = new Date(end).getTime() - new Date(start).getTime();
         const fullMin = Math.floor(rawMs / 60000);
         const remSec = Math.floor((rawMs % 60000) / 1000);
-        return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes;
+        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes);
       })();
 
-      // Always use per-session calculation from actual clock in/out times
       const totalMinutes = sessionCalcMinutes;
 
       // Match OvertimeRequests to this specific session using createdAt

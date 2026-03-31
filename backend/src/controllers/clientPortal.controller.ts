@@ -1697,10 +1697,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || null;
-          // Always calculate per-session from actual clock in/out (same as admin)
+          // Calculate per-session minutes
+          // Prefer billing start/end when available (accurate), fallback to session clock times
           const sessionMins = (() => {
             if (!endRef) return 0;
-            const rawMs = endRef.getTime() - session.startTime.getTime();
+            const start = timeRecord?.billingStart || session.startTime;
+            const end = timeRecord?.billingEnd || session.endTime;
+            const rawMs = new Date(end).getTime() - new Date(start).getTime();
             const fullMin = Math.floor(rawMs / 60000);
             const remSec = Math.floor((rawMs % 60000) / 1000);
             return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
