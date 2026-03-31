@@ -316,70 +316,53 @@ export const createOvertimeRequest = async (req: AuthenticatedRequest, res: Resp
       },
     });
 
-    // Notify the client — 3 simultaneous notifications: in-app, email, SMS
-    const client = await prisma.client.findUnique({
-      where: { id: finalClientId },
-      select: {
-        userId: true,
-        companyName: true,
-        contactPerson: true,
-        phone: true,
-        user: { select: { email: true } },
-      },
-    });
-    const employee = await prisma.employee.findUnique({
-      where: { id: finalEmployeeId },
-      select: { firstName: true, lastName: true },
-    });
-
-    if (client && employee) {
-      const hours = Math.round(finalRequestedMinutes / 60 * 100) / 100;
-      const dateStr = new Date(date).toLocaleDateString();
-      const employeeName = `${employee.firstName} ${employee.lastName}`;
-      const timeInfo = overtimeType === 'OFF_SHIFT'
-        ? ` (${requestedStartTime}–${requestedEndTime})`
-        : estimatedEndTime ? ` until ${estimatedEndTime}` : '';
-
-      // 1. In-app notification
-      await notifyOvertimeRequest(
-        client.userId,
-        employeeName,
-        hours,
-        dateStr,
-        estimatedEndTime || undefined
-      );
-
-      // 2. Email notification
-      try {
-        await sendOvertimeRequestEmail(
-          client.user.email,
-          client.contactPerson || client.companyName,
-          employeeName,
-          hours,
-          dateStr,
-          reason
-        );
-      } catch (emailErr) {
-        console.error('[OT] Failed to send email notification:', emailErr);
-      }
-
-      // 3. SMS notification
-      if (client.phone) {
-        try {
-          await sendSMS(
-            client.phone,
-            `OT request pending for ${employeeName} ${dateStr}${timeInfo} — Approve / Deny. Log in to review.`
-          );
-        } catch (smsErr) {
-          console.error('[OT] Failed to send SMS notification:', smsErr);
-        }
-      }
-    }
-
+    // Respond immediately — don't block on notifications
     res.status(201).json({
       success: true,
       data: request,
     });
+
+    // Fire notifications in background (non-blocking)
+    (async () => {
+      try {
+        const [client, emp] = await Promise.all([
+          prisma.client.findUnique({
+            where: { id: finalClientId },
+            select: {
+              userId: true,
+              companyName: true,
+              contactPerson: true,
+              phone: true,
+              user: { select: { email: true } },
+            },
+          }),
+          prisma.employee.findUnique({
+            where: { id: finalEmployeeId },
+            select: { firstName: true, lastName: true },
+          }),
+        ]);
+
+        if (!client || !emp) return;
+
+        const hours = Math.round(finalRequestedMinutes / 60 * 100) / 100;
+        const dateStr = new Date(date).toLocaleDateString();
+        const employeeName = `${emp.firstName} ${emp.lastName}`;
+        const timeInfo = overtimeType === 'OFF_SHIFT'
+          ? ` (${requestedStartTime}–${requestedEndTime})`
+          : estimatedEndTime ? ` until ${estimatedEndTime}` : '';
+
+        // Send all notifications in parallel
+        await Promise.allSettled([
+          notifyOvertimeRequest(client.userId, employeeName, hours, dateStr, estimatedEndTime || undefined),
+          sendOvertimeRequestEmail(client.user.email, client.contactPerson || client.companyName, employeeName, hours, dateStr, reason),
+          client.phone
+            ? sendSMS(client.phone, `OT request pending for ${employeeName} ${dateStr}${timeInfo} — Approve / Deny. Log in to review.`)
+            : Promise.resolve(),
+        ]);
+      } catch (err) {
+        console.error('[OT] Background notification error:', err);
+      }
+    })();
   } catch (error) {
     console.error('Create overtime request error:', error);
     res.status(500).json({ success: false, error: 'Failed to create overtime request' });
