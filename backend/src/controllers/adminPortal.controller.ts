@@ -1152,10 +1152,10 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       });
     }
 
-    // Sort records by date ascending, then by clockIn within same date
+    // Sort records by date descending, then by clockIn ascending within same date
     for (const group of groupedMap.values()) {
       group.dailyRecords.sort((a: any, b: any) => {
-        const dateCmp = a.date.localeCompare(b.date);
+        const dateCmp = b.date.localeCompare(a.date);
         if (dateCmp !== 0) return dateCmp;
         return new Date(a.clockIn).getTime() - new Date(b.clockIn).getTime();
       });
