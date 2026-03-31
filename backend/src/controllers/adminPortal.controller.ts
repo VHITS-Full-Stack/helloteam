@@ -922,8 +922,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         })
         .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
       const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
-      // Use billing minutes if available and session is completed, otherwise use actual work minutes
-      const effectiveMinutes = (!isActive && dayTimeRecord?.billingMinutes) ? Number(dayTimeRecord.billingMinutes) : workMinutes;
+      // Always use actual work minutes calculated from session clock in/out
+      const effectiveMinutes = workMinutes;
       const hours = Math.round(effectiveMinutes / 60 * 100) / 100;
       const regularHours = isActive ? 0 : Math.max(0, Math.round((hours - overtimeHours) * 100) / 100);
 
