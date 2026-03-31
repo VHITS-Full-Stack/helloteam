@@ -696,6 +696,7 @@ const TimeRecords = () => {
                     <thead>
                       <tr className="border-b border-gray-200 bg-slate-50/50">
                         <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Schedule</th>
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Clock In</th>
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Clock Out</th>
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Break</th>
@@ -727,6 +728,19 @@ const TimeRecords = () => {
                                 </div>
                                 {session.client && (
                                   <span className="text-xs text-gray-400">{session.client.companyName}</span>
+                                )}
+                              </td>
+
+                              {/* Schedule */}
+                              <td className="py-2.5 px-3 text-center text-sm">
+                                {session.scheduledStart && session.scheduledEnd ? (
+                                  <span className="text-gray-700">
+                                    {formatTime(session.scheduledStart)}
+                                    <span className="text-gray-300 mx-0.5">–</span>
+                                    {formatTime(session.scheduledEnd)}
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-300">—</span>
                                 )}
                               </td>
 

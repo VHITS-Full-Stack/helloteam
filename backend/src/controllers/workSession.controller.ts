@@ -1402,12 +1402,10 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
         return (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes;
       })();
 
-      // Use billingMinutes if available (most accurate), then TimeRecord totalMinutes, then per-session calc
-      const totalMinutes = (!isMultiSession && timeRecord?.billingMinutes)
-        ? timeRecord.billingMinutes
-        : (!isMultiSession && timeRecord?.totalMinutes)
-          ? timeRecord.totalMinutes
-          : sessionCalcMinutes;
+      // Use TimeRecord totalMinutes for single-session days; for multi-session days use per-session calc
+      const totalMinutes = (!isMultiSession && timeRecord?.totalMinutes)
+        ? timeRecord.totalMinutes
+        : sessionCalcMinutes;
 
       // Match OvertimeRequests to this specific session using createdAt
       const sameDayOTs = overtimeRequests.filter(ot => {
