@@ -1734,14 +1734,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           }
 
           // Calculate overtime from OvertimeRequest entries
-          // Rejected OT is deducted — employee doesn't get paid for it
+          // Rejected OT becomes regular hours — employee still worked those minutes
           const sessionOvertime = sessionOTEntries
             .filter(ot => ot.status !== 'REJECTED')
             .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-          const sessionRejectedOT = sessionOTEntries
-            .filter(ot => ot.status === 'REJECTED')
-            .reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
-          const effectiveSessionMinutes = Math.max(0, sessionMins - sessionRejectedOT);
+          const effectiveSessionMinutes = sessionMins;
 
           // If OT matching by createdAt failed but TimeRecord has off-shift/extension OT,
           // detect which session is the OT session by matching minutes.

@@ -1432,9 +1432,11 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
       }
 
       const sessionOvertimeMinutes = matchedOTEntries.length > 0
-        ? matchedOTEntries.reduce((sum, ot) => sum + ot.requestedMinutes, 0)
+        ? matchedOTEntries
+            .filter(ot => ot.status !== 'REJECTED')
+            .reduce((sum, ot) => sum + ot.requestedMinutes, 0)
         : 0;
-      const workMinutes = totalMinutes - sessionOvertimeMinutes;
+      const workMinutes = Math.max(0, totalMinutes - sessionOvertimeMinutes);
 
       // Per-session status: if multiple sessions on a day and record is APPROVED due to OT,
       // sessions without OT should show AUTO_APPROVED
