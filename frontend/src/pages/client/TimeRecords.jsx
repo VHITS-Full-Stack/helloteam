@@ -700,7 +700,6 @@ const TimeRecords = () => {
               {[
                 { value: "week", label: "Week" },
                 { value: "month", label: "Month" },
-                { value: "custom", label: "Custom" },
               ].map((m) => (
                 <button
                   key={m.value}
@@ -716,30 +715,28 @@ const TimeRecords = () => {
               ))}
             </div>
 
-            {viewMode === "custom" && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                <span className="text-gray-400 text-sm">to</span>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setViewMode("custom"); }}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <span className="text-gray-400 text-sm">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => { setCustomEnd(e.target.value); setViewMode("custom"); }}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="input py-2 appearance-none pr-9"
+                className="w-48 h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white appearance-none pr-9 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -750,12 +747,11 @@ const TimeRecords = () => {
               <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
               <input
                 type="text"
                 placeholder="Search employees..."
-                className="input w-full md:w-64"
-                style={{ paddingLeft: "2.5rem" }}
+                className="w-48 h-10 pl-9 pr-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />

@@ -346,7 +346,6 @@ const TimesheetDetail = () => {
               {[
                 { value: "week", label: "Week" },
                 { value: "month", label: "Month" },
-                { value: "custom", label: "Custom" },
               ].map((m) => (
                 <button
                   key={m.value}
@@ -361,23 +360,21 @@ const TimesheetDetail = () => {
                 </button>
               ))}
             </div>
-            {viewMode === "custom" && (
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-                <span className="text-gray-400 text-xs">to</span>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
-                />
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setViewMode("custom"); }}
+                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <span className="text-gray-400 text-xs">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => { setCustomEnd(e.target.value); setViewMode("custom"); }}
+                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-5">
             <div className="text-center">
