@@ -1393,16 +1393,11 @@ export const getSessionHistory = async (req: AuthenticatedRequest, res: Response
 
       const breakMinutes = computedBreakMinutes;
 
-      // Calculate per-session minutes
-      // Prefer billing start/end when available (accurate), fallback to session clock times
+      // Calculate per-session minutes from clock in/out, rounded to nearest minute
       const sessionCalcMinutes = (() => {
         if (!session.endTime) return 0;
-        const start = timeRecord?.billingStart || session.startTime;
-        const end = timeRecord?.billingEnd || session.endTime;
-        const rawMs = new Date(end).getTime() - new Date(start).getTime();
-        const fullMin = Math.floor(rawMs / 60000);
-        const remSec = Math.floor((rawMs % 60000) / 1000);
-        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMinutes);
+        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        return Math.max(0, Math.round(rawMs / 60000) - breakMinutes);
       })();
 
       const totalMinutes = sessionCalcMinutes;

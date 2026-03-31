@@ -1697,16 +1697,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const isActive = session.status === 'ACTIVE' || session.status === 'ON_BREAK';
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || null;
-          // Calculate per-session minutes
-          // Prefer billing start/end when available (accurate), fallback to session clock times
+          // Calculate per-session minutes from clock in/out, rounded to nearest minute
           const sessionMins = (() => {
             if (!endRef) return 0;
-            const start = timeRecord?.billingStart || session.startTime;
-            const end = timeRecord?.billingEnd || session.endTime;
-            const rawMs = new Date(end).getTime() - new Date(start).getTime();
-            const fullMin = Math.floor(rawMs / 60000);
-            const remSec = Math.floor((rawMs % 60000) / 1000);
-            return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
+            const rawMs = endRef.getTime() - session.startTime.getTime();
+            return Math.max(0, Math.round(rawMs / 60000) - breakMins);
           })();
 
           // Match OT requests to this specific session using createdAt

@@ -857,17 +857,12 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const trKey = `${session.employeeId}_${dateStr}`;
       const dayTimeRecord = timeRecordMap.get(trKey);
 
-      // Calculate per-session work minutes
-      // Prefer billing start/end when available (accurate displayed values), fallback to session clock times
+      // Calculate per-session work minutes from clock in/out, rounded to nearest minute
       const breakMins = session.totalBreakMinutes || 0;
       const workMinutes = (() => {
         if (!session.endTime) return 0;
-        const start = dayTimeRecord?.billingStart || session.startTime;
-        const end = dayTimeRecord?.billingEnd || session.endTime;
-        const rawMs = new Date(end).getTime() - new Date(start).getTime();
-        const fullMin = Math.floor(rawMs / 60000);
-        const remSec = Math.floor((rawMs % 60000) / 1000);
-        return Math.max(0, (remSec >= 30 ? fullMin + 1 : fullMin) - breakMins);
+        const rawMs = session.endTime.getTime() - session.startTime.getTime();
+        return Math.max(0, Math.round(rawMs / 60000) - breakMins);
       })();
 
       const breakHours = Math.round(breakMins / 60 * 100) / 100;
