@@ -226,7 +226,7 @@ const ClientDashboard = () => {
                   Review & Approve Now
                 </Button>
                 <span className="text-sm text-amber-700">
-                  {pendingOT.count} {pendingOT.count === 1 ? 'entry' : 'entries'} totaling <strong>{pendingOT.totalHours}</strong>
+                  {pendingOT.count} {pendingOT.count === 1 ? 'entry' : 'entries'} total <strong>{pendingOT.totalHours}</strong>
                 </span>
               </div>
             </div>

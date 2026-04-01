@@ -603,7 +603,7 @@ export const sendOTBillingReminderEmail = async (
       Hi ${clientName},
     </p>
     <p style="${styles.paragraph}">
-      You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? "y" : "ies"} totaling <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
+      You have <strong>${unapprovedCount}</strong> unapproved overtime entr${unapprovedCount === 1 ? "y" : "ies"} total <strong>${unapprovedHours}</strong>. Unapproved hours won't appear on this billing cycle's invoice.
     </p>
     ${infoBoxHtml(
       `
