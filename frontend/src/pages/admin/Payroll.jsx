@@ -1102,6 +1102,7 @@ const Payroll = () => {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Employee</th>
                   <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Hours Worked</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">OT Hours</th>
                   <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">PTO Hours</th>
                   <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">VTO Hours</th>
                   <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pending Approval</th>
@@ -1154,16 +1155,18 @@ const Payroll = () => {
                         </div>
                       </td>
                       <td className="px-2 py-3 text-center text-sm">
-                        <div>
-                          <span className="font-semibold text-gray-900">
-                            {formatHours(emp.approvedHours || 0)}
+                        <span className="font-semibold text-gray-900">
+                          {formatHours(emp.approvedHours || 0)}
+                        </span>
+                      </td>
+                      <td className="px-2 py-3 text-center text-sm">
+                        {emp.overtimeHours > 0 ? (
+                          <span className="text-orange-600 font-medium">
+                            {formatHours(emp.overtimeHours || 0)}
                           </span>
-                          {emp.overtimeHours > 0 && (
-                            <p className="text-[10px] text-orange-600">
-                              +{formatHours(emp.overtimeHours || 0)} OT
-                            </p>
-                          )}
-                        </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
                       <td className="px-2 py-3 text-center text-sm">
                         {(emp.ptoHours || 0) > 0 ? (

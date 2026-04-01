@@ -1652,6 +1652,7 @@ export const getEmployeePayrollSummary = async (
             firstName: true,
             lastName: true,
             profilePhoto: true,
+            payableRate: true,
             billingRate: true,
             overtimeRate: true,
             deduction: true,
@@ -1949,6 +1950,8 @@ export const getEmployeePayrollSummary = async (
       const empClientId = emp.client?.id;
       const empAssignment = empClientId ? assignmentMap.get(`${empClientId}-${emp.employee.id}`) : null;
       const empPolicy = empClientId ? policyMap.get(empClientId) : null;
+      // For payroll, use payableRate (what we pay the employee), fallback to billingRate
+      const empPayableRate = emp.employee.payableRate ? Number(emp.employee.payableRate) : null;
       const empBillingRate = emp.employee.billingRate ? Number(emp.employee.billingRate) : null;
       const empGroupAssignment = emp.employee.groupAssignments?.[0];
       const empClientGroupRate = empGroupAssignment?.groupId && empClientId
@@ -1956,6 +1959,7 @@ export const getEmployeePayrollSummary = async (
       const empGroupRate = empGroupAssignment?.group?.billingRate ? Number(empGroupAssignment.group.billingRate) : null;
 
       const resolvedHourlyRate = empAssignment?.hourlyRate ? Number(empAssignment.hourlyRate)
+        : empPayableRate ? empPayableRate
         : empBillingRate ? empBillingRate
         : empClientGroupRate ? empClientGroupRate
         : empGroupRate ? empGroupRate
@@ -2101,7 +2105,9 @@ export const getEmployeePayrollDetail = async (
             firstName: true,
             lastName: true,
             profilePhoto: true,
+            payableRate: true,
             billingRate: true,
+            overtimeRate: true,
             deduction: true,
             groupAssignments: {
               select: {
@@ -2141,9 +2147,12 @@ export const getEmployeePayrollDetail = async (
       ]),
     );
 
-    const employeeBillingRate = employee.billingRate
-      ? Number(employee.billingRate)
-      : null;
+    // For payroll, use payableRate (what we pay the employee), fallback to billingRate
+    const employeeBillingRate = employee.payableRate
+      ? Number(employee.payableRate)
+      : employee.billingRate
+        ? Number(employee.billingRate)
+        : null;
     const groupAssignment = employee.groupAssignments?.[0];
     const clientGroupBillingRate = groupAssignment?.groupId
       ? (clientGroupRateMap.get(groupAssignment.groupId) ?? null)
