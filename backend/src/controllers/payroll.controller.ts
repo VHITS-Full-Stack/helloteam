@@ -1671,6 +1671,7 @@ export const getEmployeePayrollSummary = async (
           select: {
             id: true,
             companyName: true,
+            timezone: true,
           },
         },
       },

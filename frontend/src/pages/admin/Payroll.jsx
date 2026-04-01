@@ -1284,22 +1284,17 @@ const Payroll = () => {
                                             new Date(a.date) - new Date(b.date),
                                         )
                                         .map((rec) => {
-                                          const totalH =
-                                            Math.round(
-                                              ((rec.totalMinutes || 0) / 60) *
-                                                100,
-                                            ) / 100;
-                                          const otH =
-                                            Math.round(
-                                              ((rec.overtimeMinutes || 0) /
-                                                60) *
-                                                100,
-                                            ) / 100;
-                                          const breakH =
-                                            Math.round(
-                                              ((rec.breakMinutes || 0) / 60) *
-                                                100,
-                                            ) / 100;
+                                          const fmtMins = (mins) => {
+                                            if (!mins) return "0m";
+                                            const h = Math.floor(mins / 60);
+                                            const m = Math.round(mins % 60);
+                                            if (h === 0) return `${m}m`;
+                                            if (m === 0) return `${h}h`;
+                                            return `${h}h ${m}m`;
+                                          };
+                                          const totalH = rec.totalMinutes || 0;
+                                          const otH = rec.overtimeMinutes || 0;
+                                          const breakH = rec.breakMinutes || 0;
                                           const dateStr = new Date(
                                             rec.date,
                                           ).toLocaleDateString("en-US", {
@@ -1308,6 +1303,7 @@ const Payroll = () => {
                                             day: "numeric",
                                             timeZone: "UTC",
                                           });
+                                          const empTz = emp.client?.timezone || 'America/New_York';
                                           const fmtTime = (d) =>
                                             d
                                               ? new Date(d).toLocaleTimeString(
@@ -1316,6 +1312,7 @@ const Payroll = () => {
                                                     hour: "numeric",
                                                     minute: "2-digit",
                                                     hour12: true,
+                                                    timeZone: empTz,
                                                   },
                                                 )
                                               : "—";
@@ -1341,12 +1338,12 @@ const Payroll = () => {
                                                 {fmtTime(rec.clockOut)}
                                               </td>
                                               <td className="py-1.5 px-3 text-center font-medium">
-                                                {totalH}h
+                                                {fmtMins(totalH)}
                                               </td>
                                               <td className="py-1.5 px-3 text-center">
                                                 {otH > 0 ? (
                                                   <span className="text-orange-600">
-                                                    {otH}h
+                                                    {fmtMins(otH)}
                                                   </span>
                                                 ) : (
                                                   <span className="text-gray-300">
@@ -1357,7 +1354,7 @@ const Payroll = () => {
                                               <td className="py-1.5 px-3 text-center">
                                                 {breakH > 0 ? (
                                                   <span className="text-yellow-600">
-                                                    {breakH}h
+                                                    {fmtMins(breakH)}
                                                   </span>
                                                 ) : (
                                                   <span className="text-gray-300">
