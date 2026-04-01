@@ -3,19 +3,19 @@ import { useParams, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
   Clock,
-  Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Timer,
-  AlertCircle,
   Loader2,
   RotateCcw,
-  TrendingUp,
   Check,
   X,
   CheckCircle,
 } from "lucide-react";
-import { Card, Button, Badge, Avatar } from "../../components/common";
+import {
+  Card,
+  Button,
+  Badge,
+  Avatar,
+  OTSelectionModal,
+} from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import { formatHours } from "../../utils/formatTime";
 
@@ -53,7 +53,6 @@ const TimesheetDetail = () => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [halfFilter, setHalfFilter] = useState("full");
   const [viewMode, setViewMode] = useState("month"); // week, month, custom
   const [weekStart, setWeekStart] = useState(() => {
     const now = new Date();
@@ -75,10 +74,9 @@ const TimesheetDetail = () => {
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
-  const [showOTApproveModal, setShowOTApproveModal] = useState(false);
-  const [showOTRejectModal, setShowOTRejectModal] = useState(false);
-  const [selectedOTRecord, setSelectedOTRecord] = useState(null);
-  const [otRejectReason, setOtRejectReason] = useState("");
+  const [showOTSelectionModal, setShowOTSelectionModal] = useState(false);
+  const [otSelectionAction, setOTSelectionAction] = useState("approve");
+  const [otSelectionEntries, setOTSelectionEntries] = useState([]);
 
   const getDateRange = useCallback(() => {
     if (viewMode === "week") {
@@ -140,21 +138,6 @@ const TimesheetDetail = () => {
     fetchData();
   }, [fetchData]);
 
-  const handlePreviousMonth = () => {
-    setCurrentMonth(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1),
-    );
-  };
-  const handleNextMonth = () => {
-    setCurrentMonth(
-      (prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1),
-    );
-  };
-  const handleCurrentMonth = () => {
-    const now = new Date();
-    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1));
-  };
-
   const handleRequestRevision = (timeRecordIds) => {
     setRevisionRecordIds(
       Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds],
@@ -192,46 +175,31 @@ const TimesheetDetail = () => {
     }
   };
 
-  const handleApproveOT = async (overtimeId) => {
+  const openOTSelectionModal = (pendingOTs, action) => {
+    setOTSelectionEntries(pendingOTs);
+    setOTSelectionAction(action);
+    setShowOTSelectionModal(true);
+  };
+
+  const handleOTSelectionConfirm = async (selectedIds, rejectReason) => {
     try {
       setActionLoading(true);
-      const response = await clientPortalService.approveOvertime(overtimeId);
-      if (response.success) {
-        fetchData();
+      if (otSelectionAction === "approve") {
+        for (const id of selectedIds) {
+          await clientPortalService.approveOvertime(id);
+        }
       } else {
-        setError(response.error || "Failed to approve overtime");
+        for (const id of selectedIds) {
+          await clientPortalService.rejectOvertime(id, rejectReason);
+        }
       }
+      setShowOTSelectionModal(false);
+      setOTSelectionEntries([]);
+      fetchData();
     } catch (err) {
-      setError(err?.error || err?.message || "Failed to approve overtime");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleRejectOT = (overtimeId) => {
-    setSelectedOTRecord({ overtimeId });
-    setOtRejectReason("");
-    setShowOTRejectModal(true);
-  };
-
-  const confirmRejectOvertime = async () => {
-    if (!selectedOTRecord?.overtimeId || !otRejectReason.trim()) return;
-    try {
-      setActionLoading(true);
-      const response = await clientPortalService.rejectOvertime(
-        selectedOTRecord.overtimeId,
-        otRejectReason.trim(),
+      setError(
+        err?.error || err?.message || `Failed to ${otSelectionAction} overtime`,
       );
-      if (response.success) {
-        setShowOTRejectModal(false);
-        setSelectedOTRecord(null);
-        setOtRejectReason("");
-        await fetchData();
-      } else {
-        setError(response.error || "Failed to deny overtime");
-      }
-    } catch (err) {
-      setError(err?.error || err?.message || "Failed to deny overtime");
     } finally {
       setActionLoading(false);
     }
@@ -364,37 +332,59 @@ const TimesheetDetail = () => {
               <input
                 type="date"
                 value={customStart}
-                onChange={(e) => { setCustomStart(e.target.value); setViewMode("custom"); }}
+                onChange={(e) => {
+                  setCustomStart(e.target.value);
+                  setViewMode("custom");
+                }}
                 className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
               />
               <span className="text-gray-400 text-xs">to</span>
               <input
                 type="date"
                 value={customEnd}
-                onChange={(e) => { setCustomEnd(e.target.value); setViewMode("custom"); }}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value);
+                  setViewMode("custom");
+                }}
                 className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
           </div>
           <div className="flex items-center gap-5">
             <div className="text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Total</p>
-              <p className="text-sm font-bold text-gray-900">{formatHours(totalHours)}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                Total
+              </p>
+              <p className="text-sm font-bold text-gray-900">
+                {formatHours(totalHours)}
+              </p>
             </div>
             <div className="w-px h-6 bg-gray-200" />
             <div className="text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Regular</p>
-              <p className="text-sm font-bold text-blue-600">{formatHours(regularHours)}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                Regular
+              </p>
+              <p className="text-sm font-bold text-blue-600">
+                {formatHours(regularHours)}
+              </p>
             </div>
             <div className="w-px h-6 bg-gray-200" />
             <div className="text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Approved OT</p>
-              <p className="text-sm font-bold text-green-600">{approvedOTHours > 0 ? formatHours(approvedOTHours) : "0h"}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                Approved OT
+              </p>
+              <p className="text-sm font-bold text-green-600">
+                {approvedOTHours > 0 ? formatHours(approvedOTHours) : "0h"}
+              </p>
             </div>
             <div className="w-px h-6 bg-gray-200" />
             <div className="text-center">
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider">Pending OT</p>
-              <p className="text-sm font-bold text-amber-600">{pendingOTHours > 0 ? formatHours(pendingOTHours) : "0h"}</p>
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                Pending OT
+              </p>
+              <p className="text-sm font-bold text-amber-600">
+                {pendingOTHours > 0 ? formatHours(pendingOTHours) : "0h"}
+              </p>
             </div>
           </div>
         </div>
@@ -418,12 +408,10 @@ const TimesheetDetail = () => {
         </Card>
       ) : (
         <>
-
           {/* Revision reason banner */}
           {(() => {
             const revisionRecord = record?.records?.find(
-              (r) =>
-                r.status === "REVISION_REQUESTED" && r.revisionReason,
+              (r) => r.status === "REVISION_REQUESTED" && r.revisionReason,
             );
             if (!revisionRecord) return null;
             return (
@@ -467,7 +455,8 @@ const TimesheetDetail = () => {
               }
             }
             const filteredRegularMins = filteredTotalMins - filteredOtMins;
-            const filteredOTTotal = filteredShiftExtMins + filteredExtraTimeMins;
+            const filteredOTTotal =
+              filteredShiftExtMins + filteredExtraTimeMins;
             const totalLabel =
               viewMode === "week"
                 ? "Weekly Total"
@@ -497,14 +486,32 @@ const TimesheetDetail = () => {
                 recStatus === "holiday";
               const otEntries = rec?.overtimeEntries || [];
               const billingM = rec?.billingMinutes || 0;
-              const regularM = rec?.regularMinutes != null
-                ? rec.regularMinutes
-                : Math.max(0, (billingM > 0 ? billingM : totalM) - (rec?.breakMinutes || 0));
+              const regularM =
+                rec?.regularMinutes !== null
+                  ? rec.regularMinutes
+                  : Math.max(
+                      0,
+                      (billingM > 0 ? billingM : totalM) -
+                        (rec?.breakMinutes || 0),
+                    );
               // Pre-requested OT
-              const requestedOTEntries = otEntries.filter((ot) => !ot.isAutoGenerated);
+              const requestedOTEntries = otEntries.filter(
+                (ot) => !ot.isAutoGenerated,
+              );
               // Auto-generated OT (without prior approval)
-              const autoOTEntries = otEntries.filter((ot) => ot.isAutoGenerated);
-              const pendingAutoOT = autoOTEntries.filter((ot) => ot.status === "PENDING");
+              const autoOTEntries = otEntries.filter(
+                (ot) => ot.isAutoGenerated,
+              );
+              const clockIn = rec?.billingStart || rec?.clockIn;
+              const clockOut = rec?.billingEnd || rec?.clockOut;
+              const pendingAutoOT = autoOTEntries
+                .filter((ot) => ot.status === "PENDING")
+                .map((ot) => ({
+                  ...ot,
+                  _date: rec?.date,
+                  _clockIn: clockIn,
+                  _clockOut: clockOut,
+                }));
               const hasOT = otEntries.length > 0;
               const dateLabel = date.toLocaleDateString("en-US", {
                 weekday: "short",
@@ -614,7 +621,10 @@ const TimesheetDetail = () => {
                               <td className="py-2.5 px-3 text-center text-sm">
                                 {rec?.clockIn ? (
                                   <span className="text-gray-900">
-                                    {formatClockTime(rec.clockIn, clientTimezone)}
+                                    {formatClockTime(
+                                      rec.clockIn,
+                                      clientTimezone,
+                                    )}
                                   </span>
                                 ) : (
                                   <span className="text-gray-300">—</span>
@@ -634,7 +644,10 @@ const TimesheetDetail = () => {
                                   <td className="py-2.5 px-3 text-center text-sm">
                                     {rec?.clockOut ? (
                                       <span className="text-gray-900">
-                                        {formatClockTime(rec.clockOut, clientTimezone)}
+                                        {formatClockTime(
+                                          rec.clockOut,
+                                          clientTimezone,
+                                        )}
                                       </span>
                                     ) : rec?.clockIn ? (
                                       <span className="text-green-600 font-medium">
@@ -678,15 +691,37 @@ const TimesheetDetail = () => {
                                     {requestedOTEntries.length > 0 ? (
                                       <div className="flex flex-col items-center gap-0.5">
                                         {requestedOTEntries.map((ot, i) => (
-                                          <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
-                                            <span className={ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? "text-green-700 font-medium" : "text-orange-600 font-medium"}>
-                                              {formatHours(ot.requestedMinutes / 60)}
+                                          <span
+                                            key={i}
+                                            className="inline-flex items-center gap-1 whitespace-nowrap"
+                                          >
+                                            <span
+                                              className={
+                                                ot.status === "APPROVED" ||
+                                                ot.status === "AUTO_APPROVED"
+                                                  ? "text-green-700 font-medium"
+                                                  : "text-orange-600 font-medium"
+                                              }
+                                            >
+                                              {formatHours(
+                                                ot.requestedMinutes / 60,
+                                              )}
                                             </span>
                                             <span className="text-[10px] text-gray-400">
-                                              {ot.type === "SHIFT_EXTENSION" ? "ext" : "off"}
+                                              {ot.type === "SHIFT_EXTENSION"
+                                                ? "ext"
+                                                : "off"}
                                             </span>
-                                            {(ot.status === "APPROVED" || ot.status === "AUTO_APPROVED") && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                            {ot.status === "PENDING" && <span className="text-[10px] text-amber-500">pending</span>}
+                                            {(ot.status === "APPROVED" ||
+                                              ot.status ===
+                                                "AUTO_APPROVED") && (
+                                              <CheckCircle className="w-3 h-3 text-green-500" />
+                                            )}
+                                            {ot.status === "PENDING" && (
+                                              <span className="text-[10px] text-amber-500">
+                                                pending
+                                              </span>
+                                            )}
                                           </span>
                                         ))}
                                       </div>
@@ -700,15 +735,37 @@ const TimesheetDetail = () => {
                                     {autoOTEntries.length > 0 ? (
                                       <div className="flex flex-col items-center gap-0.5">
                                         {autoOTEntries.map((ot, i) => (
-                                          <span key={i} className="inline-flex items-center gap-1 whitespace-nowrap">
-                                            <span className={ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? "text-green-700 font-medium" : "text-orange-600 font-medium"}>
-                                              {formatHours(ot.requestedMinutes / 60)}
+                                          <span
+                                            key={i}
+                                            className="inline-flex items-center gap-1 whitespace-nowrap"
+                                          >
+                                            <span
+                                              className={
+                                                ot.status === "APPROVED" ||
+                                                ot.status === "AUTO_APPROVED"
+                                                  ? "text-green-700 font-medium"
+                                                  : "text-orange-600 font-medium"
+                                              }
+                                            >
+                                              {formatHours(
+                                                ot.requestedMinutes / 60,
+                                              )}
                                             </span>
                                             <span className="text-[10px] text-gray-400">
-                                              {ot.type === "SHIFT_EXTENSION" ? "ext" : "off"}
+                                              {ot.type === "SHIFT_EXTENSION"
+                                                ? "ext"
+                                                : "off"}
                                             </span>
-                                            {(ot.status === "APPROVED" || ot.status === "AUTO_APPROVED") && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                            {ot.status === "PENDING" && <span className="text-[10px] text-amber-500">pending</span>}
+                                            {(ot.status === "APPROVED" ||
+                                              ot.status ===
+                                                "AUTO_APPROVED") && (
+                                              <CheckCircle className="w-3 h-3 text-green-500" />
+                                            )}
+                                            {ot.status === "PENDING" && (
+                                              <span className="text-[10px] text-amber-500">
+                                                pending
+                                              </span>
+                                            )}
                                           </span>
                                         ))}
                                       </div>
@@ -720,29 +777,35 @@ const TimesheetDetail = () => {
                                   {/* Action */}
                                   <td className="py-2.5 px-4 text-center">
                                     {pendingAutoOT.length > 0 ? (
-                                      <div className="flex items-center justify-center gap-1.5 flex-wrap">
-                                        {pendingAutoOT.map((ot) => (
-                                          <div key={ot.id} className="flex items-center gap-1">
-                                            <button
-                                              type="button"
-                                              onClick={() => handleApproveOT(ot.id)}
-                                              disabled={actionLoading}
-                                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
-                                            >
-                                              <Check className="w-3 h-3" />
-                                              Approve
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleRejectOT(ot.id)}
-                                              disabled={actionLoading}
-                                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
-                                            >
-                                              <X className="w-3 h-3" />
-                                              Deny
-                                            </button>
-                                          </div>
-                                        ))}
+                                      <div className="flex items-center justify-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openOTSelectionModal(
+                                              pendingAutoOT,
+                                              "approve",
+                                            )
+                                          }
+                                          disabled={actionLoading}
+                                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                                        >
+                                          <Check className="w-3 h-3" />
+                                          Approve
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            openOTSelectionModal(
+                                              pendingAutoOT,
+                                              "reject",
+                                            )
+                                          }
+                                          disabled={actionLoading}
+                                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
+                                        >
+                                          <X className="w-3 h-3" />
+                                          Deny
+                                        </button>
                                       </div>
                                     ) : (
                                       <span className="text-gray-300">—</span>
@@ -862,8 +925,7 @@ const TimesheetDetail = () => {
                                 ) : null}
                                 {(rec?.breakMinutes || 0) > 0 && (
                                   <span className="text-yellow-600">
-                                    Break:{" "}
-                                    {formatHours(rec.breakMinutes / 60)}
+                                    Break: {formatHours(rec.breakMinutes / 60)}
                                   </span>
                                 )}
                               </div>
@@ -872,44 +934,74 @@ const TimesheetDetail = () => {
                                   Reg: {formatHours(regularM / 60)}
                                 </span>
                                 {requestedOTEntries.map((ot, i) => (
-                                  <span key={`r-${i}`} className="inline-flex items-center gap-0.5">
-                                    <span className={ot.status === "APPROVED" || ot.status === "AUTO_APPROVED" ? "text-green-700" : "text-orange-600"}>
-                                      OT: {formatHours(ot.requestedMinutes / 60)}
+                                  <span
+                                    key={`r-${i}`}
+                                    className="inline-flex items-center gap-0.5"
+                                  >
+                                    <span
+                                      className={
+                                        ot.status === "APPROVED" ||
+                                        ot.status === "AUTO_APPROVED"
+                                          ? "text-green-700"
+                                          : "text-orange-600"
+                                      }
+                                    >
+                                      OT:{" "}
+                                      {formatHours(ot.requestedMinutes / 60)}
                                     </span>
-                                    {(ot.status === "APPROVED" || ot.status === "AUTO_APPROVED") && <CheckCircle className="w-3 h-3 text-green-500" />}
-                                    {ot.status === "PENDING" && <span className="text-amber-500">pending</span>}
+                                    {(ot.status === "APPROVED" ||
+                                      ot.status === "AUTO_APPROVED") && (
+                                      <CheckCircle className="w-3 h-3 text-green-500" />
+                                    )}
+                                    {ot.status === "PENDING" && (
+                                      <span className="text-amber-500">
+                                        pending
+                                      </span>
+                                    )}
                                   </span>
                                 ))}
                                 {autoOTEntries.length > 0 && (
                                   <span className="text-orange-600 font-medium">
-                                    No Prior Approval: {formatHours(autoOTEntries.reduce((s, o) => s + (o.requestedMinutes || 0), 0) / 60)}
+                                    No Prior Approval:{" "}
+                                    {formatHours(
+                                      autoOTEntries.reduce(
+                                        (s, o) => s + (o.requestedMinutes || 0),
+                                        0,
+                                      ) / 60,
+                                    )}
                                   </span>
                                 )}
                               </div>
                               {pendingAutoOT.length > 0 && (
                                 <div className="flex items-center gap-2 mt-2">
-                                  {pendingAutoOT.map((ot) => (
-                                    <div key={ot.id} className="flex items-center gap-1">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleApproveOT(ot.id)}
-                                        disabled={actionLoading}
-                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
-                                      >
-                                        <Check className="w-3 h-3" />
-                                        Approve
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRejectOT(ot.id)}
-                                        disabled={actionLoading}
-                                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
-                                      >
-                                        <X className="w-3 h-3" />
-                                        Deny
-                                      </button>
-                                    </div>
-                                  ))}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openOTSelectionModal(
+                                        pendingAutoOT,
+                                        "approve",
+                                      )
+                                    }
+                                    disabled={actionLoading}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      openOTSelectionModal(
+                                        pendingAutoOT,
+                                        "reject",
+                                      )
+                                    }
+                                    disabled={actionLoading}
+                                    className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    Deny
+                                  </button>
                                 </div>
                               )}
                             </>
@@ -1007,9 +1099,7 @@ const TimesheetDetail = () => {
                 disabled={actionLoading || !revisionReason.trim()}
                 className="px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
               >
-                {actionLoading && (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                )}
+                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
                 Submit Revision Request
               </button>
             </div>
@@ -1017,49 +1107,15 @@ const TimesheetDetail = () => {
         </div>
       )}
 
-      {/* Overtime Approval Modal */}
-      {/* Overtime Deny Modal */}
-      {showOTRejectModal && selectedOTRecord && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowOTRejectModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Deny Overtime
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Please provide a reason for denying this overtime request.
-            </p>
-            <textarea
-              value={otRejectReason}
-              onChange={(e) => setOtRejectReason(e.target.value)}
-              placeholder="Enter reason for denial..."
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-            />
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setShowOTRejectModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                disabled={actionLoading}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRejectOvertime}
-                disabled={actionLoading || !otRejectReason.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {actionLoading ? "Submitting..." : "Deny Overtime"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OTSelectionModal
+        isOpen={showOTSelectionModal}
+        onClose={() => setShowOTSelectionModal(false)}
+        action={otSelectionAction}
+        entries={otSelectionEntries}
+        clientTimezone={clientTimezone}
+        onConfirm={handleOTSelectionConfirm}
+        actionLoading={actionLoading}
+      />
     </div>
   );
 };

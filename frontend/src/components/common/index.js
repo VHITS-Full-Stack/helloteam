@@ -7,3 +7,4 @@ export { default as StatCard } from './StatCard';
 export { default as Modal } from './Modal';
 export { default as Table, TableHead, TableBody, TableRow, TableHeader, TableCell } from './Table';
 export { default as PhoneInput } from './PhoneInput';
+export { default as OTSelectionModal } from './OTSelectionModal';

@@ -19,7 +19,7 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { Card, Button, Badge, Avatar } from "../../components/common";
+import { Card, Button, Badge, Avatar, OTSelectionModal } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import { formatHours } from "../../utils/formatTime";
 
@@ -46,18 +46,13 @@ const TimeRecords = () => {
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
   const [revisionRecordIds, setRevisionRecordIds] = useState([]);
-  const [showRejectOTModal, setShowRejectOTModal] = useState(false);
-  const [rejectOTId, setRejectOTId] = useState(null);
-  const [rejectOTReason, setRejectOTReason] = useState("");
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [pendingActionIds, setPendingActionIds] = useState([]);
   const [rejectReason, setRejectReason] = useState("");
   const [showOTSelectionModal, setShowOTSelectionModal] = useState(false);
-  const [otSelectionAction, setOTSelectionAction] = useState('approve'); // 'approve' | 'reject'
+  const [otSelectionAction, setOTSelectionAction] = useState('approve');
   const [otSelectionEntries, setOTSelectionEntries] = useState([]);
-  const [otSelectedIds, setOTSelectedIds] = useState([]);
-  const [otSelectionRejectReason, setOTSelectionRejectReason] = useState("");
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
@@ -361,9 +356,8 @@ const TimeRecords = () => {
   };
 
   const handleRequestRevision = (timeRecordIds) => {
-    setRevisionRecordIds(
-      Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds],
-    );
+    const ids = Array.isArray(timeRecordIds) ? timeRecordIds : [timeRecordIds];
+    setRevisionRecordIds([...new Set(ids.filter(Boolean))]);
     setRevisionReason("");
     setShowRevisionModal(true);
   };
@@ -389,9 +383,11 @@ const TimeRecords = () => {
         setRevisionReason("");
         setRevisionRecordIds([]);
         fetchTimeRecords();
+      } else {
+        setError(response.error || "Failed to request revision");
       }
     } catch (err) {
-      setError(err.message || "Failed to request revision");
+      setError(err.error || err.message || "Failed to request revision");
     } finally {
       setActionLoading(false);
     }
@@ -444,98 +440,28 @@ const TimeRecords = () => {
     }
   };
 
-  const handleApproveOT = async (overtimeId) => {
-    try {
-      setActionLoading(true);
-      const response = await clientPortalService.approveOvertime(overtimeId);
-      if (response.success) {
-        fetchTimeRecords();
-      } else {
-        setError(response.error || "Failed to approve overtime");
-      }
-    } catch (err) {
-      setError(err.message || "Failed to approve overtime");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
-  const handleRejectOT = (overtimeId) => {
-    setRejectOTId(overtimeId);
-    setRejectOTReason("");
-    setShowRejectOTModal(true);
-  };
-
-  const confirmRejectOT = async () => {
-    if (!rejectOTId || !rejectOTReason.trim()) return;
-    try {
-      setActionLoading(true);
-      const response = await clientPortalService.rejectOvertime(
-        rejectOTId,
-        rejectOTReason,
-      );
-      if (response.success) {
-        setShowRejectOTModal(false);
-        setRejectOTId(null);
-        setRejectOTReason("");
-        fetchTimeRecords();
-      } else {
-        setError(response.error || "Failed to deny overtime");
-      }
-    } catch (err) {
-      setError(err.message || "Failed to deny overtime");
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleApproveAllOT = async (pendingOTIds) => {
-    if (!pendingOTIds.length) return;
-    try {
-      setActionLoading(true);
-      for (const otId of pendingOTIds) {
-        await clientPortalService.approveOvertime(otId);
-      }
-      fetchTimeRecords();
-    } catch (err) {
-      setError(err.message || "Failed to approve overtime");
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const openOTSelectionModal = (pendingOTs, action) => {
     setOTSelectionEntries(pendingOTs);
     setOTSelectionAction(action);
-    setOTSelectedIds(pendingOTs.map(ot => ot.id));
-    setOTSelectionRejectReason("");
     setShowOTSelectionModal(true);
   };
 
-  const toggleOTSelection = (id) => {
-    setOTSelectedIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const confirmOTSelection = async () => {
-    if (otSelectedIds.length === 0) return;
+  const handleOTSelectionConfirm = async (selectedIds, rejectReason) => {
     try {
       setActionLoading(true);
       if (otSelectionAction === 'approve') {
-        for (const id of otSelectedIds) {
+        for (const id of selectedIds) {
           await clientPortalService.approveOvertime(id);
         }
       } else {
-        if (!otSelectionRejectReason.trim()) return;
-        for (const id of otSelectedIds) {
-          await clientPortalService.rejectOvertime(id, otSelectionRejectReason.trim());
+        for (const id of selectedIds) {
+          await clientPortalService.rejectOvertime(id, rejectReason);
         }
       }
       setShowOTSelectionModal(false);
       setOTSelectionEntries([]);
-      setOTSelectedIds([]);
-      setOTSelectionRejectReason("");
       fetchTimeRecords();
     } catch (err) {
       setError(err.message || `Failed to ${otSelectionAction} overtime`);
@@ -802,7 +728,14 @@ const TimeRecords = () => {
               emp.filteredRecords.map((rec) => ({ ...rec, empId: emp.id, empName: emp.employee }))
             );
             const allPendingIds = allFlatRecords.filter(r => r.timeRecordId && r.status?.toLowerCase() === "pending").map(r => r.timeRecordId);
-            const allPendingOTIds = allFlatRecords.flatMap(r => (r.overtimeEntries || []).filter(ot => ot.status === "PENDING")).map(ot => ot.id);
+            const allPendingOTs = allFlatRecords.flatMap(r => (r.overtimeEntries || []).filter(ot => ot.status === "PENDING").map(ot => ({
+              ...ot,
+              _date: r.date,
+              _clockIn: r.billingStart || r.clockIn,
+              _clockOut: r.billingEnd || r.clockOut,
+              _empName: r.empName,
+            })));
+            const allPendingOTIds = allPendingOTs.map(ot => ot.id);
 
             return (
             <Card padding="none">
@@ -913,24 +846,24 @@ const TimeRecords = () => {
                       Approve All ({allPendingIds.length})
                     </button>
                   )}
-                  {allPendingOTIds.length > 0 && (
+                  {allPendingOTs.length > 0 && (
                     <button
-                      onClick={() => handleApproveAllOT(allPendingOTIds)}
+                      onClick={() => openOTSelectionModal(allPendingOTs, 'approve')}
                       disabled={actionLoading}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
                     >
                       <CheckCircle className="w-3.5 h-3.5" />
-                      Approve All OT ({allPendingOTIds.length})
+                      Approve All OT ({allPendingOTs.length})
                     </button>
                   )}
-                  {allPendingOTIds.length > 0 && (
+                  {allPendingOTs.length > 0 && (
                     <button
-                      onClick={() => { allPendingOTIds.forEach(id => handleRejectOT(id)); }}
+                      onClick={() => openOTSelectionModal(allPendingOTs, 'reject')}
                       disabled={actionLoading}
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
                     >
                       <X className="w-3.5 h-3.5" />
-                      Reject All OT ({allPendingOTIds.length})
+                      Reject All OT ({allPendingOTs.length})
                     </button>
                   )}
                 </div>
@@ -954,10 +887,14 @@ const TimeRecords = () => {
             const revisionRecord = emp.filteredRecords.find(
               (r) => r.status === "REVISION_REQUESTED" && r.revisionReason,
             );
-            const allPendingAutoOTIds = emp.filteredRecords
-              .flatMap((r) => r.overtimeEntries || [])
-              .filter((ot) => ot.status === "PENDING" && ot.isAutoGenerated)
-              .map((ot) => ot.id);
+            const allPendingAutoOTs = emp.filteredRecords
+              .flatMap((r) => (r.overtimeEntries || []).filter((ot) => ot.status === "PENDING" && ot.isAutoGenerated).map(ot => ({
+                ...ot,
+                _date: r.date,
+                _clockIn: r.billingStart || r.clockIn,
+                _clockOut: r.billingEnd || r.clockOut,
+              })));
+            const allPendingAutoOTIds = allPendingAutoOTs.map((ot) => ot.id);
 
             return (
               <Card key={emp.id} padding="none" className="overflow-hidden">
@@ -989,16 +926,6 @@ const TimeRecords = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    {allPendingAutoOTIds.length > 0 && (
-                      <button
-                        onClick={() => handleApproveAllOT(allPendingAutoOTIds)}
-                        disabled={actionLoading}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        Approve All OT ({allPendingAutoOTIds.length})
-                      </button>
-                    )}
                     {getStatusBadge(emp.status)}
                     <button
                       onClick={() =>
@@ -1086,14 +1013,14 @@ const TimeRecords = () => {
                         );
                         const pendingRequestedOT = requestedOTEntries.filter(
                           (ot) => ot.status === "PENDING",
-                        );
+                        ).map(ot => ({ ...ot, _date: rec.date, _clockIn: rec.billingStart || rec.clockIn, _clockOut: rec.billingEnd || rec.clockOut }));
                         // Auto-generated OT (employee worked without prior approval)
                         const autoOTEntries = otEntries.filter(
                           (ot) => ot.isAutoGenerated,
                         );
                         const pendingAutoOT = autoOTEntries.filter(
                           (ot) => ot.status === "PENDING",
-                        );
+                        ).map(ot => ({ ...ot, _date: rec.date, _clockIn: rec.billingStart || rec.clockIn, _clockOut: rec.billingEnd || rec.clockOut }));
 
                         const dateLabel = rec.dateObj.toLocaleDateString(
                           "en-US",
@@ -1334,7 +1261,7 @@ const TimeRecords = () => {
                     );
                     const pendingAutoOT = autoOTEntries.filter(
                       (ot) => ot.status === "PENDING",
-                    );
+                    ).map(ot => ({ ...ot, _date: rec.date, _clockIn: rec.billingStart || rec.clockIn, _clockOut: rec.billingEnd || rec.clockOut }));
 
                     const clockIn = rec.billingStart || rec.clockIn;
                     const clockOut = rec.billingEnd || rec.clockOut;
@@ -1486,6 +1413,7 @@ const TimeRecords = () => {
                   const showFooter =
                     pendingRecords.length > 0 ||
                     otPendingRecords.length > 0 ||
+                    allPendingAutoOTs.length > 0 ||
                     revisionEligible.length > 0;
 
                   return showFooter ? (
@@ -1505,18 +1433,24 @@ const TimeRecords = () => {
                             Approve All
                           </button>
                         )}
-                        {otPendingRecords.length > 0 && (
+                        {allPendingAutoOTs.length > 0 && (
                           <button
-                            onClick={() =>
-                              handleReject(
-                                otPendingRecords.map((r) => r.timeRecordId),
-                              )
-                            }
+                            onClick={() => openOTSelectionModal(allPendingAutoOTs, 'approve')}
+                            disabled={actionLoading}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-green-50 text-green-700 hover:bg-green-100 transition-colors disabled:opacity-50"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Approve All OT ({allPendingAutoOTs.length})
+                          </button>
+                        )}
+                        {allPendingAutoOTs.length > 0 && (
+                          <button
+                            onClick={() => openOTSelectionModal(allPendingAutoOTs, 'reject')}
                             disabled={actionLoading}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition-colors disabled:opacity-50"
                           >
                             <X className="w-3.5 h-3.5" />
-                            Reject OT
+                            Reject All OT ({allPendingAutoOTs.length})
                           </button>
                         )}
                       </div>
@@ -1547,131 +1481,15 @@ const TimeRecords = () => {
         </>
       )}
 
-      {/* OT Reject Modal */}
-      {showRejectOTModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowRejectOTModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Deny Overtime
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Please provide a reason for denying this overtime request.
-            </p>
-            <textarea
-              value={rejectOTReason}
-              onChange={(e) => setRejectOTReason(e.target.value)}
-              placeholder="Reason for denial..."
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-            />
-            <div className="flex justify-end gap-3 mt-4">
-              <button
-                onClick={() => setShowRejectOTModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmRejectOT}
-                disabled={actionLoading || !rejectOTReason.trim()}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
-              >
-                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                Deny Overtime
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* OT Selection Modal */}
-      {showOTSelectionModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowOTSelectionModal(false)}
-        >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              {otSelectionAction === 'approve' ? 'Approve Overtime' : 'Reject Overtime'}
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Select the overtime entries to {otSelectionAction}:
-            </p>
-            <div className="space-y-2 mb-4">
-              {otSelectionEntries.map((ot) => (
-                <label
-                  key={ot.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    otSelectedIds.includes(ot.id)
-                      ? otSelectionAction === 'approve' ? 'border-green-300 bg-green-50' : 'border-red-300 bg-red-50'
-                      : 'border-gray-200 bg-white hover:bg-gray-50'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={otSelectedIds.includes(ot.id)}
-                    onChange={() => toggleOTSelection(ot.id)}
-                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium text-gray-900">
-                        {formatHours(ot.requestedMinutes / 60)}
-                      </span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${
-                        ot.type === 'SHIFT_EXTENSION' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {ot.type === 'SHIFT_EXTENSION' ? 'Shift Extension' : 'Off-Shift'}
-                      </span>
-                    </div>
-                    {ot.reason && (
-                      <p className="text-xs text-gray-500 mt-0.5 break-words">{ot.reason}</p>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
-            {otSelectionAction === 'reject' && (
-              <div className="mb-4">
-                <textarea
-                  value={otSelectionRejectReason}
-                  onChange={(e) => setOTSelectionRejectReason(e.target.value)}
-                  placeholder="Reason for rejection..."
-                  rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-                />
-              </div>
-            )}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setShowOTSelectionModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmOTSelection}
-                disabled={actionLoading || otSelectedIds.length === 0 || (otSelectionAction === 'reject' && !otSelectionRejectReason.trim())}
-                className={`px-4 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2 ${
-                  otSelectionAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
-                }`}
-              >
-                {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                {otSelectionAction === 'approve' ? `Approve (${otSelectedIds.length})` : `Reject (${otSelectedIds.length})`}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <OTSelectionModal
+        isOpen={showOTSelectionModal}
+        onClose={() => setShowOTSelectionModal(false)}
+        action={otSelectionAction}
+        entries={otSelectionEntries}
+        clientTimezone={clientTimezone}
+        onConfirm={handleOTSelectionConfirm}
+        actionLoading={actionLoading}
+      />
 
       {/* Approve Timesheet Confirmation */}
       {showApproveConfirm && (

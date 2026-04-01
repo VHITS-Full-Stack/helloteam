@@ -1064,7 +1064,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
             if (trExtMins > 0 && !isOffShiftSession) {
               const extStatus = dayTimeRecord.shiftExtensionStatus || 'UNAPPROVED';
               entries.push({
-                id: `synth-ext-${dayTimeRecord.id}`,
+                id: `synth-ext-${dayTimeRecord.id}-${session.id}`,
                 type: 'SHIFT_EXTENSION',
                 requestedMinutes: trExtMins,
                 requestedStartTime: null as any,
@@ -1078,7 +1078,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
             if (trExtraMins > 0 && isOffShiftSession) {
               const extraStatus = dayTimeRecord.extraTimeStatus || 'UNAPPROVED';
               entries.push({
-                id: `synth-extra-${dayTimeRecord.id}`,
+                id: `synth-extra-${dayTimeRecord.id}-${session.id}`,
                 type: 'EXTRA_TIME' as any,
                 requestedMinutes: trExtraMins,
                 requestedStartTime: null as any,

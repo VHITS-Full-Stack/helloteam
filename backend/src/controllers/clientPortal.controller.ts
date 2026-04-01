@@ -1883,7 +1883,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
                 if (trExtMins > 0) {
                   const extStatus = (timeRecord as any).shiftExtensionStatus || 'UNAPPROVED';
                   entries.push({
-                    id: `synth-ext-${timeRecord.id}`,
+                    id: `synth-ext-${timeRecord.id}-${session.id}`,
                     type: 'SHIFT_EXTENSION',
                     requestedMinutes: trExtMins,
                     requestedStartTime: null as any,
@@ -1898,7 +1898,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
                 if (trExtraMins > 0) {
                   const extraStatus = (timeRecord as any).extraTimeStatus || 'UNAPPROVED';
                   entries.push({
-                    id: `synth-extra-${timeRecord.id}`,
+                    id: `synth-extra-${timeRecord.id}-${session.id}`,
                     type: 'EXTRA_TIME' as any,
                     requestedMinutes: trExtraMins,
                     requestedStartTime: null as any,
@@ -2384,17 +2384,20 @@ export const bulkRequestRevision = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
+    // Deduplicate record IDs and only process those not already in REVISION_REQUESTED
+    const uniqueRecordIds = [...new Set(recordIds)];
     const records = await prisma.timeRecord.findMany({
-      where: { id: { in: recordIds }, clientId: client.id, status: { not: 'REVISION_REQUESTED' } },
+      where: { id: { in: uniqueRecordIds }, clientId: client.id, status: { not: 'REVISION_REQUESTED' } },
     });
 
-    if (records.length !== recordIds.length) {
-      res.status(400).json({ success: false, error: 'Some records not found or already have revision requested' });
+    if (records.length === 0) {
+      res.status(400).json({ success: false, error: 'No eligible records found or all already have revision requested' });
       return;
     }
 
+    const eligibleIds = records.map(r => r.id);
     const result = await prisma.timeRecord.updateMany({
-      where: { id: { in: recordIds }, clientId: client.id },
+      where: { id: { in: eligibleIds }, clientId: client.id },
       data: {
         status: 'REVISION_REQUESTED',
         revisionReason: reason.trim(),
