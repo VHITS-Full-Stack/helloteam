@@ -1775,6 +1775,29 @@ export const getEmployeePayrollSummary = async (
       return { hourlyRate: hr, overtimeRate: otr };
     };
 
+    // Fetch approved OT from OvertimeRequest records (more accurate than TimeRecord fields)
+    const otRequests = await prisma.overtimeRequest.findMany({
+      where: {
+        employeeId: { in: employeeIds },
+        date: { gte: new Date(periodStart as string), lte: new Date(periodEnd as string) },
+        status: 'APPROVED',
+      },
+      select: { employeeId: true, date: true, type: true, requestedMinutes: true },
+    });
+    // Group approved OT by employee+date
+    const approvedOTByEmpDate = new Map<string, number>();
+    const approvedExtByEmpDate = new Map<string, number>();
+    const approvedExtraByEmpDate = new Map<string, number>();
+    for (const ot of otRequests) {
+      const key = `${ot.employeeId}-${ot.date.toISOString().split('T')[0]}`;
+      approvedOTByEmpDate.set(key, (approvedOTByEmpDate.get(key) || 0) + ot.requestedMinutes);
+      if (ot.type === 'SHIFT_EXTENSION') {
+        approvedExtByEmpDate.set(key, (approvedExtByEmpDate.get(key) || 0) + ot.requestedMinutes);
+      } else {
+        approvedExtraByEmpDate.set(key, (approvedExtraByEmpDate.get(key) || 0) + ot.requestedMinutes);
+      }
+    }
+
     // Group by employee with date-effective rates
     const employeeSummary: Record<string, any> = {};
 
@@ -1803,29 +1826,24 @@ export const getEmployeePayrollSummary = async (
       }
 
       employeeSummary[empId].workDays += 1;
+      const recDateKey = `${record.employeeId}-${record.date.toISOString().split('T')[0]}`;
       employeeSummary[empId].records.push({
         id: record.id,
         date: record.date,
         totalMinutes: record.totalMinutes,
         breakMinutes: record.breakMinutes,
-        overtimeMinutes: record.overtimeMinutes,
-        shiftExtensionMinutes: record.shiftExtensionMinutes || 0,
-        shiftExtensionStatus: record.shiftExtensionStatus,
-        extraTimeMinutes: record.extraTimeMinutes || 0,
-        extraTimeStatus: record.extraTimeStatus,
+        overtimeMinutes: approvedOTByEmpDate.get(recDateKey) || record.overtimeMinutes || 0,
+        shiftExtensionMinutes: approvedExtByEmpDate.get(recDateKey) || 0,
+        extraTimeMinutes: approvedExtraByEmpDate.get(recDateKey) || 0,
         status: record.status,
         clockIn: record.actualStart,
         clockOut: record.actualEnd,
       });
 
       if (record.status === "APPROVED" || record.status === "AUTO_APPROVED") {
-        let approvedOTMinutes = 0;
-        if (record.shiftExtensionStatus === "APPROVED") {
-          approvedOTMinutes += record.shiftExtensionMinutes || 0;
-        }
-        if (record.extraTimeStatus === "APPROVED") {
-          approvedOTMinutes += record.extraTimeMinutes || 0;
-        }
+        // Use OvertimeRequest records for accurate approved OT (handles multiple OT per day)
+        const dateKey = `${record.employeeId}-${record.date.toISOString().split('T')[0]}`;
+        const approvedOTMinutes = approvedOTByEmpDate.get(dateKey) || 0;
         const deniedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
         const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
         const payableRegular = payableMinutes - approvedOTMinutes;
