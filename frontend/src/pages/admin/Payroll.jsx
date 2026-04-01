@@ -1296,7 +1296,9 @@ const Payroll = () => {
                                             return `${h}h ${m}m`;
                                           };
                                           const totalH = rec.totalMinutes || 0;
-                                          const otH = rec.overtimeMinutes || 0;
+                                          const extOT = rec.shiftExtensionMinutes || 0;
+                                          const extraOT = rec.extraTimeMinutes || 0;
+                                          const otH = extOT + extraOT || rec.overtimeMinutes || 0;
                                           const breakH = rec.breakMinutes || 0;
                                           const dateStr = new Date(
                                             rec.date,
@@ -1347,6 +1349,8 @@ const Payroll = () => {
                                                 {otH > 0 ? (
                                                   <span className="text-orange-600">
                                                     {fmtMins(otH)}
+                                                    {extOT > 0 && <span className="text-[10px] text-gray-400 ml-1">ext</span>}
+                                                    {extraOT > 0 && <span className="text-[10px] text-gray-400 ml-1">off</span>}
                                                   </span>
                                                 ) : (
                                                   <span className="text-gray-300">
