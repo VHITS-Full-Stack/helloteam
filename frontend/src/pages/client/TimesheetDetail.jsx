@@ -487,7 +487,7 @@ const TimesheetDetail = () => {
               const otEntries = rec?.overtimeEntries || [];
               const billingM = rec?.billingMinutes || 0;
               const regularM =
-                rec?.regularMinutes !== null
+                rec?.regularMinutes !== null && rec?.regularMinutes !== undefined
                   ? rec.regularMinutes
                   : Math.max(
                       0,
