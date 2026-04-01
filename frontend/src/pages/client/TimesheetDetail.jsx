@@ -50,19 +50,28 @@ const TimesheetDetail = () => {
   });
 
   const [currentMonth, setCurrentMonth] = useState(() => {
+    if (stateData.startDate) {
+      const d = new Date(stateData.startDate);
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [viewMode, setViewMode] = useState("month"); // week, month, custom
+  const [viewMode, setViewMode] = useState(stateData.viewMode || "month");
   const [weekStart, setWeekStart] = useState(() => {
+    if (stateData.startDate) return new Date(stateData.startDate);
     const now = new Date();
     const d = new Date(now);
     d.setDate(now.getDate() - now.getDay());
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const [customStart, setCustomStart] = useState(
+    stateData.startDate ? new Date(stateData.startDate).toISOString().split("T")[0] : "",
+  );
+  const [customEnd, setCustomEnd] = useState(
+    stateData.endDate ? new Date(stateData.endDate).toISOString().split("T")[0] : "",
+  );
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -205,11 +214,11 @@ const TimesheetDetail = () => {
     }
   };
 
-  // Group session records by date
+  // Group session records by date string (YYYY-MM-DD)
   const sessionsByDate = {};
   (record?.records || []).forEach((rec) => {
-    const d = new Date(rec.date);
-    const dayKey = d.getUTCDate();
+    const dayKey = rec.date ? rec.date.split("T")[0] : null;
+    if (!dayKey) return;
     if (!sessionsByDate[dayKey]) sessionsByDate[dayKey] = [];
     sessionsByDate[dayKey].push(rec);
   });
@@ -444,8 +453,8 @@ const TimesheetDetail = () => {
             for (let d = new Date(iterStart); d <= iterEnd; d.setDate(d.getDate() + 1)) {
               const dayOfWeek = d.getDay();
               const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-              const dayNum = d.getDate();
-              const sessions = sessionsByDate[dayNum] || [];
+              const dayKey = d.toISOString().split("T")[0];
+              const sessions = sessionsByDate[dayKey] || [];
 
               // Skip weekends with no data
               if (isWeekend && sessions.length === 0) continue;
@@ -464,7 +473,7 @@ const TimesheetDetail = () => {
               if (sessions.length === 0) {
                 // Day exists in range but no records — show empty row
                 dayRows.push({
-                  key: `empty-${dayNum}`,
+                  key: `empty-${dayKey}`,
                   rec: null,
                   isToday,
                   recStatus: "not_started",
@@ -519,7 +528,7 @@ const TimesheetDetail = () => {
                   const schedEnd = formatScheduleTime(rec.scheduledEnd);
 
                   dayRows.push({
-                    key: rec.id || `${dayNum}-${clockIn}`,
+                    key: rec.id || `${dayKey}-${clockIn}`,
                     rec,
                     isToday,
                     recStatus,

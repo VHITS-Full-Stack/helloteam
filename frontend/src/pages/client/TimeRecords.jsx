@@ -350,8 +350,15 @@ const TimeRecords = () => {
   };
 
   const handleViewTimesheet = (empId, empName, empPhoto) => {
+    const { start, end } = getDateRange();
     navigate(`/client/time-records/${empId}`, {
-      state: { employeeName: empName, employeePhoto: empPhoto },
+      state: {
+        employeeName: empName,
+        employeePhoto: empPhoto,
+        viewMode,
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      },
     });
   };
 
@@ -912,9 +919,9 @@ const TimeRecords = () => {
                       </p>
                       <div className="flex items-center gap-3 text-xs text-gray-500">
                         <span>{formatHours(emp.totalHours)} total</span>
-                        {emp.overtimeHours > 0 && emp.overtimeHours !== emp.unapprovedOvertimeHours && (
+                        {(emp.approvedOvertimeHours || 0) > 0 && (
                           <span className="text-orange-600">
-                            {formatHours(emp.overtimeHours - (emp.unapprovedOvertimeHours || 0))} OT
+                            {formatHours(emp.approvedOvertimeHours)} OT
                           </span>
                         )}
                         {emp.unapprovedOvertimeHours > 0 && (

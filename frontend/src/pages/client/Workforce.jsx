@@ -358,7 +358,7 @@ const Workforce = () => {
                   size="sm"
                   fullWidth
                   icon={Clock}
-                  onClick={() => navigate(`/client/time-records?employee=${employee.id}`)}
+                  onClick={() => navigate(`/client/time-records/${employee.id}`, { state: { employeeName: employee.name, employeePhoto: employee.profilePhoto } })}
                 >
                   Time Records
                 </Button>
@@ -532,7 +532,7 @@ const Workforce = () => {
                 icon={Clock}
                 onClick={() => {
                   setDetailModal({ show: false, employee: null });
-                  navigate(`/client/time-records?employee=${detailModal.employee.id}`);
+                  navigate(`/client/time-records/${detailModal.employee.id}`, { state: { employeeName: detailModal.employee.name, employeePhoto: detailModal.employee.profilePhoto } });
                 }}
               >
                 Time Records
