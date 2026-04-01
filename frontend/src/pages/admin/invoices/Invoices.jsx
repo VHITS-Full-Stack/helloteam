@@ -39,6 +39,8 @@ const Invoices = () => {
   const [selectedClient, setSelectedClient] = useState('all');
   const [filterYear, setFilterYear] = useState('all');
   const [filterMonth, setFilterMonth] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   // Generate modal
   const [showGenerateModal, setShowGenerateModal] = useState(false);
@@ -82,8 +84,6 @@ const Invoices = () => {
   const fetchingRef = useRef(false);
 
   const fetchInvoices = useCallback(async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
     try {
       setLoading(true);
       const params = {
@@ -92,7 +92,10 @@ const Invoices = () => {
       };
       if (selectedStatus !== 'all') params.status = selectedStatus;
       if (selectedClient !== 'all') params.clientId = selectedClient;
-      if (filterYear !== 'all' && filterMonth !== 'all') {
+      if (dateFrom && dateTo) {
+        params.startDate = dateFrom;
+        params.endDate = dateTo;
+      } else if (filterYear !== 'all' && filterMonth !== 'all') {
         params.month = `${filterYear}-${String(filterMonth).padStart(2, '0')}`;
       } else if (filterYear !== 'all') {
         params.year = filterYear;
@@ -116,9 +119,8 @@ const Invoices = () => {
       setError(err.error || 'Failed to fetch invoices');
     } finally {
       setLoading(false);
-      fetchingRef.current = false;
     }
-  }, [pagination.page, pagination.limit, selectedStatus, selectedClient, filterYear, filterMonth]);
+  }, [pagination.page, pagination.limit, selectedStatus, selectedClient, filterYear, filterMonth, dateFrom, dateTo]);
 
   const fetchClients = useCallback(async () => {
     try {
@@ -142,7 +144,7 @@ const Invoices = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
-  }, [selectedStatus, selectedClient, filterYear, filterMonth]);
+  }, [selectedStatus, selectedClient, filterYear, filterMonth, dateFrom, dateTo]);
 
   const handleViewInvoice = async (invoiceId) => {
     setLoadingDetail(true);
@@ -330,7 +332,7 @@ const Invoices = () => {
           <p className="text-gray-500">Manage client invoices and billing</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" icon={Download} onClick={() => {
+          <Button variant="outline" size="xs" icon={Download} onClick={() => {
             if (!invoices.length) return;
             const headers = ['Invoice #', 'Client', 'Period', 'Hours', 'OT Hours', 'Amount', 'Status', 'Due Date'];
             const rows = invoices.map(inv => [
@@ -354,10 +356,10 @@ const Invoices = () => {
           }}>
             Export CSV
           </Button>
-          <Button variant="outline" icon={RefreshCw} onClick={fetchInvoices}>
+          <Button variant="outline" size="xs" icon={RefreshCw} onClick={fetchInvoices}>
             Refresh
           </Button>
-          <Button variant="primary" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
+          <Button variant="primary" size="xs" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
             Generate Invoices
           </Button>
         </div>
@@ -448,7 +450,7 @@ const Invoices = () => {
             <div className="relative">
               <select
                 value={filterMonth}
-                onChange={(e) => setFilterMonth(e.target.value)}
+                onChange={(e) => { setFilterMonth(e.target.value); setDateFrom(''); setDateTo(''); }}
                 className="appearance-none pr-8 pl-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white"
               >
                 <option value="all">All Months</option>
@@ -464,13 +466,29 @@ const Invoices = () => {
             <div className="relative">
               <select
                 value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
+                onChange={(e) => { setFilterYear(e.target.value); setDateFrom(''); setDateTo(''); }}
                 className="appearance-none pr-8 pl-3 py-1.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white"
               >
                 <option value="all">All Years</option>
                 <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => { setDateFrom(e.target.value); setFilterYear('all'); setFilterMonth('all'); }}
+                className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+              />
+              <span className="text-gray-400 text-xs">to</span>
+              <input
+                type="date"
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => { setDateTo(e.target.value); setFilterYear('all'); setFilterMonth('all'); }}
+                className="px-2.5 py-1.5 border border-gray-200 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+              />
             </div>
           </div>
 

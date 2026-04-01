@@ -11,6 +11,8 @@ const invoiceService = {
       if (params.status) queryParams.append('status', params.status);
       if (params.month) queryParams.append('month', params.month);
       if (params.year) queryParams.append('year', params.year);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
 
       const response = await api.get(`/invoices?${queryParams.toString()}`);
       return response;

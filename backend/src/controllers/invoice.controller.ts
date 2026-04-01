@@ -351,6 +351,8 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
     const status = req.query.status as string | undefined;
     const month = req.query.month as string | undefined; // "YYYY-MM" format
     const year = req.query.year as string | undefined; // "YYYY" format
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
@@ -358,7 +360,16 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
     const where: any = {};
     if (clientId) where.clientId = clientId;
     if (status && status !== 'all') where.status = status.toUpperCase();
-    if (month && month !== 'all') {
+    if (startDate && endDate) {
+      // Find invoices whose billing period falls within the selected date range
+      // Use UTC to avoid timezone shifts with @db.Date fields
+      const [sy, sm, sday] = startDate.split('-').map(Number);
+      const [ey, em, eday] = endDate.split('-').map(Number);
+      const sd = new Date(Date.UTC(sy, sm - 1, sday));
+      const ed = new Date(Date.UTC(ey, em - 1, eday + 1)); // +1 to make end inclusive
+      where.periodStart = { gte: sd };
+      where.periodEnd = { lt: ed };
+    } else if (month && month !== 'all') {
       const [y, m] = month.split('-').map(Number);
       if (y && m) {
         where.periodStart = {
@@ -380,6 +391,7 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
     const baseWhere: any = {};
     if (clientId) baseWhere.clientId = clientId;
     if (where.periodStart) baseWhere.periodStart = where.periodStart;
+    if (where.periodEnd) baseWhere.periodEnd = where.periodEnd;
 
     const [invoices, total, aggregateStats] = await Promise.all([
       prisma.invoice.findMany({
