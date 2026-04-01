@@ -2187,6 +2187,12 @@ export const getEmployeePayrollDetail = async (
       orderBy: { startTime: 'asc' },
     });
 
+    // Use client timezone for date mapping
+    const clientTz = client.timezone || 'America/New_York';
+    const toDateInTz = (d: Date) => {
+      return d.toLocaleDateString('en-CA', { timeZone: clientTz }); // en-CA gives YYYY-MM-DD
+    };
+
     // Build TimeRecord lookup by date
     const trByDate = new Map<string, typeof records[0]>();
     for (const r of records) {
@@ -2208,7 +2214,7 @@ export const getEmployeePayrollDetail = async (
     // If there are sessions, build per-session records
     if (sessions.length > 0) {
       for (const session of sessions) {
-        const dateKey = session.startTime.toISOString().split('T')[0];
+        const dateKey = toDateInTz(session.startTime);
         const record = trByDate.get(dateKey);
         if (!record) continue;
 
