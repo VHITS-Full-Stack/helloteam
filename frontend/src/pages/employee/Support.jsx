@@ -115,35 +115,36 @@ const Support = () => {
   if (selectedTicket && ticketDetail) {
     const visibleMessages = (ticketDetail.messages || []).filter(m => !m.isInternal);
 
+    const category = ticketDetail.description?.match(/^\[(.+?)\]/)?.[1] || '—';
+    const descText = ticketDetail.description?.replace(/^\[.+?\]\s*/, '') || ticketDetail.description;
+
     return (
-      <div className="space-y-4 animate-fade-in max-w-3xl mx-auto">
-        {/* Header */}
-        <Card>
-          <div className="flex items-start gap-4">
-            <button
-              onClick={() => { setSelectedTicket(null); setTicketDetail(null); }}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors mt-0.5"
-            >
-              <ChevronRight className="w-4 h-4 text-gray-400 rotate-180" />
-            </button>
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-gray-900">{ticketDetail.subject}</h2>
-                <div className="flex items-center gap-2">
-                  {getPriorityBadge(ticketDetail.priority)}
-                  {getStatusBadge(ticketDetail.status)}
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 mt-1">
-                Ticket #{ticketDetail.id.slice(0, 8).toUpperCase()} &middot; Opened {new Date(ticketDetail.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                {ticketDetail.resolvedAt && ` &middot; Resolved ${new Date(ticketDetail.resolvedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-              </p>
-              <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-700">{ticketDetail.description}</p>
-              </div>
+      <div className="space-y-3 animate-fade-in max-w-2xl">
+        <button
+          onClick={() => { setSelectedTicket(null); setTicketDetail(null); }}
+          className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
+        >
+          <ChevronRight className="w-3.5 h-3.5 rotate-180" />
+          Back
+        </button>
+
+        <div className="border border-gray-200 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-sm font-semibold text-gray-900">{ticketDetail.subject}</h3>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {getPriorityBadge(ticketDetail.priority)}
+              {getStatusBadge(ticketDetail.status)}
             </div>
           </div>
-        </Card>
+          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
+            <span>#{ticketDetail.id.slice(0, 8).toUpperCase()}</span>
+            <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
+            <span className="text-primary font-medium">{category}</span>
+            <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
+            <span>{new Date(ticketDetail.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+          </div>
+          <p className="text-xs text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">{descText}</p>
+        </div>
 
       </div>
     );
@@ -258,19 +259,19 @@ const Support = () => {
 
         {/* FAQ */}
         <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Frequently Asked Questions</h3>
-          <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3">FAQ</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {[
               { q: 'How do I request time off?', a: "Navigate to Leave Requests and click 'New Request'." },
               { q: 'What if I forget to clock out?', a: 'Contact support to request a time adjustment.' },
               { q: 'How do I update my profile?', a: 'Go to Profile settings to update your information.' },
               { q: 'Who approves my timesheets?', a: 'Your client manager reviews, then Hello Team approves.' },
             ].map((faq, i) => (
-              <div key={i} className="flex gap-3">
-                <HelpCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+              <div key={i} className="flex gap-2.5 p-2.5 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+                <HelpCircle className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{faq.q}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">{faq.a}</p>
+                  <p className="text-xs font-medium text-gray-900">{faq.q}</p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">{faq.a}</p>
                 </div>
               </div>
             ))}
@@ -279,8 +280,8 @@ const Support = () => {
       </div>
 
       {/* My Tickets */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
+      <Card padding="none">
+        <div className="flex items-center justify-between px-5 py-4">
           <h3 className="text-lg font-semibold text-gray-900">My Tickets</h3>
         </div>
 
@@ -291,37 +292,54 @@ const Support = () => {
         ) : tickets.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">No tickets yet. Submit one above!</p>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {tickets.map((ticket) => (
-              <button
-                key={ticket.id}
-                onClick={() => { setSelectedTicket(ticket.id); fetchTicketDetail(ticket.id); }}
-                className="w-full py-3 flex items-center gap-3 text-left hover:bg-gray-50 -mx-1 px-1 rounded transition-colors"
-              >
-                <div className="p-2 bg-gray-100 rounded-lg flex-shrink-0">
-                  <FileText className="w-4 h-4 text-gray-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {ticket.description?.match(/^\[(.+?)\]/) && (
-                      <span className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
-                        {ticket.description.match(/^\[(.+?)\]/)[1]}
-                      </span>
-                    )}
-                    <Clock className="w-3 h-3 text-gray-400" />
-                    <span className="text-xs text-gray-400">
-                      {new Date(ticket.updatedAt || ticket.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {getPriorityBadge(ticket.priority)}
-                  {getStatusBadge(ticket.status)}
-                </div>
-                <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              </button>
-            ))}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-y border-gray-200 bg-gray-50">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Subject</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Category</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Priority</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-10"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {tickets.map((ticket) => {
+                  const category = ticket.description?.match(/^\[(.+?)\]/)?.[1] || '—';
+                  return (
+                    <tr
+                      key={ticket.id}
+                      onClick={() => { setSelectedTicket(ticket.id); fetchTicketDetail(ticket.id); }}
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-medium text-gray-900 truncate max-w-[250px]">{ticket.subject}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          {category}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {getPriorityBadge(ticket.priority)}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {getStatusBadge(ticket.status)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-gray-500">
+                          {new Date(ticket.updatedAt || ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <ChevronRight className="w-4 h-4 text-gray-400 inline-block" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </Card>

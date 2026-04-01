@@ -71,7 +71,7 @@ const Approvals = () => {
   const fetchingRef = useRef(false);
 
   // Pending counts for tab badges
-  const [pendingCounts, setPendingCounts] = useState({ leave: 0, overtime: 0, autoOvertime: 0 });
+  const [pendingCounts, setPendingCounts] = useState({ leave: 0, overtime: 0, autoOvertime: 0, timesheet: 0 });
 
   const fetchPendingCounts = useCallback(async () => {
     try {
@@ -84,6 +84,7 @@ const Approvals = () => {
         leave: pendingActionsRes?.counts?.pendingLeave || 0,
         overtime: otRes?.data?.total || 0,
         autoOvertime: autoOtRes?.data?.total || 0,
+        timesheet: pendingActionsRes?.counts?.pendingTimeRecords || 0,
       });
     } catch (e) { /* ignore */ }
   }, []);

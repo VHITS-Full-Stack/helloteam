@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Clock, AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Clock, AlertCircle, CheckCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { Card, Badge } from '../../components/common';
 import overtimeService from '../../services/overtime.service';
 
@@ -9,10 +9,22 @@ const statusConfig = {
   REJECTED: { label: 'Rejected', variant: 'danger' },
 };
 
+const toLocalDateString = (date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const OvertimeRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -20,9 +32,12 @@ const OvertimeRequests = () => {
         setLoading(true);
         const params = {};
         if (filter !== 'all') params.status = filter;
+        if (startDate) params.startDate = startDate;
+        if (endDate) params.endDate = endDate;
         const response = await overtimeService.getOvertimeRequests(params);
         if (response.success) {
           setRequests(response.data?.requests || []);
+          setCurrentPage(1);
         }
       } catch (err) {
         console.error('Failed to fetch overtime requests:', err);
@@ -31,7 +46,7 @@ const OvertimeRequests = () => {
       }
     };
     fetchRequests();
-  }, [filter]);
+  }, [filter, startDate, endDate]);
 
   const formatDate = (dateStr) => {
     return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -59,33 +74,77 @@ const OvertimeRequests = () => {
         <p className="text-sm text-gray-500">View your overtime request history and status</p>
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
-        {[
-          { key: 'all', label: 'All' },
-          { key: 'PENDING', label: 'Pending' },
-          { key: 'APPROVED', label: 'Approved' },
-          { key: 'REJECTED', label: 'Rejected' },
-        ].map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
-              filter === f.key
-                ? 'bg-white text-gray-900 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      {/* Filters */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+          {[
+            { key: 'all', label: 'All' },
+            { key: 'PENDING', label: 'Pending' },
+            { key: 'APPROVED', label: 'Approved' },
+            { key: 'REJECTED', label: 'Rejected' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                filter === f.key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <span className="text-gray-400 text-xs">to</span>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+          </div>
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search reason..."
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              className="w-40 h-8 pl-8 pr-3 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+          </div>
+        </div>
       </div>
 
-      {loading ? (
+      {(() => {
+        const filteredRequests = searchQuery.trim()
+          ? requests.filter((r) => {
+              const q = searchQuery.toLowerCase();
+              return (r.reason || '').toLowerCase().includes(q)
+                || (r.type || '').toLowerCase().includes(q)
+                || (r.rejectionReason || '').toLowerCase().includes(q);
+            })
+          : requests;
+
+        const totalPages = Math.ceil(filteredRequests.length / pageSize);
+        const startIdx = (currentPage - 1) * pageSize;
+        const paginatedRequests = filteredRequests.slice(startIdx, startIdx + pageSize);
+
+        return loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
-      ) : requests.length === 0 ? (
+      ) : filteredRequests.length === 0 ? (
         <Card>
           <div className="text-center py-12">
             <Clock className="w-12 h-12 text-gray-300 mx-auto mb-3" />
@@ -110,7 +169,7 @@ const OvertimeRequests = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {requests.map((req) => {
+                {paginatedRequests.map((req) => {
                   const cfg = statusConfig[req.status] || statusConfig.PENDING;
                   return (
                     <tr key={req.id} className="hover:bg-gray-50 transition-colors">
@@ -135,7 +194,6 @@ const OvertimeRequests = () => {
                       </td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
-                          {getStatusIcon(req.status)}
                           <Badge variant={cfg.variant}>{cfg.label}</Badge>
                         </div>
                       </td>
@@ -158,8 +216,45 @@ const OvertimeRequests = () => {
               </tbody>
             </table>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+              <p className="text-xs text-gray-500">
+                Showing {startIdx + 1}–{Math.min(startIdx + pageSize, filteredRequests.length)} of {filteredRequests.length}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Previous
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                      currentPage === page
+                        ? 'bg-primary text-white'
+                        : 'text-gray-600 bg-gray-100 hover:bg-gray-200'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </Card>
-      )}
+      );
+      })()}
     </div>
   );
 };

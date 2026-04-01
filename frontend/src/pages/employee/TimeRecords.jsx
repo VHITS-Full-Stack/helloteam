@@ -37,8 +37,12 @@ import {
 
 const TimeRecords = () => {
   const [activeTab, setActiveTab] = useState("timesheets");
-  const [viewMode, setViewMode] = useState("week"); // 'week' or 'day'
+  const [viewMode, setViewMode] = useState("week"); // 'week', 'month', or 'custom'
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
   const [sessions, setSessions] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -84,26 +88,33 @@ const TimeRecords = () => {
     [currentDate, getWeekRange],
   );
 
-  // Get day range for day view
-  const getDayRange = useCallback((date) => {
-    const start = new Date(date);
+  // Get month range for month view
+  const getMonthRange = useCallback((date) => {
+    const start = new Date(date.getFullYear(), date.getMonth(), 1);
     start.setHours(0, 0, 0, 0);
 
-    const end = new Date(date);
+    const end = new Date(date.getFullYear(), date.getMonth() + 1, 0);
     end.setHours(23, 59, 59, 999);
 
     return { start, end };
   }, []);
 
-  const dayRange = useMemo(
-    () => getDayRange(currentDate),
-    [currentDate, getDayRange],
+  const monthRange = useMemo(
+    () => getMonthRange(currentDate),
+    [currentDate, getMonthRange],
   );
 
   // Get the active date range based on view mode
   const activeRange = useMemo(() => {
-    return viewMode === "week" ? weekRange : dayRange;
-  }, [viewMode, weekRange, dayRange]);
+    if (viewMode === "custom" && customStart && customEnd) {
+      const start = new Date(customStart);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(customEnd);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+    return viewMode === "week" ? weekRange : monthRange;
+  }, [viewMode, weekRange, monthRange, customStart, customEnd]);
 
   // Fetch sessions
   const fetchingSessionsRef = useRef(false);
@@ -124,6 +135,7 @@ const TimeRecords = () => {
 
       if (result?.success) {
         setSessions(result.sessions || []);
+        setCurrentPage(1);
       }
     } catch (err) {
       console.error("Failed to fetch sessions:", err);
@@ -168,7 +180,7 @@ const TimeRecords = () => {
     if (viewMode === "week") {
       newDate.setDate(newDate.getDate() - 7);
     } else {
-      newDate.setDate(newDate.getDate() - 1);
+      newDate.setMonth(newDate.getMonth() - 1);
     }
     setCurrentDate(newDate);
   };
@@ -178,13 +190,16 @@ const TimeRecords = () => {
     if (viewMode === "week") {
       newDate.setDate(newDate.getDate() + 7);
     } else {
-      newDate.setDate(newDate.getDate() + 1);
+      newDate.setMonth(newDate.getMonth() + 1);
     }
     setCurrentDate(newDate);
   };
 
   const goToToday = () => {
     setCurrentDate(new Date());
+    setCustomStart("");
+    setCustomEnd("");
+    if (viewMode === "custom") setViewMode("week");
   };
 
   // Helper to format date as YYYY-MM-DD using local timezone
@@ -255,17 +270,20 @@ const TimeRecords = () => {
     return `${startMonth} ${startDay} – ${endMonth} ${endDay}, ${year}`;
   };
 
-  const formatDayDisplay = () => {
+  const formatMonthDisplay = () => {
     return currentDate.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
+      month: "long",
       year: "numeric",
     });
   };
 
   const formatDateDisplay = () => {
-    return viewMode === "week" ? formatWeekRange() : formatDayDisplay();
+    if (viewMode === "custom" && customStart && customEnd) {
+      const s = new Date(customStart);
+      const e = new Date(customEnd);
+      return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+    }
+    return viewMode === "week" ? formatWeekRange() : formatMonthDisplay();
   };
 
   // Check if session is currently active
@@ -295,6 +313,9 @@ const TimeRecords = () => {
   // Handle add manual time
   const handleAddTime = async (e) => {
     e.preventDefault();
+    if (manualEntry.endTime <= manualEntry.startTime) {
+      return;
+    }
     setAddTimeLoading(true);
     setAddTimeError(null);
 
@@ -595,56 +616,52 @@ const TimeRecords = () => {
             <div className="flex items-center gap-2">
               {/* View Toggle */}
               <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                <button
-                  onClick={() => setViewMode("week")}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    viewMode === "week"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setViewMode("day")}
-                  className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
-                    viewMode === "day"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  Day
-                </button>
+                {[
+                  { value: "week", label: "Week" },
+                  { value: "month", label: "Month" },
+                ].map((m) => (
+                  <button
+                    key={m.value}
+                    onClick={() => setViewMode(m.value)}
+                    className={`px-3 py-1 text-xs font-medium rounded-md transition-colors ${
+                      viewMode === m.value || (viewMode === "custom" && m.value === "week")
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Date Navigation */}
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={goToPrevious}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg min-w-[160px] justify-center">
-                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-700">
-                    {formatDateDisplay()}
-                  </span>
-                </div>
-                <button
-                  onClick={goToNext}
-                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+              {/* Date Range */}
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={customStart || toLocalDateString(activeRange.start)}
+                  onChange={(e) => {
+                    setCustomStart(e.target.value);
+                    if (!customEnd) {
+                      setCustomEnd(toLocalDateString(activeRange.end));
+                    }
+                    setViewMode("custom");
+                  }}
+                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <span className="text-gray-400 text-xs">to</span>
+                <input
+                  type="date"
+                  value={customEnd || toLocalDateString(activeRange.end)}
+                  onChange={(e) => {
+                    setCustomEnd(e.target.value);
+                    if (!customStart) {
+                      setCustomStart(toLocalDateString(activeRange.start));
+                    }
+                    setViewMode("custom");
+                  }}
+                  className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+                />
               </div>
-
-              <button
-                onClick={goToToday}
-                className="px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary-50 rounded-lg transition-colors"
-              >
-                Today
-              </button>
             </div>
           </div>
         </div>
@@ -690,6 +707,13 @@ const TimeRecords = () => {
               </div>
             ) : (
               <>
+                {(() => {
+                  const totalPages = Math.ceil(sessions.length / pageSize);
+                  const startIdx = (currentPage - 1) * pageSize;
+                  const paginatedSessions = sessions.slice(startIdx, startIdx + pageSize);
+
+                  return (
+                  <>
                 {/* Desktop Table */}
                 <div className="hidden md:block overflow-x-auto">
                   <table className="w-full">
@@ -707,7 +731,7 @@ const TimeRecords = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                      {sessions.map((session) => {
+                      {paginatedSessions.map((session) => {
                         const isOT = session.overtimeMinutes > 0;
                         const otEntries = session.overtimeEntries || [];
                         const totalM = session.totalMinutes || 0;
@@ -872,7 +896,7 @@ const TimeRecords = () => {
                 {/* Mobile Card Layout */}
                 <div className="md:hidden">
                   <div className="divide-y divide-gray-100">
-                    {sessions.map((session) => {
+                    {paginatedSessions.map((session) => {
                       const isOT = session.overtimeMinutes > 0;
                       return (
                         <div
@@ -1176,6 +1200,47 @@ const TimeRecords = () => {
                     })}
                   </div>
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
+                    <p className="text-xs text-gray-500">
+                      Showing {startIdx + 1}–{Math.min(startIdx + pageSize, sessions.length)} of {sessions.length} entries
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Previous
+                      </button>
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                        <button
+                          key={page}
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                            currentPage === page
+                              ? "bg-primary text-white"
+                              : "text-gray-600 bg-gray-100 hover:bg-gray-200"
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+                  </>
+                  );
+                })()}
               </>
             )}
           </>
@@ -1325,12 +1390,23 @@ const TimeRecords = () => {
               <input
                 type="time"
                 value={manualEntry.endTime}
+                min={manualEntry.startTime}
                 onChange={(e) =>
                   setManualEntry({ ...manualEntry, endTime: e.target.value })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary ${
+                  manualEntry.endTime && manualEntry.endTime <= manualEntry.startTime
+                    ? "border-red-300 bg-red-50"
+                    : "border-gray-300"
+                }`}
                 required
               />
+              {manualEntry.endTime && manualEntry.endTime < manualEntry.startTime && (
+                <p className="text-xs text-red-500 mt-1">End time can not be less than start time</p>
+              )}
+              {manualEntry.endTime && manualEntry.endTime === manualEntry.startTime && (
+                <p className="text-xs text-red-500 mt-1">End time must be greater than start time</p>
+              )}
             </div>
           </div>
 

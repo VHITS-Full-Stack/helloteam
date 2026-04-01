@@ -296,6 +296,12 @@ const ScheduleManagement = () => {
       return;
     }
 
+    const invalidDay = weeklySchedule.find(day => day.isWorking && day.endTime <= day.startTime);
+    if (invalidDay) {
+      setError(`${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][invalidDay.dayOfWeek]}: End time must be after start time`);
+      return;
+    }
+
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -627,14 +633,26 @@ const ScheduleManagement = () => {
                           className="input py-1 px-2 text-xs"
                         />
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <label className="text-[11px] text-gray-400">End:</label>
-                        <input
-                          type="time"
-                          value={weeklySchedule[index].endTime}
-                          onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
-                          className="input py-1 px-2 text-xs"
-                        />
+                      <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5">
+                          <label className="text-[11px] text-gray-400">End:</label>
+                          <input
+                            type="time"
+                            value={weeklySchedule[index].endTime}
+                            min={weeklySchedule[index].startTime}
+                            onChange={(e) => handleScheduleChange(index, 'endTime', e.target.value)}
+                            className={`input py-1 px-2 text-xs ${
+                              weeklySchedule[index].endTime && weeklySchedule[index].endTime <= weeklySchedule[index].startTime
+                                ? 'border-red-300 bg-red-50' : ''
+                            }`}
+                          />
+                        </div>
+                        {weeklySchedule[index].endTime && weeklySchedule[index].endTime < weeklySchedule[index].startTime && (
+                          <p className="text-[10px] text-red-500 mt-0.5 ml-8">End time can not be less than start time</p>
+                        )}
+                        {weeklySchedule[index].endTime && weeklySchedule[index].endTime === weeklySchedule[index].startTime && (
+                          <p className="text-[10px] text-red-500 mt-0.5 ml-8">End time can not be equal to start time</p>
+                        )}
                       </div>
                       <div className="flex-1 text-right">
                         <span className="text-xs font-semibold text-gray-700">

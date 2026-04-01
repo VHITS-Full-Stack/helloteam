@@ -669,7 +669,7 @@ const TimeRecords = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-48 h-10 px-3 border border-gray-300 rounded-lg text-sm bg-white appearance-none pr-9 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-40 h-9 px-3 border border-gray-300 rounded-lg text-xs bg-white appearance-none pr-8 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="all">All Status</option>
                 <option value="pending">Pending</option>
@@ -677,14 +677,14 @@ const TimeRecords = () => {
                 <option value="rejected">Rejected</option>
                 <option value="revision_requested">Revision Requested</option>
               </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 z-10" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 z-10" />
               <input
                 type="text"
                 placeholder="Search employees..."
-                className="w-48 h-10 pl-9 pr-3 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                className="w-44 h-9 pl-8 pr-3 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
