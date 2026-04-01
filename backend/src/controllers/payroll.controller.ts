@@ -160,9 +160,8 @@ export const getPayrollPeriods = async (
           employeeIds.push(empId);
           const regularHours = Math.round((emp.regularMinutes / 60) * 100) / 100;
           const overtimeHours = Math.round((emp.otMinutes / 60) * 100) / 100;
-          totalGrossPay += Math.round(regularHours * emp.hourlyRate * 100) / 100;
-          totalGrossPay += Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
-          totalGrossPay -= emp.deduction;
+          const employeePay = Math.round((regularHours * emp.hourlyRate + overtimeHours * emp.overtimeRate) * 100) / 100;
+          totalGrossPay += employeePay - emp.deduction;
         }
 
         // Add bonuses, subtract adjustment deductions
@@ -1436,9 +1435,9 @@ export const getPayrollExportData = async (
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
       const breakHours = Math.round((emp.breakMinutes / 60) * 100) / 100;
 
-      // Calculate pay from total hours × rate (matches detail endpoint)
-      const regularPay = Math.round(regularHours * emp.hourlyRate * 100) / 100;
-      const overtimePay = Math.round(overtimeHours * emp.overtimeRate * 100) / 100;
+      // Use record-level aggregated pay values to preserve rounding correctness and per-record rate history
+      const regularPay = Math.round(emp._regularPay * 100) / 100;
+      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
 
       const empAdjustments = adjustmentsByEmployee[emp.employeeId] || [];
       const totalBonuses =
@@ -1962,7 +1961,7 @@ export const getEmployeePayrollSummary = async (
           : emp.rejectedDays > 0
             ? "flagged"
             : "ready";
-      // Calculate hours and pay from total minutes (same as detail endpoint)
+      // Calculate hours from aggregates (same as detail endpoint)
       const regularMinutes = emp.totalMinutes - emp.overtimeMinutes;
       const regularHours = Math.round((regularMinutes / 60) * 100) / 100;
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
@@ -1991,8 +1990,9 @@ export const getEmployeePayrollSummary = async (
         : empPolicy?.defaultOvertimeRate ? Number(empPolicy.defaultOvertimeRate) : 0;
       if (resolvedOvertimeRate === 0 && resolvedHourlyRate > 0) resolvedOvertimeRate = resolvedHourlyRate * 1;
 
-      const regularPay = Math.round(regularHours * resolvedHourlyRate * 100) / 100;
-      const overtimePay = Math.round(overtimeHours * resolvedOvertimeRate * 100) / 100;
+      // Use record-level aggregated pay to preserve date-effective rates and rounding behavior from per-record computation
+      const regularPay = Math.round(emp._regularPay * 100) / 100;
+      const overtimePay = Math.round(emp._overtimePay * 100) / 100;
 
       // Apply adjustments (bonuses add, deductions subtract)
       const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
