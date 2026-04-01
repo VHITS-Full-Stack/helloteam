@@ -50,28 +50,20 @@ const TimesheetDetail = () => {
   });
 
   const [currentMonth, setCurrentMonth] = useState(() => {
-    if (stateData.startDate) {
-      const d = new Date(stateData.startDate);
-      return new Date(d.getFullYear(), d.getMonth(), 1);
-    }
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
-  const [viewMode, setViewMode] = useState(stateData.viewMode || "month");
+  const [viewMode, setViewMode] = useState("month");
   const [weekStart, setWeekStart] = useState(() => {
-    if (stateData.startDate) return new Date(stateData.startDate);
     const now = new Date();
     const d = new Date(now);
-    d.setDate(now.getDate() - now.getDay());
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); // Monday start
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const [customStart, setCustomStart] = useState(
-    stateData.startDate ? new Date(stateData.startDate).toISOString().split("T")[0] : "",
-  );
-  const [customEnd, setCustomEnd] = useState(
-    stateData.endDate ? new Date(stateData.endDate).toISOString().split("T")[0] : "",
-  );
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -110,8 +102,8 @@ const TimesheetDetail = () => {
     setError(null);
     try {
       const { start, end } = getDateRange();
-      const startDate = start.toISOString().split("T")[0];
-      const endDate = end.toISOString().split("T")[0];
+      const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
+      const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
 
       const response = await clientPortalService.getTimeRecords({
         startDate,
@@ -276,10 +268,13 @@ const TimesheetDetail = () => {
     }
   };
 
-  const periodLabel = currentMonth.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  const periodLabel = (() => {
+    const { start, end } = getDateRange();
+    if (viewMode === "month") {
+      return currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    }
+    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  })();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -328,7 +323,21 @@ const TimesheetDetail = () => {
               ].map((m) => (
                 <button
                   key={m.value}
-                  onClick={() => setViewMode(m.value)}
+                  onClick={() => {
+                    if (m.value === "month") {
+                      // Sync currentMonth to the month the current week falls in
+                      setCurrentMonth(new Date(weekStart.getFullYear(), weekStart.getMonth(), 1));
+                    } else if (m.value === "week") {
+                      // Set weekStart to Monday of current week
+                      const now = new Date();
+                      const d = new Date(now);
+                      const day = d.getDay();
+                      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+                      d.setHours(0, 0, 0, 0);
+                      setWeekStart(d);
+                    }
+                    setViewMode(m.value);
+                  }}
                   className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
                     viewMode === m.value
                       ? "bg-white text-gray-900 shadow-sm"
@@ -342,19 +351,48 @@ const TimesheetDetail = () => {
             <div className="flex items-center gap-2">
               <input
                 type="date"
-                value={customStart}
+                value={(() => {
+                  const { start } = getDateRange();
+                  const y = start.getFullYear();
+                  const m = String(start.getMonth() + 1).padStart(2, "0");
+                  const dd = String(start.getDate()).padStart(2, "0");
+                  return `${y}-${m}-${dd}`;
+                })()}
                 onChange={(e) => {
                   setCustomStart(e.target.value);
-                  setViewMode("custom");
+                  if (customEnd) {
+                    setViewMode("custom");
+                  } else {
+                    const endDate = new Date(e.target.value);
+                    endDate.setDate(endDate.getDate() + 6);
+                    const ey = endDate.getFullYear();
+                    const em = String(endDate.getMonth() + 1).padStart(2, "0");
+                    const ed = String(endDate.getDate()).padStart(2, "0");
+                    setCustomEnd(`${ey}-${em}-${ed}`);
+                    setViewMode("custom");
+                  }
                 }}
                 className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
               />
               <span className="text-gray-400 text-xs">to</span>
               <input
                 type="date"
-                value={customEnd}
+                value={(() => {
+                  const { end } = getDateRange();
+                  const y = end.getFullYear();
+                  const m = String(end.getMonth() + 1).padStart(2, "0");
+                  const dd = String(end.getDate()).padStart(2, "0");
+                  return `${y}-${m}-${dd}`;
+                })()}
                 onChange={(e) => {
                   setCustomEnd(e.target.value);
+                  if (!customStart) {
+                    const { start } = getDateRange();
+                    const sy = start.getFullYear();
+                    const sm = String(start.getMonth() + 1).padStart(2, "0");
+                    const sd = String(start.getDate()).padStart(2, "0");
+                    setCustomStart(`${sy}-${sm}-${sd}`);
+                  }
                   setViewMode("custom");
                 }}
                 className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
@@ -453,7 +491,7 @@ const TimesheetDetail = () => {
             for (let d = new Date(iterStart); d <= iterEnd; d.setDate(d.getDate() + 1)) {
               const dayOfWeek = d.getDay();
               const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-              const dayKey = d.toISOString().split("T")[0];
+              const dayKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
               const sessions = sessionsByDate[dayKey] || [];
 
               // Skip weekends with no data
