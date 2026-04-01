@@ -74,18 +74,22 @@ export const getTicket = async (req: AuthenticatedRequest, res: Response): Promi
     const { id } = req.params;
 
     const ticket = await prisma.supportTicket.findUnique({
-      where: { id },
+      where: { id: id as string },
       include: {
         employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true, userId: true } },
         assignedAdmin: { select: { id: true, firstName: true, lastName: true } },
         messages: { orderBy: { createdAt: 'asc' } },
       },
-    });
+    }) as any;
 
     if (!ticket) { res.status(404).json({ success: false, error: 'Ticket not found' }); return; }
 
     // Resolve sender names for messages
-    const senderIds = [...new Set(ticket.messages.map(m => m.senderId))];
+    const senderIds: string[] = [...new Set(
+      (ticket.messages as Array<{ senderId?: string | null }>)
+        .map((m) => m.senderId)
+        .filter((id): id is string => Boolean(id)),
+    )];
     const [employees, admins, clients] = await Promise.all([
       prisma.employee.findMany({ where: { userId: { in: senderIds } }, select: { userId: true, firstName: true, lastName: true } }),
       prisma.admin.findMany({ where: { userId: { in: senderIds } }, select: { userId: true, firstName: true, lastName: true } }),
@@ -153,7 +157,7 @@ export const createTicket = async (req: AuthenticatedRequest, res: Response): Pr
 // Add message to ticket
 export const addMessage = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const userId = req.user?.userId;
     const role = req.user?.role;
     const { message, isInternal } = req.body;
@@ -224,10 +228,10 @@ export const updateTicketStatus = async (req: AuthenticatedRequest, res: Respons
     if (assignedAdminId !== undefined) updateData.assignedAdminId = assignedAdminId || null;
 
     const ticket = await prisma.supportTicket.update({
-      where: { id },
+      where: { id: id as string },
       data: updateData,
       include: { employee: { select: { userId: true } } },
-    });
+    }) as any;
 
     // Notify employee in background
     if (status) {

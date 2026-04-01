@@ -90,6 +90,7 @@ export const getPayrollPeriods = async (
               select: {
                 billingRate: true,
                 deduction: true,
+                overtimeRate: true,
                 clientAssignments: {
                   where: { isActive: true },
                   select: { hourlyRate: true, overtimeRate: true, clientId: true },
@@ -161,7 +162,8 @@ export const getPayrollPeriods = async (
           const regularHours = Math.round((emp.regularMinutes / 60) * 100) / 100;
           const overtimeHours = Math.round((emp.otMinutes / 60) * 100) / 100;
           const employeePay = Math.round((regularHours * emp.hourlyRate + overtimeHours * emp.overtimeRate) * 100) / 100;
-          totalGrossPay += employeePay - emp.deduction;
+          // Employee deduction is handled by payroll adjustments or separate deduction fields; keep gross pay per work conducted.
+          totalGrossPay += employeePay;
         }
 
         // Add bonuses, subtract adjustment deductions
@@ -2003,7 +2005,7 @@ export const getEmployeePayrollSummary = async (
         .filter((a: any) => a.type === "DEDUCTION")
         .reduce((sum: number, a: any) => sum + a.amount, 0);
       const employeeDeduction = emp.employee.deduction ? Number(emp.employee.deduction) : 0;
-      const totalDeductions = adjustmentDeductions + employeeDeduction;
+      const totalDeductions = adjustmentDeductions; // keep default employee deduction separate from payroll adjustment deducctions
 
       // PTO/VTO hours (8 hours per day)
       const empLeave = leaveDaysByEmployee[emp.employee.id] || { ptoDays: 0, vtoDays: 0 };
@@ -2037,6 +2039,8 @@ export const getEmployeePayrollSummary = async (
         employeeDeduction,
         totalBonuses: Math.round(totalBonuses * 100) / 100,
         totalDeductions: Math.round(totalDeductions * 100) / 100,
+        // For troubleshooting: show how much employee default deduction is (not applied to grossPay by default)
+        employeeDeductionAllocated: Math.round(employeeDeduction * 100) / 100,
         status,
         note:
           emp.pendingDays > 0
