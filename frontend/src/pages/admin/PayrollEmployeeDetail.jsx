@@ -72,7 +72,17 @@ const PayrollEmployeeDetail = () => {
   const formatHours = (minutes) => {
     if (!minutes) return "0m";
     const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
+    const m = Math.round(minutes % 60);
+    if (h === 0) return `${m}m`;
+    if (m === 0) return `${h}h`;
+    return `${h}h ${m}m`;
+  };
+
+  const formatDecimalHours = (hours) => {
+    if (!hours) return "0m";
+    const totalMins = Math.round(hours * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
     if (h === 0) return `${m}m`;
     if (m === 0) return `${h}h`;
     return `${h}h ${m}m`;
@@ -172,16 +182,16 @@ const PayrollEmployeeDetail = () => {
       <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
         <div className="bg-green-50 rounded-lg p-3 border border-green-200">
           <p className="text-[10px] text-green-600 font-medium">Total Hours</p>
-          <p className="text-xl font-bold text-green-700">{s.totalHours}h</p>
+          <p className="text-xl font-bold text-green-700">{formatDecimalHours(s.totalHours)}</p>
         </div>
         <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
           <p className="text-[10px] text-blue-600 font-medium">Regular</p>
-          <p className="text-xl font-bold text-blue-700">{s.regularHours}h</p>
+          <p className="text-xl font-bold text-blue-700">{formatDecimalHours(s.regularHours)}</p>
         </div>
         <div className="bg-orange-50 rounded-lg p-3 border border-orange-200">
           <p className="text-[10px] text-orange-600 font-medium">Overtime</p>
           <p className="text-xl font-bold text-orange-700">
-            {s.overtimeHours}h
+            {formatDecimalHours(s.overtimeHours)}
           </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
@@ -323,13 +333,13 @@ const PayrollEmployeeDetail = () => {
                 <td className="px-3 py-3"></td>
                 <td className="px-3 py-3"></td>
                 <td className="px-3 py-3 text-sm text-center font-bold text-gray-900">
-                  {s.regularHours}h
+                  {formatDecimalHours(s.regularHours)}
                 </td>
                 <td className="px-3 py-3 text-sm text-center font-bold text-orange-600">
-                  {s.overtimeHours}h
+                  {formatDecimalHours(s.overtimeHours)}
                 </td>
                 <td className="px-3 py-3 text-sm text-center font-bold text-blue-700">
-                  {s.totalHours}h
+                  {formatDecimalHours(s.totalHours)}
                 </td>
                 <td className="px-3 py-3"></td>
               </tr>
@@ -361,7 +371,7 @@ const PayrollEmployeeDetail = () => {
           <div className="flex items-center gap-3 px-3 py-2 bg-blue-50/50 rounded-lg">
             <div className="w-0.5 h-6 bg-blue-500 rounded-full"></div>
             <span className="text-sm text-gray-700 flex-1">Regular Pay</span>
-            {/* <span className="text-xs text-gray-400">{s.regularHours}h &times; ${rates.hourlyRate}</span> */}
+            {/* <span className="text-xs text-gray-400">{formatDecimalHours(s.regularHours)} &times; ${rates.hourlyRate}</span> */}
             <span className="text-sm font-semibold text-gray-900 w-20 text-right">
               ${s.regularPay.toLocaleString()}
             </span>
@@ -371,7 +381,7 @@ const PayrollEmployeeDetail = () => {
               <div className="w-0.5 h-6 bg-orange-500 rounded-full"></div>
               <span className="text-sm text-orange-700 flex-1">Overtime</span>
               <span className="text-xs text-gray-400">
-                {s.overtimeHours}h &times; ${rates.overtimeRate}
+                {formatDecimalHours(s.overtimeHours)} &times; ${rates.overtimeRate}
               </span>
               <span className="text-sm font-semibold text-orange-700 w-20 text-right">
                 +${s.overtimePay.toLocaleString()}

@@ -1253,7 +1253,7 @@ const TimeRecords = () => {
                     const totalM = rec.totalMinutes || 0;
                     const billingM = rec.billingMinutes || 0;
                     const regularM =
-                      rec.regularMinutes != null
+                      rec.regularMinutes !== null
                         ? rec.regularMinutes
                         : Math.max(
                             0,
