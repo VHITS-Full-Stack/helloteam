@@ -1388,7 +1388,6 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     const isAllStatus = status === 'all';
     const type = req.query.type as string | undefined;
     const clientId = req.query.clientId as string | undefined;
-    console.log(`[AdminApprovals DEBUG] status=${status}, type=${type}, clientId=${clientId}`);
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;

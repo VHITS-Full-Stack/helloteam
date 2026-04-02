@@ -1189,15 +1189,15 @@ const TimeRecords = () => {
                                               ? "ext"
                                               : "off"}
                                           </span>
-                                          {(ot.status === "APPROVED" ||
+                                          {/* {(ot.status === "APPROVED" ||
                                             ot.status === "AUTO_APPROVED") && (
                                             <CheckCircle className="w-3 h-3 text-green-500" />
-                                          )}
-                                          {ot.status === "PENDING" && (
+                                          )} */}
+                                          {/* {ot.status === "PENDING" && (
                                             <span className="text-[10px] text-amber-500">
                                               pending
                                             </span>
-                                          )}
+                                          )} */}
                                         </span>
                                       ))}
                                     </div>
