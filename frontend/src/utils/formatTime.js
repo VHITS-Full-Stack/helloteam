@@ -34,8 +34,9 @@ export const formatTime12 = (timeStr) => {
 
 /** Format decimal hours into human-readable duration (e.g., "2h 30m", "45m", "8h") */
 export const formatHours = (decimalHours) => {
-  if (decimalHours === null || decimalHours === undefined || decimalHours === 0) return '0m';
-  const totalMinutes = Math.round(decimalHours * 60);
+  const value = Number(decimalHours);
+  if (!Number.isFinite(value) || value === 0) return '0m';
+  const totalMinutes = Math.round(value * 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   if (hours === 0) return `${minutes}m`;
