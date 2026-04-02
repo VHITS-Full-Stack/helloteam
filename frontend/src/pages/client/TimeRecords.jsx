@@ -65,7 +65,7 @@ const TimeRecords = () => {
 
   // Date range navigation
   const [viewMode, setViewMode] = useState("week"); // week, month, custom
-  const [weekStart, setWeekStart] = useState(() => {
+  const [weekStart] = useState(() => {
     const now = new Date();
     const d = new Date(now);
     d.setDate(now.getDate() - now.getDay());
