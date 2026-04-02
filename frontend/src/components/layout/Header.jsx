@@ -189,7 +189,7 @@ const Header = ({
       {/* Right Section */}
       <div className="flex items-center gap-4">
         {/* Search */}
-        {showSearch && (
+        {/* {showSearch && (
           <div className="hidden md:flex items-center">
             <div className="relative">
               <Search className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${
@@ -209,7 +209,7 @@ const Header = ({
               />
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Actions */}
         {actions && (
