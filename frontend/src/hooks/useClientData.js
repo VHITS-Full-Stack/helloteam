@@ -25,7 +25,11 @@ function useClientList() {
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
-  const [filters, setFilters] = useState({ status: '' });
+  const [filters, setFilters] = useState({
+    status: '',
+    startDate: '',
+    endDate: '',
+  });
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -56,6 +60,8 @@ function useClientList() {
         limit: pagination.limit,
         search: searchQueryRef.current,
         status: filtersRef.current.status,
+        startDate: filtersRef.current.startDate,
+        endDate: filtersRef.current.endDate,
       });
 
       if (response.success) {
@@ -121,7 +127,7 @@ function useClientList() {
     } else {
       setPagination(prev => ({ ...prev, page: 1 }));
     }
-  }, [filters.status]);
+  }, [filters.status, filters.startDate, filters.endDate]);
 
   const handleDeleteClient = async () => {
     if (!selectedClient) return;

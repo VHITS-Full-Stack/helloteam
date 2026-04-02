@@ -43,6 +43,8 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
       search = '',
       status = '',
       clientId = '',
+      startDate = '',
+      endDate = '',
     } = req.query;
 
     const pageNum = parseInt(page as string, 10);
@@ -71,6 +73,16 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
           isActive: true,
         },
       };
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(`${startDate as string}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(`${endDate as string}T23:59:59.999Z`);
+      }
     }
 
     // Get employees with relations

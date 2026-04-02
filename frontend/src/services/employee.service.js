@@ -10,6 +10,8 @@ const employeeService = {
       if (params.search) queryParams.append('search', params.search);
       if (params.status) queryParams.append('status', params.status);
       if (params.clientId) queryParams.append('clientId', params.clientId);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
 
       const response = await api.get(`/employees?${queryParams.toString()}`);
       return response;

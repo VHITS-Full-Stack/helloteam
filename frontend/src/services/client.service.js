@@ -9,6 +9,8 @@ const clientService = {
       if (params.limit) queryParams.append('limit', params.limit);
       if (params.search) queryParams.append('search', params.search);
       if (params.status) queryParams.append('status', params.status);
+      if (params.startDate) queryParams.append('startDate', params.startDate);
+      if (params.endDate) queryParams.append('endDate', params.endDate);
 
       const response = await api.get(`/clients?${queryParams.toString()}`);
       return response;

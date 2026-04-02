@@ -28,6 +28,8 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
       limit = '10',
       search = '',
       status = '',
+      startDate = '',
+      endDate = '',
     } = req.query;
 
     const pageNum = parseInt(page as string, 10);
@@ -48,6 +50,16 @@ export const getClients = async (req: AuthenticatedRequest, res: Response): Prom
 
     if (status) {
       where.user = { ...where.user, status: status as string };
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+      if (startDate) {
+        where.createdAt.gte = new Date(`${startDate as string}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        where.createdAt.lte = new Date(`${endDate as string}T23:59:59.999Z`);
+      }
     }
 
     // Get clients with relations

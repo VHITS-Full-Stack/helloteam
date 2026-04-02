@@ -28,7 +28,12 @@ function useEmployeeList() {
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
-  const [filters, setFilters] = useState({ status: "", clientId: "" });
+  const [filters, setFilters] = useState({
+    status: "",
+    clientId: "",
+    startDate: "",
+    endDate: "",
+  });
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const [employees, setEmployees] = useState([]);
@@ -61,6 +66,8 @@ function useEmployeeList() {
         search: searchQueryRef.current,
         status: filtersRef.current.status,
         clientId: filtersRef.current.clientId,
+        startDate: filtersRef.current.startDate,
+        endDate: filtersRef.current.endDate,
       });
 
       if (response.success) {
@@ -134,7 +141,7 @@ function useEmployeeList() {
     } else {
       setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
     }
-  }, [filters.status, filters.clientId]);
+  }, [filters.status, filters.clientId, filters.startDate, filters.endDate]);
 
   const refresh = () => {
     fetchEmployees();
