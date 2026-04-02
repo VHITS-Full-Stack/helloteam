@@ -91,51 +91,6 @@ const TimeRecords = () => {
   }, [viewMode, weekStart, customStart, customEnd]);
 
   const { start: rangeStart, end: rangeEnd } = dateRange;
-  const rangeLabel =
-    viewMode === "month"
-      ? rangeStart.toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        })
-      : `${rangeStart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${rangeEnd.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
-
-  const handlePrev = () => {
-    if (viewMode === "month") {
-      setWeekStart((prev) => {
-        const d = new Date(prev);
-        d.setMonth(d.getMonth() - 1);
-        return d;
-      });
-    } else {
-      setWeekStart((prev) => {
-        const d = new Date(prev);
-        d.setDate(d.getDate() - 7);
-        return d;
-      });
-    }
-  };
-  const handleNext = () => {
-    if (viewMode === "month") {
-      setWeekStart((prev) => {
-        const d = new Date(prev);
-        d.setMonth(d.getMonth() + 1);
-        return d;
-      });
-    } else {
-      setWeekStart((prev) => {
-        const d = new Date(prev);
-        d.setDate(d.getDate() + 7);
-        return d;
-      });
-    }
-  };
-  const handleToday = () => {
-    const now = new Date();
-    const d = new Date(now);
-    d.setDate(now.getDate() - now.getDay());
-    d.setHours(0, 0, 0, 0);
-    setWeekStart(d);
-  };
 
   // Flatten all day records for stats
   const allDayRecords = timeRecords.flatMap((emp) => emp.records || []);
@@ -639,12 +594,6 @@ const TimeRecords = () => {
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" onClick={handlePrev}>Prev</Button>
-              <Button size="sm" variant="outline" onClick={handleToday}>Today</Button>
-              <Button size="sm" variant="outline" onClick={handleNext}>Next</Button>
-              <span className="text-sm text-gray-500 ml-2">{rangeLabel}</span>
-            </div>
             {/* View mode selector */}
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
               {[
