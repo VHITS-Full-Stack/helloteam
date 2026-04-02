@@ -135,11 +135,10 @@ export const getPayrollPeriods = async (
             const grpRate = grpAsn?.group?.billingRate ? Number(grpAsn.group.billingRate) : null;
 
             const hr = asn?.hourlyRate ? Number(asn.hourlyRate) : empBR ? empBR : cgRate ? cgRate : grpRate ? grpRate : pol?.defaultHourlyRate ? Number(pol.defaultHourlyRate) : 0;
-            let otr = asn?.overtimeRate ? Number(asn.overtimeRate) : pol?.defaultOvertimeRate ? Number(pol.defaultOvertimeRate) : 0;
-            if (otr === 0 && hr > 0) {
-              const empOTMultiplier = r.employee?.overtimeRate ? Number(r.employee.overtimeRate) : 1;
-              otr = hr * empOTMultiplier;
-            }
+            const empOTRate = r.employee?.overtimeRate ? Number(r.employee.overtimeRate) : 0;
+            let otr = empOTRate > 0 ? empOTRate
+              : asn?.overtimeRate ? Number(asn.overtimeRate)
+              : pol?.defaultOvertimeRate ? Number(pol.defaultOvertimeRate) : 0;
 
             empTotals[empId] = { regularMinutes: 0, otMinutes: 0, hourlyRate: hr, overtimeRate: otr, deduction: r.employee?.deduction ? Number(r.employee.deduction) : 0 };
           }
@@ -1299,12 +1298,10 @@ export const getPayrollExportData = async (
         : groupBillingRate ? groupBillingRate
         : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
 
-      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+      const empOTRate = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 0;
+      let otr = empOTRate > 0 ? empOTRate
+        : assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) {
-        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
-        otr = hr * empOTMultiplier;
-      }
 
       return { hourlyRate: hr, overtimeRate: otr };
     };
@@ -1338,12 +1335,10 @@ export const getPayrollExportData = async (
       const hr = effectiveRate || 0;
       const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
       const policy = policyMap.get(record.clientId);
-      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+      const empOTRate = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 0;
+      let otr = empOTRate > 0 ? empOTRate
+        : assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) {
-        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
-        otr = hr * empOTMultiplier;
-      }
 
       return { hourlyRate: hr, overtimeRate: otr };
     };
@@ -1386,11 +1381,8 @@ export const getPayrollExportData = async (
         approvedOT += record.extraTimeMinutes || 0;
       const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOT);
       const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOT);
-      const payableRegular = payableMinutes - approvedOT;
-
-      // Calculate pay for this record using its date-effective rate
-      // Regular hours × hourly rate, OT hours × overtime rate (round only final total)
-      const recRegularPay = (payableRegular / 60) * rates.hourlyRate;
+      // All payable hours at regular rate, OT adds premium on top
+      const recRegularPay = (payableMinutes / 60) * rates.hourlyRate;
       const recOTPay = (approvedOT / 60) * rates.overtimeRate;
       employeeData[empId]._regularPay += recRegularPay;
       employeeData[empId]._overtimePay += recOTPay;
@@ -1406,7 +1398,7 @@ export const getPayrollExportData = async (
         };
       }
       const rp = employeeData[empId]._ratePeriods[rateKey];
-      rp.regularMinutes += payableRegular;
+      rp.regularMinutes += payableMinutes;
       rp.otMinutes += approvedOT;
       rp.workDays += 1;
       rp.regularPay += recRegularPay;
@@ -1418,13 +1410,13 @@ export const getPayrollExportData = async (
       employeeData[empId].records.push({
         date: record.date,
         totalMinutes: payableMinutes,
-        regularMinutes: payableRegular,
+        regularMinutes: payableMinutes,
         overtimeMinutes: approvedOT,
         breakMinutes: record.breakMinutes || 0,
       });
 
       employeeData[empId].totalMinutes += payableMinutes;
-      employeeData[empId].regularMinutes += payableRegular;
+      employeeData[empId].regularMinutes += payableMinutes;
       employeeData[empId].overtimeMinutes += approvedOT;
       employeeData[empId].breakMinutes += record.breakMinutes || 0;
       employeeData[empId].workDays += 1;
@@ -1744,12 +1736,11 @@ export const getEmployeePayrollSummary = async (
         : groupBillingRate ? groupBillingRate
         : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
 
-      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+      // OT rate: use employee-specific overtimeRate directly, fallback to assignment/policy
+      const empOTRate = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 0;
+      let otr = empOTRate > 0 ? empOTRate
+        : assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) {
-        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
-        otr = hr * empOTMultiplier;
-      }
       return { hourlyRate: hr, overtimeRate: otr };
     };
 
@@ -1770,12 +1761,11 @@ export const getEmployeePayrollSummary = async (
       const hr = effectiveRate || 0;
       const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
       const policy = policyMap.get(record.clientId);
-      let otr = assignment?.overtimeRate ? Number(assignment.overtimeRate)
+      // OT rate: use employee-specific overtimeRate directly, fallback to assignment/policy
+      const empOTRate = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 0;
+      let otr = empOTRate > 0 ? empOTRate
+        : assignment?.overtimeRate ? Number(assignment.overtimeRate)
         : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
-      if (otr === 0 && hr > 0) {
-        const empOTMultiplier = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 1;
-        otr = hr * empOTMultiplier;
-      }
       return { hourlyRate: hr, overtimeRate: otr };
     };
 
@@ -1855,11 +1845,9 @@ export const getEmployeePayrollSummary = async (
         if (approvedOTMinutes === 0) approvedOTMinutes = approvedOTByEmpDate.get(dateKey) || 0;
         const deniedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
         const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
-        const payableRegular = payableMinutes - approvedOTMinutes;
 
-        // Calculate per-record pay with date-effective rate
-        // Regular hours × hourly rate, OT hours × overtime rate (round only final total)
-        employeeSummary[empId]._regularPay += (payableRegular / 60) * rates.hourlyRate;
+        // All payable hours at regular rate, OT adds premium on top
+        employeeSummary[empId]._regularPay += (payableMinutes / 60) * rates.hourlyRate;
         employeeSummary[empId]._overtimePay += (approvedOTMinutes / 60) * rates.overtimeRate;
 
         employeeSummary[empId].totalMinutes += payableMinutes;
@@ -2304,10 +2292,9 @@ export const getEmployeePayrollDetail = async (
           if (record.extraTimeStatus === 'APPROVED') approvedOTMins += record.extraTimeMinutes || 0;
           const deniedOT = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMins);
           const payable = isApproved ? Math.max(0, (record.totalMinutes || 0) - deniedOT) : 0;
-          const regular = payable - approvedOTMins;
 
           if (isApproved) {
-            totalRegularMinutes += regular;
+            totalRegularMinutes += payable;
             totalOvertimeMinutes += approvedOTMins;
             totalApprovedMinutes += payable;
             approvedDays++;
