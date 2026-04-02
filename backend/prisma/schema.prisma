@@ -240,6 +240,7 @@ model Employee {
   payrollAdjustments PayrollAdjustment[]
   payslips           Payslip[]
   clientRequests     ClientRequest[]
+  overtimeRequests   OvertimeRequest[]
 
   @@map("employees")
 }
@@ -279,6 +280,7 @@ model Client {
   autoApprovalLogs AutoApprovalLog[]
   payslips         Payslip[]
   clientRequests   ClientRequest[]
+  overtimeRequests OvertimeRequest[]
 
   @@map("clients")
 }
@@ -945,6 +947,9 @@ model OvertimeRequest {
   approvalNotes      String? // Admin/client notes on approval or rejection
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  client   Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId, status])
   @@index([employeeId, date])
