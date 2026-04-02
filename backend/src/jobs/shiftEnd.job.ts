@@ -304,7 +304,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
                 where: { id: session.id },
                 data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
               });
-              await autoClockOut(session, employee, extendedEndUTC, schedule, clientTimezone, assignment.clientId, otRequiresApproval, io);
+              await autoClockOut(session, employee, extendedEndUTC, schedule, clientTimezone, otRequiresApproval, io);
               console.log(`[Shift-End] Auto-clock-out after approved OT for ${employee.firstName} ${employee.lastName} at ${extendedEndUTC.toISOString()}`);
             }
             continue;
@@ -350,7 +350,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
             data: { shiftEndAction: 'AUTO_TIMEOUT' },
           });
           // Auto-clock out at scheduled end time (not current time)
-          await autoClockOut(session, employee, shiftEndUTC, schedule, clientTimezone, assignment.clientId, otRequiresApproval, io);
+          await autoClockOut(session, employee, shiftEndUTC, schedule, clientTimezone, otRequiresApproval, io);
           console.log(`[Shift-End] Auto-clock-out (2-min timeout) for ${employee.firstName} ${employee.lastName}`);
         }
         // else: still within 2-minute window, wait for employee response

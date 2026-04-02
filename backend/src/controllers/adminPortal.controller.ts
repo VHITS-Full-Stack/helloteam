@@ -1385,8 +1385,10 @@ export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response)
 export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const status = (req.query.status as string) || 'pending';
+    const isAllStatus = status === 'all';
     const type = req.query.type as string | undefined;
     const clientId = req.query.clientId as string | undefined;
+    console.log(`[AdminApprovals DEBUG] status=${status}, type=${type}, clientId=${clientId}`);
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
@@ -1398,7 +1400,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       rejected: ApprovalStatus.REJECTED,
       revision_requested: ApprovalStatus.REVISION_REQUESTED,
     };
-    const timeRecordStatus = timeRecordStatusMap[status] || ApprovalStatus.PENDING;
+    const timeRecordStatus = isAllStatus ? undefined : (timeRecordStatusMap[status] || ApprovalStatus.PENDING);
 
     // Map query status to LeaveRequest LeaveStatus
     const leaveStatusMap: { [key: string]: LeaveStatus } = {
@@ -1406,12 +1408,21 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       approved: LeaveStatus.APPROVED,
       rejected: LeaveStatus.REJECTED,
     };
-    const leaveStatus = leaveStatusMap[status] || LeaveStatus.PENDING;
+    const leaveStatus = isAllStatus ? undefined : (leaveStatusMap[status] || LeaveStatus.PENDING);
+
+    // Map query status for overtime requests
+    const otStatusMap: { [key: string]: string } = {
+      pending: 'PENDING',
+      approved: 'APPROVED',
+      rejected: 'REJECTED',
+    };
+    const otStatus = isAllStatus ? undefined : (otStatusMap[status] || 'PENDING');
 
     // Get time records
-    let timeRecordWhere: any = {
-      status: Array.isArray(timeRecordStatus) ? { in: timeRecordStatus } : timeRecordStatus,
-    };
+    let timeRecordWhere: any = {};
+    if (timeRecordStatus) {
+      timeRecordWhere.status = Array.isArray(timeRecordStatus) ? { in: timeRecordStatus } : timeRecordStatus;
+    }
     if (clientId) {
       timeRecordWhere.clientId = clientId;
     }
@@ -1420,14 +1431,6 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     } else if (type === 'overtime') {
       timeRecordWhere.overtimeMinutes = { gt: 0 };
     }
-
-    // Map query status for overtime requests
-    const otStatusMap: { [key: string]: string } = {
-      pending: 'PENDING',
-      approved: 'APPROVED',
-      rejected: 'REJECTED',
-    };
-    const otStatus = otStatusMap[status] || 'PENDING';
 
     const [timeRecords, leaveRequests, overtimeRequests] = await Promise.all([
       (!type || !['leave', 'overtime-request'].includes(type)) ? prisma.timeRecord.findMany({
@@ -1441,7 +1444,10 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         take: limit,
       }) : [],
       (!type || type === 'leave') ? prisma.leaveRequest.findMany({
-        where: { status: leaveStatus },
+        where: {
+          ...(leaveStatus ? { status: leaveStatus } : {}),
+          ...(clientId ? { clientId } : {}),
+        },
         include: {
           employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
           client: { select: { companyName: true } },
@@ -1451,7 +1457,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         take: type === 'leave' ? limit : 10,
       }) : [],
       (!type || type === 'overtime-request') ? prisma.overtimeRequest.findMany({
-        where: { status: otStatus as any },
+        where: otStatus ? { status: otStatus as any } : {},
         orderBy: { createdAt: 'desc' },
         skip: type === 'overtime-request' ? skip : 0,
         take: type === 'overtime-request' ? limit : 10,

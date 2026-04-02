@@ -62,6 +62,7 @@ const Approvals = () => {
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
+  const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
   const [actionNotes, setActionNotes] = useState('');
@@ -107,8 +108,6 @@ const Approvals = () => {
   const isOTType = activeType === 'overtime' || activeType === 'autoOvertime';
 
   const fetchData = useCallback(async () => {
-    if (fetchingRef.current) return;
-    fetchingRef.current = true;
     setLoading(true);
     try {
       if (activeType === 'overtime' || activeType === 'autoOvertime') {
@@ -137,9 +136,9 @@ const Approvals = () => {
           type: activeType === 'timesheet' ? 'timesheet' : 'leave',
           page,
           limit: pageSize,
+          status: statusFilter === 'all' ? 'all' : statusFilter,
+          clientId: clientFilterId !== 'all' ? clientFilterId : undefined,
         };
-        if (statusFilter !== 'all') params.status = statusFilter;
-        if (clientFilterId !== 'all') params.clientId = clientFilterId;
         const res = await adminPortalService.getApprovals(params);
         if (res?.success) {
           let approvals = res.data.approvals || [];
@@ -158,7 +157,6 @@ const Approvals = () => {
       console.error('Failed to fetch:', error);
     } finally {
       setLoading(false);
-      fetchingRef.current = false;
     }
   }, [activeType, statusFilter, startDate, endDate, employeeFilter, clientFilterId, page]);
 
@@ -186,7 +184,8 @@ const Approvals = () => {
       }
       if (response?.success) {
         setShowApprovalModal(false);
-        fetchData();
+        setItems(prev => prev.filter(item => item.id !== selectedItem.id));
+        setTotalItems(prev => Math.max(0, prev - 1));
         fetchPendingCounts();
         window.dispatchEvent(new Event('approvals-updated'));
       }
@@ -209,7 +208,8 @@ const Approvals = () => {
       if (response?.success) {
         setShowRejectModal(false);
         setRejectionReason('');
-        fetchData();
+        setItems(prev => prev.filter(item => item.id !== selectedItem.id));
+        setTotalItems(prev => Math.max(0, prev - 1));
         fetchPendingCounts();
         window.dispatchEvent(new Event('approvals-updated'));
       }
@@ -236,8 +236,9 @@ const Approvals = () => {
       } else {
         await adminPortalService.bulkApproveTimeRecords(selectedItems);
       }
+      setItems(prev => prev.filter(item => !selectedItems.includes(item.id)));
+      setTotalItems(prev => Math.max(0, prev - selectedItems.length));
       setSelectedItems([]);
-      fetchData();
       fetchPendingCounts();
       window.dispatchEvent(new Event('approvals-updated'));
     } catch (error) { console.error('Bulk approve error:', error); }
@@ -314,7 +315,7 @@ const Approvals = () => {
         </div>
         <div className="flex items-center gap-3">
           {selectedItems.length > 0 && (statusFilter === 'pending' || statusFilter === 'all') && (
-            <Button variant="success" icon={CheckCircle} onClick={handleBulkApprove} disabled={processing}>
+            <Button variant="success" icon={CheckCircle} onClick={() => setShowBulkApproveModal(true)} disabled={processing}>
               Approve Selected ({selectedItems.length})
             </Button>
           )}
@@ -610,6 +611,26 @@ const Approvals = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Approve Confirmation Modal */}
+      <Modal
+        isOpen={showBulkApproveModal}
+        onClose={() => setShowBulkApproveModal(false)}
+        title="Confirm Bulk Approval"
+        size="sm"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setShowBulkApproveModal(false)}>Cancel</Button>
+            <Button variant="success" icon={CheckCircle} onClick={() => { setShowBulkApproveModal(false); handleBulkApprove(); }} disabled={processing}>
+              Approve All ({selectedItems.length})
+            </Button>
+          </>
+        }
+      >
+        <p className="text-gray-700">
+          Are you sure you want to approve <strong>{selectedItems.length}</strong> selected {selectedItems.length === 1 ? 'item' : 'items'}?
+        </p>
+      </Modal>
 
       {/* Approval Modal */}
       <Modal
