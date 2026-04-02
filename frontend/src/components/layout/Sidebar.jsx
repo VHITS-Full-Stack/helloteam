@@ -34,8 +34,10 @@ import clientPortalService from "../../services/clientPortal.service";
 import overtimeService from "../../services/overtime.service";
 import adminPortalService from "../../services/adminPortal.service";
 
-const Sidebar = ({ portalType = "employee", user, onLogout }) => {
-  const [collapsed, setCollapsed] = useState(false);
+const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlledCollapsed, onToggleCollapse }) => {
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+  const toggleCollapsed = onToggleCollapse || (() => setInternalCollapsed(prev => !prev));
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
@@ -438,7 +440,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout }) => {
             {!collapsed && <span className="text-sm font-medium">Logout</span>}
           </button>
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleCollapsed}
             className="p-3 text-primary-400 hover:text-secondary hover:bg-primary-600/30 transition-all duration-200 group"
             title={collapsed ? "Expand" : "Collapse"}
           >

@@ -304,7 +304,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
                 where: { id: session.id },
                 data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
               });
-              await autoClockOut(session, employee, extendedEndUTC, schedule, io);
+              await autoClockOut(session, employee, extendedEndUTC, schedule, clientTimezone, assignment.clientId, otRequiresApproval, io);
               console.log(`[Shift-End] Auto-clock-out after approved OT for ${employee.firstName} ${employee.lastName} at ${extendedEndUTC.toISOString()}`);
             }
             continue;
@@ -350,7 +350,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
             data: { shiftEndAction: 'AUTO_TIMEOUT' },
           });
           // Auto-clock out at scheduled end time (not current time)
-          await autoClockOut(session, employee, shiftEndUTC, schedule, io);
+          await autoClockOut(session, employee, shiftEndUTC, schedule, clientTimezone, assignment.clientId, otRequiresApproval, io);
           console.log(`[Shift-End] Auto-clock-out (2-min timeout) for ${employee.firstName} ${employee.lastName}`);
         }
         // else: still within 2-minute window, wait for employee response
@@ -363,12 +363,15 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
 
 /**
  * Auto-clock out an employee's active session.
+ * Mirrors manual clock-out logic from workSession.controller.ts.
  */
 async function autoClockOut(
   session: any,
   employee: any,
   endTime: Date,
   schedule: { startTime: string; endTime: string },
+  clientTimezone: string,
+  otRequiresApproval: boolean,
   io?: Server
 ): Promise<void> {
   try {
@@ -380,10 +383,7 @@ async function autoClockOut(
       );
       await prisma.break.update({
         where: { id: ongoingBreak.id },
-        data: {
-          endTime,
-          durationMinutes: breakDuration,
-        },
+        data: { endTime, durationMinutes: breakDuration },
       });
     }
 
@@ -391,7 +391,6 @@ async function autoClockOut(
     const breaks = await prisma.break.findMany({
       where: { workSessionId: session.id },
     });
-
     const totalBreakMinutes = breaks.reduce((total: number, brk: any) => {
       if (brk.durationMinutes) return total + brk.durationMinutes;
       if (brk.endTime) return total + Math.round((brk.endTime.getTime() - brk.startTime.getTime()) / 60000);
@@ -401,42 +400,137 @@ async function autoClockOut(
     // Update work session
     await prisma.workSession.update({
       where: { id: session.id },
-      data: {
-        endTime,
-        status: 'COMPLETED',
-        totalBreakMinutes,
-      },
+      data: { endTime, status: 'COMPLETED', totalBreakMinutes },
     });
 
-    // Calculate total work time
-    const rawMs = endTime.getTime() - session.startTime.getTime();
-    const fullMinutes = Math.floor(rawMs / 60000);
-    const remainingSeconds = Math.floor((rawMs % 60000) / 1000);
-    const totalWorkMinutes = (remainingSeconds >= 30 ? fullMinutes + 1 : fullMinutes) - totalBreakMinutes;
+    // Calculate total work time (same as manual clock-out: Math.round)
+    const totalWorkMinutes = Math.round(
+      (endTime.getTime() - session.startTime.getTime()) / 60000
+    ) - totalBreakMinutes;
 
-    const today = new Date(Date.UTC(endTime.getFullYear(), endTime.getMonth(), endTime.getDate()));
+    // Use client timezone for "today" date (consistent with manual clock-out)
+    const todayInTz = new Date(endTime.toLocaleString('en-US', { timeZone: clientTimezone }));
+    const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
 
-    // Calculate scheduled start/end timestamps for the time record
-    // Must use buildScheduleTimestamp with client timezone (not setHours which uses server local time)
-    const clientAssignments = employee.clientAssignments || [];
-    const clientTz = clientAssignments[0]?.client?.timezone || 'UTC';
+    // Calculate scheduled start/end timestamps
     let scheduledStart: Date | null = null;
     let scheduledEnd: Date | null = null;
-
     if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
-      scheduledStart = buildScheduleTimestamp(clientTz, schedule.startTime, endTime);
+      scheduledStart = buildScheduleTimestamp(clientTimezone, schedule.startTime, session.startTime);
     }
-
     if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
-      scheduledEnd = buildScheduleTimestamp(clientTz, schedule.endTime, endTime);
+      scheduledEnd = buildScheduleTimestamp(clientTimezone, schedule.endTime, session.startTime);
     }
 
-    // Auto-clock-out happens at scheduled end time, so overtime is 0 by definition.
-    // The employee did not work past their shift — no overtime to report to client.
-    const overtimeMinutes = 0;
+    // Detect Extra Time: session started AFTER scheduled end
+    const isExtraTime = scheduledEnd && session.startTime > scheduledEnd;
 
-    // Create/update time records for each client assignment
+    const OT_GRACE_MINUTES = 7;
+
+    // Calculate early overtime (clocked in before schedule start)
+    let earlyOvertimeMinutes = 0;
+    if (scheduledStart && session.startTime < scheduledStart) {
+      earlyOvertimeMinutes = Math.round(
+        (scheduledStart.getTime() - session.startTime.getTime()) / 60000
+      );
+    }
+
+    // Calculate overtime
+    const scheduledDurationMinutes = scheduledEnd && scheduledStart
+      ? Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000)
+      : 480;
+    const effectiveEarlyOT = earlyOvertimeMinutes > OT_GRACE_MINUTES ? earlyOvertimeMinutes : 0;
+    const regularWorkMinutes = totalWorkMinutes - effectiveEarlyOT;
+    const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
+    const effectiveLateOT = lateOvertimeMinutes > OT_GRACE_MINUTES ? lateOvertimeMinutes : 0;
+    let overtimeMinutes = effectiveEarlyOT + effectiveLateOT;
+
+    // Calculate shift extension (minutes worked past scheduled end)
+    let shiftExtensionMinutes = scheduledEnd && endTime > scheduledEnd
+      ? Math.round((endTime.getTime() - scheduledEnd.getTime()) / 60000)
+      : 0;
+
+    // Extra Time override: ALL work is overtime, no shift extension
+    if (isExtraTime) {
+      overtimeMinutes = totalWorkMinutes;
+      shiftExtensionMinutes = 0;
+    }
+    const shiftExtensionReason = session.shiftEndAction === 'CONTINUE_WORKING'
+      ? (session.notes || null)
+      : null;
+
+    // When OT doesn't require approval: treat ALL hours as regular approved time
+    if (!otRequiresApproval) {
+      overtimeMinutes = 0;
+      shiftExtensionMinutes = 0;
+    }
+
+    // Get all active client assignments
+    const clientAssignments = employee.clientAssignments || [];
+
+    // Create/update time record for each assigned client
     for (const assignment of clientAssignments) {
+      let status: 'PENDING' | 'APPROVED' = !otRequiresApproval ? 'APPROVED' : 'PENDING';
+      let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
+      let extraTimeStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
+      let extraTimeMinutes = 0;
+
+      if (overtimeMinutes > 0) {
+        const approvedOT = await prisma.overtimeRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            date: today,
+            status: 'APPROVED',
+          },
+        });
+        if (approvedOT) {
+          status = 'APPROVED';
+        }
+      }
+
+      // Determine shift extension approval status
+      if (shiftExtensionMinutes > OT_GRACE_MINUTES) {
+        const otRequest = await prisma.overtimeRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            date: today,
+            type: 'SHIFT_EXTENSION',
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (otRequest) {
+          if (otRequest.status === 'APPROVED') shiftExtensionStatus = 'APPROVED';
+          else if (otRequest.status === 'PENDING') shiftExtensionStatus = 'UNAPPROVED';
+          else if (otRequest.status === 'REJECTED') shiftExtensionStatus = 'DENIED';
+        } else {
+          shiftExtensionStatus = 'UNAPPROVED';
+        }
+      }
+
+      // Determine extra time approval status
+      const hasExtraTime = otRequiresApproval && (isExtraTime || earlyOvertimeMinutes > OT_GRACE_MINUTES);
+      if (hasExtraTime) {
+        extraTimeMinutes = isExtraTime ? totalWorkMinutes : earlyOvertimeMinutes;
+        const otRequest = await prisma.overtimeRequest.findFirst({
+          where: {
+            employeeId: employee.id,
+            clientId: assignment.clientId,
+            date: today,
+            type: 'OFF_SHIFT',
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (otRequest) {
+          if (otRequest.status === 'APPROVED') extraTimeStatus = 'APPROVED';
+          else if (otRequest.status === 'PENDING') extraTimeStatus = 'UNAPPROVED';
+          else if (otRequest.status === 'REJECTED') extraTimeStatus = 'DENIED';
+        } else {
+          extraTimeStatus = 'UNAPPROVED';
+        }
+      }
+
       const existing = await prisma.timeRecord.findUnique({
         where: {
           employeeId_clientId_date: {
@@ -450,35 +544,44 @@ async function autoClockOut(
       if (existing) {
         const newTotal = existing.totalMinutes + totalWorkMinutes;
         const newBreak = existing.breakMinutes + totalBreakMinutes;
+        const newRegular = newTotal - earlyOvertimeMinutes;
+        const newLateOT = Math.max(0, newRegular - scheduledDurationMinutes);
+        const newOvertime = earlyOvertimeMinutes + newLateOT;
+
         const updActualStart = existing.actualStart || session.startTime;
         const updSchedStart = scheduledStart || existing.scheduledStart;
         const updSchedEnd = scheduledEnd || existing.scheduledEnd;
         const billingUpd = computeBillingTimes(updActualStart, endTime, updSchedStart, updSchedEnd);
-        const billingRawMsUpd = billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime();
-        const billingFullMinUpd = Math.floor(billingRawMsUpd / 60000);
-        const billingRemSecUpd = Math.floor((billingRawMsUpd % 60000) / 1000);
-        const billingMinsUpd = Math.max(0, (billingRemSecUpd >= 30 ? billingFullMinUpd + 1 : billingFullMinUpd) - newBreak);
-        await prisma.timeRecord.update({
-          where: { id: existing.id },
-          data: {
-            actualEnd: endTime,
-            billingStart: billingUpd.billingStart,
-            billingEnd: billingUpd.billingEnd,
-            billingMinutes: billingMinsUpd,
-            isLate: billingUpd.isLate,
-            totalMinutes: newTotal,
-            breakMinutes: newBreak,
-            overtimeMinutes: 0,
-            scheduledStart: scheduledStart || existing.scheduledStart,
-            scheduledEnd: scheduledEnd || existing.scheduledEnd,
-          },
-        });
+        const billingMinsUpd = Math.max(0, Math.floor((billingUpd.billingEnd.getTime() - billingUpd.billingStart.getTime()) / 60000) - newBreak);
+
+        const updateData: any = {
+          actualEnd: endTime,
+          billingStart: billingUpd.billingStart,
+          billingEnd: billingUpd.billingEnd,
+          billingMinutes: billingMinsUpd,
+          isLate: billingUpd.isLate,
+          totalMinutes: newTotal,
+          breakMinutes: newBreak,
+          overtimeMinutes: isExtraTime ? (existing.overtimeMinutes + totalWorkMinutes) : newOvertime,
+          shiftExtensionMinutes: isExtraTime ? (existing.shiftExtensionMinutes || 0) : shiftExtensionMinutes,
+          shiftExtensionStatus: isExtraTime ? existing.shiftExtensionStatus : shiftExtensionStatus,
+          shiftExtensionReason: isExtraTime ? existing.shiftExtensionReason : shiftExtensionReason,
+          extraTimeMinutes: isExtraTime
+            ? (existing.extraTimeMinutes || 0) + totalWorkMinutes
+            : (earlyOvertimeMinutes > 0 ? earlyOvertimeMinutes : (existing.extraTimeMinutes || 0)),
+          extraTimeStatus: hasExtraTime ? extraTimeStatus : existing.extraTimeStatus,
+          scheduledStart: scheduledStart || existing.scheduledStart,
+          scheduledEnd: scheduledEnd || existing.scheduledEnd,
+        };
+        if (newOvertime > 0 && status === 'APPROVED' && existing.status === 'PENDING') {
+          updateData.status = 'APPROVED';
+          updateData.approvedAt = new Date();
+        }
+
+        await prisma.timeRecord.update({ where: { id: existing.id }, data: updateData });
       } else {
-        const billingNew = computeBillingTimes(session.startTime, endTime, scheduledStart, scheduledEnd);
-        const billingRawMsNew = billingNew.billingEnd.getTime() - billingNew.billingStart.getTime();
-        const billingFullMinNew = Math.floor(billingRawMsNew / 60000);
-        const billingRemSecNew = Math.floor((billingRawMsNew % 60000) / 1000);
-        const billingMinsNew = Math.max(0, (billingRemSecNew >= 30 ? billingFullMinNew + 1 : billingFullMinNew) - totalBreakMinutes);
+        const billing = computeBillingTimes(session.startTime, endTime, scheduledStart, scheduledEnd);
+        const billingMins = Math.max(0, Math.floor((billing.billingEnd.getTime() - billing.billingStart.getTime()) / 60000) - totalBreakMinutes);
         await prisma.timeRecord.create({
           data: {
             employeeId: employee.id,
@@ -488,21 +591,92 @@ async function autoClockOut(
             scheduledEnd,
             actualStart: session.startTime,
             actualEnd: endTime,
-            billingStart: billingNew.billingStart,
-            billingEnd: billingNew.billingEnd,
-            billingMinutes: billingMinsNew,
-            isLate: billingNew.isLate,
+            billingStart: billing.billingStart,
+            billingEnd: billing.billingEnd,
+            billingMinutes: billingMins,
+            isLate: billing.isLate,
             totalMinutes: totalWorkMinutes,
             breakMinutes: totalBreakMinutes,
-            overtimeMinutes: 0,
-            status: 'PENDING',
+            overtimeMinutes,
+            shiftExtensionMinutes,
+            shiftExtensionStatus,
+            shiftExtensionReason,
+            extraTimeStatus,
+            extraTimeMinutes,
+            status,
+            approvedAt: status === 'APPROVED' ? new Date() : undefined,
           },
         });
+      }
+
+      // Auto-create OvertimeRequest(s) if OT was worked without a prior request
+      if (otRequiresApproval) {
+        const fmtHHMM = (d: Date) => {
+          const parts = d.toLocaleString('en-US', { timeZone: clientTimezone, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
+          return `${parts[0].padStart(2, '0')}:${parts[1]}`;
+        };
+
+        // Early clock-in overtime → OFF_SHIFT
+        if (earlyOvertimeMinutes > OT_GRACE_MINUTES && !isExtraTime) {
+          try {
+            const existingEarlyOT = await prisma.overtimeRequest.findFirst({
+              where: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                type: 'OFF_SHIFT',
+                isAutoGenerated: true,
+                status: { not: 'REJECTED' },
+              },
+            });
+            if (!existingEarlyOT) {
+              await prisma.overtimeRequest.create({
+                data: {
+                  employeeId: employee.id,
+                  clientId: assignment.clientId,
+                  date: today,
+                  type: 'OFF_SHIFT',
+                  requestedMinutes: earlyOvertimeMinutes,
+                  requestedStartTime: fmtHHMM(session.startTime),
+                  requestedEndTime: scheduledStart ? fmtHHMM(scheduledStart) : undefined,
+                  reason: 'Auto-generated — employee clocked in before scheduled shift',
+                  isAutoGenerated: true,
+                  status: 'PENDING',
+                },
+              });
+              console.log(`[Shift-End OT-Auto] Created OFF_SHIFT (early) for ${employee.firstName} ${employee.lastName}, ${earlyOvertimeMinutes} min`);
+            }
+          } catch (e) { console.error('[Shift-End OT-Auto] Failed early OT request:', e); }
+        }
+
+        // Shift extension or extra time session
+        const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
+        if (sessionOT > OT_GRACE_MINUTES) {
+          try {
+            const otType = isExtraTime ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
+            await prisma.overtimeRequest.create({
+              data: {
+                employeeId: employee.id,
+                clientId: assignment.clientId,
+                date: today,
+                type: otType,
+                requestedMinutes: sessionOT,
+                reason: 'Auto-generated — employee worked overtime (auto clock-out)',
+                isAutoGenerated: true,
+                status: 'PENDING',
+                ...(otType === 'SHIFT_EXTENSION'
+                  ? { estimatedEndTime: fmtHHMM(endTime) }
+                  : { requestedStartTime: fmtHHMM(session.startTime), requestedEndTime: fmtHHMM(endTime) }),
+              },
+            });
+            console.log(`[Shift-End OT-Auto] Created ${otType} for ${employee.firstName} ${employee.lastName}, ${sessionOT} min`);
+          } catch (e) { console.error('[Shift-End OT-Auto] Failed OT request:', e); }
+        }
       }
     }
 
     // --- Notify client(s) if overtime was worked ---
-    if (overtimeMinutes > 0) {
+    if (overtimeMinutes > 0 && otRequiresApproval) {
       const employeeName = `${employee.firstName} ${employee.lastName}`;
       const dateStr = endTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       const otHrs = Math.floor(overtimeMinutes / 60);
@@ -519,44 +693,34 @@ async function autoClockOut(
             include: { user: { select: { id: true, email: true } } },
           });
           if (!client) continue;
-
           const clientName = client.contactPerson || client.companyName;
 
-          // In-app notification
           try {
             await createNotification(
-              client.userId,
-              'OVERTIME_REQUEST',
-              'Employee Worked Overtime',
+              client.userId, 'OVERTIME_REQUEST', 'Employee Worked Overtime',
               `${employeeName} worked ${overtimeHoursStr} overtime on ${dateStr}. Approve or deny.`,
               { employeeId: employee.id, date: dateStr },
               '/client/approvals?type=overtime'
             );
           } catch (e) { console.error('[Shift-End OT] In-app notify failed:', e); }
 
-          // Email
           try {
             await sendOTWorkedEmail(client.user.email, clientName, employeeName, dateStr, overtimeHoursStr, totalHoursStr);
           } catch (e) { console.error('[Shift-End OT] Email failed:', e); }
 
-          // SMS
           if (client.phone) {
             try {
               await sendSMS(client.phone, `${employeeName} worked OT on ${dateStr} (${overtimeHoursStr}). Approve or deny. Log in to review.`);
             } catch (e) { console.error('[Shift-End OT] SMS failed:', e); }
           }
-        } catch (e) {
-          console.error(`[Shift-End OT] Failed for client ${assignment.clientId}:`, e);
-        }
+        } catch (e) { console.error(`[Shift-End OT] Failed for client ${assignment.clientId}:`, e); }
       }
     }
 
     // Notify the employee
     await createNotification(
-      employee.userId,
-      'AUTO_CLOCK_OUT',
-      'Auto Clocked Out',
-      `You have been automatically clocked out at the end of your shift.`,
+      employee.userId, 'AUTO_CLOCK_OUT', 'Auto Clocked Out',
+      'You have been automatically clocked out at the end of your shift.',
       { sessionId: session.id },
       '/employee/dashboard'
     );

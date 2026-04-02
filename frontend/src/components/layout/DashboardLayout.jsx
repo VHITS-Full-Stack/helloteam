@@ -126,7 +126,7 @@ const DashboardLayout = ({
   }, []);
 
   return (
-    <div className="min-h-screen bg-primary-900 overflow-auto fixed inset-0">
+    <div className="min-h-screen bg-white overflow-auto fixed inset-0">
       {/* Login Blocker for pending OT */}
       {showOTBlocker && portalType === 'client' && (
         <OvertimeLoginBlocker onDismiss={handleDismissBlocker} />
@@ -161,10 +161,10 @@ const DashboardLayout = ({
 
       {/* Main Content */}
       <div className={`
-        transition-all duration-300
-        ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'} lg:p-2
+        transition-all duration-300 min-h-screen
+        ${sidebarCollapsed ? 'lg:pl-20' : 'lg:ml-64 lg:p-2'}
       `}>
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden min-h-[calc(100vh-1rem)]">
+        <div className={`bg-white shadow-sm overflow-hidden ${sidebarCollapsed ? 'min-h-screen' : 'rounded-2xl min-h-[calc(100vh-1rem)]'}`}>
           <ImpersonationBanner />
           <Header
             title={title}

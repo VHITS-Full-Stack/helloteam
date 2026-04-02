@@ -12,15 +12,23 @@ import type { Server } from 'socket.io';
 export const initializeJobs = (io: Server): void => {
   console.log('[Jobs] Initializing cron jobs...');
 
+  // Guard flags to prevent overlapping runs
+  let shiftEndRunning = false;
+  let autoApprovalRunning = false;
+
   // Shift end: runs every minute to check for ending shifts and auto-clock-out
   cron.schedule('* * * * *', async () => {
-    await runShiftEndJob(io);
+    if (shiftEndRunning) return;
+    shiftEndRunning = true;
+    try { await runShiftEndJob(io); } finally { shiftEndRunning = false; }
   });
   console.log('[Jobs] Shift-end job scheduled (every minute)');
 
   // Auto-approval: runs every 5 minutes
   cron.schedule('*/5 * * * *', async () => {
-    await runAutoApproval(io);
+    if (autoApprovalRunning) return;
+    autoApprovalRunning = true;
+    try { await runAutoApproval(io); } finally { autoApprovalRunning = false; }
   });
   console.log('[Jobs] Auto-approval job scheduled (every 5 minutes)');
 
