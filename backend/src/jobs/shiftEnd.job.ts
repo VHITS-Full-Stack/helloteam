@@ -210,12 +210,61 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
 
       // --- Controlled pause / Auto-clock-out at shift end ---
       if (minutesUntilEnd <= 0) {
-        // Skip sessions that started AFTER the scheduled shift end.
-        // These are "Extra Time" sessions — the employee deliberately clocked in
-        // after their shift to do additional work. Don't auto-clock them out.
+        // Extra Time sessions: started AFTER scheduled shift end (off-shift work)
+        // Check if they have approved OFF_SHIFT OT with an end time — auto-clock-out when it passes
         console.log(`[Shift-End] Extra-time check: session.startTime=${session.startTime.toISOString()} vs shiftEndUTC=${shiftEndUTC.toISOString()} → isExtraTime=${session.startTime > shiftEndUTC}`);
         if (session.startTime > shiftEndUTC) {
-          console.log(`[Shift-End] SKIPPING extra-time session for ${employee.firstName} ${employee.lastName} (clocked in after shift end)`);
+          // Check for approved OFF_SHIFT OT with end time
+          const offShiftOT = await prisma.overtimeRequest.findMany({
+            where: {
+              employeeId: employee.id,
+              clientId: assignment.clientId,
+              date: recordDate,
+              type: 'OFF_SHIFT',
+              status: 'APPROVED',
+            },
+          });
+
+          if (offShiftOT.length > 0) {
+            // Find the latest end time from approved off-shift OT
+            const otEndTimes = offShiftOT
+              .filter(ot => ot.requestedEndTime)
+              .map(ot => buildScheduleTimestamp(clientTimezone, ot.requestedEndTime!, now));
+
+            let offShiftEndUTC: Date | null = null;
+            if (otEndTimes.length > 0) {
+              offShiftEndUTC = new Date(Math.max(...otEndTimes.map(d => d.getTime())));
+            } else {
+              // No end time specified — use start time + requested minutes
+              const totalOTMinutes = offShiftOT.reduce((sum, ot) => sum + (ot.requestedMinutes || 0), 0);
+              const otStart = offShiftOT[0].requestedStartTime
+                ? buildScheduleTimestamp(clientTimezone, offShiftOT[0].requestedStartTime, now)
+                : session.startTime;
+              offShiftEndUTC = new Date(otStart.getTime() + totalOTMinutes * 60000);
+            }
+
+            const minutesUntilOffShiftEnd = (offShiftEndUTC.getTime() - now.getTime()) / 60000;
+            console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: off-shift OT, endUTC=${offShiftEndUTC.toISOString()}, minutesUntil=${minutesUntilOffShiftEnd.toFixed(1)}`);
+
+            if (minutesUntilOffShiftEnd > 0) {
+              // Still within approved off-shift window
+              continue;
+            }
+
+            // Off-shift OT time has elapsed — auto-clock-out
+            if (!session.shiftEndAction) {
+              await prisma.workSession.update({
+                where: { id: session.id },
+                data: { shiftEndAction: 'OT_AUTO_CLOCKOUT' },
+              });
+              await autoClockOut(session, employee, offShiftEndUTC, schedule, clientTimezone, otRequiresApproval, io);
+              console.log(`[Shift-End] Auto-clock-out after off-shift OT for ${employee.firstName} ${employee.lastName} at ${offShiftEndUTC.toISOString()}`);
+            }
+            continue;
+          }
+
+          // No approved off-shift OT — skip (let employee work, will be tracked as unapproved at manual clock-out)
+          console.log(`[Shift-End] SKIPPING extra-time session for ${employee.firstName} ${employee.lastName} (no approved off-shift OT)`);
           continue;
         }
 
