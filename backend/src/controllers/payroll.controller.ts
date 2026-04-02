@@ -1448,12 +1448,14 @@ export const getPayrollExportData = async (
             .filter((a: any) => a.type === "BONUS")
             .reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100,
         ) / 100;
-      const totalDeductions =
+      const adjustmentDeductions =
         Math.round(
           empAdjustments
             .filter((a: any) => a.type === "DEDUCTION")
             .reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100,
         ) / 100;
+      const employeeDeduction = emp.employee?.deduction ? Number(emp.employee.deduction) : 0;
+      const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
 
       const grossPay = Math.max(0,
         Math.round(
@@ -1470,6 +1472,7 @@ export const getPayrollExportData = async (
         overtimePay,
         totalBonuses,
         totalDeductions,
+        employeeDeduction,
         grossPay,
       };
     });
@@ -2005,7 +2008,7 @@ export const getEmployeePayrollSummary = async (
         .filter((a: any) => a.type === "DEDUCTION")
         .reduce((sum: number, a: any) => sum + a.amount, 0);
       const employeeDeduction = emp.employee.deduction ? Number(emp.employee.deduction) : 0;
-      const totalDeductions = adjustmentDeductions; // keep default employee deduction separate from payroll adjustment deducctions
+      const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
 
       // PTO/VTO hours (8 hours per day)
       const empLeave = leaveDaysByEmployee[emp.employee.id] || { ptoDays: 0, vtoDays: 0 };
