@@ -1850,6 +1850,9 @@ export const getEmployeePayrollSummary = async (
         employeeSummary[empId]._regularPay += (payableMinutes / 60) * rates.hourlyRate;
         employeeSummary[empId]._overtimePay += (approvedOTMinutes / 60) * rates.overtimeRate;
 
+        // DEBUG: remove after verifying
+        console.log(`[PAYROLL DEBUG] emp=${empId}, date=${record.date}, payableMins=${payableMinutes}, approvedOT=${approvedOTMinutes}, hourlyRate=${rates.hourlyRate}, otRate=${rates.overtimeRate}, shiftExtStatus=${record.shiftExtensionStatus}, shiftExtMins=${record.shiftExtensionMinutes}, extraStatus=${record.extraTimeStatus}, extraMins=${record.extraTimeMinutes}, recordOTMins=${record.overtimeMinutes}`);
+
         employeeSummary[empId].totalMinutes += payableMinutes;
         employeeSummary[empId].overtimeMinutes += approvedOTMinutes;
         employeeSummary[empId].approvedMinutes += payableMinutes;
