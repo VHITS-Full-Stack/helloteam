@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import employeeService from '../services/employee.service';
-import clientService from '../services/client.service';
-import groupService from '../services/group.service';
-import api from '../services/api';
-import scheduleService from '../services/schedule.service';
-import { formatTime12 } from '../utils/formatTime';
+import { useState, useEffect, useCallback, useRef } from "react";
+import employeeService from "../services/employee.service";
+import clientService from "../services/client.service";
+import groupService from "../services/group.service";
+import api from "../services/api";
+import scheduleService from "../services/schedule.service";
+import { formatTime12 } from "../utils/formatTime";
 
 /**
  * Custom hook for employee data fetching and state management
@@ -13,28 +13,39 @@ import { formatTime12 } from '../utils/formatTime';
  * @param {'list'|'detail'} params.mode - Hook operating mode
  * @param {string} params.id - Employee ID (required for detail mode)
  */
-export const useEmployeeData = ({ mode = 'list', id } = {}) => {
-  if (mode === 'detail') {
-    return useEmployeeDetail(id);
-  }
-  return useEmployeeList();
+export const useEmployeeData = ({ mode = "list", id } = {}) => {
+  const listState = useEmployeeList();
+  const detailState = useEmployeeDetail(id);
+  return mode === "detail" ? detailState : listState;
 };
+
+export { useEmployeeList, useEmployeeDetail };
 
 // ── List Mode ──────────────────────────────────────────────
 
 function useEmployeeList() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const searchQueryRef = useRef(searchQuery);
   searchQueryRef.current = searchQuery;
   const prevSearchRef = useRef(searchQuery);
-  const [filters, setFilters] = useState({ status: '', clientId: '' });
+  const [filters, setFilters] = useState({ status: "", clientId: "" });
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
   const [employees, setEmployees] = useState([]);
-  const [stats, setStats] = useState({ total: 0, active: 0, onLeave: 0, inactive: 0 });
+  const [stats, setStats] = useState({
+    total: 0,
+    active: 0,
+    onLeave: 0,
+    inactive: 0,
+  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
+  const [error, setError] = useState("");
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0,
+  });
   const fetchingEmployeesRef = useRef(false);
   const fetchingStatsRef = useRef(false);
 
@@ -54,14 +65,14 @@ function useEmployeeList() {
       if (response.success) {
         setEmployees(response.data.employees);
         const p = response.data.pagination;
-        setPagination(prev => ({
+        setPagination((prev) => ({
           ...prev,
           total: p.total ?? prev.total,
           totalPages: p.totalPages ?? prev.totalPages,
         }));
       }
     } catch (err) {
-      setError(err.error || 'Failed to fetch employees');
+      setError(err.error || "Failed to fetch employees");
     } finally {
       setLoading(false);
       fetchingEmployeesRef.current = false;
@@ -77,7 +88,7 @@ function useEmployeeList() {
         setStats(response.data);
       }
     } catch (err) {
-      console.error('Failed to fetch stats:', err);
+      console.error("Failed to fetch stats:", err);
     } finally {
       fetchingStatsRef.current = false;
     }
@@ -95,26 +106,30 @@ function useEmployeeList() {
 
   // Debounce search - skip if search hasn't actually changed
   useEffect(() => {
-    if (prevSearchRef.current === searchQuery) return;
+    if (prevSearchRef.current === searchQuery) {
+      return undefined;
+    }
     prevSearchRef.current = searchQuery;
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
         fetchEmployees();
       } else {
-        setPagination(prev => ({ ...prev, page: 1 }));
+        setPagination((prev) => ({ ...prev, page: 1 }));
       }
     }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchQuery, pagination.page, fetchEmployees]);
 
   // Re-fetch when filters change
   useEffect(() => {
     if (pagination.page === 1) {
       fetchEmployees();
     } else {
-      setPagination(prev => ({ ...prev, page: 1 }));
+      setPagination((prev) => ({ ...prev, page: 1 }));
     }
-  }, [filters.status, filters.clientId]);
+  }, [filters.status, filters.clientId, pagination.page, fetchEmployees]);
 
   const refresh = () => {
     fetchEmployees();
@@ -154,15 +169,21 @@ function useEmployeeDetail(id) {
   const [showTerminateModal, setShowTerminateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [terminationDate, setTerminationDate] = useState('');
-  const [selectedClientId, setSelectedClientId] = useState('');
-  const [selectedGroupId, setSelectedGroupId] = useState('');
+  const [terminationDate, setTerminationDate] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState("");
+  const [selectedGroupId, setSelectedGroupId] = useState("");
   const [clients, setClients] = useState([]);
   const [clientGroups, setClientGroups] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [modalError, setModalError] = useState('');
+  const [modalError, setModalError] = useState("");
 
   const fetchEmployeeDetails = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      setError("Employee ID is required");
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -173,25 +194,32 @@ function useEmployeeDetail(id) {
         setEmployee(empResponse.data);
 
         // if the employee is actively assigned to a client, pull their PTO config
-        const activeAssignment = empResponse.data.clientAssignments?.find(a => a.isActive);
+        const activeAssignment = empResponse.data.clientAssignments?.find(
+          (a) => a.isActive,
+        );
         if (activeAssignment && activeAssignment.client) {
           try {
-            const ptoResp = await clientService.getEmployeePtoConfig(activeAssignment.client.id, id);
+            const ptoResp = await clientService.getEmployeePtoConfig(
+              activeAssignment.client.id,
+              id,
+            );
             if (ptoResp.success) {
               setEmployeePtoConfig(ptoResp.data);
             }
           } catch (ptErr) {
-            console.error('Failed to fetch PTO config:', ptErr);
+            console.error("Failed to fetch PTO config:", ptErr);
           }
 
           // also grab holidays defined for the client
           try {
-            const clientResp = await clientService.getClient(activeAssignment.client.id);
+            const clientResp = await clientService.getClient(
+              activeAssignment.client.id,
+            );
             if (clientResp.success) {
               setActiveClientHolidays(clientResp.data.holidays || []);
             }
           } catch (cErr) {
-            console.error('Failed to fetch client holidays:', cErr);
+            console.error("Failed to fetch client holidays:", cErr);
           }
         }
       }
@@ -203,41 +231,54 @@ function useEmployeeDetail(id) {
           setSchedules(scheduleResponse.schedules || []);
         }
       } catch (scheduleErr) {
-        console.error('Error fetching schedule:', scheduleErr);
+        console.error("Error fetching schedule:", scheduleErr);
       }
 
       // Fetch time records for analytics (non-fatal)
       const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+        .toISOString()
+        .split("T")[0];
 
       try {
-        const timeResponse = await api.get(`/admin-portal/time-records?employeeId=${id}&startDate=${startOfMonth}&endDate=${endOfMonth}`);
+        const timeResponse = await api.get(
+          `/admin-portal/time-records?employeeId=${id}&startDate=${startOfMonth}&endDate=${endOfMonth}`,
+        );
         if (timeResponse.success) {
-          const records = timeResponse.data?.records || timeResponse.records || [];
+          const records =
+            timeResponse.data?.records || timeResponse.records || [];
           setRecentRecords(records.slice(0, 10));
 
           if (records.length > 0) {
-            const totalMinutes = records.reduce((sum, r) => sum + (r.totalMinutes || 0), 0);
-            const overtimeMinutes = records.reduce((sum, r) => sum + (r.overtimeMinutes || 0), 0);
+            const totalMinutes = records.reduce(
+              (sum, r) => sum + (r.totalMinutes || 0),
+              0,
+            );
+            const overtimeMinutes = records.reduce(
+              (sum, r) => sum + (r.overtimeMinutes || 0),
+              0,
+            );
             const workDays = records.length;
             const avgMinutesPerDay = Math.round(totalMinutes / workDays);
 
             setTimeStats({
               totalMinutes,
               overtimeMinutes,
-              totalHours: Math.round(totalMinutes / 60 * 100) / 100,
-              overtimeHours: Math.round(overtimeMinutes / 60 * 100) / 100,
+              totalHours: Math.round((totalMinutes / 60) * 100) / 100,
+              overtimeHours: Math.round((overtimeMinutes / 60) * 100) / 100,
               workDays,
               avgMinutesPerDay,
-              avgHoursPerDay: Math.round(avgMinutesPerDay / 60 * 100) / 100,
+              avgHoursPerDay: Math.round((avgMinutesPerDay / 60) * 100) / 100,
             });
           } else {
             setTimeStats(null);
           }
         }
       } catch (timeErr) {
-        console.error('Error fetching time records:', timeErr);
+        console.error("Error fetching time records:", timeErr);
       }
 
       // Fetch rate/billing history (non-fatal)
@@ -247,52 +288,56 @@ function useEmployeeDetail(id) {
           setRateHistory(rateHistoryResponse.data?.history || []);
         }
       } catch (rateErr) {
-        console.error('Error fetching rate history:', rateErr);
+        console.error("Error fetching rate history:", rateErr);
       }
     } catch (err) {
-      console.error('Error fetching employee details:', err);
-      setError(err.message || 'Failed to load employee details');
+      console.error("Error fetching employee details:", err);
+      setError(err.message || "Failed to load employee details");
     } finally {
       setLoading(false);
     }
   }, [id]);
 
   useEffect(() => {
+    if (!id) return;
     fetchEmployeeDetails();
-  }, [fetchEmployeeDetails]);
+  }, [id, fetchEmployeeDetails]);
 
   // ── Terminate ──
   const openTerminateModal = () => {
-    setTerminationDate(new Date().toISOString().split('T')[0]);
-    setModalError('');
+    setTerminationDate(new Date().toISOString().split("T")[0]);
+    setModalError("");
     setShowTerminateModal(true);
   };
 
   const closeTerminateModal = () => {
     setShowTerminateModal(false);
-    setTerminationDate('');
-    setModalError('');
+    setTerminationDate("");
+    setModalError("");
   };
 
   const handleTerminate = async () => {
     if (!terminationDate) {
-      setModalError('Please select a termination date');
+      setModalError("Please select a termination date");
       return;
     }
     setSubmitting(true);
-    setModalError('');
+    setModalError("");
     try {
-      const response = await employeeService.terminateEmployee(id, terminationDate);
+      const response = await employeeService.terminateEmployee(
+        id,
+        terminationDate,
+      );
       if (response.success) {
         setShowTerminateModal(false);
-        setTerminationDate('');
-        setModalError('');
+        setTerminationDate("");
+        setModalError("");
         fetchEmployeeDetails();
       } else {
-        setModalError(response.error || 'Failed to terminate employee');
+        setModalError(response.error || "Failed to terminate employee");
       }
     } catch (err) {
-      setModalError(err.error || err.message || 'Failed to terminate employee');
+      setModalError(err.error || err.message || "Failed to terminate employee");
     } finally {
       setSubmitting(false);
     }
@@ -307,7 +352,7 @@ function useEmployeeDetail(id) {
         await fetchEmployeeDetails();
       }
     } catch (err) {
-      console.error('Approve KYC error:', err);
+      console.error("Approve KYC error:", err);
     } finally {
       setSubmitting(false);
     }
@@ -321,23 +366,37 @@ function useEmployeeDetail(id) {
         await fetchEmployeeDetails();
       }
     } catch (err) {
-      console.error('Reject KYC error:', err);
+      console.error("Reject KYC error:", err);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const reviewDocument = async (document, action, reason, sendEmail = false) => {
+  const reviewDocument = async (
+    document,
+    action,
+    reason,
+    sendEmail = false,
+  ) => {
     try {
       setSubmitting(true);
-      const response = await employeeService.reviewDocument(id, document, action, reason, sendEmail);
+      const response = await employeeService.reviewDocument(
+        id,
+        document,
+        action,
+        reason,
+        sendEmail,
+      );
       if (response.success) {
         await fetchEmployeeDetails();
       }
       return response;
     } catch (err) {
-      console.error('Review document error:', err);
-      return { success: false, error: err.error || 'Failed to review document' };
+      console.error("Review document error:", err);
+      return {
+        success: false,
+        error: err.error || "Failed to review document",
+      };
     } finally {
       setSubmitting(false);
     }
@@ -352,8 +411,11 @@ function useEmployeeDetail(id) {
       }
       return response;
     } catch (err) {
-      console.error('Finalize KYC review error:', err);
-      return { success: false, error: err.error || 'Failed to finalize review' };
+      console.error("Finalize KYC review error:", err);
+      return {
+        success: false,
+        error: err.error || "Failed to finalize review",
+      };
     } finally {
       setSubmitting(false);
     }
@@ -362,16 +424,18 @@ function useEmployeeDetail(id) {
   // ── Reactivate ──
   const handleReactivate = async () => {
     setSubmitting(true);
-    setModalError('');
+    setModalError("");
     try {
       const response = await employeeService.reactivateEmployee(id);
       if (response.success) {
         fetchEmployeeDetails();
       } else {
-        setModalError(response.error || 'Failed to reactivate employee');
+        setModalError(response.error || "Failed to reactivate employee");
       }
     } catch (err) {
-      setModalError(err.error || err.message || 'Failed to reactivate employee');
+      setModalError(
+        err.error || err.message || "Failed to reactivate employee",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -379,31 +443,31 @@ function useEmployeeDetail(id) {
 
   // ── Delete ──
   const openDeleteModal = () => {
-    setModalError('');
+    setModalError("");
     setShowDeleteModal(true);
   };
 
   const closeDeleteModal = () => {
     setShowDeleteModal(false);
-    setModalError('');
+    setModalError("");
   };
 
   const handleDelete = async () => {
     setSubmitting(true);
-    setModalError('');
+    setModalError("");
     try {
       const response = await employeeService.deleteEmployee(id);
       if (response.success) {
         setShowDeleteModal(false);
-        setModalError('');
+        setModalError("");
         // Navigate will be handled by the component
         return true;
       } else {
-        setModalError(response.error || 'Failed to delete employee');
+        setModalError(response.error || "Failed to delete employee");
         return false;
       }
     } catch (err) {
-      setModalError(err.error || err.message || 'Failed to delete employee');
+      setModalError(err.error || err.message || "Failed to delete employee");
       return false;
     } finally {
       setSubmitting(false);
@@ -418,7 +482,7 @@ function useEmployeeDetail(id) {
         setClients(response.data.clients);
       }
     } catch (err) {
-      console.error('Failed to fetch clients:', err);
+      console.error("Failed to fetch clients:", err);
     }
   };
 
@@ -434,70 +498,75 @@ function useEmployeeDetail(id) {
           group.clients?.some((cg) => {
             const cid = cg.client?.id || cg.clientId;
             return cid === clientId;
-          })
+          }),
         );
         setClientGroups(filtered);
 
         // Auto-select the "Default" group if one exists
-        const defaultGroup = filtered.find((g) => g.name.toLowerCase() === 'default');
+        const defaultGroup = filtered.find(
+          (g) => g.name.toLowerCase() === "default",
+        );
         if (defaultGroup) {
           setSelectedGroupId(defaultGroup.id);
         }
       }
     } catch (err) {
-      console.error('Failed to fetch client groups:', err);
+      console.error("Failed to fetch client groups:", err);
       setClientGroups([]);
     }
   };
 
   const openAssignModal = () => {
-    setSelectedClientId('');
-    setSelectedGroupId('');
+    setSelectedClientId("");
+    setSelectedGroupId("");
     setClientGroups([]);
-    setModalError('');
+    setModalError("");
     setShowAssignModal(true);
     if (clients.length === 0) fetchClients();
   };
 
   const closeAssignModal = () => {
     setShowAssignModal(false);
-    setSelectedClientId('');
-    setSelectedGroupId('');
+    setSelectedClientId("");
+    setSelectedGroupId("");
     setClientGroups([]);
-    setModalError('');
+    setModalError("");
   };
 
   const handleSelectClient = (clientId) => {
     setSelectedClientId(clientId);
-    setSelectedGroupId('');
+    setSelectedGroupId("");
     fetchClientGroups(clientId);
   };
 
   const handleAssignToClient = async () => {
     if (!selectedClientId) return;
     setSubmitting(true);
-    setModalError('');
+    setModalError("");
     try {
-      const response = await employeeService.assignToClient(id, selectedClientId);
+      const response = await employeeService.assignToClient(
+        id,
+        selectedClientId,
+      );
       if (response.success) {
         if (selectedGroupId) {
           try {
             await groupService.addEmployees(selectedGroupId, [id]);
           } catch (groupErr) {
-            console.error('Failed to add employee to group:', groupErr);
+            console.error("Failed to add employee to group:", groupErr);
           }
         }
         setShowAssignModal(false);
-        setSelectedClientId('');
-        setSelectedGroupId('');
+        setSelectedClientId("");
+        setSelectedGroupId("");
         setClientGroups([]);
-        setModalError('');
+        setModalError("");
         fetchEmployeeDetails();
       } else {
-        setModalError(response.error || 'Failed to assign employee');
+        setModalError(response.error || "Failed to assign employee");
       }
     } catch (err) {
-      setModalError(err.error || err.message || 'Failed to assign employee');
+      setModalError(err.error || err.message || "Failed to assign employee");
     } finally {
       setSubmitting(false);
     }
@@ -505,17 +574,17 @@ function useEmployeeDetail(id) {
 
   // ── Utilities ──
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
+    if (!dateStr) return "—";
     const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
     });
   };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return '—';
+    if (!timeStr) return "—";
     return formatTime12(timeStr);
   };
 

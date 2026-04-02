@@ -21,6 +21,7 @@ import {
   Eye,
   Sun,
   FileText,
+  Minus,
 } from 'lucide-react';
 import {
   Card,
@@ -29,7 +30,7 @@ import {
   Avatar,
   Modal,
 } from '../../../components/common';
-import { useEmployeeData } from '../../../hooks/useEmployeeData';
+import { useEmployeeDetail } from '../../../hooks/useEmployeeData';
 import { useAuth } from '../../../context/AuthContext';
 import adminPortalService from '../../../services/adminPortal.service';
 
@@ -120,7 +121,7 @@ const EmployeeDetail = () => {
     rejectKyc,
     refresh,
     rateHistory,
-  } = useEmployeeData({ mode: 'detail', id });
+  } = useEmployeeDetail(id);
 
   const getStatusBadge = () => {
     if (employee?.terminationDate) {
@@ -180,7 +181,9 @@ const EmployeeDetail = () => {
   const groupBillingRate = groupAssignment?.group?.billingRate
     ? `$${Number(groupAssignment.group.billingRate).toFixed(2)}`
     : '—';
-
+  const deductionDisplay = employee.deduction !== null
+    ? `$${Number(employee.deduction).toFixed(2)}`
+    : '—';
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
@@ -459,6 +462,11 @@ const EmployeeDetail = () => {
               value={billingRateDisplay !== '—' ? `${billingRateDisplay}` : null}
               icon={DollarSign}
             />
+             <InfoRow
+              label="Deduction"
+              value={deductionDisplay !== '—' ? `${deductionDisplay}` : null}
+              icon={Minus}
+            />
             <InfoRow
               label="Group Billing Rate"
               value={groupBillingRate !== '—' ? `${groupBillingRate}` : null}
@@ -633,8 +641,8 @@ const EmployeeDetail = () => {
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {rateHistory.map((record) => {
-                      const oldVal = record.oldValue != null ? Number(record.oldValue).toFixed(2) : '—';
-                      const newVal = record.newValue != null ? Number(record.newValue).toFixed(2) : '—';
+                      const oldVal = record.oldValue !== null ? Number(record.oldValue).toFixed(2) : '—';
+                      const newVal = record.newValue !== null ? Number(record.newValue).toFixed(2) : '—';
                       const rateLabel = {
                         BILLING_RATE: 'Billing Rate',
                         PAYABLE_RATE: 'Payable Rate',

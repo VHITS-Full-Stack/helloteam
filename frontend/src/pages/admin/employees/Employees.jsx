@@ -24,7 +24,7 @@ import {
   TableHeader,
   TableCell,
 } from "../../../components/common";
-import { useEmployeeData } from "../../../hooks/useEmployeeData";
+import { useEmployeeList } from "../../../hooks/useEmployeeData";
 import employeeService from "../../../services/employee.service";
 import clientService from "../../../services/client.service";
 
@@ -39,6 +39,7 @@ const Employees = () => {
       const timer = setTimeout(() => setSuccessMsg(""), 3000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [successMsg]);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ const Employees = () => {
     setError,
     setPagination,
     refresh,
-  } = useEmployeeData({ mode: "list" });
+  } = useEmployeeList();
 
   const getStatusBadge = (employee) => {
     if (employee.terminationDate) {

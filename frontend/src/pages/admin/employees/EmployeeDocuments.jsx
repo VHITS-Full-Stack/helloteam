@@ -16,7 +16,7 @@ import {
   Badge,
   Avatar,
 } from '../../../components/common';
-import { useEmployeeData } from '../../../hooks/useEmployeeData';
+import { useEmployeeDetail } from '../../../hooks/useEmployeeData';
 
 const EmployeeDocuments = () => {
   const { id } = useParams();
@@ -38,7 +38,7 @@ const EmployeeDocuments = () => {
     finalizeKycReview,
     approveKyc,
     rejectKyc,
-  } = useEmployeeData({ mode: 'detail', id });
+  } = useEmployeeDetail(id);
 
   if (loading) {
     return (
@@ -274,7 +274,15 @@ const EmployeeDocuments = () => {
                         src={doc.url}
                         alt={doc.label}
                         className="w-full max-h-[280px] rounded-lg object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                        role="button"
+                        tabIndex="0"
                         onClick={() => window.open(doc.url, '_blank')}
+                        onKeyDown={(evt) => {
+                          if (evt.key === 'Enter' || evt.key === ' ') {
+                            evt.preventDefault();
+                            window.open(doc.url, '_blank');
+                          }
+                        }}
                         onError={(e) => {
                           e.target.onerror = null;
                           e.target.style.display = 'none';
