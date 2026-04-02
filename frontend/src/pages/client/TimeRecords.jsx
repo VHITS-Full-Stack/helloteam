@@ -528,12 +528,6 @@ const TimeRecords = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
           <p className="text-gray-500">View and manage employee time records</p>
-          <div className="mt-3 flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={handlePrev}>Prev</Button>
-            <Button size="sm" variant="outline" onClick={handleToday}>Today</Button>
-            <Button size="sm" variant="outline" onClick={handleNext}>Next</Button>
-            <span className="text-sm text-gray-500 ml-2">{rangeLabel}</span>
-          </div>
         </div>
         <Button variant="outline" icon={Download} onClick={handleExport}>
           Export CSV
@@ -645,6 +639,12 @@ const TimeRecords = () => {
       <Card>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={handlePrev}>Prev</Button>
+              <Button size="sm" variant="outline" onClick={handleToday}>Today</Button>
+              <Button size="sm" variant="outline" onClick={handleNext}>Next</Button>
+              <span className="text-sm text-gray-500 ml-2">{rangeLabel}</span>
+            </div>
             {/* View mode selector */}
             <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
               {[
