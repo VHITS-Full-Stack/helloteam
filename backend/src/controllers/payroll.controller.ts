@@ -88,6 +88,7 @@ export const getPayrollPeriods = async (
           include: {
             employee: {
               select: {
+                payableRate: true,
                 billingRate: true,
                 deduction: true,
                 overtimeRate: true,
@@ -129,12 +130,9 @@ export const getPayrollPeriods = async (
             // Resolve rate same way as detail endpoint
             const asn = r.employee?.clientAssignments?.[0];
             const pol = periodPolicyMap.get(r.clientId);
-            const empBR = r.employee?.billingRate ? Number(r.employee.billingRate) : null;
-            const grpAsn = r.employee?.groupAssignments?.[0];
-            const cgRate = grpAsn?.groupId ? (periodCGRateMap.get(`${r.clientId}-${grpAsn.groupId}`) ?? null) : null;
-            const grpRate = grpAsn?.group?.billingRate ? Number(grpAsn.group.billingRate) : null;
+            const empPR = r.employee?.payableRate ? Number(r.employee.payableRate) : null;
 
-            const hr = asn?.hourlyRate ? Number(asn.hourlyRate) : empBR ? empBR : cgRate ? cgRate : grpRate ? grpRate : pol?.defaultHourlyRate ? Number(pol.defaultHourlyRate) : 0;
+            const hr = asn?.hourlyRate ? Number(asn.hourlyRate) : empPR ? empPR : pol?.defaultHourlyRate ? Number(pol.defaultHourlyRate) : 0;
             const empOTRate = r.employee?.overtimeRate ? Number(r.employee.overtimeRate) : 0;
             let otr = empOTRate > 0 ? empOTRate
               : asn?.overtimeRate ? Number(asn.overtimeRate)
@@ -1286,16 +1284,10 @@ export const getPayrollExportData = async (
     const getFallbackRate = (record: any): { hourlyRate: number; overtimeRate: number } => {
       const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
       const policy = policyMap.get(record.clientId);
-      const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
-      const groupAssignment = record.employee.groupAssignments?.[0];
-      const clientGroupBillingRate = groupAssignment?.groupId
-        ? (clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null) : null;
-      const groupBillingRate = groupAssignment?.group?.billingRate ? Number(groupAssignment.group.billingRate) : null;
+      const empPayableRate = record.employee.payableRate ? Number(record.employee.payableRate) : null;
 
       const hr = assignment?.hourlyRate ? Number(assignment.hourlyRate)
-        : employeeBillingRate ? employeeBillingRate
-        : clientGroupBillingRate ? clientGroupBillingRate
-        : groupBillingRate ? groupBillingRate
+        : empPayableRate ? empPayableRate
         : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
 
       const empOTRate = record.employee?.overtimeRate ? Number(record.employee.overtimeRate) : 0;
@@ -1724,16 +1716,10 @@ export const getEmployeePayrollSummary = async (
     const getFallbackRate2 = (record: any): { hourlyRate: number; overtimeRate: number } => {
       const assignment = assignmentMap.get(`${record.clientId}-${record.employeeId}`);
       const policy = policyMap.get(record.clientId);
-      const employeeBillingRate = record.employee.billingRate ? Number(record.employee.billingRate) : null;
-      const groupAssignment = record.employee.groupAssignments?.[0];
-      const clientGroupBillingRate = groupAssignment?.groupId
-        ? (clientGroupRateMap.get(`${record.clientId}-${groupAssignment.groupId}`) ?? null) : null;
-      const groupBillingRate = groupAssignment?.group?.billingRate ? Number(groupAssignment.group.billingRate) : null;
+      const empPayableRate = record.employee.payableRate ? Number(record.employee.payableRate) : null;
 
       const hr = assignment?.hourlyRate ? Number(assignment.hourlyRate)
-        : employeeBillingRate ? employeeBillingRate
-        : clientGroupBillingRate ? clientGroupBillingRate
-        : groupBillingRate ? groupBillingRate
+        : empPayableRate ? empPayableRate
         : policy?.defaultHourlyRate ? Number(policy.defaultHourlyRate) : 0;
 
       // OT rate: use employee-specific overtimeRate directly, fallback to assignment/policy
@@ -1849,9 +1835,6 @@ export const getEmployeePayrollSummary = async (
         // All payable hours at regular rate, OT adds premium on top
         employeeSummary[empId]._regularPay += (payableMinutes / 60) * rates.hourlyRate;
         employeeSummary[empId]._overtimePay += (approvedOTMinutes / 60) * rates.overtimeRate;
-
-        // DEBUG: remove after verifying
-        console.log(`[PAYROLL DEBUG] emp=${empId}, date=${record.date}, payableMins=${payableMinutes}, approvedOT=${approvedOTMinutes}, hourlyRate=${rates.hourlyRate}, otRate=${rates.overtimeRate}, shiftExtStatus=${record.shiftExtensionStatus}, shiftExtMins=${record.shiftExtensionMinutes}, extraStatus=${record.extraTimeStatus}, extraMins=${record.extraTimeMinutes}, recordOTMins=${record.overtimeMinutes}`);
 
         employeeSummary[empId].totalMinutes += payableMinutes;
         employeeSummary[empId].overtimeMinutes += approvedOTMinutes;
@@ -1974,22 +1957,15 @@ export const getEmployeePayrollSummary = async (
       const empPolicy = empClientId ? policyMap.get(empClientId) : null;
       // For payroll, use payableRate (what we pay the employee), fallback to billingRate
       const empPayableRate = emp.employee.payableRate ? Number(emp.employee.payableRate) : null;
-      const empBillingRate = emp.employee.billingRate ? Number(emp.employee.billingRate) : null;
-      const empGroupAssignment = emp.employee.groupAssignments?.[0];
-      const empClientGroupRate = empGroupAssignment?.groupId && empClientId
-        ? (clientGroupRateMap.get(`${empClientId}-${empGroupAssignment.groupId}`) ?? null) : null;
-      const empGroupRate = empGroupAssignment?.group?.billingRate ? Number(empGroupAssignment.group.billingRate) : null;
 
       const resolvedHourlyRate = empAssignment?.hourlyRate ? Number(empAssignment.hourlyRate)
         : empPayableRate ? empPayableRate
-        : empBillingRate ? empBillingRate
-        : empClientGroupRate ? empClientGroupRate
-        : empGroupRate ? empGroupRate
         : empPolicy?.defaultHourlyRate ? Number(empPolicy.defaultHourlyRate) : 0;
 
-      let resolvedOvertimeRate = empAssignment?.overtimeRate ? Number(empAssignment.overtimeRate)
+      const empOTRateDisplay = emp.employee.overtimeRate ? Number(emp.employee.overtimeRate) : 0;
+      let resolvedOvertimeRate = empOTRateDisplay > 0 ? empOTRateDisplay
+        : empAssignment?.overtimeRate ? Number(empAssignment.overtimeRate)
         : empPolicy?.defaultOvertimeRate ? Number(empPolicy.defaultOvertimeRate) : 0;
-      if (resolvedOvertimeRate === 0 && resolvedHourlyRate > 0) resolvedOvertimeRate = resolvedHourlyRate * 1;
 
       // Use record-level aggregated pay to preserve date-effective rates and rounding behavior from per-record computation
       const regularPay = Math.round(emp._regularPay * 100) / 100;
@@ -2172,45 +2148,23 @@ export const getEmployeePayrollDetail = async (
       ]),
     );
 
-    // For payroll, use payableRate (what we pay the employee), fallback to billingRate
-    const employeeBillingRate = employee.payableRate
-      ? Number(employee.payableRate)
-      : employee.billingRate
-        ? Number(employee.billingRate)
-        : null;
-    const groupAssignment = employee.groupAssignments?.[0];
-    const clientGroupBillingRate = groupAssignment?.groupId
-      ? (clientGroupRateMap.get(groupAssignment.groupId) ?? null)
-      : null;
-    const groupBillingRate = groupAssignment?.group?.billingRate
-      ? Number(groupAssignment.group.billingRate)
-      : null;
+    // For payroll, use payableRate only (not billingRate)
+    const empPayableRate = employee.payableRate ? Number(employee.payableRate) : null;
     const defaultHourlyRate = policy?.defaultHourlyRate
       ? Number(policy.defaultHourlyRate)
       : 0;
 
     const hourlyRate = assignment?.hourlyRate
       ? Number(assignment.hourlyRate)
-      : employeeBillingRate
-        ? employeeBillingRate
-        : clientGroupBillingRate
-          ? clientGroupBillingRate
-          : groupBillingRate
-            ? groupBillingRate
-            : defaultHourlyRate;
+      : empPayableRate
+        ? empPayableRate
+        : defaultHourlyRate;
 
-    const assignmentOvertimeRate =
-      assignment?.overtimeRate != null ? Number(assignment.overtimeRate) : 0;
-    const policyOvertimeRate =
-      policy?.defaultOvertimeRate != null
-        ? Number(policy.defaultOvertimeRate)
-        : 0;
-    let overtimeRate = assignmentOvertimeRate > 0 ? assignmentOvertimeRate : policyOvertimeRate;
-
-    if (overtimeRate === 0 && hourlyRate > 0) {
-      const employeeOvertimeMultiplier = employee.overtimeRate ? Number(employee.overtimeRate) : 1;
-      overtimeRate = hourlyRate * employeeOvertimeMultiplier;
-    }
+    // OT rate: use employee-specific overtimeRate directly
+    const empOTRate = employee.overtimeRate ? Number(employee.overtimeRate) : 0;
+    let overtimeRate = empOTRate > 0 ? empOTRate
+      : assignment?.overtimeRate ? Number(assignment.overtimeRate)
+      : policy?.defaultOvertimeRate ? Number(policy.defaultOvertimeRate) : 0;
 
     // Fetch work sessions for per-session breakdown
     const sessions = await prisma.workSession.findMany({
