@@ -42,7 +42,7 @@ const Approvals = () => {
   const [activeType, setActiveType] = useState(
     searchParams.get('type') || 'leave'
   );
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('pending');
   const [employeeFilter, setEmployeeFilter] = useState('all');
   const [clientFilterId, setClientFilterId] = useState('all');
   const [startDate, setStartDate] = useState('');
@@ -337,7 +337,7 @@ const Approvals = () => {
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => { setActiveType(key); setStatusFilter('all'); setEmployeeFilter('all'); setClientFilterId('all'); setSelectedItems([]); setPage(1); }}
+            onClick={() => { setActiveType(key); setStatusFilter('pending'); setEmployeeFilter('all'); setClientFilterId('all'); setSelectedItems([]); setPage(1); }}
             className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${activeType === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
           >
             <Icon className="w-4 h-4" />
@@ -407,7 +407,7 @@ const Approvals = () => {
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
         />
-        {(employeeFilter !== 'all' || clientFilterId !== 'all' || startDate || endDate || statusFilter !== 'all') && (
+        {(employeeFilter !== 'all' || clientFilterId !== 'all' || startDate || endDate || (statusFilter !== 'all' && statusFilter !== 'pending')) && (
           <button
             className="text-sm text-primary hover:text-primary-dark font-medium"
             onClick={() => { setEmployeeFilter('all'); setClientFilterId('all'); setStartDate(''); setEndDate(''); setStatusFilter('all'); setPage(1); }}
