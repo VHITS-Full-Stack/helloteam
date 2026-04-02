@@ -48,6 +48,7 @@ function useEmployeeList() {
   });
   const fetchingEmployeesRef = useRef(false);
   const fetchingStatsRef = useRef(false);
+  const fetchEmployeesRef = useRef(() => {});
 
   const fetchEmployees = useCallback(async () => {
     if (fetchingEmployeesRef.current) return;
@@ -78,6 +79,10 @@ function useEmployeeList() {
       fetchingEmployeesRef.current = false;
     }
   }, [pagination.page, pagination.limit]);
+
+  useEffect(() => {
+    fetchEmployeesRef.current = fetchEmployees;
+  }, [fetchEmployees]);
 
   const fetchStats = async () => {
     if (fetchingStatsRef.current) return;
@@ -125,11 +130,11 @@ function useEmployeeList() {
   // Re-fetch when filters change
   useEffect(() => {
     if (pagination.page === 1) {
-      fetchEmployees();
+      fetchEmployeesRef.current();
     } else {
-      setPagination((prev) => ({ ...prev, page: 1 }));
+      setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
     }
-  }, [filters.status, filters.clientId, pagination.page, fetchEmployees]);
+  }, [filters.status, filters.clientId]);
 
   const refresh = () => {
     fetchEmployees();
