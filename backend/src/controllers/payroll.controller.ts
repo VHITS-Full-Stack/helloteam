@@ -1836,18 +1836,23 @@ export const getEmployeePayrollSummary = async (
         date: record.date,
         totalMinutes: record.totalMinutes,
         breakMinutes: record.breakMinutes,
-        overtimeMinutes: approvedOTByEmpDate.get(recDateKey) || record.overtimeMinutes || 0,
-        shiftExtensionMinutes: approvedExtByEmpDate.get(recDateKey) || 0,
-        extraTimeMinutes: approvedExtraByEmpDate.get(recDateKey) || 0,
+        overtimeMinutes: (record.shiftExtensionStatus === 'APPROVED' ? (record.shiftExtensionMinutes || 0) : 0) +
+          (record.extraTimeStatus === 'APPROVED' ? (record.extraTimeMinutes || 0) : 0) ||
+          approvedOTByEmpDate.get(recDateKey) || record.overtimeMinutes || 0,
+        shiftExtensionMinutes: record.shiftExtensionStatus === 'APPROVED' ? (record.shiftExtensionMinutes || 0) : (approvedExtByEmpDate.get(recDateKey) || 0),
+        extraTimeMinutes: record.extraTimeStatus === 'APPROVED' ? (record.extraTimeMinutes || 0) : (approvedExtraByEmpDate.get(recDateKey) || 0),
         status: record.status,
         clockIn: record.actualStart,
         clockOut: record.actualEnd,
       });
 
       if (record.status === "APPROVED" || record.status === "AUTO_APPROVED") {
-        // Use OvertimeRequest records for accurate approved OT (handles multiple OT per day)
+        // Use TimeRecord OT fields (consistent with detail endpoint), fallback to OvertimeRequest
         const dateKey = `${record.employeeId}-${record.date.toISOString().split('T')[0]}`;
-        const approvedOTMinutes = approvedOTByEmpDate.get(dateKey) || 0;
+        let approvedOTMinutes = 0;
+        if (record.shiftExtensionStatus === 'APPROVED') approvedOTMinutes += record.shiftExtensionMinutes || 0;
+        if (record.extraTimeStatus === 'APPROVED') approvedOTMinutes += record.extraTimeMinutes || 0;
+        if (approvedOTMinutes === 0) approvedOTMinutes = approvedOTByEmpDate.get(dateKey) || 0;
         const deniedOTMinutes = Math.max(0, (record.overtimeMinutes || 0) - approvedOTMinutes);
         const payableMinutes = Math.max(0, (record.totalMinutes || 0) - deniedOTMinutes);
         const payableRegular = payableMinutes - approvedOTMinutes;
