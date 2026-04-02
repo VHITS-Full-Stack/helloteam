@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { MessageSquare, Send, Search, Clock, AlertCircle, Loader2, ArrowLeft, X, CheckCircle, ChevronDown } from 'lucide-react';
-import { Card, Button, Badge, Avatar } from '../../components/common';
+import { Card, Button, Badge, Avatar, Modal } from '../../components/common';
 import supportTicketService from '../../services/supportTicket.service';
 
 const Support = () => {
@@ -13,6 +13,7 @@ const Support = () => {
   // View ticket
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [ticketDetail, setTicketDetail] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null); // { ticketId, status }
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [isInternal, setIsInternal] = useState(false);
@@ -129,10 +130,10 @@ const Support = () => {
             <Button size="sm" variant="outline" onClick={() => handleStatusChange(selectedTicket, 'IN_PROGRESS')}>Mark In Progress</Button>
           )}
           {(ticketDetail.status === 'OPEN' || ticketDetail.status === 'IN_PROGRESS') && (
-            <Button size="sm" variant="primary" icon={CheckCircle} onClick={() => handleStatusChange(selectedTicket, 'RESOLVED')}>Resolve</Button>
+            <Button size="sm" variant="primary" icon={CheckCircle} onClick={() => setConfirmAction({ ticketId: selectedTicket, status: 'RESOLVED' })}>Resolve</Button>
           )}
           {ticketDetail.status !== 'CLOSED' && (
-            <Button size="sm" variant="ghost" onClick={() => handleStatusChange(selectedTicket, 'CLOSED')}>Close</Button>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmAction({ ticketId: selectedTicket, status: 'CLOSED' })}>Close</Button>
           )}
         </div>
 
@@ -195,6 +196,34 @@ const Support = () => {
             </div>
           )}
         </Card>
+
+        {/* Confirm Resolve/Close Modal */}
+        <Modal
+          isOpen={!!confirmAction}
+          onClose={() => setConfirmAction(null)}
+          title={confirmAction?.status === 'RESOLVED' ? 'Resolve Ticket' : 'Close Ticket'}
+          size="sm"
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setConfirmAction(null)}>Cancel</Button>
+              <Button
+                variant={confirmAction?.status === 'RESOLVED' ? 'primary' : 'danger'}
+                icon={confirmAction?.status === 'RESOLVED' ? CheckCircle : X}
+                onClick={async () => {
+                  await handleStatusChange(confirmAction.ticketId, confirmAction.status);
+                  setConfirmAction(null);
+                }}
+              >
+                {confirmAction?.status === 'RESOLVED' ? 'Resolve' : 'Close'}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-gray-700">
+            Are you sure you want to {confirmAction?.status === 'RESOLVED' ? 'resolve' : 'close'} this ticket?
+            {confirmAction?.status === 'CLOSED' && <span className="block text-sm text-gray-500 mt-1">This action cannot be undone.</span>}
+          </p>
+        </Modal>
       </div>
     );
   }
@@ -307,6 +336,7 @@ const Support = () => {
           </div>
         )}
       </Card>
+
     </div>
   );
 };

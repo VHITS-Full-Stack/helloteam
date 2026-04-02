@@ -362,7 +362,31 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           // Employee will clock in separately for the off-shift OT session
         }
 
-        // If already handled (employee responded to pause), skip
+        // If employee chose to continue working, check if they still have valid OT
+        if (session.shiftEndAction === 'CONTINUE_WORKING') {
+          // Re-check: do they have any approved or pending OT left?
+          const remainingOT = await prisma.overtimeRequest.findFirst({
+            where: {
+              employeeId: employee.id,
+              clientId: assignment.clientId,
+              date: recordDate,
+              status: { in: ['APPROVED', 'PENDING'] },
+            },
+          });
+
+          if (!remainingOT) {
+            // All OT rejected — auto-clock out at shift end time
+            await prisma.workSession.update({
+              where: { id: session.id },
+              data: { shiftEndAction: 'OT_REJECTED_CLOCKOUT' },
+            });
+            await autoClockOut(session, employee, shiftEndUTC, schedule, clientTimezone, otRequiresApproval, io);
+            console.log(`[Shift-End] Auto-clock-out for ${employee.firstName} ${employee.lastName} — all OT rejected, no approved OT remaining`);
+          }
+          continue;
+        }
+
+        // If already handled by other action (e.g. OT_AUTO_CLOCKOUT, AUTO_TIMEOUT), skip
         if (session.shiftEndAction) {
           continue;
         }
