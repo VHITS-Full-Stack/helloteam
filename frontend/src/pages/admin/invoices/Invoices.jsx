@@ -356,7 +356,7 @@ const Invoices = () => {
             window.URL.revokeObjectURL(url);
           }} />
           <RefreshButton onClick={fetchInvoices} />
-          <Button variant="primary" size="xs" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
+          <Button variant="primary" size="sm" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
             Generate Invoices
           </Button>
         </div>

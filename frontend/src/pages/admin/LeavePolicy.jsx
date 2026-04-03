@@ -6,7 +6,6 @@ import {
   Calendar,
   Settings,
   Edit3,
-  Plus,
   Minus,
   CheckCircle,
   XCircle,
@@ -29,6 +28,7 @@ import {
   TableHeader,
   TableCell,
   Modal,
+  AddButton,
 } from "../../components/common";
 import leavePolicyService from "../../services/leavePolicy.service";
 
@@ -1524,9 +1524,9 @@ const LeavePolicy = () => {
               </select>
               <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-            <Button variant="primary" icon={Plus} onClick={handleAddHoliday}>
+            <AddButton onClick={handleAddHoliday}>
               Add Holiday
-            </Button>
+            </AddButton>
           </div>
 
           {loading ? (

@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableCell,
   RefreshButton,
+  AddButton,
 } from "../../../components/common";
 import { useEmployeeList } from "../../../hooks/useEmployeeData";
 import employeeService from "../../../services/employee.service";
@@ -144,13 +145,9 @@ const Employees = () => {
         </div>
         <div className="flex gap-2">
           <RefreshButton onClick={refresh} />
-          <Button
-            variant="primary"
-            icon={Plus}
-            onClick={() => navigate("/admin/employees/add")}
-          >
+          <AddButton onClick={() => navigate("/admin/employees/add")}>
             Add Employee
-          </Button>
+          </AddButton>
         </div>
       </div>
 

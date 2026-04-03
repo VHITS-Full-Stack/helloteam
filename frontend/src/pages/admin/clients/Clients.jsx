@@ -17,6 +17,7 @@ import {
   Badge,
   Avatar,
   RefreshButton,
+  AddButton,
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
 
@@ -94,9 +95,9 @@ const Clients = () => {
         </div>
         <div className="flex gap-2">
           <RefreshButton onClick={refresh} />
-          <Button variant="primary" icon={Plus} onClick={() => navigate('/admin/clients/add')}>
+          <AddButton onClick={() => navigate('/admin/clients/add')}>
             Add Client
-          </Button>
+          </AddButton>
         </div>
       </div>
 

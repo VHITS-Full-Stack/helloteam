@@ -10,3 +10,4 @@ export { default as PhoneInput } from './PhoneInput';
 export { default as OTSelectionModal } from './OTSelectionModal';
 export { default as ExportButton } from './ExportButton';
 export { default as RefreshButton } from './RefreshButton';
+export { default as AddButton } from './AddButton';

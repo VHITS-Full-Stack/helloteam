@@ -28,6 +28,7 @@ import {
   TableRow,
   TableHeader,
   TableCell,
+  AddButton,
 } from '../../../components/common';
 import groupService from '../../../services/group.service';
 import employeeService from '../../../services/employee.service';
@@ -476,9 +477,9 @@ const Groups = () => {
           <h2 className="text-2xl font-bold text-gray-900">Group Management</h2>
           <p className="text-gray-500">Organize employees into teams and departments</p>
         </div>
-        <Button variant="primary" icon={Plus} onClick={() => { resetForm(); setShowAddModal(true); }}>
+        <AddButton onClick={() => { resetForm(); setShowAddModal(true); }}>
           Add Group
-        </Button>
+        </AddButton>
       </div>
 
       {/* Error Alert */}

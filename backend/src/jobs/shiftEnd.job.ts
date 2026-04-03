@@ -297,17 +297,18 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
           }
         }
 
-        // Check if the employee has APPROVED OT requests for today
-        console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: checking approved OT for date=${recordDate.toISOString()}, shiftEndAction=${session.shiftEndAction}, shiftEndPausedAt=${session.shiftEndPausedAt?.toISOString() || 'null'}`);
+        // Check if the employee has APPROVED or PENDING OT requests for today
+        // Include PENDING so that requested shift extensions still trigger auto clock-out when time expires
+        console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: checking OT for date=${recordDate.toISOString()}, shiftEndAction=${session.shiftEndAction}, shiftEndPausedAt=${session.shiftEndPausedAt?.toISOString() || 'null'}`);
         const approvedOTRequests = await prisma.overtimeRequest.findMany({
           where: {
             employeeId: employee.id,
             clientId: assignment.clientId,
             date: recordDate,
-            status: 'APPROVED',
+            status: { in: ['APPROVED', 'PENDING'] },
           },
         });
-        console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: found ${approvedOTRequests.length} approved OT(s)${approvedOTRequests.length > 0 ? ': ' + approvedOTRequests.map(o => `${o.type}/${o.requestedMinutes}m`).join(', ') : ''}`);
+        console.log(`[Shift-End] ${employee.firstName} ${employee.lastName}: found ${approvedOTRequests.length} OT(s)${approvedOTRequests.length > 0 ? ': ' + approvedOTRequests.map(o => `${o.type}/${o.status}/${o.requestedMinutes}m`).join(', ') : ''}`);
 
         if (approvedOTRequests.length > 0) {
           // Only consider OT that is continuous (starts at or before shift end)

@@ -7,14 +7,13 @@ import {
   CreditCard,
   Save,
   Lock,
-  Plus,
   Edit,
   Trash2,
   AlertTriangle,
   Eye,
   ChevronDown,
 } from 'lucide-react';
-import { Card, Button, Badge, Modal, RefreshButton } from '../../components/common';
+import { Card, Button, Badge, Modal, RefreshButton, AddButton } from '../../components/common';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../context/AuthContext';
 import { PermissionGate } from '../../components/auth';
@@ -659,9 +658,9 @@ const Settings = () => {
                 <div className="flex gap-2">
                   <RefreshButton onClick={fetchAdminUsers} />
                   {isSuperAdmin && (
-                    <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateAdminUser}>
+                    <AddButton onClick={handleCreateAdminUser}>
                       Add Admin
-                    </Button>
+                    </AddButton>
                   )}
                 </div>
               </div>
@@ -773,9 +772,9 @@ const Settings = () => {
                   </div>
                   <div className="flex gap-2">
                     <RefreshButton onClick={fetchRoles} />
-                    <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateRole}>
+                    <AddButton onClick={handleCreateRole}>
                       Create Role
-                    </Button>
+                    </AddButton>
                   </div>
                 </div>
 

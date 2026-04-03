@@ -19,6 +19,7 @@ import {
   Avatar,
   Input,
   RefreshButton,
+  AddButton,
 } from '../../../components/common';
 import clientPortalService from '../../../services/clientPortal.service';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -438,9 +439,9 @@ const Groups = () => {
         <div className="flex gap-2">
           <RefreshButton onClick={fetchGroups} />
           {canCreate && (
-            <Button variant="primary" icon={Plus} onClick={() => setShowCreateForm(true)}>
+            <AddButton onClick={() => setShowCreateForm(true)}>
               Create Group
-            </Button>
+            </AddButton>
           )}
         </div>
       </div>
