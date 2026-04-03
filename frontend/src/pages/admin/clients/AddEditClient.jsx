@@ -879,7 +879,7 @@ const AddClient = () => {
             <h3 className="text-sm font-semibold text-gray-900 mb-3">Billing Rates</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Billing Rate ($)</label>
                 <input
                   type="number"
                   step="0.01"

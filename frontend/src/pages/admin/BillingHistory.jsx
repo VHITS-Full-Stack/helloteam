@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import {
   Search,
-  Filter,
   TrendingUp,
   TrendingDown,
   ChevronDown,
@@ -37,7 +36,7 @@ const BillingHistory = () => {
   const [error, setError] = useState(null);
 
   // Filters
-  const [showFilters, setShowFilters] = useState(false);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [rateTypeFilter, setRateTypeFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
@@ -265,17 +264,7 @@ const BillingHistory = () => {
           <h2 className="text-2xl font-bold text-gray-900">Billing History</h2>
           <p className="text-gray-500">Track all changes to employee billing and payment rates</p>
         </div>
-        <div className="flex gap-3">
-          <ExportButton onClick={exportHistory} loading={exporting} />
-          <Button
-            variant="ghost"
-            icon={Filter}
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            Filters
-            <ChevronDown className={`w-4 h-4 ml-1 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-          </Button>
-        </div>
+        <ExportButton onClick={exportHistory} loading={exporting} disabled={history.length === 0} />
       </div>
 
       {/* Stats Cards */}
@@ -318,8 +307,7 @@ const BillingHistory = () => {
       )}
 
       {/* Filters */}
-      {showFilters && (
-        <Card padding="md">
+      <Card padding="md">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-gray-700 mb-1">Search Employee</label>
@@ -382,7 +370,6 @@ const BillingHistory = () => {
             </Button>
           </div>
         </Card>
-      )}
 
       {/* Error */}
       {error && (

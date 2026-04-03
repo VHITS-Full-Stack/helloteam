@@ -437,7 +437,7 @@ const ClientEmployees = () => {
                     Client Default Rates
                   </p>
                   <p className="text-sm text-blue-600">
-                    Hourly: $
+                    Billing: $
                     {Number(rateFormData.defaultHourlyRate || 0).toFixed(2)} |
                     Overtime: $
                     {Number(rateFormData.defaultOvertimeRate || 0).toFixed(2) ||
@@ -452,7 +452,7 @@ const ClientEmployees = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Hourly Rate ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Billing Rate ($)</label>
                 <input
                   type="number"
                   step="0.01"
