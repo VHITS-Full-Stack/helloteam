@@ -56,6 +56,7 @@ const AddClient = lazy(() => import('../pages/admin/clients/AddEditClient'));
 const ClientDetail = lazy(() => import('../pages/admin/clients/ClientDetail'));
 const ClientEmployees = lazy(() => import('../pages/admin/clients/ClientEmployees'));
 const ClientConnectedGroups = lazy(() => import('../pages/admin/clients/ClientConnectedGroups'));
+const EmployeePtoConfig = lazy(() => import('../pages/admin/clients/EmployeePtoConfig'));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
@@ -223,6 +224,7 @@ const AppRoutes = () => {
           <Route path="clients/add" element={<AddClient />} />
           <Route path="clients/:id/edit" element={<AddClient />} />
           <Route path="clients/:id/employees" element={<ClientEmployees />} />
+          <Route path="clients/:id/employees/:employeeId/pto" element={<EmployeePtoConfig />} />
           <Route path="clients/:id/groups" element={<ClientConnectedGroups />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
