@@ -210,25 +210,36 @@ const AdminDashboard = () => {
                 Employees have worked overtime without prior approval. These hours affect billing and cannot be processed until clients approve or deny.
               </p>
               <div className="mt-3 space-y-2">
-                {unapprovedOT.clients.map((client) => (
+                {unapprovedOT.clients.slice(0, 3).map((client) => (
                   <div key={client.clientId} className="bg-white/70 border border-red-200 rounded-lg p-3">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="font-semibold text-red-900 text-sm">{client.clientName}</span>
                       <span className="text-sm font-bold text-red-700">{client.totalHours} — {client.count} {client.count === 1 ? 'entry' : 'entries'}</span>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {client.employees.map((emp, i) => (
+                      {client.employees.slice(0, 5).map((emp, i) => (
                         <span key={i} className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 text-red-800 text-xs font-medium rounded-full">
                           {emp.name} — {emp.hours}
                         </span>
                       ))}
+                      {client.employees.length > 5 && (
+                        <span className="inline-flex items-center px-2 py-0.5 bg-red-200 text-red-800 text-xs font-medium rounded-full">
+                          +{client.employees.length - 5} more
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
+                {unapprovedOT.clients.length > 3 && (
+                  <p className="text-sm text-red-700 font-medium">
+                    +{unapprovedOT.clients.length - 3} more client{unapprovedOT.clients.length - 3 > 1 ? 's' : ''} with unapproved OT
+                  </p>
+                )}
               </div>
               <div className="mt-4">
                 <Button
                   variant="danger"
+                  size="sm"
                   icon={AlertCircle}
                   onClick={() => navigate('/admin/approvals?type=autoOvertime')}
                 >
