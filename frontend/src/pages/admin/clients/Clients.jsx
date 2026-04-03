@@ -243,6 +243,7 @@ const Clients = () => {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Onboarding</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Employees</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Groups</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Invoicing</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Leave</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Created</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
@@ -303,6 +304,13 @@ const Clients = () => {
                     {/* Groups */}
                     <td className="px-4 py-3 text-center">
                       <span className="text-sm font-medium text-gray-900">{client.groupCount || 0}</span>
+                    </td>
+
+                    {/* Invoicing */}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-xs font-medium whitespace-nowrap text-gray-700">
+                        {client.clientPolicies?.invoiceByGroup ? 'Group-wise' : 'Single'}
+                      </span>
                     </td>
 
                     {/* Leave Policy */}
