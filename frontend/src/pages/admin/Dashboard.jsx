@@ -13,7 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Card, StatCard, Badge, Button, Avatar } from '../../components/common';
+import { Card, StatCard, Badge, Button, Avatar, RefreshButton } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
 
 const AdminDashboard = () => {
@@ -132,9 +132,7 @@ const AdminDashboard = () => {
           <p className="text-gray-500">System-wide overview and management</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={fetchDashboardData} icon={RefreshCw}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchDashboardData} />
           {/* <Button variant="primary">Quick Actions</Button> */}
         </div>
       </div>

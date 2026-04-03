@@ -1,17 +1,17 @@
-import { Bell, Search, Menu, X, Check, Trash2 } from 'lucide-react';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Avatar } from '../common';
-import notificationService from '../../services/notification.service';
+import { Bell, Search, Menu, X, Check, Trash2 } from "lucide-react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import { Avatar } from "../common";
+import notificationService from "../../services/notification.service";
 
 const Header = ({
   title,
   subtitle,
   user,
-  portalType = 'employee',
+  portalType = "employee",
   onMenuClick,
   showSearch = true,
-  actions
+  actions,
 }) => {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -27,13 +27,15 @@ const Header = ({
     fetchingNotificationsRef.current = true;
     try {
       setLoading(true);
-      const response = await notificationService.getNotifications({ limit: 10 });
+      const response = await notificationService.getNotifications({
+        limit: 10,
+      });
       if (response.success) {
         setNotifications(response.data.notifications || []);
         setUnreadCount(response.data.unreadCount || 0);
       }
     } catch (error) {
-      console.error('Failed to fetch notifications:', error);
+      console.error("Failed to fetch notifications:", error);
     } finally {
       setLoading(false);
       fetchingNotificationsRef.current = false;
@@ -49,7 +51,7 @@ const Header = ({
         setUnreadCount(response.data.count || 0);
       }
     } catch (error) {
-      console.error('Failed to fetch unread count:', error);
+      console.error("Failed to fetch unread count:", error);
     } finally {
       fetchingCountRef.current = false;
     }
@@ -72,13 +74,13 @@ const Header = ({
     try {
       const response = await notificationService.markAsRead(id);
       if (response.success) {
-        setNotifications(prev =>
-          prev.map(n => n.id === id ? { ...n, isRead: true } : n)
+        setNotifications((prev) =>
+          prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
         );
-        setUnreadCount(prev => Math.max(0, prev - 1));
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     } catch (error) {
-      console.error('Failed to mark notification as read:', error);
+      console.error("Failed to mark notification as read:", error);
     }
   };
 
@@ -86,11 +88,11 @@ const Header = ({
     try {
       const response = await notificationService.markAllAsRead();
       if (response.success) {
-        setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+        setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         setUnreadCount(0);
       }
     } catch (error) {
-      console.error('Failed to mark all as read:', error);
+      console.error("Failed to mark all as read:", error);
     }
   };
 
@@ -98,50 +100,50 @@ const Header = ({
     try {
       const response = await notificationService.deleteNotification(id);
       if (response.success) {
-        const notification = notifications.find(n => n.id === id);
-        setNotifications(prev => prev.filter(n => n.id !== id));
+        const notification = notifications.find((n) => n.id === id);
+        setNotifications((prev) => prev.filter((n) => n.id !== id));
         if (notification && !notification.isRead) {
-          setUnreadCount(prev => Math.max(0, prev - 1));
+          setUnreadCount((prev) => Math.max(0, prev - 1));
         }
       }
     } catch (error) {
-      console.error('Failed to delete notification:', error);
+      console.error("Failed to delete notification:", error);
     }
   };
 
   const getNotificationColor = (type) => {
     switch (type) {
-      case 'APPROVAL_REQUIRED':
-      case 'OVERTIME_REQUEST':
-        return 'bg-accent';
-      case 'TIME_APPROVED':
-      case 'LEAVE_APPROVED':
-      case 'OVERTIME_APPROVED':
-        return 'bg-success';
-      case 'TIME_REJECTED':
-      case 'LEAVE_REJECTED':
-      case 'OVERTIME_REJECTED':
-        return 'bg-danger';
-      case 'PAYROLL_REMINDER':
-        return 'bg-warning';
-      case 'SCHEDULE_CHANGE':
-      case 'SYSTEM_ALERT':
-        return 'bg-info';
-      case 'TASK_ASSIGNED':
-        return 'bg-primary';
-      case 'TASK_STATUS_CHANGED':
-      case 'TASK_UPDATED':
-        return 'bg-info';
-      case 'TASK_COMMENTED':
-        return 'bg-accent';
-      case 'CHAT_MESSAGE':
-        return 'bg-primary';
-      case 'SHIFT_ENDING':
-        return 'bg-warning';
-      case 'AUTO_CLOCK_OUT':
-        return 'bg-info';
+      case "APPROVAL_REQUIRED":
+      case "OVERTIME_REQUEST":
+        return "bg-accent";
+      case "TIME_APPROVED":
+      case "LEAVE_APPROVED":
+      case "OVERTIME_APPROVED":
+        return "bg-success";
+      case "TIME_REJECTED":
+      case "LEAVE_REJECTED":
+      case "OVERTIME_REJECTED":
+        return "bg-danger";
+      case "PAYROLL_REMINDER":
+        return "bg-warning";
+      case "SCHEDULE_CHANGE":
+      case "SYSTEM_ALERT":
+        return "bg-info";
+      case "TASK_ASSIGNED":
+        return "bg-primary";
+      case "TASK_STATUS_CHANGED":
+      case "TASK_UPDATED":
+        return "bg-info";
+      case "TASK_COMMENTED":
+        return "bg-accent";
+      case "CHAT_MESSAGE":
+        return "bg-primary";
+      case "SHIFT_ENDING":
+        return "bg-warning";
+      case "AUTO_CLOCK_OUT":
+        return "bg-info";
       default:
-        return 'bg-primary';
+        return "bg-primary";
     }
   };
 
@@ -153,18 +155,21 @@ const Header = ({
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
 
-    if (minutes < 1) return 'Just now';
+    if (minutes < 1) return "Just now";
     if (minutes < 60) return `${minutes} min ago`;
-    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
-    if (days < 7) return `${days} day${days > 1 ? 's' : ''} ago`;
+    if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    if (days < 7) return `${days} day${days > 1 ? "s" : ""} ago`;
     return date.toLocaleDateString();
   };
 
   const getPortalAccent = () => {
     switch (portalType) {
-      case 'client': return 'ring-secondary';
-      case 'admin': return 'ring-accent';
-      default: return 'ring-primary';
+      case "client":
+        return "ring-secondary";
+      case "admin":
+        return "ring-accent";
+      default:
+        return "ring-primary";
     }
   };
 
@@ -178,12 +183,6 @@ const Header = ({
         >
           <Menu className="w-5 h-5" />
         </button>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900 font-heading">{title}</h1>
-          {subtitle && (
-            <p className="text-sm text-gray-500">{subtitle}</p>
-          )}
-        </div>
       </div>
 
       {/* Right Section */}
@@ -212,11 +211,7 @@ const Header = ({
         )} */}
 
         {/* Actions */}
-        {actions && (
-          <div className="flex items-center gap-2">
-            {actions}
-          </div>
-        )}
+        {actions && <div className="flex items-center gap-2">{actions}</div>}
 
         {/* Notifications */}
         <div className="relative">
@@ -224,16 +219,17 @@ const Header = ({
             onClick={() => setShowNotifications(!showNotifications)}
             className={`
               relative p-2.5 rounded-xl transition-all duration-200
-              ${showNotifications
-                ? 'text-primary bg-primary-50'
-                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              ${
+                showNotifications
+                  ? "text-primary bg-primary-50"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
               }
             `}
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-danger text-white text-xs font-semibold rounded-full flex items-center justify-center animate-pulse-soft">
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>
@@ -244,12 +240,18 @@ const Header = ({
               <div
                 className="fixed inset-0 z-40"
                 onClick={() => setShowNotifications(false)}
+                onKeyDown={(e) => e.key === "Escape" && setShowNotifications(false)}
+                role="button"
+                tabIndex={0}
+                aria-label="Close notifications"
               />
               <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 animate-fade-in overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-primary-50 to-white">
                   <div>
                     <h3 className="font-bold text-gray-900">Notifications</h3>
-                    <p className="text-xs text-gray-500">{unreadCount} unread messages</p>
+                    <p className="text-xs text-gray-500">
+                      {unreadCount} unread messages
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {unreadCount > 0 && (
@@ -272,37 +274,56 @@ const Header = ({
                 <div className="max-h-96 overflow-y-auto">
                   {loading ? (
                     <div className="flex items-center justify-center py-8">
-                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"/>
+                      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                     </div>
                   ) : notifications.length === 0 ? (
                     <div className="text-center py-8">
                       <Bell className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-500 text-sm">No notifications yet</p>
+                      <p className="text-gray-500 text-sm">
+                        No notifications yet
+                      </p>
                     </div>
                   ) : (
                     notifications.map((notification) => (
                       <div
                         key={notification.id}
+                        role="button"
+                        tabIndex={0}
                         className={`
                           px-5 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50
                           transition-colors duration-200 group
-                          ${!notification.isRead ? 'bg-primary-50/20' : ''}
+                          ${!notification.isRead ? "bg-primary-50/20" : ""}
                         `}
                         onClick={() => {
                           if (!notification.isRead) {
                             handleMarkAsRead(notification.id);
                           }
                           // SHIFT_ENDING notifications open the extend shift modal on Dashboard
-                          if (notification.type === 'SHIFT_ENDING' || notification.type === 'SHIFT_ENDING_OT_APPROVED') {
+                          if (
+                            notification.type === "SHIFT_ENDING" ||
+                            notification.type === "SHIFT_ENDING_OT_APPROVED"
+                          ) {
                             const notifData = notification.data || {};
                             setShowNotifications(false);
-                            if (window.location.pathname.includes('/employee/dashboard')) {
+                            if (
+                              window.location.pathname.includes(
+                                "/employee/dashboard",
+                              )
+                            ) {
                               // Already on dashboard — fire event directly
-                              window.dispatchEvent(new CustomEvent('show-shift-end-modal', { detail: notifData }));
+                              window.dispatchEvent(
+                                new CustomEvent("show-shift-end-modal", {
+                                  detail: notifData,
+                                }),
+                              );
                             } else {
                               // Navigate to dashboard with data in sessionStorage
-                              sessionStorage.setItem('shiftEndNotification', JSON.stringify(notifData));
-                              window.location.href = '/employee/dashboard?showShiftEnd=true';
+                              sessionStorage.setItem(
+                                "shiftEndNotification",
+                                JSON.stringify(notifData),
+                              );
+                              window.location.href =
+                                "/employee/dashboard?showShiftEnd=true";
                             }
                             return;
                           }
@@ -311,12 +332,50 @@ const Header = ({
                             navigate(notification.actionUrl);
                           }
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (!notification.isRead) {
+                              handleMarkAsRead(notification.id);
+                            }
+                            if (
+                              notification.type === "SHIFT_ENDING" ||
+                              notification.type === "SHIFT_ENDING_OT_APPROVED"
+                            ) {
+                              const notifData = notification.data || {};
+                              setShowNotifications(false);
+                              if (
+                                window.location.pathname.includes(
+                                  "/employee/dashboard",
+                                )
+                              ) {
+                                window.dispatchEvent(
+                                  new CustomEvent("show-shift-end-modal", {
+                                    detail: notifData,
+                                  }),
+                                );
+                              } else {
+                                sessionStorage.setItem(
+                                  "shiftEndNotification",
+                                  JSON.stringify(notifData),
+                                );
+                                window.location.href =
+                                  "/employee/dashboard?showShiftEnd=true";
+                              }
+                            } else if (notification.actionUrl) {
+                              setShowNotifications(false);
+                              navigate(notification.actionUrl);
+                            }
+                          }
+                        }}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`
+                          <div
+                            className={`
                             w-2.5 h-2.5 rounded-full mt-1.5 flex-shrink-0
-                            ${!notification.isRead ? getNotificationColor(notification.type) : 'bg-gray-200'}
-                          `} />
+                            ${!notification.isRead ? getNotificationColor(notification.type) : "bg-gray-200"}
+                          `}
+                          />
                           <div className="flex-1 min-w-0">
                             <p className="font-semibold text-sm text-gray-900">
                               {notification.title}
@@ -348,7 +407,7 @@ const Header = ({
                     <button
                       onClick={() => {
                         setShowNotifications(false);
-                        window.location.href = '/notifications';
+                        window.location.href = "/notifications";
                       }}
                       className="text-sm text-primary font-semibold hover:text-primary-dark transition-colors w-full text-center py-1"
                     >
@@ -363,7 +422,9 @@ const Header = ({
 
         {/* User Avatar */}
         <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
-          <div className={`ring-2 ring-offset-2 ${getPortalAccent()} rounded-full`}>
+          <div
+            className={`ring-2 ring-offset-2 ${getPortalAccent()} rounded-full`}
+          >
             <Avatar
               name={user?.name}
               src={user?.avatar}
@@ -372,8 +433,10 @@ const Header = ({
             />
           </div>
           <div className="hidden sm:block">
-            <p className="text-sm font-semibold text-gray-900">{user?.name || 'User'}</p>
-            <p className="text-xs text-gray-500">{user?.role || 'Employee'}</p>
+            <p className="text-sm font-semibold text-gray-900">
+              {user?.name || "User"}
+            </p>
+            <p className="text-xs text-gray-500">{user?.role || "Employee"}</p>
           </div>
         </div>
       </div>

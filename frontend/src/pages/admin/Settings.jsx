@@ -7,7 +7,6 @@ import {
   CreditCard,
   Save,
   Lock,
-  RefreshCw,
   Plus,
   Edit,
   Trash2,
@@ -15,7 +14,7 @@ import {
   Eye,
   ChevronDown,
 } from 'lucide-react';
-import { Card, Button, Badge, Modal } from '../../components/common';
+import { Card, Button, Badge, Modal, RefreshButton } from '../../components/common';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../context/AuthContext';
 import { PermissionGate } from '../../components/auth';
@@ -658,9 +657,7 @@ const Settings = () => {
                   <p className="text-sm text-gray-500 mt-1">Manage system administrators and their access</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchAdminUsers}>
-                    Refresh
-                  </Button>
+                  <RefreshButton onClick={fetchAdminUsers} />
                   {isSuperAdmin && (
                     <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateAdminUser}>
                       Add Admin
@@ -775,9 +772,7 @@ const Settings = () => {
                     <p className="text-sm text-gray-500 mt-1">Create and manage roles with custom permissions</p>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" icon={RefreshCw} onClick={fetchRoles}>
-                      Refresh
-                    </Button>
+                    <RefreshButton onClick={fetchRoles} />
                     <Button variant="primary" size="sm" icon={Plus} onClick={handleCreateRole}>
                       Create Role
                     </Button>

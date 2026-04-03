@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import {
   Clock,
   Calendar,
-  Download,
   Filter,
   Search,
   Building2,
@@ -19,7 +18,7 @@ import {
   X,
   CheckCircle,
 } from "lucide-react";
-import { Card, Button, Badge, Avatar, Modal } from "../../components/common";
+import { Card, Button, Badge, Avatar, Modal, ExportButton } from "../../components/common";
 import adminPortalService from "../../services/adminPortal.service";
 import overtimeService from "../../services/overtime.service";
 import clientService from "../../services/client.service";
@@ -682,22 +681,8 @@ const TimeRecords = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            icon={Download}
-            onClick={handleExport}
-          >
-            Export CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={Download}
-            onClick={handleExportPDF}
-          >
-            Export PDF
-          </Button>
+          <ExportButton onClick={handleExport} />
+          <ExportButton onClick={handleExportPDF}>Export PDF</ExportButton>
         </div>
       </div>
 

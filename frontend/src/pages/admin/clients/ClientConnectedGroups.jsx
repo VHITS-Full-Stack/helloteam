@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   Trash2,
   Edit,
-  RefreshCw,
   Search,
   DollarSign,
 } from 'lucide-react';
@@ -21,6 +20,7 @@ import {
   Button,
   Avatar,
   Input,
+  RefreshButton,
 } from '../../../components/common';
 import groupService from '../../../services/group.service';
 import employeeService from '../../../services/employee.service';
@@ -521,9 +521,7 @@ const ClientConnectedGroups = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={fetchData}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchData} />
           <Button
             variant="primary"
             icon={Plus}

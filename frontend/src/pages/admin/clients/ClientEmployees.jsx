@@ -10,11 +10,10 @@ import {
   DollarSign,
   Calendar,
   Search,
-  RefreshCw,
   Sun,
   ChevronDown,
 } from "lucide-react";
-import { Card, Button, Badge, Avatar, Modal } from "../../../components/common";
+import { Card, Button, Badge, Avatar, Modal, RefreshButton } from "../../../components/common";
 import { useClientData } from "../../../hooks/useClientData";
 
 const ClientEmployees = () => {
@@ -125,9 +124,7 @@ const ClientEmployees = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={refresh} />
           <Button
             variant="outline"
             icon={Sun}

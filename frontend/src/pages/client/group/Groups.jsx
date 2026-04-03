@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import {
   Users,
   FolderOpen,
-  RefreshCw,
   Plus,
   Trash2,
   UserPlus,
@@ -19,6 +18,7 @@ import {
   Badge,
   Avatar,
   Input,
+  RefreshButton,
 } from '../../../components/common';
 import clientPortalService from '../../../services/clientPortal.service';
 import { usePermissions } from '../../../hooks/usePermissions';
@@ -436,9 +436,7 @@ const Groups = () => {
           <p className="text-gray-500">Manage your groups and their employees</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={fetchGroups}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={fetchGroups} />
           {canCreate && (
             <Button variant="primary" icon={Plus} onClick={() => setShowCreateForm(true)}>
               Create Group

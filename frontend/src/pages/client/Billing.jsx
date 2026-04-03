@@ -10,7 +10,7 @@ import {
   ChevronUp,
   Building2,
 } from "lucide-react";
-import { Card, Button, Badge } from "../../components/common";
+import { Card, Button, Badge, ExportButton } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import { formatHours } from "../../utils/formatTime";
 
@@ -226,14 +226,7 @@ const Billing = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Billing & Invoices</h2>
-        <Button
-          variant="outline"
-          size="sm"
-          icon={Download}
-          onClick={handleExportStatement}
-        >
-          Export CSV
-        </Button>
+        <ExportButton onClick={handleExportStatement} />
       </div>
 
       {/* Error */}

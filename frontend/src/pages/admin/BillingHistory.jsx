@@ -14,7 +14,6 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Minus,
-  Download,
 } from 'lucide-react';
 import {
   Card,
@@ -26,6 +25,7 @@ import {
   TableRow,
   TableHeader,
   TableCell,
+  ExportButton,
 } from '../../components/common';
 import rateHistoryService from '../../services/rateHistory.service';
 
@@ -266,14 +266,7 @@ const BillingHistory = () => {
           <p className="text-gray-500">Track all changes to employee billing and payment rates</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            variant="ghost"
-            icon={exporting ? Loader2 : Download}
-            onClick={exportHistory}
-            disabled={exporting}
-          >
-            {exporting ? 'Exporting...' : 'Export CSV'}
-          </Button>
+          <ExportButton onClick={exportHistory} loading={exporting} />
           <Button
             variant="ghost"
             icon={Filter}

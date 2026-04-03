@@ -6,7 +6,6 @@ import {
   Clock,
   CheckCircle,
   Search,
-  RefreshCw,
   AlertCircle,
   X,
   Eye,
@@ -23,6 +22,8 @@ import {
   Badge,
   Input,
   Modal,
+  ExportButton,
+  RefreshButton,
 } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
 import clientService from '../../../services/client.service';
@@ -332,7 +333,7 @@ const Invoices = () => {
           <p className="text-gray-500">Manage client invoices and billing</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="xs" icon={Download} onClick={() => {
+          <ExportButton onClick={() => {
             if (!invoices.length) return;
             const headers = ['Invoice #', 'Client', 'Period', 'Hours', 'OT Hours', 'Amount', 'Status', 'Due Date'];
             const rows = invoices.map(inv => [
@@ -353,12 +354,8 @@ const Invoices = () => {
             a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             window.URL.revokeObjectURL(url);
-          }}>
-            Export CSV
-          </Button>
-          <Button variant="outline" size="xs" icon={RefreshCw} onClick={fetchInvoices}>
-            Refresh
-          </Button>
+          }} />
+          <RefreshButton onClick={fetchInvoices} />
           <Button variant="primary" size="xs" icon={Play} onClick={() => navigate('/admin/invoices/generate')}>
             Generate Invoices
           </Button>

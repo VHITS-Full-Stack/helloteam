@@ -1,14 +1,13 @@
 import { useState, useEffect } from "react";
 import {
   FileText,
-  Download,
   ChevronRight,
   Loader2,
   DollarSign,
   Clock,
   Calendar,
 } from "lucide-react";
-import { Card, Badge, Avatar, Button } from "../../components/common";
+import { Card, Badge, Avatar, Button, ExportButton } from "../../components/common";
 import payslipService from "../../services/payslip.service";
 
 const Payslips = () => {
@@ -412,14 +411,7 @@ const Payslips = () => {
           <p className="text-gray-500">View your pay history and breakdowns</p>
         </div>
         {payslips.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            icon={Download}
-            onClick={handleExportCSV}
-          >
-            Export CSV
-          </Button>
+          <ExportButton onClick={handleExportCSV} />
         )}
       </div>
 

@@ -3,7 +3,6 @@ import {
   Search,
   Filter,
   FileText,
-  Download,
   ChevronDown,
   Loader2,
   Eye,
@@ -22,6 +21,7 @@ import {
   TableHeader,
   TableCell,
   Modal,
+  ExportButton,
 } from '../../components/common';
 import timeAdjustmentService from '../../services/timeAdjustment.service';
 
@@ -153,13 +153,7 @@ const AuditLog = () => {
           <p className="text-gray-500">Track all system changes and user actions</p>
         </div>
         <div className="flex gap-3">
-          <Button
-            variant="ghost"
-            icon={Download}
-            onClick={exportLogs}
-          >
-            Export CSV
-          </Button>
+          <ExportButton onClick={exportLogs} />
           <Button
             variant="ghost"
             icon={Filter}

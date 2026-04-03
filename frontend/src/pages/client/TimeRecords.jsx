@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Clock,
   Users,
-  Download,
   Search,
   Loader2,
   CheckCircle,
@@ -25,6 +24,7 @@ import {
   Badge,
   Avatar,
   OTSelectionModal,
+  ExportButton,
 } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import { formatHours } from "../../utils/formatTime";
@@ -484,9 +484,7 @@ const TimeRecords = () => {
           <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
           <p className="text-gray-500">View and manage employee time records</p>
         </div>
-        <Button variant="outline" icon={Download} onClick={handleExport}>
-          Export CSV
-        </Button>
+        <ExportButton onClick={handleExport} />
       </div>
 
       {/* Error Message */}

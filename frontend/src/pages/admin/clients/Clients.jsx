@@ -7,7 +7,6 @@ import {
   Eye,
   X,
   AlertCircle,
-  RefreshCw,
   CheckCircle,
   Clock,
   ChevronDown,
@@ -16,7 +15,8 @@ import {
   Card,
   Button,
   Badge,
-  Avatar
+  Avatar,
+  RefreshButton,
 } from '../../../components/common';
 import { useClientData } from '../../../hooks/useClientData';
 
@@ -93,9 +93,7 @@ const Clients = () => {
           <p className="text-gray-500">Manage client accounts and configurations</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={refresh} />
           <Button variant="primary" icon={Plus} onClick={() => navigate('/admin/clients/add')}>
             Add Client
           </Button>

@@ -7,7 +7,6 @@ import {
   X,
   AlertCircle,
   CheckCircle,
-  RefreshCw,
   Mail,
   ChevronDown,
   Users,
@@ -23,6 +22,7 @@ import {
   TableRow,
   TableHeader,
   TableCell,
+  RefreshButton,
 } from "../../../components/common";
 import { useEmployeeList } from "../../../hooks/useEmployeeData";
 import employeeService from "../../../services/employee.service";
@@ -143,9 +143,7 @@ const Employees = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" icon={RefreshCw} onClick={refresh}>
-            Refresh
-          </Button>
+          <RefreshButton onClick={refresh} />
           <Button
             variant="primary"
             icon={Plus}

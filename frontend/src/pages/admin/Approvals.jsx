@@ -5,13 +5,11 @@ import {
   XCircle,
   Clock,
   AlertCircle,
-  RefreshCw,
   RotateCcw,
   ChevronDown,
   Calendar,
   Timer,
   Loader2,
-  Download,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -26,7 +24,9 @@ import {
   TableBody,
   TableRow,
   TableHeader,
-  TableCell
+  TableCell,
+  ExportButton,
+  RefreshButton
 } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
 import overtimeService from '../../services/overtime.service';
@@ -319,12 +319,8 @@ const Approvals = () => {
               Approve Selected ({selectedItems.length})
             </Button>
           )}
-          <Button variant="outline" size="sm" icon={Download} onClick={handleExport}>
-            Export CSV
-          </Button>
-          <Button variant="outline" icon={RefreshCw} onClick={fetchData}>
-            Refresh
-          </Button>
+          <ExportButton onClick={handleExport} />
+          <RefreshButton onClick={fetchData} />
         </div>
       </div>
 
