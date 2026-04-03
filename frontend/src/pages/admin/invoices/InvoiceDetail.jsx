@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, FileText, Send, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, Button, Badge } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
+import { formatHours } from '../../../utils/formatTime';
 
 const formatCurrency = (amount, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
@@ -248,12 +249,12 @@ const InvoiceDetail = () => {
       <div className="flex flex-wrap gap-3">
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
           <span className="text-sm text-blue-600">Total Hours</span>
-          <span className="text-sm font-bold text-blue-700">{Number(invoice.totalHours || 0).toFixed(2)}</span>
+          <span className="text-sm font-bold text-blue-700">{formatHours(Number(invoice.totalHours || 0))}</span>
         </div>
         {Number(invoice.overtimeHours) > 0 && (
           <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
             <span className="text-sm text-orange-600">OT Hours</span>
-            <span className="text-sm font-bold text-orange-700">{Number(invoice.overtimeHours).toFixed(2)}</span>
+            <span className="text-sm font-bold text-orange-700">{formatHours(Number(invoice.overtimeHours))}</span>
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
@@ -273,7 +274,7 @@ const InvoiceDetail = () => {
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
                   <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Employee</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Hours</th>
+                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Regular Hours</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">OT Hours</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">Rate</th>
                   <th className="text-right px-4 py-2.5 text-xs font-semibold text-gray-500 uppercase">OT Rate</th>
@@ -289,14 +290,18 @@ const InvoiceDetail = () => {
                         <p className="text-xs text-orange-500 mt-0.5">{item.notes}</p>
                       )}
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(2)}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{formatHours(Number(item.hours))}</td>
                     <td className="px-4 py-2.5 text-sm text-right">
                       {Number(item.overtimeHours || 0) > 0
-                        ? <span className="text-orange-600">{Number(item.overtimeHours).toFixed(2)}</span>
+                        ? <span className="text-orange-600">{formatHours(Number(item.overtimeHours))}</span>
                         : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}</td>
-                    <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{Number(item.rate) > 0 ? `${Math.round((Number(item.overtimeRate || item.rate) / Number(item.rate)) * 100) / 100}x` : '-'}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 text-right">
+                      {Number(item.overtimeHours || 0) > 0 && Number(item.overtimeRate) > 0
+                        ? formatCurrency(item.overtimeRate)
+                        : <span className="text-gray-300">—</span>}
+                    </td>
                     <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatCurrency(item.amount)}</td>
                   </tr>
                 ))}
@@ -304,8 +309,8 @@ const InvoiceDetail = () => {
               <tfoot>
                 <tr className="bg-gray-50 border-t border-gray-200">
                   <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{Number(invoice.totalHours).toFixed(2)}</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{Number(invoice.overtimeHours).toFixed(2)}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(Number(invoice.totalHours))}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(Number(invoice.overtimeHours))}</td>
                   <td className="px-4 py-2.5"></td>
                   <td className="px-4 py-2.5"></td>
                   <td className="px-4 py-2.5 text-sm font-bold text-gray-900 text-right">{formatCurrency(invoice.total, invoice.currency)}</td>

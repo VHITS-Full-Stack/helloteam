@@ -2966,12 +2966,29 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
     const avgMonthly = monthsElapsed > 0 ? ytdTotal / monthsElapsed : 0;
 
     // Fetch real invoices from database
-    const invoices = await prisma.invoice.findMany({
+    const rawInvoices = await prisma.invoice.findMany({
       where: { clientId },
       include: { lineItems: true },
       orderBy: { periodStart: 'desc' },
       take: 24,
     });
+
+    // Convert Prisma Decimal fields to plain numbers
+    const invoices = rawInvoices.map((inv) => ({
+      ...inv,
+      totalHours: Number(inv.totalHours),
+      overtimeHours: Number(inv.overtimeHours),
+      subtotal: Number(inv.subtotal),
+      total: Number(inv.total),
+      lineItems: inv.lineItems.map((li) => ({
+        ...li,
+        hours: Number(li.hours),
+        overtimeHours: Number(li.overtimeHours),
+        rate: Number(li.rate),
+        overtimeRate: Number(li.overtimeRate),
+        amount: Number(li.amount),
+      })),
+    }));
 
     res.json({
       success: true,

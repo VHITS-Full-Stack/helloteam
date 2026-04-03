@@ -422,10 +422,23 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
       paidAmount: Number(aggregateStats.find(g => g.status === 'PAID')?._sum.total || 0),
     };
 
+    // Convert Prisma Decimal fields to plain numbers
+    const formattedInvoices = invoices.map((inv) => ({
+      ...inv,
+      totalHours: Number(inv.totalHours),
+      overtimeHours: Number(inv.overtimeHours),
+      subtotal: Number(inv.subtotal),
+      total: Number(inv.total),
+      lineItems: inv.lineItems.map((li) => ({
+        ...li,
+        rate: Number(li.rate),
+      })),
+    }));
+
     res.json({
       success: true,
       data: {
-        invoices,
+        invoices: formattedInvoices,
         pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
         stats: statsFromDb,
       },
@@ -441,7 +454,7 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
   try {
     const invoiceId = req.params.invoiceId as string;
 
-    const invoice = await prisma.invoice.findUnique({
+    const rawInvoice = await prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         client: {
@@ -457,10 +470,27 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
       },
     });
 
-    if (!invoice) {
+    if (!rawInvoice) {
       res.status(404).json({ success: false, error: 'Invoice not found' });
       return;
     }
+
+    // Convert Prisma Decimal fields to plain numbers
+    const invoice = {
+      ...rawInvoice,
+      totalHours: Number(rawInvoice.totalHours),
+      overtimeHours: Number(rawInvoice.overtimeHours),
+      subtotal: Number(rawInvoice.subtotal),
+      total: Number(rawInvoice.total),
+      lineItems: rawInvoice.lineItems.map((li) => ({
+        ...li,
+        hours: Number(li.hours),
+        overtimeHours: Number(li.overtimeHours),
+        rate: Number(li.rate),
+        overtimeRate: Number(li.overtimeRate),
+        amount: Number(li.amount),
+      })),
+    };
 
     res.json({ success: true, data: invoice });
   } catch (error) {

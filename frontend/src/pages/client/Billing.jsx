@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Card, Button, Badge } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
+import { formatHours } from "../../utils/formatTime";
 
 const Billing = () => {
   const [loading, setLoading] = useState(true);
@@ -593,7 +594,7 @@ const Billing = () => {
                                 Employee
                               </th>
                               <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">
-                                Hours
+                                Regular Hours
                               </th>
                               <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">
                                 OT
@@ -616,12 +617,12 @@ const Billing = () => {
                                   {item.employeeName}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {Number(item.hours).toFixed(1)}
+                                  {formatHours(Number(item.hours))}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-right">
                                   {Number(item.overtimeHours) > 0 ? (
                                     <span className="text-orange-600">
-                                      {Number(item.overtimeHours).toFixed(1)}
+                                      {formatHours(Number(item.overtimeHours))}
                                     </span>
                                   ) : (
                                     <span className="text-gray-300">—</span>
@@ -631,7 +632,9 @@ const Billing = () => {
                                   {formatCurrency(item.rate)}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {Number(item.rate) > 0 ? `${Math.round((Number(item.overtimeRate) / Number(item.rate)) * 100) / 100}x` : '-'}
+                                  {Number(item.overtimeHours) > 0 && Number(item.overtimeRate) > 0
+                                    ? formatCurrency(item.overtimeRate)
+                                    : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
                                   {formatCurrency(item.amount)}
