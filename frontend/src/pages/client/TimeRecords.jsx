@@ -741,22 +741,22 @@ const TimeRecords = () => {
                           <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                             Date
                           </th>
-                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
                             Clock In
                           </th>
-                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
                             Clock Out
                           </th>
                           <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                             Break
                           </th>
-                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
                             Regular Hours
                           </th>
                           <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                             Overtime
                           </th>
-                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                          <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
                             OT Without Prior Approval
                           </th>
                           <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
@@ -1051,7 +1051,7 @@ const TimeRecords = () => {
                     {revisionRecord && (
                       <div className="px-5 py-2 bg-amber-50 border-b border-amber-200">
                         <p className="text-xs text-amber-700">
-                          <span className="font-medium">
+                          <span className="font-medium whitespace-nowrap">
                             Revision requested:
                           </span>{" "}
                           {revisionRecord.revisionReason}

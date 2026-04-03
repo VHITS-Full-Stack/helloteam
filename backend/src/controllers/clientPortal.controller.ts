@@ -1940,11 +1940,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           : (() => {
               const records = emp.records || [];
               const scheduledStatuses = records
-                .filter((r: any) => r.status !== 'PAID_LEAVE' && r.status !== 'UNPAID_LEAVE' && r.status !== 'HOLIDAY')
+                .filter((r: any) => r.status !== 'PAID_LEAVE' && r.status !== 'UNPAID_LEAVE' && r.status !== 'HOLIDAY' && r.status !== 'NOT_STARTED')
                 .map((r: any) => r.status as string);
               if (scheduledStatuses.some((s) => s === 'REVISION_REQUESTED')) return 'revision_requested';
               if (scheduledStatuses.some((s) => s === 'REJECTED')) return 'rejected';
-              if (scheduledStatuses.some((s) => s === 'PENDING' || s === 'NOT_STARTED')) return 'pending';
+              if (scheduledStatuses.some((s) => s === 'PENDING')) return 'pending';
               if (scheduledStatuses.length > 0 && scheduledStatuses.every((s) => s === 'AUTO_APPROVED')) return 'auto_approved';
               if (scheduledStatuses.length > 0 && scheduledStatuses.every((s) => s === 'APPROVED' || s === 'AUTO_APPROVED')) return 'approved';
               return 'pending';
