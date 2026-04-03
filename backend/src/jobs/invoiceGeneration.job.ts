@@ -313,7 +313,7 @@ const generateInvoiceForClient = async (
     const overtimePay = Math.round(otHours * rates.overtimeRate * 100) / 100;
     const lineAmount = regularPay + overtimePay;
 
-    totalHoursAll += totalHours;
+    totalHoursAll += regularHours + otHours;
     totalOTHoursAll += otHours;
     subtotal += lineAmount;
 
@@ -325,7 +325,7 @@ const generateInvoiceForClient = async (
     lineItemsData.push({
       employeeId: empId,
       employeeName: agg.employeeName,
-      hours: totalHours,
+      hours: regularHours,
       overtimeHours: otHours,
       rate: rates.hourlyRate,
       overtimeRate: rates.overtimeRate,
@@ -1089,7 +1089,7 @@ const previewInvoiceForClient = async (
 
     lineItems.push({
       employeeName: empNameMap.get(empId) || 'Unknown',
-      hours: totalHrs,
+      hours: regularHrs,
       overtimeHours: otHrs,
       rate: rates.hourlyRate,
       overtimeRate: rates.overtimeRate,
