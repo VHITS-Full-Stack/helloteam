@@ -139,58 +139,58 @@ const AdminDashboard = () => {
 
       {/* Main Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-blue-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-blue-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <Users className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{stats.totalEmployees}</p>
-            <p className="text-xs text-gray-500">Employees</p>
+            <p className="text-xl font-bold text-blue-700">{stats.totalEmployees}</p>
+            <p className="text-xs text-blue-600">Employees</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-indigo-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <Building className="w-5 h-5 text-indigo-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{stats.totalClients}</p>
-            <p className="text-xs text-gray-500">Clients</p>
+            <p className="text-xl font-bold text-indigo-700">{stats.totalClients}</p>
+            <p className="text-xs text-indigo-600">Clients</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-yellow-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-yellow-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <AlertCircle className="w-5 h-5 text-yellow-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{stats.pendingApprovals}</p>
-            <p className="text-xs text-gray-500">Pending Approvals</p>
+            <p className="text-xl font-bold text-yellow-700">{stats.pendingApprovals}</p>
+            <p className="text-xs text-yellow-600">Pending Approvals</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-purple-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-purple-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <MessageSquare className="w-5 h-5 text-purple-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{stats.openTickets}</p>
-            <p className="text-xs text-gray-500">Open Tickets</p>
+            <p className="text-xl font-bold text-purple-700">{stats.openTickets}</p>
+            <p className="text-xs text-purple-600">Open Tickets</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-teal-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-teal-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <TrendingUp className="w-5 h-5 text-teal-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.weeklyRevenue)}</p>
-            <p className="text-xs text-gray-500">Weekly Revenue</p>
+            <p className="text-xl font-bold text-teal-700">{formatCurrency(stats.weeklyRevenue)}</p>
+            <p className="text-xs text-teal-600">Weekly Revenue</p>
           </div>
         </div>
-        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
-          <div className="p-3 bg-green-50 rounded-xl flex-shrink-0">
+        <div className="flex items-center gap-3 px-4 py-3 bg-green-50 rounded-xl">
+          <div className="p-2 bg-white rounded-lg shadow-sm">
             <DollarSign className="w-5 h-5 text-green-600" />
           </div>
           <div>
-            <p className="text-xl font-bold text-gray-900">{formatCurrency(stats.monthlyRevenue)}</p>
-            <p className="text-xs text-gray-500">Monthly Revenue</p>
+            <p className="text-xl font-bold text-green-700">{formatCurrency(stats.monthlyRevenue)}</p>
+            <p className="text-xs text-green-600">Monthly Revenue</p>
           </div>
         </div>
       </div>
