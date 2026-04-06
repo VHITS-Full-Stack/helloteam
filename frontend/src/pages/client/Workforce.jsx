@@ -29,6 +29,7 @@ import {
   TableCell,
   Modal
 } from '../../components/common';
+import { formatTimeInTimeZone } from '../../utils/formatTime';
 import clientPortalService from '../../services/clientPortal.service';
 
 const Workforce = () => {
@@ -315,10 +316,7 @@ const Workforce = () => {
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">Clocked In</span>
                     <span className="font-medium text-gray-900">
-                      {new Date(employee.startTime).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatTimeInTimeZone(employee.startTime)}
                     </span>
                   </div>
                 )}
@@ -334,10 +332,7 @@ const Workforce = () => {
                   <div className="p-2 bg-yellow-50 rounded-lg">
                     <p className="text-xs text-yellow-600 font-medium">
                       On {employee.currentBreak.breakType || 'break'} since{' '}
-                      {new Date(employee.currentBreak.startTime).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatTimeInTimeZone(employee.currentBreak.startTime)}
                     </p>
                   </div>
                 )}
@@ -399,10 +394,7 @@ const Workforce = () => {
                   <TableCell>{getStatusBadge(employee.status)}</TableCell>
                   <TableCell>
                     {employee.status !== 'offline' && employee.startTime
-                      ? new Date(employee.startTime).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })
+                      ? formatTimeInTimeZone(employee.startTime)
                       : '-'}
                   </TableCell>
                   <TableCell>{employee.todayHours}</TableCell>
@@ -489,7 +481,7 @@ const Workforce = () => {
                     <span className="text-green-600">Clocked In</span>
                     <span className="font-medium text-green-800">
                       {detailModal.employee.startTime
-                        ? new Date(detailModal.employee.startTime).toLocaleTimeString()
+                        ? formatTimeInTimeZone(detailModal.employee.startTime)
                         : '-'}
                     </span>
                   </div>
@@ -517,7 +509,7 @@ const Workforce = () => {
                   <div className="flex justify-between">
                     <span className="text-yellow-600">Started</span>
                     <span className="font-medium text-yellow-800">
-                      {new Date(detailModal.employee.currentBreak.startTime).toLocaleTimeString()}
+                      {formatTimeInTimeZone(detailModal.employee.currentBreak.startTime)}
                     </span>
                   </div>
                 </div>

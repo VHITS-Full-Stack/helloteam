@@ -32,6 +32,18 @@ export const formatTime12 = (timeStr) => {
   return timeStr;
 };
 
+export const formatTimeInTimeZone = (dateString, timeZone = 'America/New_York') => {
+  if (!dateString) return '--:--';
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '--:--';
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone,
+  });
+};
+
 /** Format decimal hours into human-readable duration (e.g., "2h 30m", "45m", "8h") */
 export const formatHours = (decimalHours) => {
   const value = Number(decimalHours);

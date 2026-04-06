@@ -19,6 +19,7 @@ import {
   Button,
   Avatar,
 } from "../../components/common";
+import { formatTimeInTimeZone } from "../../utils/formatTime";
 import clientPortalService from "../../services/clientPortal.service";
 import overtimeService from "../../services/overtime.service";
 import payrollService from "../../services/payroll.service";
@@ -409,13 +410,7 @@ const ClientDashboard = () => {
                         <p className="text-sm text-gray-500">Started</p>
                         <p className="font-semibold text-gray-900">
                           {employee.startTime
-                            ? new Date(employee.startTime).toLocaleTimeString(
-                                [],
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                },
-                              )
+                            ? formatTimeInTimeZone(employee.startTime)
                             : "-"}
                         </p>
                       </div>
