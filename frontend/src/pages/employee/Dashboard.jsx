@@ -1444,6 +1444,11 @@ const EmployeeDashboard = () => {
                         <p className="text-sm text-gray-500 break-words">
                           {request.reason}
                         </p>
+                        {request.type === 'OFF_SHIFT' && request.requestedStartTime && request.requestedEndTime && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {formatTime12(request.requestedStartTime)} – {formatTime12(request.requestedEndTime)}
+                          </p>
+                        )}
                         {request.status === "APPROVED" && request.approver && (
                           <p className="text-xs text-green-600 mt-1">
                             Approved by {request.approver.name}
