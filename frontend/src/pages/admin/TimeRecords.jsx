@@ -40,7 +40,7 @@ const TimeRecords = () => {
     searchParams.get("clientId") || "all",
   );
   const [selectedGroup, setSelectedGroup] = useState("all");
-  const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedStatus, setSelectedStatus] = useState("pending");
   const [groups, setGroups] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [startDate, setStartDate] = useState("");
