@@ -1096,15 +1096,30 @@ const Payroll = () => {
           <Card padding="none">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h3 className="text-sm font-semibold text-gray-700">Employee Payroll Summary</h3>
-              <div className="relative w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="flex items-center gap-3">
                 <input
-                  type="text"
-                  placeholder="Search employee..."
-                  value={employeeSearch}
-                  onChange={(e) => setEmployeeSearch(e.target.value)}
-                  className="w-full pl-9 pr-4 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  type="date"
+                  value={periodStart}
+                  onChange={(e) => setPeriodStart(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                 />
+                <span className="text-gray-400 text-sm">to</span>
+                <input
+                  type="date"
+                  value={periodEnd}
+                  onChange={(e) => setPeriodEnd(e.target.value)}
+                  className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+                <div className="relative w-48">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search employee..."
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    className="w-full pl-9 pr-4 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  />
+                </div>
               </div>
             </div>
 
