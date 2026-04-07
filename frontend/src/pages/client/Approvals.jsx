@@ -8,6 +8,7 @@ import {
   Loader2,
   Calendar,
   RotateCcw,
+  Search,
 } from "lucide-react";
 import {
   Card,
@@ -86,6 +87,7 @@ const Approvals = () => {
   const [clientTimezone, setClientTimezone] = useState(
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   );
+  const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState({
     startDate: "",
     endDate: "",
@@ -563,12 +565,12 @@ const Approvals = () => {
   const handleSelectAll = () => {
     const items =
       activeType === "leave"
-        ? approvals
+        ? filteredApprovals
         : activeType === "timesheet"
-          ? timesheetApprovals.filter((a) => a.status === "pending")
+          ? filteredTimesheetApprovals.filter((a) => a.status === "pending")
           : activeType === "autoOvertime"
-            ? autoOvertimeRequests
-            : overtimeRequests;
+            ? filteredAutoOvertimeRequests
+            : filteredOvertimeRequests;
 
     if (selectedItems.length === items.length) {
       setSelectedItems([]);
@@ -682,14 +684,33 @@ const Approvals = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
+  const filterBySearch = (items) => {
+    if (!searchQuery.trim()) return items;
+    const q = searchQuery.toLowerCase();
+    return items.filter((item) => {
+      const name =
+        typeof item.employee === "string"
+          ? item.employee
+          : item.employee
+            ? `${item.employee.firstName} ${item.employee.lastName}`
+            : item.employeeName || "";
+      return name.toLowerCase().includes(q);
+    });
+  };
+
+  const filteredApprovals = filterBySearch(approvals);
+  const filteredTimesheetApprovals = filterBySearch(timesheetApprovals);
+  const filteredOvertimeRequests = filterBySearch(overtimeRequests);
+  const filteredAutoOvertimeRequests = filterBySearch(autoOvertimeRequests);
+
   const selectableItems =
     activeType === "leave"
-      ? approvals
+      ? filteredApprovals
       : activeType === "timesheet"
-        ? timesheetApprovals.filter((a) => a.status === "pending")
+        ? filteredTimesheetApprovals.filter((a) => a.status === "pending")
         : activeType === "autoOvertime"
-          ? autoOvertimeRequests
-          : overtimeRequests;
+          ? filteredAutoOvertimeRequests
+          : filteredOvertimeRequests;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -814,7 +835,7 @@ const Approvals = () => {
         </button>
       </div>
 
-      {/* Date Filters */}
+      {/* Filters */}
       <div className="flex items-center gap-3">
         <input
           type="date"
@@ -845,6 +866,16 @@ const Approvals = () => {
             Clear
           </Button>
         )}
+        <div className="relative ml-auto">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search employees..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-48 h-9 pl-8 pr-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -988,7 +1019,7 @@ const Approvals = () => {
       ) : activeType === "leave" ? (
         /* Leave Requests */
         <Card padding="none">
-          {approvals.length > 0 ? (
+          {filteredApprovals.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -1012,7 +1043,7 @@ const Approvals = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {approvals.map((item) => (
+                {filteredApprovals.map((item) => (
                   <TableRow key={`leave-${item.id}`}>
                     <TableCell className="!px-3">
                       <div className="flex items-center gap-2">
@@ -1122,7 +1153,7 @@ const Approvals = () => {
       ) : activeType === "timesheet" ? (
         /* Timesheet Review - All records shown together */
         <Card padding="none">
-          {timesheetApprovals.length > 0 ? (
+          {filteredTimesheetApprovals.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -1148,7 +1179,7 @@ const Approvals = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {timesheetApprovals.map((item) => (
+                {filteredTimesheetApprovals.map((item) => (
                   <TableRow key={`timesheet-${item.id}`}>
                     <TableCell className="!px-3">
                       {item.status === "pending" ? (
@@ -1293,7 +1324,7 @@ const Approvals = () => {
       ) : activeType === "overtime" || activeType === "autoOvertime" ? (
         /* Overtime Requests tab / Auto OT tab — shared table */
         <Card padding="none">
-          {(activeType === "overtime" ? overtimeRequests : autoOvertimeRequests)
+          {(activeType === "overtime" ? filteredOvertimeRequests : filteredAutoOvertimeRequests)
             .length > 0 ? (
             <Table>
               <TableHead>
@@ -1332,8 +1363,8 @@ const Approvals = () => {
               </TableHead>
               <TableBody>
                 {(activeType === "overtime"
-                  ? overtimeRequests
-                  : autoOvertimeRequests
+                  ? filteredOvertimeRequests
+                  : filteredAutoOvertimeRequests
                 ).map((request) => (
                   <TableRow key={request.id}>
                     {activeTab === "pending" && (
