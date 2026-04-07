@@ -25,7 +25,11 @@ import {
 } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
 import overtimeService from "../../services/overtime.service";
-import { formatTime12, formatTimeInTimeZone } from "../../utils/formatTime";
+import {
+  formatHours,
+  formatTime12,
+  formatTimeInTimeZone,
+} from "../../utils/formatTime";
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
@@ -684,6 +688,21 @@ const Approvals = () => {
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
   };
 
+  const formatTimesheetDescription = (item) => {
+    if (!item) return "";
+    if (Number.isFinite(Number(item.hours))) {
+      return `${formatHours(Number(item.hours))} total`;
+    }
+
+    const desc = (item.description || "").toString();
+    const match = desc.match(/(\d+(?:\.\d+)?)\s*h\s*total/i);
+    if (!match) return desc;
+
+    const hours = Number(match[1]);
+    if (!Number.isFinite(hours)) return desc;
+    return desc.replace(match[0], `${formatHours(hours)} total`);
+  };
+
   const filterBySearch = (items) => {
     if (!searchQuery.trim()) return items;
     const q = searchQuery.toLowerCase();
@@ -1205,7 +1224,7 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3 !whitespace-normal">
                       <p className="text-gray-900 text-sm whitespace-nowrap">
-                        {item.description}
+                        {formatTimesheetDescription(item)}
                       </p>
                       {item.details && (
                         <p className="text-xs text-gray-500 mt-0.5">
