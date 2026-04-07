@@ -98,5 +98,11 @@ export const computeBillingTimes = (
     billingEnd = actualEnd;
   }
 
+  // Safety: if billing end is before billing start (e.g. extra-time session after shift),
+  // fall back to actual times
+  if (billingEnd.getTime() <= billingStart.getTime()) {
+    return { billingStart: actualStart, billingEnd: actualEnd, isLate: false };
+  }
+
   return { billingStart, billingEnd, isLate };
 };
