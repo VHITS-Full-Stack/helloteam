@@ -475,8 +475,16 @@ const TimeRecords = () => {
             status === "not_started"
           )
             return false;
-          // When a specific status filter is active, hide not_started placeholders
+          // When a specific status filter is active, hide non-matching records
           if (statusFilter !== "all" && status === "not_started")
+            return false;
+          if (statusFilter === "pending" && status !== "pending")
+            return false;
+          if (statusFilter === "approved" && status !== "approved" && status !== "auto_approved")
+            return false;
+          if (statusFilter === "rejected" && status !== "rejected" && status !== "ot_rejected")
+            return false;
+          if (statusFilter === "revision_requested" && status !== "revision_requested")
             return false;
           return true;
         })
