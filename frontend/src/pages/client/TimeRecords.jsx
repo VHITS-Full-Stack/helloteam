@@ -468,11 +468,15 @@ const TimeRecords = () => {
         .filter((r) => {
           const isWeekend = r.dayOfWeek === 0 || r.dayOfWeek === 6;
           const status = r.status?.toLowerCase();
+          // Hide weekend not_started placeholders
           if (
             isWeekend &&
             (r.totalMinutes || 0) === 0 &&
             status === "not_started"
           )
+            return false;
+          // When a specific status filter is active, hide not_started placeholders
+          if (statusFilter !== "all" && status === "not_started")
             return false;
           return true;
         })
