@@ -222,7 +222,7 @@ const Approvals = () => {
     setProcessing(true);
     try {
       const response = await adminPortalService.requestRevisionTimeRecord(selectedItem.id, revisionReason);
-      if (response?.success) { setShowRevisionModal(false); fetchData(); }
+      if (response?.success) { setShowRevisionModal(false); fetchData(); fetchPendingCounts(); }
     } catch (error) { console.error('Revision error:', error); }
     finally { setProcessing(false); }
   };
