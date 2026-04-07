@@ -558,7 +558,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       await Promise.all(
         clientAssignments.map(async (assignment) => {
           // Check if there's a pre-approved OvertimeRequest for this employee/client/date
-          let status: 'PENDING' | 'APPROVED' = !otRequiresApproval ? 'APPROVED' : 'PENDING';
+          let status: 'PENDING' | 'APPROVED' = 'PENDING';
           let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
           let extraTimeStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
           let extraTimeMinutes = 0;

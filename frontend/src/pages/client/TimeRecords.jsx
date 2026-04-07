@@ -47,7 +47,7 @@ const TimeRecords = () => {
   const [timeRecords, setTimeRecords] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [viewTab, setViewTab] = useState("by-employee"); // "by-employee" | "all-records"
+  const [viewTab, setViewTab] = useState("all-records"); // "by-employee" | "all-records"
   const [actionLoading, setActionLoading] = useState(false);
   const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [revisionReason, setRevisionReason] = useState("");
@@ -685,16 +685,16 @@ const TimeRecords = () => {
           {/* Tab Toggle */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
             <button
-              onClick={() => setViewTab("by-employee")}
-              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${viewTab === "by-employee" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              By Employee
-            </button>
-            <button
               onClick={() => setViewTab("all-records")}
               className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${viewTab === "all-records" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
             >
               All Records
+            </button>
+            <button
+              onClick={() => setViewTab("by-employee")}
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${viewTab === "by-employee" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+            >
+              By Employee
             </button>
           </div>
 
@@ -1634,7 +1634,7 @@ const TimeRecords = () => {
                               </button>
                             )}
                           </div>
-                          <div>
+                          {/* <div>
                             {revisionEligible.length > 0 && (
                               <button
                                 onClick={() =>
@@ -1649,7 +1649,7 @@ const TimeRecords = () => {
                                 Request Revisions
                               </button>
                             )}
-                          </div>
+                          </div> */}
                         </div>
                       ) : null;
                     })()}
@@ -1734,7 +1734,7 @@ const TimeRecords = () => {
           tabIndex="0"
           onClick={() => setShowRejectConfirm(false)}
           onKeyDown={(evt) => {
-            if (evt.key === 'Escape' || evt.key === 'Enter') {
+            if (evt.key === "Escape" || evt.key === "Enter") {
               setShowRejectConfirm(false);
             }
           }}
@@ -1745,7 +1745,7 @@ const TimeRecords = () => {
             aria-modal="true"
             tabIndex="0"
             onKeyDown={(evt) => {
-              if (evt.key === 'Escape') {
+              if (evt.key === "Escape") {
                 setShowRejectConfirm(false);
               }
             }}
@@ -1789,14 +1789,14 @@ const TimeRecords = () => {
       )}
 
       {/* Revision Request Modal */}
-      {showRevisionModal && (
+      {/* {showRevisionModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           role="button"
           tabIndex="0"
           onClick={() => setShowRevisionModal(false)}
           onKeyDown={(evt) => {
-            if (evt.key === 'Escape' || evt.key === 'Enter') {
+            if (evt.key === "Escape" || evt.key === "Enter") {
               setShowRevisionModal(false);
             }
           }}
@@ -1807,7 +1807,7 @@ const TimeRecords = () => {
             aria-modal="true"
             tabIndex="0"
             onKeyDown={(evt) => {
-              if (evt.key === 'Escape') {
+              if (evt.key === "Escape") {
                 setShowRevisionModal(false);
               }
             }}
@@ -1845,7 +1845,7 @@ const TimeRecords = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

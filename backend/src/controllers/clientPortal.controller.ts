@@ -2001,10 +2001,12 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
     const type = req.query.type as string | undefined;
     const page = (req.query.page as string) || '1';
     const limit = (req.query.limit as string) || '20';
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
 
     const client = await prisma.client.findUnique({
       where: { userId },
-      select: { id: true },
+      select: { id: true, timezone: true },
     });
 
     if (!client) {
@@ -2013,6 +2015,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
     }
 
     const clientId = client.id;
+    const clientTimezone = client.timezone || 'UTC';
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -2029,22 +2032,31 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       pending: 'PENDING',
       approved: 'APPROVED',
       rejected: 'REJECTED',
+      revision_requested: 'REVISION_REQUESTED',
     };
-    const dbStatus = statusMap[status] || 'PENDING';
+    const dbStatus = status === 'all' ? undefined : (statusMap[status] || 'PENDING');
 
     // Get time records based on filter (skip when type is 'leave' — leave-only requests don't need time records)
     let timeRecords: any[] = [];
     let timeRecordCount = 0;
     if (type !== 'leave') {
-      const timeRecordWhere: any = { clientId, status: dbStatus };
+      const timeRecordWhere: any = { clientId };
+      if (dbStatus) {
+        timeRecordWhere.status = dbStatus;
+      } else {
+        // 'all' — exclude NOT_STARTED
+        timeRecordWhere.status = { in: ['PENDING', 'APPROVED', 'AUTO_APPROVED', 'REVISION_REQUESTED', 'REJECTED'] };
+      }
       if (type === 'overtime') {
         timeRecordWhere.overtimeMinutes = { gt: 0 };
-      } else if (type === 'time-entry') {
-        timeRecordWhere.OR = [
-          { overtimeMinutes: null },
-          { overtimeMinutes: 0 },
-        ];
       }
+      // Date range filter
+      if (startDate || endDate) {
+        timeRecordWhere.date = {};
+        if (startDate) timeRecordWhere.date.gte = new Date(startDate);
+        if (endDate) timeRecordWhere.date.lte = new Date(endDate);
+      }
+      // For 'timesheet' or 'time-entry': return all time records (same as admin approach)
 
       [timeRecords, timeRecordCount] = await Promise.all([
         prisma.timeRecord.findMany({
@@ -2063,8 +2075,15 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
     // Get leave requests
     const leaveRequestWhere: any = {
       employeeId: { in: employeeIds },
-      status: dbStatus,
     };
+    if (dbStatus) {
+      leaveRequestWhere.status = dbStatus;
+    }
+    if (startDate || endDate) {
+      leaveRequestWhere.startDate = {};
+      if (startDate) leaveRequestWhere.startDate.gte = new Date(startDate);
+      if (endDate) leaveRequestWhere.startDate.lte = new Date(endDate);
+    }
     if (type && type !== 'leave') {
       // Skip leave requests if filtering by time-entry or overtime
     }
@@ -2101,15 +2120,27 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       const totalHours = totalMinutes / 60;
       const overtimeMinutes = tr.overtimeMinutes || 0;
       const isOvertime = overtimeMinutes > 0;
+      const isAdjustment = !!tr.adjustmentNotes;
       const profilePhoto = await refreshProfilePhotoUrl(tr.employee.profilePhoto);
       approvals.push({
         id: tr.id,
-        type: isOvertime ? 'overtime' : 'time-entry',
+        type: isAdjustment ? 'time-adjustment' : isOvertime ? 'overtime' : 'timesheet',
         employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
         profilePhoto,
-        description: isOvertime
-          ? `${Math.round(overtimeMinutes / 60 * 100) / 100}h overtime`
-          : `${Math.round(totalHours * 100) / 100}h regular work`,
+        scheduledStart: tr.scheduledStart,
+        scheduledEnd: tr.scheduledEnd,
+        clockIn: tr.actualStart,
+        clockOut: tr.actualEnd,
+        breakMinutes: tr.breakMinutes || 0,
+        totalMinutes,
+        revisionReason: tr.revisionReason || null,
+        revisionRequestedAt: tr.revisionRequestedAt || null,
+        description: isAdjustment
+          ? 'Clock-out time correction'
+          : isOvertime
+            ? `${Math.round(overtimeMinutes / 60 * 100) / 100}h overtime`
+            : `${Math.round(totalHours * 100) / 100}h total`,
+        details: tr.adjustmentNotes || null,
         date: tr.date,
         hours: Math.round(totalHours * 100) / 100,
         status: tr.status.toLowerCase(),
@@ -2173,6 +2204,7 @@ export const getClientApprovals = async (req: AuthenticatedRequest, res: Respons
       success: true,
       data: {
         approvals,
+        clientTimezone,
         summary: {
           pending: pendingLeaveCount,
           overtimePending: overtimePendingCount,

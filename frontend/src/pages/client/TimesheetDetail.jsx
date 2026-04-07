@@ -1107,29 +1107,29 @@ const TimesheetDetail = () => {
                   r.status !== "UNPAID_LEAVE" &&
                   r.status !== "HOLIDAY",
               ) || [];
-            if (revisionEligible.length === 0) return null;
-            return (
-              <div className="flex justify-end">
-                <button
-                  onClick={() =>
-                    handleRequestRevision(
-                      revisionEligible.map((r) => r.timeRecordId),
-                    )
-                  }
-                  disabled={actionLoading}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
-                >
-                  <RotateCcw className="w-4 h-4" />
-                  Request Revisions
-                </button>
-              </div>
-            );
+            // if (revisionEligible.length === 0) return null;
+            // return (
+            //   <div className="flex justify-end">
+            //     <button
+            //       onClick={() =>
+            //         handleRequestRevision(
+            //           revisionEligible.map((r) => r.timeRecordId),
+            //         )
+            //       }
+            //       disabled={actionLoading}
+            //       className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-amber-100 text-amber-700 hover:bg-amber-200 transition-colors"
+            //     >
+            //       <RotateCcw className="w-4 h-4" />
+            //       Request Revisions
+            //     </button>
+            //   </div>
+            // );
           })()}
         </>
       )}
 
       {/* Revision Request Modal */}
-      {showRevisionModal && (
+      {/* {showRevisionModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           onClick={() => setShowRevisionModal(false)}
@@ -1170,7 +1170,7 @@ const TimesheetDetail = () => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
 
       <OTSelectionModal
         isOpen={showOTSelectionModal}

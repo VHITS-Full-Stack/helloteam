@@ -544,7 +544,7 @@ async function autoClockOut(
 
     // Create/update time record for each assigned client
     for (const assignment of clientAssignments) {
-      let status: 'PENDING' | 'APPROVED' = !otRequiresApproval ? 'APPROVED' : 'PENDING';
+      let status: 'PENDING' | 'APPROVED' = 'PENDING';
       let shiftExtensionStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
       let extraTimeStatus: 'NONE' | 'APPROVED' | 'PENDING' | 'UNAPPROVED' | 'DENIED' = 'NONE';
       let extraTimeMinutes = 0;
