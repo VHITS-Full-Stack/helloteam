@@ -540,7 +540,7 @@ const Approvals = () => {
                             </div>
                           ) : (
                             <span className="text-gray-300">—</span>
-                          )}
+                        )}
                         </TableCell>
                       )}
                     </TableRow>
