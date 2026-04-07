@@ -19,6 +19,8 @@ import {
   Loader2,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
+  ArrowUpDown,
   TrendingUp,
   FileDown,
   Eye,
@@ -80,6 +82,17 @@ const Payroll = () => {
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [expandedEmployee, setExpandedEmployee] = useState(null);
+  const [sortField, setSortField] = useState("employee");
+  const [sortDirection, setSortDirection] = useState("asc");
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
 
   // Dashboard data
   const [dashboardData, setDashboardData] = useState(null);
@@ -1100,17 +1113,40 @@ const Payroll = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Employee</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Hours Worked</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">OT Hours</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">PTO Hours</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">VTO Hours</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Pending Approval</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Hours</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Bonuses</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Total Deductions</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Gross Pay</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">Action</th>
+                  {[
+                    { key: "employee", label: "Employee", align: "left", px: "px-4" },
+                    { key: "hours", label: "Hours Worked", align: "center", px: "px-2" },
+                    { key: "overtime", label: "OT Hours", align: "center", px: "px-2" },
+                    { key: null, label: "PTO Hours", align: "center", px: "px-2" },
+                    { key: null, label: "VTO Hours", align: "center", px: "px-2" },
+                    { key: "pending", label: "Pending Approval", align: "center", px: "px-2" },
+                    { key: "totalHours", label: "Total Hours", align: "center", px: "px-2" },
+                    { key: null, label: "Total Bonuses", align: "center", px: "px-2" },
+                    { key: null, label: "Total Deductions", align: "center", px: "px-2" },
+                    { key: "grossPay", label: "Gross Pay", align: "center", px: "px-2" },
+                    { key: null, label: "Action", align: "center", px: "px-2" },
+                  ].map((col) => (
+                    <th
+                      key={col.label}
+                      onClick={col.key ? () => handleSort(col.key) : undefined}
+                      className={`${col.px} py-3 text-${col.align} text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap ${col.key ? "cursor-pointer select-none hover:text-gray-700" : ""}`}
+                    >
+                      <span className={`inline-flex items-center gap-1 ${col.align === "center" ? "justify-center" : ""}`}>
+                        {col.label}
+                        {col.key && (
+                          sortField === col.key ? (
+                            sortDirection === "asc" ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )
+                        )}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1120,6 +1156,32 @@ const Payroll = () => {
                   const name =
                     `${emp.employee?.firstName || ""} ${emp.employee?.lastName || ""}`.toLowerCase();
                   return name.includes(employeeSearch.toLowerCase().trim());
+                })
+                .sort((a, b) => {
+                  let cmp = 0;
+                  switch (sortField) {
+                    case "employee":
+                      cmp = `${a.employee?.firstName || ""} ${a.employee?.lastName || ""}`.localeCompare(`${b.employee?.firstName || ""} ${b.employee?.lastName || ""}`);
+                      break;
+                    case "hours":
+                      cmp = (a.approvedHours || 0) - (b.approvedHours || 0);
+                      break;
+                    case "overtime":
+                      cmp = (a.overtimeHours || 0) - (b.overtimeHours || 0);
+                      break;
+                    case "pending":
+                      cmp = (a.pendingHours || 0) - (b.pendingHours || 0);
+                      break;
+                    case "totalHours":
+                      cmp = (a.totalHoursWithPTO || a.totalHours || 0) - (b.totalHoursWithPTO || b.totalHours || 0);
+                      break;
+                    case "grossPay":
+                      cmp = (a.grossPay || 0) - (b.grossPay || 0);
+                      break;
+                    default:
+                      cmp = `${a.employee?.firstName || ""}`.localeCompare(`${b.employee?.firstName || ""}`);
+                  }
+                  return sortDirection === "asc" ? cmp : -cmp;
                 })
                 .map((emp) => (
                   <React.Fragment key={emp.employee.id}>
