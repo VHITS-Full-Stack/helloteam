@@ -10,7 +10,9 @@ import {
   AlertCircle,
   RefreshCw,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
+  ArrowUpDown,
   Coffee,
   Loader2,
   Users,
@@ -71,6 +73,17 @@ const TimeRecords = () => {
   const [otActionNotes, setOtActionNotes] = useState("");
   const [otActionReason, setOtActionReason] = useState("");
   const [otActionLoading, setOtActionLoading] = useState(false);
+  const [sortField, setSortField] = useState("date");
+  const [sortDirection, setSortDirection] = useState("desc");
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDirection("asc");
+    }
+  };
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -803,39 +816,40 @@ const TimeRecords = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Schedule
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Actual In/Out
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Billing In/Out
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Break
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Regular
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Overtime
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                    OT Without Prior Approval
-                  </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
+                  {[
+                    { key: "name", label: "Name" },
+                    { key: "client", label: "Client" },
+                    { key: "date", label: "Date" },
+                    { key: null, label: "Schedule" },
+                    { key: null, label: "Actual In/Out" },
+                    { key: null, label: "Billing In/Out" },
+                    { key: null, label: "Break" },
+                    { key: "regular", label: "Regular" },
+                    { key: "overtime", label: "Overtime" },
+                    { key: null, label: "OT Without Prior Approval", nowrap: true },
+                    { key: "status", label: "Status" },
+                  ].map((col) => (
+                    <th
+                      key={col.label}
+                      onClick={col.key ? () => handleSort(col.key) : undefined}
+                      className={`text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${col.nowrap ? "whitespace-nowrap" : ""} ${col.key ? "cursor-pointer select-none hover:text-gray-700" : ""}`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {col.key && (
+                          sortField === col.key ? (
+                            sortDirection === "asc" ? (
+                              <ChevronUp className="w-3 h-3" />
+                            ) : (
+                              <ChevronDown className="w-3 h-3" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 opacity-40" />
+                          )
+                        )}
+                      </span>
+                    </th>
+                  ))}
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -847,7 +861,41 @@ const TimeRecords = () => {
                       groupEmployeeIds.has(empRecord.employeeId),
                   )
                   .flatMap((empRecord) =>
-                    empRecord.dailyRecords.map((day) => (
+                    empRecord.dailyRecords.map((day) => ({
+                      empRecord,
+                      day,
+                    })),
+                  )
+                  .sort((a, b) => {
+                    let cmp = 0;
+                    switch (sortField) {
+                      case "name":
+                        cmp = (a.empRecord.employee || "").localeCompare(b.empRecord.employee || "");
+                        break;
+                      case "client":
+                        cmp = (a.empRecord.client || "").localeCompare(b.empRecord.client || "");
+                        break;
+                      case "date":
+                        cmp = new Date(a.day.date).getTime() - new Date(b.day.date).getTime();
+                        break;
+                      case "regular":
+                        cmp = (a.day.regularMinutes || 0) - (b.day.regularMinutes || 0);
+                        break;
+                      case "overtime": {
+                        const aOT = (a.day.overtimeEntries || []).filter((o) => !o.isAutoGenerated).reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                        const bOT = (b.day.overtimeEntries || []).filter((o) => !o.isAutoGenerated).reduce((s, o) => s + (o.requestedMinutes || 0), 0);
+                        cmp = aOT - bOT;
+                        break;
+                      }
+                      case "status":
+                        cmp = (a.day.status || "").localeCompare(b.day.status || "");
+                        break;
+                      default:
+                        cmp = new Date(a.day.date).getTime() - new Date(b.day.date).getTime();
+                    }
+                    return sortDirection === "asc" ? cmp : -cmp;
+                  })
+                  .map(({ empRecord, day }) => (
                       <tr
                         key={`${empRecord.employeeId}-${day.id}`}
                         className="hover:bg-gray-50/50 transition-colors"
@@ -1160,8 +1208,7 @@ const TimeRecords = () => {
                           </button>
                         </td>
                       </tr>
-                    )),
-                  )}
+                    ))}
               </tbody>
             </table>
           </div>
