@@ -1444,12 +1444,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Fetch actual TimeRecords for the date range to get approval statuses
     const startUTC = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
     const endUTC = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+    const timeRecordWhere: any = {
+      clientId,
+      employeeId: { in: employeeIds },
+      date: { gte: startUTC, lte: endUTC },
+    };
+    if (status) {
+      timeRecordWhere.status = status;
+    }
     const timeRecords = await prisma.timeRecord.findMany({
-      where: {
-        clientId,
-        employeeId: { in: employeeIds },
-        date: { gte: startUTC, lte: endUTC },
-      },
+      where: timeRecordWhere,
       select: {
         id: true,
         employeeId: true,
