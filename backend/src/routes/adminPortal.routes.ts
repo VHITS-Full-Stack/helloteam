@@ -20,6 +20,7 @@ import {
   approveRaiseRequest,
   rejectRaiseRequest,
 } from '../controllers/adminPortal.controller';
+import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 
 const router = Router();
 
@@ -39,6 +40,9 @@ router.get('/dashboard/unapproved-ot', authenticate, authorize(...adminRoles), g
 // Time Records endpoints
 router.get('/time-records', authenticate, authorize(...adminRoles), getAdminTimeRecords);
 router.put('/time-records/:recordId/adjust', authenticate, authorize(...adjustmentRoles), adjustTimeRecord);
+
+// Timesheet PDF download (admin)
+router.get('/timesheets/pdf', authenticate, authorize(...adminRoles), downloadAdminTimesheetPdf);
 
 // Approvals endpoints
 router.get('/approvals', authenticate, authorize(...adminRoles), getAdminApprovals);

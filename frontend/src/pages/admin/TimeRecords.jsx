@@ -77,6 +77,20 @@ const TimeRecords = () => {
   const [sortField, setSortField] = useState("date");
   const [sortDirection, setSortDirection] = useState("desc");
 
+  // Timesheet PDF (server-generated) download modal
+  const [showTimesheetPdfModal, setShowTimesheetPdfModal] = useState(false);
+  const [pdfClientId, setPdfClientId] = useState(
+    searchParams.get("clientId") || "all",
+  );
+  const [pdfGroupId, setPdfGroupId] = useState("all");
+  const [pdfRangePreset, setPdfRangePreset] = useState("custom"); // week | month | custom
+  const [pdfStartDate, setPdfStartDate] = useState("");
+  const [pdfEndDate, setPdfEndDate] = useState("");
+  const [pdfEmployees, setPdfEmployees] = useState([]);
+  const [pdfEmployeeId, setPdfEmployeeId] = useState("all");
+  const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState("");
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -104,7 +118,94 @@ const TimeRecords = () => {
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     setStartDate(formatLocal(startOfWeek));
     setEndDate(formatLocal(endOfWeek));
+
+    // Default PDF modal range to the same window
+    setPdfStartDate(formatLocal(startOfWeek));
+    setPdfEndDate(formatLocal(endOfWeek));
   }, []);
+
+  // Keep PDF dates in sync when admin changes filters (unless user changed preset)
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+    setPdfStartDate(startDate);
+    setPdfEndDate(endDate);
+  }, [startDate, endDate]);
+
+  // Fetch employees for selected client (for per-employee PDF download)
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      setPdfEmployees([]);
+      setPdfEmployeeId("all");
+      setPdfError("");
+      if (pdfClientId === "all") return;
+      try {
+        const res = await clientService.getClientEmployees(pdfClientId);
+        if (res?.success) {
+          setPdfEmployees(res.data || []);
+        }
+      } catch (err) {
+        console.error("Failed to fetch client employees:", err);
+      }
+    };
+    fetchEmployees();
+  }, [pdfClientId]);
+
+  const setPdfPreset = (preset) => {
+    setPdfRangePreset(preset);
+    const today = new Date();
+    const formatLocal = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (preset === "week") {
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      setPdfStartDate(formatLocal(startOfWeek));
+      setPdfEndDate(formatLocal(endOfWeek));
+    } else if (preset === "month") {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      setPdfStartDate(formatLocal(startOfMonth));
+      setPdfEndDate(formatLocal(endOfMonth));
+    }
+  };
+
+  const handleDownloadTimesheetPdf = async () => {
+    setPdfError("");
+    if (pdfClientId === "all") {
+      setPdfError("Please select a client to download a timesheet PDF.");
+      return;
+    }
+    if (!pdfStartDate || !pdfEndDate) {
+      setPdfError("Please select a start and end date.");
+      return;
+    }
+
+    const clientName =
+      clients.find((c) => c.id === pdfClientId)?.name || "client";
+    const employeeIds =
+      pdfEmployeeId && pdfEmployeeId !== "all" ? [pdfEmployeeId] : undefined;
+    const filename = `timesheet-${clientName}-${pdfStartDate}-to-${pdfEndDate}.pdf`
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9._-]/gi, "-");
+
+    try {
+      setPdfDownloading(true);
+      await adminPortalService.downloadTimesheetPdf({
+        clientId: pdfClientId,
+        startDate: pdfStartDate,
+        endDate: pdfEndDate,
+        groupId: pdfGroupId !== "all" ? pdfGroupId : undefined,
+        employeeIds,
+        filename,
+      });
+      setShowTimesheetPdfModal(false);
+    } catch (err) {
+      setPdfError(err.error || err.message || "Failed to download PDF");
+    } finally {
+      setPdfDownloading(false);
+    }
+  };
 
   const fetchingClientsRef = useRef(false);
   const fetchingRecordsRef = useRef(false);
@@ -688,6 +789,19 @@ const TimeRecords = () => {
         <div className="flex items-center gap-2">
           <ExportButton onClick={handleExport} />
           <ExportButton onClick={handleExportPDF}>Export PDF</ExportButton>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setPdfError("");
+              setPdfClientId(selectedClient);
+              setPdfGroupId(selectedGroup);
+              setPdfEmployeeId("all");
+              setShowTimesheetPdfModal(true);
+            }}
+          >
+            Download Timesheet PDF
+          </Button>
         </div>
       </div>
 
@@ -1601,6 +1715,173 @@ const TimeRecords = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* Timesheet PDF Download Modal */}
+      <Modal
+        isOpen={showTimesheetPdfModal}
+        onClose={() => setShowTimesheetPdfModal(false)}
+        title="Download Timesheet PDF"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1">
+              Client
+            </label>
+            <select
+              value={pdfClientId}
+              onChange={(e) => {
+                setPdfClientId(e.target.value);
+                setPdfGroupId("all");
+                setPdfEmployeeId("all");
+                setPdfError("");
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            >
+              {clients.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {pdfClientId === "all" && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              Select a client first (PDF is generated per-client).
+            </div>
+          )}
+
+          <div>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+              Date range
+            </p>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <Button
+                type="button"
+                size="sm"
+                variant={pdfRangePreset === "week" ? "primary" : "outline"}
+                onClick={() => setPdfPreset("week")}
+              >
+                This Week
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={pdfRangePreset === "month" ? "primary" : "outline"}
+                onClick={() => setPdfPreset("month")}
+              >
+                This Month
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={pdfRangePreset === "custom" ? "primary" : "outline"}
+                onClick={() => setPdfRangePreset("custom")}
+              >
+                Custom
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  Start date
+                </label>
+                <input
+                  type="date"
+                  value={pdfStartDate}
+                  onChange={(e) => {
+                    setPdfRangePreset("custom");
+                    setPdfStartDate(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">
+                  End date
+                </label>
+                <input
+                  type="date"
+                  value={pdfEndDate}
+                  onChange={(e) => {
+                    setPdfRangePreset("custom");
+                    setPdfEndDate(e.target.value);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Group
+              </label>
+              <select
+                value={pdfGroupId}
+                onChange={(e) => setPdfGroupId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+              >
+                <option value="all">All Groups</option>
+                {filteredGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Uses the same group filter as this page.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">
+                Employee
+              </label>
+              <select
+                value={pdfEmployeeId}
+                onChange={(e) => setPdfEmployeeId(e.target.value)}
+                disabled={pdfClientId === "all"}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary disabled:bg-gray-50"
+              >
+                <option value="all">All Employees</option>
+                {pdfEmployees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.firstName} {emp.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {pdfError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {pdfError}
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setShowTimesheetPdfModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              loading={pdfDownloading}
+              disabled={pdfClientId === "all"}
+              onClick={handleDownloadTimesheetPdf}
+            >
+              Download PDF
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* OT Approve/Deny Modal */}

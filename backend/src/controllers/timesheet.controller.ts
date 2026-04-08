@@ -587,3 +587,308 @@ export const downloadTimesheetForInvoice = async (
     res.status(500).json({ success: false, error: 'Failed to generate timesheet PDF' });
   }
 };
+
+/**
+ * Download a timesheet PDF report for admin use.
+ *
+ * Query params:
+ * - clientId (required)
+ * - startDate (required, YYYY-MM-DD)
+ * - endDate (required, YYYY-MM-DD)
+ * - groupId (optional)
+ * - employeeIds (optional, comma-separated)
+ */
+export const downloadAdminTimesheetPdf = async (
+  req: AuthenticatedRequest,
+  res: Response,
+): Promise<void> => {
+  try {
+    const clientId = (req.query.clientId as string | undefined) || undefined;
+    const startDate = (req.query.startDate as string | undefined) || undefined;
+    const endDate = (req.query.endDate as string | undefined) || undefined;
+    const groupId = (req.query.groupId as string | undefined) || undefined;
+    const employeeIdsParam = (req.query.employeeIds as string | undefined) || undefined;
+
+    if (!clientId) {
+      res.status(400).json({ success: false, error: 'clientId is required' });
+      return;
+    }
+    if (!startDate || !endDate) {
+      res.status(400).json({ success: false, error: 'startDate and endDate are required' });
+      return;
+    }
+
+    // Parse YYYY-MM-DD safely as UTC midnight boundaries
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      res.status(400).json({ success: false, error: 'Invalid startDate/endDate' });
+      return;
+    }
+    if (start > end) {
+      res.status(400).json({ success: false, error: 'startDate must be <= endDate' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { id: clientId },
+      select: { id: true, companyName: true, timezone: true },
+    });
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    // Build allowed employee IDs (client assignment)
+    const assigned = await prisma.clientEmployee.findMany({
+      where: { clientId, isActive: true },
+      select: { employeeId: true },
+    });
+    const assignedEmployeeIds = new Set(assigned.map((a) => a.employeeId));
+
+    // Optional: group filter
+    let groupEmployeeIds: Set<string> | null = null;
+    if (groupId && groupId !== 'all') {
+      const groupEmployees = await prisma.groupEmployee.findMany({
+        where: { groupId },
+        select: { employeeId: true },
+      });
+      groupEmployeeIds = new Set(groupEmployees.map((ge) => ge.employeeId));
+    }
+
+    // Optional: employeeIds filter
+    let requestedEmployeeIds: Set<string> | null = null;
+    if (employeeIdsParam) {
+      requestedEmployeeIds = new Set(
+        employeeIdsParam
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      );
+    }
+
+    const finalEmployeeIds = [...assignedEmployeeIds].filter((id) => {
+      if (groupEmployeeIds && !groupEmployeeIds.has(id)) return false;
+      if (requestedEmployeeIds && !requestedEmployeeIds.has(id)) return false;
+      return true;
+    });
+
+    if (finalEmployeeIds.length === 0) {
+      res.status(400).json({ success: false, error: 'No employees match the selected filters' });
+      return;
+    }
+
+    const clientTz = client.timezone || 'UTC';
+    const clientName = client.companyName;
+
+    // Fetch TimeRecords in range for totals + day grouping
+    const records = await prisma.timeRecord.findMany({
+      where: {
+        clientId,
+        employeeId: { in: finalEmployeeIds },
+        date: { gte: start, lte: end },
+        status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      },
+      orderBy: [{ employeeId: 'asc' }, { date: 'asc' }],
+    });
+
+    // Fetch WorkSessions in range for clock-in/out display (expand slightly for timezone edges)
+    const sessionSearchStart = new Date(start);
+    sessionSearchStart.setUTCDate(sessionSearchStart.getUTCDate() - 1);
+    const sessionSearchEnd = new Date(end);
+    sessionSearchEnd.setUTCDate(sessionSearchEnd.getUTCDate() + 2);
+
+    const workSessions = await prisma.workSession.findMany({
+      where: {
+        employeeId: { in: finalEmployeeIds },
+        startTime: { gte: sessionSearchStart, lt: sessionSearchEnd },
+        status: 'COMPLETED',
+      },
+      orderBy: { startTime: 'asc' },
+    });
+
+    // Fetch approved paid leave requests overlapping the period
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: { in: finalEmployeeIds },
+        clientId,
+        leaveType: 'PAID',
+        status: { in: ['APPROVED', 'APPROVED_BY_CLIENT'] },
+        startDate: { lte: end },
+        endDate: { gte: start },
+      },
+    });
+
+    // Employee names
+    const employees = await prisma.employee.findMany({
+      where: { id: { in: finalEmployeeIds } },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+    const empNameMap = new Map(employees.map((e) => [e.id, `${e.firstName} ${e.lastName}`]));
+
+    // Build all dates in the period
+    const allDateKeys: string[] = [];
+    const cursor = new Date(start);
+    cursor.setUTCHours(0, 0, 0, 0);
+    const endCursor = new Date(end);
+    endCursor.setUTCHours(0, 0, 0, 0);
+    while (cursor <= endCursor) {
+      const dk = getDateKeyFromDateField(cursor);
+      if (!allDateKeys.includes(dk)) allDateKeys.push(dk);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+    allDateKeys.sort();
+
+    // Group WorkSessions by employee → day
+    const sessionsByEmp = new Map<string, Map<string, typeof workSessions>>();
+    for (const session of workSessions) {
+      const empId = session.employeeId;
+      if (!sessionsByEmp.has(empId)) sessionsByEmp.set(empId, new Map());
+      const dayKey = getDateKeyInTz(session.startTime, clientTz);
+      const dayMap = sessionsByEmp.get(empId)!;
+      if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+      dayMap.get(dayKey)!.push(session);
+    }
+
+    // Group TimeRecords by employee → day
+    const recordsByEmp = new Map<string, Map<string, typeof records[0]>>();
+    for (const rec of records) {
+      const empId = rec.employeeId;
+      if (!recordsByEmp.has(empId)) recordsByEmp.set(empId, new Map());
+      const dk = getDateKeyFromDateField(rec.date);
+      recordsByEmp.get(empId)!.set(dk, rec);
+    }
+
+    // PTO days per employee
+    const ptoDaysByEmp = new Map<string, Set<string>>();
+    for (const leave of leaveRequests) {
+      if (!ptoDaysByEmp.has(leave.employeeId)) ptoDaysByEmp.set(leave.employeeId, new Set());
+      const ptoSet = ptoDaysByEmp.get(leave.employeeId)!;
+      const leaveCursor = new Date(leave.startDate);
+      const leaveEnd = new Date(leave.endDate);
+      while (leaveCursor <= leaveEnd) {
+        const dk = getDateKeyFromDateField(leaveCursor);
+        if (allDateKeys.includes(dk)) ptoSet.add(dk);
+        leaveCursor.setUTCDate(leaveCursor.getUTCDate() + 1);
+      }
+    }
+
+    // Build per-employee timesheet data (totals computed from approved records in the range)
+    const employeeData: TimesheetEmployeeData[] = [];
+    for (const emp of employees) {
+      const empId = emp.id;
+      const fullName = empNameMap.get(empId) || 'Unknown';
+      const empSessions = sessionsByEmp.get(empId) || new Map();
+      const empRecords = recordsByEmp.get(empId) || new Map();
+      const ptoDays = ptoDaysByEmp.get(empId) || new Set();
+
+      const days: TimesheetDay[] = [];
+      let sumTotalMinutes = 0;
+      let sumOvertimeMinutes = 0;
+
+      for (const dateKey of allDateKeys) {
+        const sessionsForDay = empSessions.get(dateKey) || [];
+        const timeRecord = empRecords.get(dateKey);
+        const hasPto = ptoDays.has(dateKey);
+
+        if (sessionsForDay.length === 0 && !timeRecord && !hasPto) continue;
+
+        const displayDate = formatLongDate(dateKey, clientTz);
+        const sessionEntries: TimesheetSessionEntry[] = [];
+
+        let dailyTotal = 0;
+        let dailyOT = 0;
+        if (timeRecord) {
+          sumTotalMinutes += timeRecord.totalMinutes || 0;
+          sumOvertimeMinutes += timeRecord.overtimeMinutes || 0;
+          dailyTotal = Math.round(((timeRecord.totalMinutes || 0) / 60) * 100) / 100;
+          dailyOT = Math.round((((timeRecord.overtimeMinutes || 0) / 60)) * 100) / 100;
+        }
+
+        if (sessionsForDay.length > 0) {
+          for (const sess of sessionsForDay) {
+            if (!sess.endTime) continue;
+            const durationMinutes =
+              (sess.endTime.getTime() - sess.startTime.getTime()) / 60000 -
+              (sess.totalBreakMinutes || 0);
+            const durationHours = Math.round((durationMinutes / 60) * 100) / 100;
+            sessionEntries.push({
+              clockIn: formatTimeInTz(sess.startTime, clientTz),
+              clockOut: formatTimeInTz(sess.endTime, clientTz),
+              duration: durationHours,
+              customer: clientName,
+            });
+          }
+          if (!timeRecord) {
+            dailyTotal = sessionEntries.reduce((sum, s) => sum + s.duration, 0);
+          }
+        } else if (timeRecord) {
+          if (timeRecord.actualStart && timeRecord.actualEnd) {
+            sessionEntries.push({
+              clockIn: formatTimeInTz(timeRecord.actualStart, clientTz),
+              clockOut: formatTimeInTz(timeRecord.actualEnd, clientTz),
+              duration: dailyTotal,
+              customer: clientName,
+            });
+          } else if (timeRecord.scheduledStart && timeRecord.scheduledEnd) {
+            sessionEntries.push({
+              clockIn: formatTimeInTz(timeRecord.scheduledStart, clientTz),
+              clockOut: formatTimeInTz(timeRecord.scheduledEnd, clientTz),
+              duration: dailyTotal,
+              customer: clientName,
+            });
+          } else {
+            sessionEntries.push({
+              clockIn: '—',
+              clockOut: '—',
+              duration: dailyTotal,
+              customer: clientName,
+            });
+          }
+        }
+
+        days.push({
+          dateKey,
+          displayDate,
+          dailyTotal: dailyTotal > 0 ? dailyTotal : (hasPto ? 8 : 0),
+          dailyOT,
+          sessions: sessionEntries,
+        });
+      }
+
+      if (days.length === 0) continue;
+
+      const overtimeHours = Math.round(((sumOvertimeMinutes / 60)) * 100) / 100;
+      const regularHours = Math.round((((Math.max(0, sumTotalMinutes - sumOvertimeMinutes)) / 60)) * 100) / 100;
+      const ptoHours = ptoDays.size * 8;
+      const totalHours = Math.round(((regularHours + overtimeHours + ptoHours)) * 100) / 100;
+
+      employeeData.push({
+        fullName,
+        regularHours,
+        overtimeHours,
+        ptoHours,
+        totalHours,
+        days,
+      });
+    }
+
+    if (employeeData.length === 0) {
+      res.status(400).json({ success: false, error: 'No timesheet data found for the selected filters' });
+      return;
+    }
+
+    const pdfBytes = await buildTimesheetPdf(employeeData, start, end);
+    const filenameSafeClient = (clientName || 'client').replace(/[^a-z0-9_-]+/gi, '-');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="timesheet-${filenameSafeClient}-${startDate}-to-${endDate}.pdf"`,
+    );
+    res.send(Buffer.from(pdfBytes));
+  } catch (error) {
+    console.error('Download admin timesheet PDF error:', error);
+    res.status(500).json({ success: false, error: 'Failed to generate timesheet PDF' });
+  }
+};

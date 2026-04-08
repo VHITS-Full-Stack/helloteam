@@ -100,6 +100,54 @@ const adminPortalService = {
     const response = await api.post(`/admin-portal/raise-requests/${raiseId}/reject`, { adminNotes });
     return response;
   },
+
+  // Download timesheet PDF report (admin)
+  downloadTimesheetPdf: async ({
+    clientId,
+    startDate,
+    endDate,
+    groupId,
+    employeeIds,
+    filename,
+  }) => {
+    try {
+      const token = localStorage.getItem("token");
+      const baseUrl =
+        import.meta.env.VITE_API_URL || "https://office.thehelloteam.com/api";
+
+      const params = new URLSearchParams();
+      if (clientId) params.append("clientId", clientId);
+      if (startDate) params.append("startDate", startDate);
+      if (endDate) params.append("endDate", endDate);
+      if (groupId && groupId !== "all") params.append("groupId", groupId);
+      if (employeeIds && employeeIds.length > 0)
+        params.append("employeeIds", employeeIds.join(","));
+
+      const response = await fetch(
+        `${baseUrl}/admin-portal/timesheets/pdf?${params.toString()}`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+        },
+      );
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to download timesheet PDF");
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename || "timesheet-report.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      return { success: true };
+    } catch (error) {
+      throw { error: error.message || "Failed to download timesheet PDF" };
+    }
+  },
 };
 
 export default adminPortalService;
