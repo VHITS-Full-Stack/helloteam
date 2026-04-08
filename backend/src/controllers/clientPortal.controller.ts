@@ -1832,20 +1832,25 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             extraTimeMinutes: timeRecord?.extraTimeMinutes || 0,
             status: isActive ? 'ACTIVE' : (() => {
               const baseStatus = dayOvertimeStatus || 'PENDING';
-              // If any OT in this session was rejected, mark as OT_REJECTED
+              // If the TimeRecord is already APPROVED or AUTO_APPROVED, trust it
+              // Don't let orphaned/stale OT requests override the actual record status
+              if (baseStatus === 'APPROVED' || baseStatus === 'AUTO_APPROVED') {
+                // If this session has no OT but TimeRecord is APPROVED due to OT on another session,
+                // show AUTO_APPROVED for this non-OT session
+                if (sessionOvertimeMinutes === 0) {
+                  const trHasApprovedOT = timeRecord && (
+                    (timeRecord.extraTimeStatus === 'APPROVED' && (timeRecord.extraTimeMinutes || 0) > 0) ||
+                    (timeRecord.shiftExtensionStatus === 'APPROVED' && (timeRecord.shiftExtensionMinutes || 0) > 0)
+                  );
+                  if (trHasApprovedOT) return 'AUTO_APPROVED';
+                }
+                return baseStatus;
+              }
+              // For PENDING time records, check OT request statuses
               const hasRejectedOT = sessionOTEntries.some(ot => ot.status === 'REJECTED');
               const hasPendingOT = sessionOTEntries.some(ot => ot.status === 'PENDING');
               if (hasRejectedOT && !hasPendingOT) return 'OT_REJECTED';
               if (hasPendingOT) return 'PENDING';
-              // If this session has no OT but TimeRecord is APPROVED due to OT on another session,
-              // show AUTO_APPROVED for this session
-              if (baseStatus === 'APPROVED' && sessionOvertimeMinutes === 0) {
-                const trHasApprovedOT = timeRecord && (
-                  (timeRecord.extraTimeStatus === 'APPROVED' && (timeRecord.extraTimeMinutes || 0) > 0) ||
-                  (timeRecord.shiftExtensionStatus === 'APPROVED' && (timeRecord.shiftExtensionMinutes || 0) > 0)
-                );
-                if (trHasApprovedOT) return 'AUTO_APPROVED';
-              }
               return baseStatus;
             })(),
             overtimeStatus: sessionOvertime > 0 ? dayOvertimeStatus : null,
