@@ -1444,18 +1444,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Fetch actual TimeRecords for the date range to get approval statuses
     const startUTC = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
     const endUTC = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+    // Always fetch all time records for correct status computation.
+    // Status filtering is applied at the employee level after computing statuses.
     const timeRecordWhere: any = {
       clientId,
       employeeId: { in: employeeIds },
       date: { gte: startUTC, lte: endUTC },
     };
-    if (status) {
-      if (status === 'APPROVED') {
-        timeRecordWhere.status = { in: ['APPROVED', 'AUTO_APPROVED'] };
-      } else {
-        timeRecordWhere.status = status;
-      }
-    }
     const timeRecords = await prisma.timeRecord.findMany({
       where: timeRecordWhere,
       select: {
@@ -1992,7 +1987,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
 
     // Filter by status if requested
     if (status && status !== 'all') {
-      employeeWeeklyData = employeeWeeklyData.filter((e: any) => e.status === status.toLowerCase());
+      const normalizedStatus = status.toLowerCase();
+      employeeWeeklyData = employeeWeeklyData.filter((e: any) => {
+        if (normalizedStatus === 'approved') {
+          return e.status === 'approved' || e.status === 'auto_approved';
+        }
+        return e.status === normalizedStatus;
+      });
     }
 
     // Calculate summary
