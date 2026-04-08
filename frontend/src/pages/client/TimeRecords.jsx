@@ -571,9 +571,9 @@ const TimeRecords = () => {
                 <p className="text-2xl font-bold text-gray-900">
                   {formatHours(totalBillingHours)}
                 </p>
-                <span className="text-xs text-gray-400">
+                {/* <span className="text-xs text-gray-400">
                   reg: {formatHours(totalRegularHours)}
-                </span>
+                </span> */}
               </div>
             </div>
           </div>
