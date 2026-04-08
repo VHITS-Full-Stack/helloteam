@@ -44,7 +44,9 @@ const formatClockTime = (dateStr, tz) => {
 
 const TimeRecords = () => {
   const navigate = useNavigate();
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const toLocalDateStr = (d) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayStr = useMemo(() => toLocalDateStr(new Date()), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRecords, setTimeRecords] = useState([]);
@@ -77,34 +79,11 @@ const TimeRecords = () => {
     }
   };
 
-  // Date range navigation
-  const [viewMode, setViewMode] = useState("custom"); // week, month, custom
-  const [weekStart] = useState(() => {
-    const now = new Date();
-    const d = new Date(now);
-    d.setDate(now.getDate() - now.getDay());
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
   const [customStart, setCustomStart] = useState(todayStr);
   const [customEnd, setCustomEnd] = useState(todayStr);
 
-  const dateRange = useMemo(() => {
-    if (viewMode === "month") {
-      const now = new Date(weekStart);
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      return { start, end };
-    }
-    if (viewMode === "custom" && customStart && customEnd) {
-      return { start: new Date(customStart), end: new Date(customEnd) };
-    }
-    const end = new Date(weekStart);
-    end.setDate(weekStart.getDate() + 6);
-    return { start: weekStart, end };
-  }, [viewMode, weekStart, customStart, customEnd]);
-
-  const { start: rangeStart, end: rangeEnd } = dateRange;
+  const rangeStart = useMemo(() => new Date(customStart || todayStr), [customStart, todayStr]);
+  const rangeEnd = useMemo(() => new Date(customEnd || todayStr), [customEnd, todayStr]);
 
   // Flatten all day records for stats
   const allDayRecords = timeRecords.flatMap((emp) => emp.records || []);
@@ -147,8 +126,8 @@ const TimeRecords = () => {
     try {
       const rs = rangeStart;
       const re = rangeEnd;
-      const startDate = rs.toISOString().split("T")[0];
-      const endDate = re.toISOString().split("T")[0];
+      const startDate = toLocalDateStr(rs);
+      const endDate = toLocalDateStr(re);
       const response = await clientPortalService.getTimeRecords({
         startDate,
         endDate,
@@ -360,20 +339,18 @@ const TimeRecords = () => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `time-records-${rangeStart.toISOString().slice(0, 10)}-to-${rangeEnd.toISOString().slice(0, 10)}.csv`;
+    a.download = `time-records-${customStart}-to-${customEnd}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
   };
 
   const handleViewTimesheet = (empId, empName, empPhoto) => {
-    const { start, end } = dateRange;
     navigate(`/client/time-records/${empId}`, {
       state: {
         employeeName: empName,
         employeePhoto: empPhoto,
-        viewMode,
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
+        startDate: rangeStart.toISOString(),
+        endDate: rangeEnd.toISOString(),
       },
     });
   };
@@ -679,34 +656,27 @@ const TimeRecords = () => {
               <input
                 type="date"
                 value={customStart}
-                onChange={(e) => {
-                  setCustomStart(e.target.value || todayStr);
-                  setViewMode("custom");
-                }}
+                onChange={(e) => setCustomStart(e.target.value || todayStr)}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
               />
               <span className="text-gray-400 text-sm">to</span>
               <input
                 type="date"
                 value={customEnd}
-                onChange={(e) => {
-                  setCustomEnd(e.target.value || todayStr);
-                  setViewMode("custom");
-                }}
+                onChange={(e) => setCustomEnd(e.target.value || todayStr)}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
               />
-              {viewMode === "custom" && (
+              {(customStart !== todayStr || customEnd !== todayStr) && (
                 <button
                   type="button"
                   onClick={() => {
                     setCustomStart(todayStr);
                     setCustomEnd(todayStr);
-                    setViewMode("custom");
                   }}
                   className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-                  title="Clear date filter"
+                  title="Reset to today"
                 >
-                  Clear
+                  <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
