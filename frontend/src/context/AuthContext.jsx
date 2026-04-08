@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/auth.service';
 import api from '../services/api';
-import { SessionTimeoutModal } from '../components/auth';
+import SessionTimeoutModal from '../components/auth/SessionTimeoutModal';
 
 const AuthContext = createContext(null);
 
@@ -34,6 +34,21 @@ export const AuthProvider = ({ children }) => {
   const lastActivityRef = useRef(Date.now());
   const timeoutCheckRef = useRef(null);
   const checkingAuthRef = useRef(false);
+
+  const logout = useCallback(async () => {
+    try {
+      await authService.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    } finally {
+      setUser(null);
+      setShowTimeoutWarning(false);
+      setIsImpersonating(false);
+      localStorage.removeItem('adminToken');
+      localStorage.removeItem('rememberMe');
+      navigate('/login');
+    }
+  }, [navigate]);
 
   // Update last activity on user interaction
   const updateActivity = useCallback(() => {
@@ -287,21 +302,6 @@ export const AuthProvider = ({ children }) => {
       navigate('/login');
     }
   };
-
-  const logout = useCallback(async () => {
-    try {
-      await authService.logout();
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      setUser(null);
-      setShowTimeoutWarning(false);
-      setIsImpersonating(false);
-      localStorage.removeItem('adminToken');
-      localStorage.removeItem('rememberMe');
-      navigate('/login');
-    }
-  }, [navigate]);
 
   const forgotPassword = async (email) => {
     try {

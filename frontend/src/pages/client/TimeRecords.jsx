@@ -868,6 +868,7 @@ const TimeRecords = () => {
                       <tbody className="divide-y divide-gray-50">
                         {allFlatRecords.map((rec) => {
                           const status = rec.status?.toLowerCase();
+                          const displayStatus = deriveDisplayStatus(rec);
                           const otEntries = rec.overtimeEntries || [];
                           const regularM =
                             rec.regularMinutes !== null
@@ -976,7 +977,7 @@ const TimeRecords = () => {
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-center">
-                                {getStatusBadge(status)}
+                                {getStatusBadge(displayStatus)}
                               </td>
                               <td className="py-2.5 px-4 text-right">
                                 {pendingOTs.length > 0 ? (
@@ -1191,6 +1192,7 @@ const TimeRecords = () => {
                         <tbody>
                           {emp.filteredRecords.map((rec) => {
                             const status = rec.status?.toLowerCase();
+                            const displayStatus = deriveDisplayStatus(rec);
                             const isLeaveOrHoliday =
                               status === "paid_leave" ||
                               status === "unpaid_leave" ||
@@ -1270,7 +1272,7 @@ const TimeRecords = () => {
                                     colSpan={7}
                                     className="py-2.5 px-3 text-center"
                                   >
-                                    {getStatusBadge(status)}
+                                    {getStatusBadge(displayStatus)}
                                   </td>
                                 ) : (
                                   <>
@@ -1472,6 +1474,7 @@ const TimeRecords = () => {
                     <div className="md:hidden divide-y divide-gray-50">
                       {emp.filteredRecords.map((rec) => {
                         const status = rec.status?.toLowerCase();
+                        const displayStatus = deriveDisplayStatus(rec);
                         const isLeaveOrHoliday =
                           status === "paid_leave" ||
                           status === "unpaid_leave" ||
@@ -1525,7 +1528,7 @@ const TimeRecords = () => {
                                   </span>
                                 )}
                               </span>
-                              {isLeaveOrHoliday && getStatusBadge(status)}
+                              {isLeaveOrHoliday && getStatusBadge(displayStatus)}
                             </div>
                             {!isLeaveOrHoliday && (
                               <>
