@@ -44,6 +44,7 @@ const formatClockTime = (dateStr, tz) => {
 
 const TimeRecords = () => {
   const navigate = useNavigate();
+  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRecords, setTimeRecords] = useState([]);
@@ -77,7 +78,7 @@ const TimeRecords = () => {
   };
 
   // Date range navigation
-  const [viewMode, setViewMode] = useState("week"); // week, month, custom
+  const [viewMode, setViewMode] = useState("custom"); // week, month, custom
   const [weekStart] = useState(() => {
     const now = new Date();
     const d = new Date(now);
@@ -85,8 +86,8 @@ const TimeRecords = () => {
     d.setHours(0, 0, 0, 0);
     return d;
   });
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
+  const [customStart, setCustomStart] = useState(todayStr);
+  const [customEnd, setCustomEnd] = useState(todayStr);
 
   const dateRange = useMemo(() => {
     if (viewMode === "month") {
@@ -647,36 +648,39 @@ const TimeRecords = () => {
         </Card>
       </div>
 
-      {/* Week Navigation + Filters */}
+      {/* Tabs + Filters (always visible) */}
       <Card>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            {/* View mode selector */}
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-              {[
-                { value: "week", label: "Week" },
-                { value: "month", label: "Month" },
-              ].map((m) => (
-                <button
-                  key={m.value}
-                  onClick={() => setViewMode(m.value)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    viewMode === m.value
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
+            <button
+              onClick={() => setViewTab("all-records")}
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewTab === "all-records"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              All Records
+            </button>
+            <button
+              onClick={() => setViewTab("by-employee")}
+              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                viewTab === "by-employee"
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              By Employee
+            </button>
+          </div>
 
+          <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
               <input
                 type="date"
                 value={customStart}
                 onChange={(e) => {
-                  setCustomStart(e.target.value);
+                  setCustomStart(e.target.value || todayStr);
                   setViewMode("custom");
                 }}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
@@ -686,14 +690,27 @@ const TimeRecords = () => {
                 type="date"
                 value={customEnd}
                 onChange={(e) => {
-                  setCustomEnd(e.target.value);
+                  setCustomEnd(e.target.value || todayStr);
                   setViewMode("custom");
                 }}
                 className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
               />
+              {viewMode === "custom" && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomStart(todayStr);
+                    setCustomEnd(todayStr);
+                    setViewMode("custom");
+                  }}
+                  className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                  title="Clear date filter"
+                >
+                  Clear
+                </button>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
+
             <div className="relative">
               <select
                 value={statusFilter}
@@ -708,6 +725,7 @@ const TimeRecords = () => {
               </select>
               <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
+
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 z-10" />
               <input
@@ -734,29 +752,11 @@ const TimeRecords = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-1">
               No time records
             </h3>
-            <p className="text-gray-500">
-              No time records found for this week.
-            </p>
+            <p className="text-gray-500">No time records found for selected date range.</p>
           </div>
         </Card>
       ) : (
         <>
-          {/* Tab Toggle */}
-          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-0.5 w-fit">
-            <button
-              onClick={() => setViewTab("all-records")}
-              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${viewTab === "all-records" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              All Records
-            </button>
-            <button
-              onClick={() => setViewTab("by-employee")}
-              className={`px-4 py-1.5 text-xs font-medium rounded-md transition-colors ${viewTab === "by-employee" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              By Employee
-            </button>
-          </div>
-
           {viewTab === "all-records" ? (
             /* Flat table — all employees */
             (() => {

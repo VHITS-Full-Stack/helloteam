@@ -49,21 +49,15 @@ const TimesheetDetail = () => {
     photo: stateData.employeePhoto || null,
   });
 
-  const [currentMonth, setCurrentMonth] = useState(() => {
+  const [customStart, setCustomStart] = useState(() => {
     const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), 1);
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
   });
-  const [viewMode, setViewMode] = useState("month");
-  const [weekStart, setWeekStart] = useState(() => {
+  const [customEnd, setCustomEnd] = useState(() => {
     const now = new Date();
-    const d = new Date(now);
-    const day = d.getDay();
-    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1)); // Monday start
-    d.setHours(0, 0, 0, 0);
-    return d;
+    const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
   });
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -80,22 +74,15 @@ const TimesheetDetail = () => {
   const [otSelectionEntries, setOTSelectionEntries] = useState([]);
 
   const getDateRange = useCallback(() => {
-    if (viewMode === "week") {
-      const end = new Date(weekStart);
-      end.setDate(weekStart.getDate() + 6);
-      return { start: weekStart, end };
-    }
-    if (viewMode === "custom" && customStart && customEnd) {
+    if (customStart && customEnd) {
       return { start: new Date(customStart), end: new Date(customEnd) };
     }
-    // Default: month
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
+    const now = new Date();
     return {
-      start: new Date(year, month, 1),
-      end: new Date(year, month + 1, 0),
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
     };
-  }, [viewMode, weekStart, currentMonth, customStart, customEnd]);
+  }, [customStart, customEnd]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -270,9 +257,6 @@ const TimesheetDetail = () => {
 
   const periodLabel = (() => {
     const { start, end } = getDateRange();
-    if (viewMode === "month") {
-      return currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-    }
     return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
   })();
 
@@ -315,89 +299,32 @@ const TimesheetDetail = () => {
       {/* Period + Stats */}
       <Card>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-              {[
-                { value: "week", label: "Week" },
-                { value: "month", label: "Month" },
-              ].map((m) => (
-                <button
-                  key={m.value}
-                  onClick={() => {
-                    if (m.value === "month") {
-                      // Sync currentMonth to the month the current week falls in
-                      setCurrentMonth(new Date(weekStart.getFullYear(), weekStart.getMonth(), 1));
-                    } else if (m.value === "week") {
-                      // Set weekStart to Monday of current week
-                      const now = new Date();
-                      const d = new Date(now);
-                      const day = d.getDay();
-                      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-                      d.setHours(0, 0, 0, 0);
-                      setWeekStart(d);
-                    }
-                    setViewMode(m.value);
-                  }}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    viewMode === m.value
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={(() => {
-                  const { start } = getDateRange();
-                  const y = start.getFullYear();
-                  const m = String(start.getMonth() + 1).padStart(2, "0");
-                  const dd = String(start.getDate()).padStart(2, "0");
-                  return `${y}-${m}-${dd}`;
-                })()}
-                onChange={(e) => {
-                  setCustomStart(e.target.value);
-                  if (customEnd) {
-                    setViewMode("custom");
-                  } else {
-                    const endDate = new Date(e.target.value);
-                    endDate.setDate(endDate.getDate() + 6);
-                    const ey = endDate.getFullYear();
-                    const em = String(endDate.getMonth() + 1).padStart(2, "0");
-                    const ed = String(endDate.getDate()).padStart(2, "0");
-                    setCustomEnd(`${ey}-${em}-${ed}`);
-                    setViewMode("custom");
-                  }
-                }}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-              <span className="text-gray-400 text-xs">to</span>
-              <input
-                type="date"
-                value={(() => {
-                  const { end } = getDateRange();
-                  const y = end.getFullYear();
-                  const m = String(end.getMonth() + 1).padStart(2, "0");
-                  const dd = String(end.getDate()).padStart(2, "0");
-                  return `${y}-${m}-${dd}`;
-                })()}
-                onChange={(e) => {
-                  setCustomEnd(e.target.value);
-                  if (!customStart) {
-                    const { start } = getDateRange();
-                    const sy = start.getFullYear();
-                    const sm = String(start.getMonth() + 1).padStart(2, "0");
-                    const sd = String(start.getDate()).padStart(2, "0");
-                    setCustomStart(`${sy}-${sm}-${sd}`);
-                  }
-                  setViewMode("custom");
-                }}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
-              />
-            </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={customStart}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <span className="text-gray-400 text-xs">to</span>
+            <input
+              type="date"
+              value={customEnd}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+            <button
+              onClick={() => {
+                const now = new Date();
+                const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                setCustomStart(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
+                setCustomEnd(`${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`);
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+              title="Reset to current month"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
           <div className="flex items-center gap-5">
             <div className="text-center">
@@ -477,12 +404,7 @@ const TimesheetDetail = () => {
           {(() => {
             const { start, end } = getDateRange();
             const today = new Date();
-            const totalLabel =
-              viewMode === "week"
-                ? "Weekly Total"
-                : viewMode === "custom"
-                  ? "Total"
-                  : "Monthly Total";
+            const totalLabel = "Total";
 
             // Build rows: iterate through all days, show all sessions per day
             const dayRows = [];

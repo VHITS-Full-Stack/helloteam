@@ -1989,8 +1989,19 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     if (status && status !== 'all') {
       const normalizedStatus = status.toLowerCase();
       employeeWeeklyData = employeeWeeklyData.filter((e: any) => {
+        const records: any[] = e.records || [];
         if (normalizedStatus === 'approved') {
-          return e.status === 'approved' || e.status === 'auto_approved';
+          // Show employee if they have at least one approved/auto_approved record
+          return records.some((r: any) => r.status === 'APPROVED' || r.status === 'AUTO_APPROVED');
+        }
+        if (normalizedStatus === 'pending') {
+          return records.some((r: any) => r.status === 'PENDING');
+        }
+        if (normalizedStatus === 'rejected') {
+          return records.some((r: any) => r.status === 'REJECTED' || r.status === 'OT_REJECTED');
+        }
+        if (normalizedStatus === 'revision_requested') {
+          return records.some((r: any) => r.status === 'REVISION_REQUESTED');
         }
         return e.status === normalizedStatus;
       });
