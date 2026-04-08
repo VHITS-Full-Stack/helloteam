@@ -301,7 +301,7 @@ const Support = () => {
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Priority</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Date</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-10"></th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

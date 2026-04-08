@@ -35,9 +35,14 @@ const Modal = ({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Backdrop - transparent with slight blur effect */}
-      <div
+      <button
+        type="button"
         className="fixed inset-0 bg-black/20 backdrop-blur-sm transition-opacity"
         onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') onClose?.();
+        }}
+        aria-label="Close modal"
       />
 
       {/* Modal */}

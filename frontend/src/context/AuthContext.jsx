@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -88,7 +89,7 @@ export const AuthProvider = ({ children }) => {
         clearInterval(timeoutCheckRef.current);
       }
     };
-  }, [user, showTimeoutWarning]);
+  }, [user, showTimeoutWarning, logout]);
 
   // Check authentication status on mount
   useEffect(() => {

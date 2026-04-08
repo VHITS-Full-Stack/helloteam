@@ -43,10 +43,10 @@ export const CardHeader = ({ children, className = '', border = true }) => (
   </div>
 );
 
-export const CardTitle = ({ children, className = '', as: Component = 'h3' }) => (
-  <Component className={`text-lg font-bold text-gray-900 font-heading ${className}`}>
+export const CardTitle = ({ children, className = '', as: _AsComponent = 'h3' }) => (
+  <_AsComponent className={`text-lg font-bold text-gray-900 font-heading ${className}`}>
     {children}
-  </Component>
+  </_AsComponent>
 );
 
 export const CardDescription = ({ children, className = '' }) => (

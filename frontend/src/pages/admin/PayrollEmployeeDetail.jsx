@@ -212,7 +212,7 @@ const PayrollEmployeeDetail = () => {
                 +${s.totalBonuses}
               </p>
             </div>
-            <div className="w-px h-6 bg-gray-200"></div>
+            <div className="w-px h-6 bg-gray-200" />
             <div>
               <p className="text-[10px] text-red-600 font-medium">Deduction</p>
               <p className="text-lg font-bold text-red-700">
@@ -341,8 +341,8 @@ const PayrollEmployeeDetail = () => {
                 <td className="px-4 py-3 text-sm font-bold text-gray-900">
                   Total
                 </td>
-                <td className="px-3 py-3"></td>
-                <td className="px-3 py-3"></td>
+                <td className="px-3 py-3" />
+                <td className="px-3 py-3" />
                 <td className="px-3 py-3 text-sm text-center font-bold text-gray-900">
                   {formatDecimalHours(s.regularHours)}
                 </td>
@@ -352,7 +352,7 @@ const PayrollEmployeeDetail = () => {
                 <td className="px-3 py-3 text-sm text-center font-bold text-blue-700">
                   {formatDecimalHours(s.totalHours)}
                 </td>
-                <td className="px-3 py-3"></td>
+                <td className="px-3 py-3" />
               </tr>
             </tfoot>
           </table>
@@ -380,7 +380,7 @@ const PayrollEmployeeDetail = () => {
 
         <div className="space-y-1.5">
           <div className="flex items-center gap-3 px-3 py-2 bg-blue-50/50 rounded-lg">
-            <div className="w-0.5 h-6 bg-blue-500 rounded-full"></div>
+            <div className="w-0.5 h-6 bg-blue-500 rounded-full" />
             <span className="text-sm text-gray-700 flex-1">Regular Pay</span>
             {/* <span className="text-xs text-gray-400">{formatDecimalHours(s.regularHours)} &times; ${rates.hourlyRate}</span> */}
             <span className="text-sm font-semibold text-gray-900 w-20 text-right">
@@ -389,7 +389,7 @@ const PayrollEmployeeDetail = () => {
           </div>
           {s.overtimeHours > 0 && (
             <div className="flex items-center gap-3 px-3 py-2 bg-orange-50/50 rounded-lg">
-              <div className="w-0.5 h-6 bg-orange-500 rounded-full"></div>
+              <div className="w-0.5 h-6 bg-orange-500 rounded-full" />
               <span className="text-sm text-orange-700 flex-1">Overtime</span>
               <span className="text-xs text-gray-400">
                 {formatDecimalHours(s.overtimeHours)} &times; ${rates.overtimeRate}
@@ -406,7 +406,7 @@ const PayrollEmployeeDetail = () => {
             >
               <div
                 className={`w-0.5 h-6 rounded-full ${adj.type === "BONUS" ? "bg-green-500" : "bg-red-500"}`}
-              ></div>
+               />
               <span
                 className={`text-sm flex-1 ${adj.type === "BONUS" ? "text-green-700" : "text-red-700"}`}
               >
@@ -424,7 +424,7 @@ const PayrollEmployeeDetail = () => {
           ))}
           {s.employeeDeduction > 0 && (
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-red-50/50">
-              <div className="w-0.5 h-6 rounded-full bg-red-500"></div>
+              <div className="w-0.5 h-6 rounded-full bg-red-500" />
               <span className="text-sm text-red-700 flex-1">
                 Fixed Deduction
                 <span className="text-xs text-gray-400 ml-1">(per pay period)</span>
@@ -436,7 +436,7 @@ const PayrollEmployeeDetail = () => {
           )}
           <div className="border-t border-dashed border-gray-300 mt-2 pt-2">
             <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50 rounded-lg">
-              <div className="w-0.5 h-6 bg-emerald-600 rounded-full"></div>
+              <div className="w-0.5 h-6 bg-emerald-600 rounded-full" />
               <span className="text-sm font-bold text-gray-900 flex-1">
                 Gross Pay (Regular Hours + Bonus - Deductions)
               </span>

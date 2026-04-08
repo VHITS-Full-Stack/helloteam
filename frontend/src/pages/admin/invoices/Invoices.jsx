@@ -1012,7 +1012,7 @@ const Invoices = () => {
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900">Total</td>
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.totalHours).toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.overtimeHours).toFixed(2)}</td>
-                        <td className="px-3 py-2"></td>
+                        <td className="px-3 py-2" />
                         <td className="px-3 py-2 text-sm font-bold text-gray-900 text-right">{formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</td>
                       </tr>
                     </tfoot>

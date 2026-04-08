@@ -136,7 +136,7 @@ const Payslips = () => {
                   +${d.totalBonuses}
                 </p>
               </div>
-              <div className="w-px h-5 bg-gray-200"></div>
+              <div className="w-px h-5 bg-gray-200" />
               <div>
                 <p className="text-[10px] text-red-600 font-medium">Deduct</p>
                 <p className="text-sm font-bold text-red-700">
@@ -256,8 +256,8 @@ const Payslips = () => {
               <tfoot>
                 <tr className="border-t-2 border-gray-300 bg-gray-50">
                   <td className="px-3 py-2 font-bold text-gray-900">Total</td>
-                  <td></td>
-                  <td></td>
+                  <td />
+                  <td />
                   <td className="px-3 py-2 text-center font-bold text-gray-900">
                     {d.regularHours}h
                   </td>
@@ -267,8 +267,8 @@ const Payslips = () => {
                   <td className="px-3 py-2 text-center font-bold text-blue-700">
                     {d.totalHours}h
                   </td>
-                  <td></td>
-                  <td></td>
+                  <td />
+                  <td />
                 </tr>
               </tfoot>
             </table>
@@ -293,7 +293,7 @@ const Payslips = () => {
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center gap-3 px-3 py-2 bg-blue-50/50 rounded-lg">
-              <div className="w-0.5 h-6 bg-blue-500 rounded-full"></div>
+              <div className="w-0.5 h-6 bg-blue-500 rounded-full" />
               <span className="text-sm text-gray-700 flex-1">Regular Pay</span>
               <span className="text-xs text-gray-400">
                 {d.regularHours}h &times; ${d.hourlyRate}
@@ -304,7 +304,7 @@ const Payslips = () => {
             </div>
             {d.overtimeHours > 0 && (
               <div className="flex items-center gap-3 px-3 py-2 bg-orange-50/50 rounded-lg">
-                <div className="w-0.5 h-6 bg-orange-500 rounded-full"></div>
+                <div className="w-0.5 h-6 bg-orange-500 rounded-full" />
                 <span className="text-sm text-orange-700 flex-1">Overtime</span>
                 <span className="text-xs text-gray-400">
                   {d.overtimeHours}h &times; ${d.overtimeRate}
@@ -321,7 +321,7 @@ const Payslips = () => {
               >
                 <div
                   className={`w-0.5 h-6 rounded-full ${adj.type === "BONUS" ? "bg-green-500" : "bg-red-500"}`}
-                ></div>
+                 />
                 <span
                   className={`text-sm flex-1 ${adj.type === "BONUS" ? "text-green-700" : "text-red-700"}`}
                 >
@@ -340,7 +340,7 @@ const Payslips = () => {
             ))}
             <div className="border-t border-dashed border-gray-300 mt-2 pt-2">
               <div className="flex items-center gap-3 px-3 py-2 bg-emerald-50 rounded-lg">
-                <div className="w-0.5 h-6 bg-emerald-600 rounded-full"></div>
+                <div className="w-0.5 h-6 bg-emerald-600 rounded-full" />
                 <span className="text-sm font-bold text-gray-900 flex-1">
                   Gross Pay
                 </span>
@@ -450,7 +450,7 @@ const Payslips = () => {
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                     Gross Pay
                   </th>
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

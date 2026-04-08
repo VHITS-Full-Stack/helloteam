@@ -190,6 +190,18 @@ const TimeRecords = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case "ot_approved":
+        return (
+          <Badge variant="success" className="bg-green-100 text-green-800">
+            OT Approved
+          </Badge>
+        );
+      case "ot_pending":
+        return (
+          <Badge variant="warning" className="bg-orange-100 text-orange-800">
+            OT Pending
+          </Badge>
+        );
       case "approved":
         return <Badge variant="success">Approved</Badge>;
       case "auto_approved":
@@ -239,6 +251,28 @@ const TimeRecords = () => {
       default:
         return <Badge variant="default">{status}</Badge>;
     }
+  };
+
+  const deriveDisplayStatus = (rec) => {
+    const base = rec?.status?.toLowerCase();
+    if (!rec) return base;
+    if (base && base !== "pending") return base;
+
+    const otEntries = rec.overtimeEntries || [];
+    if (otEntries.length === 0) return base;
+
+    const hasPending = otEntries.some((ot) => ot.status === "PENDING");
+    if (hasPending) return "ot_pending";
+
+    const hasRejected = otEntries.some((ot) => ot.status === "REJECTED");
+    if (hasRejected) return "ot_rejected";
+
+    const hasApprovedLike = otEntries.some(
+      (ot) => ot.status === "APPROVED" || ot.status === "AUTO_APPROVED",
+    );
+    if (hasApprovedLike) return "ot_approved";
+
+    return base;
   };
 
   const handleExport = () => {

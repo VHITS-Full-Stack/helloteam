@@ -1,3 +1,4 @@
+/* eslint-disable react/no-array-index-key */
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -162,7 +163,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   ];
 
   // Admin links with permission requirements
-  const adminLinksConfig = [
+  const adminLinksConfig = useMemo(() => [
     { group: "Operations" },
     {
       to: "/admin/dashboard",
@@ -272,7 +273,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       label: "Document Types",
       permission: PERMISSIONS.SETTINGS.EDIT,
     },
-  ];
+  ], [pendingApprovalCount, pendingBonusRaiseCount]);
 
   // Filter admin links based on permissions
   const adminLinks = useMemo(() => {

@@ -131,12 +131,12 @@ const Payroll = () => {
     const pad = (n) => String(n).padStart(2, "0");
 
     // Determine the latest period boundary
-    let startYear = today.getFullYear();
-    let startMonth = today.getMonth(); // 0-indexed
+    const startYear = today.getFullYear();
+    const startMonth = today.getMonth(); // 0-indexed
 
     // Build periods from current forward to the latest applicable, then backwards
     // We'll generate from the most recent period going back ~24 periods (~12 months)
-    let periodsToGenerate = 12;
+    const periodsToGenerate = 12;
 
     // Figure out the current/latest period
     let curYear, curMonth, curHalf;
@@ -1852,7 +1852,7 @@ const Payroll = () => {
                                 "-"
                               )}
                             </td>
-                            <td className="px-3 py-2"></td>
+                            <td className="px-3 py-2" />
                             <td className="px-3 py-2 text-sm text-right font-bold text-green-700">
                               ${emp.grossPay.toFixed(2)}
                             </td>
@@ -1915,7 +1915,7 @@ const Payroll = () => {
                         "-"
                       )}
                     </td>
-                    <td className="px-3 py-2.5"></td>
+                    <td className="px-3 py-2.5" />
                     <td className="px-3 py-2.5 text-sm text-right font-bold text-green-700">
                       ${(reportData.totals?.totalGrossPay || 0).toFixed(2)}
                     </td>

@@ -54,6 +54,7 @@ const OTSelectionModal = ({
     const sessionKey = `${ot._date || "unknown"}_${ot._clockIn || ""}_${ot._clockOut || ""}`;
     if (!sessionMap.has(sessionKey)) {
       sessionMap.set(sessionKey, {
+        _key: sessionKey,
         date: ot._date,
         clockIn: ot._clockIn,
         clockOut: ot._clockOut,
@@ -70,10 +71,18 @@ const OTSelectionModal = ({
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
       onClick={onClose}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose?.();
+      }}
+      role="button"
+      tabIndex={0}
+      aria-label="Close overtime selection"
     >
       <div
         className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="presentation"
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
           {action === "approve" ? "Approve Overtime" : "Reject Overtime"}
@@ -82,8 +91,8 @@ const OTSelectionModal = ({
           Select the overtime entries to {action}:
         </p>
         <div className="space-y-4 mb-4">
-          {sessions.map((session, sIdx) => (
-            <div key={sIdx}>
+          {sessions.map((session) => (
+            <div key={session._key}>
               <div className="flex items-center gap-2 mb-2 text-xs text-gray-600 font-medium flex-wrap">
                 <span>
                   {session.date

@@ -146,13 +146,13 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
       const overtimeRateToSend = Number(formData.overtimeMultiplier) || 1;
 
       if (isEdit) {
-        const { clientId, groupId, overtimeMultiplier, ...rest } = formData;
+        const { clientId: _clientId, groupId: _groupId, overtimeMultiplier: _overtimeMultiplier, ...rest } = formData;
         response = await employeeService.updateEmployee(id, {
           ...rest,
           overtimeRate: overtimeRateToSend,
         });
       } else {
-        const { groupId, overtimeMultiplier, ...rest } = formData;
+        const { groupId, overtimeMultiplier: _overtimeMultiplier, ...rest } = formData;
         response = await employeeService.createEmployee({
           ...rest,
           overtimeRate: overtimeRateToSend,

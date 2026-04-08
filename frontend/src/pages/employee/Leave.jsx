@@ -570,7 +570,7 @@ const Leave = () => {
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Days</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Reason</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16"></th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">

@@ -48,7 +48,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
 
   // Filter groups that belong to this client only
-  const filterClientGroups = (groups) => {
+  const filterClientGroups = useCallback((groups) => {
     const myGroups = [];
 
     groups.forEach((group) => {
@@ -79,7 +79,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
     });
 
     setClientGroups(myGroups);
-  };
+  }, [clientId]);
 
   // Fetch all data when modal opens (with loading spinner)
   const fetchData = useCallback(async () => {
@@ -100,7 +100,7 @@ const ClientGroupsModal = ({ isOpen, onClose, clientId, clientName, onGroupsChan
     } finally {
       setLoading(false);
     }
-  }, [clientId]);
+  }, [clientId, filterClientGroups]);
 
   // Refresh data after actions (no loading spinner)
   const refreshData = async () => {

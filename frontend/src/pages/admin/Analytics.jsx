@@ -351,6 +351,7 @@ const Analytics = () => {
               <p className="text-sm font-medium text-gray-700 mb-3">Weekly Trend</p>
               <div className="flex items-end gap-1 h-20">
                 {[65, 78, 82, 70, 88, 92, 85].map((value, i) => (
+                  // eslint-disable-next-line react/no-array-index-key
                   <div key={i} className="flex-1 flex flex-col items-center">
                     <div
                       className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all hover:from-green-600 hover:to-green-500"

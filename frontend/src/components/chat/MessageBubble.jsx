@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { Play, Pause, Download, FileText, Image, Mic } from 'lucide-react';
 
 // Generate pseudo-random waveform bars from a seed (consistent per message)
@@ -149,9 +149,19 @@ const AudioPlayer = ({ src, duration, isMine, messageId }) => {
         <div
           className="flex items-center gap-[2px] h-[28px] cursor-pointer"
           onClick={handleSeek}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleSeek(e);
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Seek audio"
         >
           {waveformBars.map((height, i) => (
             <div
+              // eslint-disable-next-line react/no-array-index-key
               key={i}
               className={`rounded-full transition-colors duration-150 ${
                 i < playedBarIndex

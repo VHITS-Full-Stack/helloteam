@@ -237,7 +237,7 @@ const BillingHistory = () => {
       a.download = `billing-history-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch (err) {
+    } catch {
       setError('Failed to export CSV');
     } finally {
       setExporting(false);

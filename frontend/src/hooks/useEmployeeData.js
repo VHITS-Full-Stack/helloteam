@@ -141,6 +141,7 @@ function useEmployeeList() {
     } else {
       setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.status, filters.clientId, filters.startDate, filters.endDate]);
 
   const refresh = () => {

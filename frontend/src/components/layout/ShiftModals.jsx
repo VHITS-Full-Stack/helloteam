@@ -1,3 +1,4 @@
+/* eslint-disable consistent-return */
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Clock, AlertCircle, CheckCircle, X } from 'lucide-react';
 import { Button, Badge } from '../common';

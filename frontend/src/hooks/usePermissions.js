@@ -52,7 +52,7 @@ export const usePermissions = () => {
     };
 
     fetchPermissions();
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user]);
 
   // Check if user has a specific permission
   const hasPermission = useCallback(

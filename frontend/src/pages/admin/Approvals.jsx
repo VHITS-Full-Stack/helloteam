@@ -60,7 +60,6 @@ const Approvals = () => {
 
   // Data
   const [items, setItems] = useState([]);
-  const [clients, setClients] = useState([]);
 
   // Modals
   const [selectedItem, setSelectedItem] = useState(null);
@@ -73,8 +72,6 @@ const Approvals = () => {
   const [actionNotes, setActionNotes] = useState('');
   const [processing, setProcessing] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
-
-  const fetchingRef = useRef(false);
 
   // Pending counts for tab badges
   const [pendingCounts, setPendingCounts] = useState({ leave: 0, overtime: 0, autoOvertime: 0, timesheet: 0 });
@@ -92,7 +89,7 @@ const Approvals = () => {
         autoOvertime: autoOtRes?.data?.total || 0,
         timesheet: pendingActionsRes?.counts?.pendingTimeRecords || 0,
       });
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }, []);
 
   // Fetch employees, clients, and pending counts
@@ -105,7 +102,7 @@ const Approvals = () => {
         ]);
         if (empRes?.success) setEmployeesList(empRes.data?.employees || []);
         if (clientRes?.success) setClientsList(clientRes.data?.clients || []);
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     })();
     fetchPendingCounts();
   }, [fetchPendingCounts]);
@@ -163,7 +160,7 @@ const Approvals = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeType, statusFilter, startDate, endDate, employeeFilter, clientFilterId, page]);
+  }, [activeType, statusFilter, startDate, endDate, employeeFilter, clientFilterId, page, employeesList]);
 
   useEffect(() => {
     setSelectedItems([]);

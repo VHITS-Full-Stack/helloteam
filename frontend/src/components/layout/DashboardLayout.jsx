@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import clientPortalService from '../../services/clientPortal.service';
 import Sidebar from './Sidebar';
 import Header from './Header';
 import ImpersonationBanner from './ImpersonationBanner';
-import clientPortalService from '../../services/clientPortal.service';
 import ShiftModals from './ShiftModals';
 
 const OvertimeLoginBlocker = ({ onDismiss }) => {
@@ -62,8 +62,8 @@ const OvertimeLoginBlocker = ({ onDismiss }) => {
               <div className="pt-2 border-t border-red-200">
                 <span className="text-red-700 font-medium text-sm">Employees:</span>
                 <div className="flex flex-wrap gap-1.5 mt-1">
-                  {pendingOT.employees.map((emp, i) => (
-                    <span key={i} className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-medium">
+                  {pendingOT.employees.map((emp) => (
+                    <span key={emp.id || emp.userId || emp.name} className="text-xs bg-red-100 text-red-800 px-2 py-0.5 rounded-full font-medium">
                       {emp.name}
                     </span>
                   ))}
@@ -137,9 +137,11 @@ const DashboardLayout = ({
 
       {/* Mobile Overlay */}
       {mobileMenuOpen && (
-        <div
+        <button
+          type="button"
           className="fixed inset-0 bg-black/50 z-30 lg:hidden"
           onClick={() => setMobileMenuOpen(false)}
+          aria-label="Close menu"
         />
       )}
 

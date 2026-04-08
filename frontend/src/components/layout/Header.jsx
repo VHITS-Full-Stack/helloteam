@@ -1,21 +1,17 @@
-import { Bell, Search, Menu, X, Check, Trash2 } from "lucide-react";
+import { Bell, Menu, X, Check, Trash2 } from "lucide-react";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Avatar } from "../common";
 import notificationService from "../../services/notification.service";
 
 const Header = ({
-  title,
-  subtitle,
   user,
   portalType = "employee",
   onMenuClick,
-  showSearch = true,
   actions,
 }) => {
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);

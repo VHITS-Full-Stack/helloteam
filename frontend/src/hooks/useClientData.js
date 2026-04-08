@@ -107,7 +107,7 @@ function useClientList() {
 
   // Debounce search - skip if search hasn't actually changed
   useEffect(() => {
-    if (prevSearchRef.current === searchQuery) return;
+    if (prevSearchRef.current === searchQuery) return undefined;
     prevSearchRef.current = searchQuery;
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
@@ -117,7 +117,7 @@ function useClientList() {
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, fetchClients, pagination.page]);
 
   // Re-fetch when filters change
   useEffect(() => {
@@ -126,7 +126,7 @@ function useClientList() {
     } else {
       setPagination(prev => ({ ...prev, page: 1 }));
     }
-  }, [filters.status, filters.startDate, filters.endDate]);
+  }, [filters.status, filters.startDate, filters.endDate, fetchClients, pagination.page]);
 
   const handleDeleteClient = async () => {
     if (!selectedClient) return;
@@ -334,6 +334,7 @@ function useClientDetail(id) {
     fetchClientEmployees();
     fetchAllEmployees();
     fetchConnectedGroups();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const resolveEffectiveHourlyRate = (rf) => {
@@ -457,7 +458,7 @@ function useClientDetail(id) {
           isOvertimeMultiplierDirty: false,
         });
       }
-    } catch (err) {
+    } catch {
       setRateFormData({
         hourlyRate: '',
         overtimeRate: '',
@@ -543,7 +544,7 @@ function useClientDetail(id) {
           clientDefaults,
         });
       }
-    } catch (err) {
+    } catch {
       setPtoFormData({
         ptoAllowPaidLeave: '',
         ptoEntitlementType: '',

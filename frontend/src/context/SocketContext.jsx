@@ -66,7 +66,7 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(false);
       setOnlineUsers([]);
     };
-  }, [isAuthenticated, user?.id]);
+  }, [isAuthenticated, user?.id, user]);
 
   const value = {
     socket,

@@ -16,7 +16,7 @@ const SessionTimeoutModal = ({
   }, [timeRemaining]);
 
   useEffect(() => {
-    if (!isOpen || countdown <= 0) return;
+    if (!isOpen || countdown <= 0) return undefined;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {

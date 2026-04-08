@@ -20,6 +20,8 @@ import {
   X,
   CheckCircle,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { Card, Button, Badge, Avatar, Modal, ExportButton } from "../../components/common";
 import adminPortalService from "../../services/adminPortal.service";
 import overtimeService from "../../services/overtime.service";
@@ -31,8 +33,6 @@ import {
   formatTime12,
   formatDate,
 } from "../../utils/formatDateTime";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 const TimeRecords = () => {
   const [searchParams] = useSearchParams();
@@ -842,7 +842,7 @@ const TimeRecords = () => {
                       </span>
                     </th>
                   ))}
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

@@ -170,7 +170,7 @@ const ChatInput = ({ onSendText, onSendFile, onSendAudio, onTyping, disabled, pa
             <div className="flex items-center gap-2 overflow-x-auto flex-1 min-w-0 pb-1">
               {selectedFiles.map((file, index) => (
                 <FilePreviewItem
-                  key={`${file.name}-${index}`}
+                  key={`${file.name}-${file.lastModified}-${file.size}`}
                   file={file}
                   preview={filePreviews[index]?.preview}
                   onRemove={() => removeFile(index)}

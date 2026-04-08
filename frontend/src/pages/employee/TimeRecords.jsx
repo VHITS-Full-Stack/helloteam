@@ -727,7 +727,7 @@ const TimeRecords = () => {
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Regular Hours</th>
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Overtime</th>
                         <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Status</th>
-                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3 w-16"></th>
+                        <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3 w-16" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
