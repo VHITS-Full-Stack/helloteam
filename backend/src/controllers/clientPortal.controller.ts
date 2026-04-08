@@ -1770,8 +1770,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
           const sessionBillingMins = isActive ? 0 : (timeRecord?.billingMinutes || effectiveSessionMinutes);
-          // Use actual session minutes for regular hours (not stored billingMinutes which may be stale)
-          const sessionRegularMinutes = isActive ? 0 : Math.max(0, effectiveSessionMinutes - sessionOvertimeMinutes);
+          // Use billing minutes (which respect 7-min grace rule) for regular hours
+          const sessionRegularMinutes = isActive ? 0 : Math.max(0, sessionBillingMins - sessionOvertimeMinutes);
           console.log(`[DEBUG-CLIENT] emp=${empId.substring(0,8)} session=${session.id.substring(0,8)} start=${session.startTime.toISOString()} sessionMins=${sessionMins} effectiveMin=${effectiveSessionMinutes} billingMins=${sessionBillingMins} trExtra=${timeRecord?.extraTimeMinutes||0} trExt=${timeRecord?.shiftExtensionMinutes||0} matchedOT=${sessionOvertime} finalOT=${sessionOvertimeMinutes} regular=${sessionRegularMinutes}`);
           const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
 
@@ -1824,8 +1824,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             clockOut: session.endTime || null,
             scheduledStart: daySchedule?.startTime || null,
             scheduledEnd: daySchedule?.endTime || null,
-            billingStart: session.startTime,
-            billingEnd: session.endTime || null,
+            billingStart: timeRecord?.billingStart || session.startTime,
+            billingEnd: timeRecord?.billingEnd || session.endTime || null,
             billingMinutes: sessionRegularMinutes,
             regularMinutes: sessionRegularMinutes,
             isLate: timeRecord?.isLate || false,
