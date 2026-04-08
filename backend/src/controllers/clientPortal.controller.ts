@@ -1450,7 +1450,11 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       date: { gte: startUTC, lte: endUTC },
     };
     if (status) {
-      timeRecordWhere.status = status;
+      if (status === 'APPROVED') {
+        timeRecordWhere.status = { in: ['APPROVED', 'AUTO_APPROVED'] };
+      } else {
+        timeRecordWhere.status = status;
+      }
     }
     const timeRecords = await prisma.timeRecord.findMany({
       where: timeRecordWhere,
