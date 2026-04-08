@@ -205,7 +205,13 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response): Prom
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: {
-        employee: true,
+        employee: {
+          include: {
+            emergencyContacts: {
+              orderBy: { createdAt: 'asc' },
+            },
+          },
+        },
         client: {
           include: {
             agreement: true,

@@ -351,8 +351,7 @@ const Tasks = () => {
           </p>
         </div>
         {activeTab === 'personal' && (
-          <Button onClick={openCreate} className="flex items-center gap-2">
-            <Plus className="w-4 h-4" />
+          <Button onClick={openCreate} size="sm" rounded="lg" icon={Plus} className="normal-case tracking-normal whitespace-nowrap">
             New Task
           </Button>
         )}
@@ -447,7 +446,7 @@ const Tasks = () => {
             {activeTab === 'assigned' ? "You don't have any assigned tasks yet" : 'Create a personal task to get started'}
           </p>
           {activeTab === 'personal' && (
-            <Button onClick={openCreate} className="mt-4 inline-flex items-center gap-2 whitespace-nowrap"><Plus className="w-4 h-4" />Create Task</Button>
+            <Button onClick={openCreate} size="sm" rounded="lg" icon={Plus} className="mt-4 normal-case tracking-normal whitespace-nowrap">Create Task</Button>
           )}
         </Card>
       ) : viewMode === 'board' ? (
