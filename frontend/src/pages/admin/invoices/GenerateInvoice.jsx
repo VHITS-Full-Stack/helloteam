@@ -20,6 +20,7 @@ import {
 } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
 import clientService from '../../../services/client.service';
+import { formatHours } from '../../../utils/formatDateTime';
 
 const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -354,13 +355,13 @@ const GenerateInvoice = () => {
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
                 <Clock className="w-3.5 h-3.5 text-green-500" />
                 <span className="text-sm text-green-600">Hours</span>
-                <span className="text-sm font-bold text-green-700">{Number(previewData.summary.totalHours || 0).toFixed(2)}</span>
+                <span className="text-sm font-bold text-green-700">{formatHours(Number(previewData.summary.totalHours || 0))}</span>
               </div>
               {Number(previewData.summary.totalOvertimeHours || 0) > 0 && (
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
                   <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
                   <span className="text-sm text-orange-600">OT</span>
-                  <span className="text-sm font-bold text-orange-700">{Number(previewData.summary.totalOvertimeHours).toFixed(2)}</span>
+                  <span className="text-sm font-bold text-orange-700">{formatHours(Number(previewData.summary.totalOvertimeHours))}</span>
                 </div>
               )}
               <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
@@ -402,12 +403,12 @@ const GenerateInvoice = () => {
                       </div>
                       <div className="hidden sm:block">
                         <span className="text-xs text-gray-400 mr-1">Hrs:</span>
-                        <span className="text-xs font-semibold text-gray-700">{Number(item.totalHours).toFixed(2)}</span>
+                        <span className="text-xs font-semibold text-gray-700">{formatHours(Number(item.totalHours))}</span>
                       </div>
                       {Number(item.overtimeHours) > 0 && (
                         <div className="hidden sm:block">
                           <span className="text-xs text-orange-400 mr-1">OT:</span>
-                          <span className="text-xs font-semibold text-orange-600">{Number(item.overtimeHours).toFixed(2)}</span>
+                          <span className="text-xs font-semibold text-orange-600">{formatHours(Number(item.overtimeHours))}</span>
                         </div>
                       )}
                       <p className="text-sm font-bold text-gray-900">{formatCurrency(item.estimatedTotal, item.currency)}</p>
@@ -421,9 +422,10 @@ const GenerateInvoice = () => {
                         <thead>
                           <tr className="border-b border-gray-100">
                             <th className="text-left px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase">Employee</th>
-                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">Hours</th>
-                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">OT</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">Reg Hours</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">OT Hours</th>
                             <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">Rate</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">OT Rate</th>
                             <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase">Amount</th>
                           </tr>
                         </thead>
@@ -431,13 +433,18 @@ const GenerateInvoice = () => {
                           {item.lineItems.map((li, liIdx) => (
                             <tr key={liIdx} className="hover:bg-gray-50/50">
                               <td className="px-4 py-2 text-sm text-gray-900">{li.employeeName}</td>
-                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(li.hours).toFixed(2)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatHours(Number(li.hours))}</td>
                               <td className="px-3 py-2 text-sm text-right">
                                 {Number(li.overtimeHours) > 0
-                                  ? <span className="text-orange-600">{Number(li.overtimeHours).toFixed(2)}</span>
+                                  ? <span className="text-orange-600">{formatHours(Number(li.overtimeHours))}</span>
                                   : <span className="text-gray-300">—</span>}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}</td>
+                              <td className="px-3 py-2 text-sm text-right">
+                                {Number(li.overtimeHours) > 0
+                                  ? <span className="text-orange-600">{formatCurrency(li.overtimeRate)}</span>
+                                  : <span className="text-gray-300">—</span>}
+                              </td>
                               <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{formatCurrency(li.amount)}</td>
                             </tr>
                           ))}
