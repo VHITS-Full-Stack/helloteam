@@ -210,8 +210,8 @@ const RaiseRequests = () => {
               </div>
             </td>
             <td className="py-3 px-3 text-sm text-gray-700 whitespace-nowrap">{rr.client.companyName}</td>
-            <td className="py-3 px-3 text-center text-sm text-gray-500">{rr.currentPayRate != null ? rr.currentPayRate.toFixed(2) : "—"}</td>
-            <td className="py-3 px-3 text-center text-sm text-gray-500">{rr.currentBillRate != null ? rr.currentBillRate.toFixed(2) : "—"}</td>
+            <td className="py-3 px-3 text-center text-sm text-gray-500">{rr.currentPayRate !== null && rr.currentPayRate !== undefined ? rr.currentPayRate.toFixed(2) : "—"}</td>
+            <td className="py-3 px-3 text-center text-sm text-gray-500">{rr.currentBillRate !== null && rr.currentBillRate !== undefined ? rr.currentBillRate.toFixed(2) : "—"}</td>
             <td className="py-3 px-3 text-center text-sm font-semibold text-blue-700">{rr.payRate?.toFixed(2)}</td>
             <td className="py-3 px-3 text-center text-sm font-semibold text-primary-700">{rr.billRate?.toFixed(2)}</td>
             <td className="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
@@ -516,7 +516,7 @@ const RaiseRequests = () => {
                   <div className="space-y-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">Current Pay Rate:</span>
-                      <span className="font-semibold text-gray-700">${selectedRequest.currentPayRate != null ? selectedRequest.currentPayRate.toFixed(2) : "0.00"}</span>
+                      <span className="font-semibold text-gray-700">${selectedRequest.currentPayRate !== null && selectedRequest.currentPayRate !== undefined ? selectedRequest.currentPayRate.toFixed(2) : "0.00"}</span>
                     </div>
                     <div>
                       <label className="text-sm text-gray-500">New Pay Rate</label>

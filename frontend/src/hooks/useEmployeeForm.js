@@ -99,7 +99,7 @@ export const useEmployeeForm = ({ id, onSuccess } = {}) => {
               payableRate: emp.payableRate ?? '',
               billingRate: emp.billingRate ?? '',
               overtimeMultiplier:
-                emp.overtimeRate != null && Number(emp.overtimeRate) > 0
+                emp.overtimeRate !== null && emp.overtimeRate !== undefined && Number(emp.overtimeRate) > 0
                   ? String(emp.overtimeRate)
                   : '1',
               deduction: emp.deduction ?? '',

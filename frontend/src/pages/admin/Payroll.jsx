@@ -46,8 +46,7 @@ import {
   TableCell,
 } from "../../components/common";
 import payrollService from "../../services/payroll.service";
-import { formatHours } from "../../utils/formatDateTime";
-import { formatDate } from "../../utils/formatDateTime";
+import { formatDate, formatHours } from "../../utils/formatDateTime";
 import adminPortalService from "../../services/adminPortal.service";
 
 const Payroll = () => {

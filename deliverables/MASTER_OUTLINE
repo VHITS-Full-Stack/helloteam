@@ -1,0 +1,574 @@
+MASTER OUTLINE — Hello Team Workforce Portal (Employee + Client + Admin)
+
+A) Platform Basics
+ 
+Three portals / roles
+ 
+Employee portal (Hello Team Virtual Office)
+ 
+Client portal (visibility + approvals + billing)
+ 
+Admin portal (Hello Team operations)
+ 
+Branding / UI
+ 
+Must feel like a “Hello Team virtual office” for employees (warm, supportive)
+ 
+Must feel like a “command center” for clients (clear, actionable)
+ 
+Core goal
+ 
+Remove manual labor
+ 
+No emailing timesheets
+ 
+Clients approve in portal
+ 
+Automatic weekly invoicing + automatic charging
+ 
+QuickBooks
+ 
+We use QuickBooks Desktop (On-Prem) for invoicing/accounting (not QBO)
+ 
+System must either:
+ 
+Generate invoices inside the portal + export to QB Desktop, OR
+ 
+Push invoices into QB Desktop via a supported integration method (developer to propose)
+ 
+Security / Privacy
+ 
+Employee ↔️ Hello Team support communication is private and confidential
+ 
+Client cannot see employee communications with Hello Team
+ 
+Audit logs
+ 
+Any time edits, approvals, changes require logging: who/what/when/notes
+ 
+B) Employee Portal — “Virtual Office” Experience
+
+B1) Clock In / Clock Out (with schedule enforcement + warnings)
+ 
+Employee clocks in/out inside portal (web + mobile-friendly)
+ 
+Clock-in UX includes:
+ 
+Customizable clock-in sounds (admin controlled / “play around with sounds”)
+ 
+Employee sees:
+ 
+Today’s schedule
+ 
+Live timer since clock-in
+ 
+A “shift ending” warning before end of shift
+ 
+Clocking in early / outside schedule
+ 
+System allows the employee to clock in early but warns them clearly using this exact meaning:
+ 
+“You are trying to clock in before your schedule. We will allow you to do so, but please note you may not get paid for this time as it is not in your schedule. If the client does not approve it, you will only be paid for your scheduled time.”
+ 
+Shift end warning
+ 
+Example: “4 minutes before end of shift” notification:
+ 
+“Your shift is ending. You will be clocked out at 5:00 PM (scheduled time). If you need to stay longer, click here to stay clocked in after your scheduled shift.”
+ 
+If employee clicks “stay clocked in,” system prompts overtime request AND warns:
+ 
+Overtime should ideally be requested earlier in the day
+ 
+If requested right before shift end, it may not get approved and may not be paid
+ 
+B2) Schedule View
+ 
+View today schedule
+ 
+View weekly schedule
+ 
+View upcoming schedule changes (if any)
+ 
+B3) Past Hours / Timesheet History (employee view)
+ 
+View past hours by day/week
+ 
+See breakdown: regular hours vs overtime vs unapproved overtime vs PTO/VTO
+ 
+See statuses: approved / pending / denied
+ 
+B4) Hello Team Support (private)
+ 
+“Request Hello Team support” button
+ 
+Private messaging with Hello Team (client cannot see)
+ 
+Ability to request a call/meeting with management
+ 
+Chat with management
+ 
+Upload files/videos to Hello Team support thread
+ 
+B5) Wellness / Feedback / Positive Culture
+ 
+“How are you feeling today?” rating
+ 
+Optional feedback text
+ 
+Positive messages / encouragement in the portal
+ 
+“Warm feeling of a virtual office” tone
+ 
+B6) PTO/VTO Request System (employee-facing)
+ 
+PTO/VTO request page(s)
+ 
+Some clients:
+ 
+0 PTO (PTO page hidden completely)
+ 
+Only VTO allowed (VTO page shown)
+ 
+Two-week notice requirement
+ 
+PTO + VTO should normally require 2 weeks notice
+ 
+If inside 2 weeks, system still allows request but shows a human message:
+ 
+“This requires 2 weeks notice. Emergencies happen; you can still request it, but it may not be approved. We hope your client will understand.”
+ 
+PTO accrual rules configurable (see Admin section)
+ 
+Employee cannot request PTO beyond their balance
+ 
+If insufficient PTO, system explains why and suggests VTO
+ 
+C) Client Portal — Visibility + Approvals + Billing
+
+C1) Client Dashboard (home)
+ 
+See all employees assigned to them
+ 
+“Who’s working” view:
+ 
+Employee names
+ 
+Clocked-in status
+ 
+Clock-in time
+ 
+Live counter for today
+ 
+Weekly summary:
+ 
+Hours worked this week (line graphs / counters)
+ 
+Alerts panel (nag system)
+ 
+Quick actions:
+ 
+Approve timesheets
+ 
+Approve/deny overtime
+ 
+Add overtime in advance
+ 
+Add tasks
+ 
+Give bonus
+ 
+Give raise
+ 
+Payment method / billing
+ 
+C2) Who’s Working Page (live operational view)
+ 
+Live list of employees working now
+ 
+Shows:
+ 
+When they clocked in
+ 
+Current session duration
+ 
+Status indicators
+ 
+C3) Timesheets Page + Approval Logic (very important)
+ 
+Timesheet cycle: Monday → Sunday, weekly
+ 
+Client approves in portal (no emailing)
+ 
+Regular timesheet approval rules:
+ 
+Client gets 24 hours to approve (you specified 24 hours here)
+ 
+If not approved within 24 hours:
+ 
+regular scheduled hours auto-approve
+ 
+Client can still open timesheets later and approve any time (but regular hours will already be approved)
+ 
+Overtime must be visually different on the timesheet
+ 
+Different color or clearly separated section
+ 
+Client must be able to choose:
+ 
+“Approve entire timesheet including overtime”
+ 
+OR “Approve timesheet but deny overtime”
+ 
+Timesheet edits by client must require:
+ 
+Forced “reason / note” field
+ 
+C4) Overtime — BOTH TYPES + DISPLAY RULES
+
+Type 1: Client Adds Overtime in Advance (scheduled OT)
+ 
+Client can add overtime for:
+ 
+Specific employee
+ 
+Specific date
+ 
+Specific time window / duration
+ 
+This overtime is treated as “pre-approved”
+ 
+It should show in a different color (because it was added ahead of time)
+ 
+When time occurs, system should not display clock-out warnings or “risk” messages
+ 
+Type 2: Employee Requests Overtime Live
+ 
+Employee submits overtime request:
+ 
+Amount of time
+ 
+Date/time
+ 
+Reason (optional but recommended)
+ 
+Client receives:
+ 
+SMS + email + in-app notification
+ 
+If client approves:
+ 
+It becomes “approved overtime”
+ 
+System should not show “clock out” warnings
+ 
+It appears on timesheets as approved overtime
+ 
+Late overtime request near shift end (risk logic)
+ 
+If request is made right before shift ends:
+ 
+System should warn employee there is risk it won’t be approved and may not be paid
+ 
+System behavior needs to “tie beautifully into timesheets + billing”
+ 
+Overtime that is not approved:
+ 
+Cannot be billed
+ 
+Needs heavy pressure/notifications to client to approve/deny
+ 
+D) Billing + Payment System (Auto-charge, robust, pressure if declined)
+
+D1) Billing Cycle
+ 
+Billing is weekly (every 7 days)
+ 
+System generates invoice automatically weekly based on:
+ 
+Approved regular hours
+ 
+Approved overtime
+ 
+Any adjustments/edits that were approved
+ 
+D2) Payment Methods
+ 
+Client can store:
+ 
+Credit card
+ 
+ACH
+ 
+Multiple cards/bank accounts (as many as they like)
+ 
+Each time they add a method:
+ 
+System performs authorization/verification to confirm it works
+ 
+Terms & conditions acceptance:
+ 
+Client must agree to automatic weekly charges
+ 
+D3) Auto Charging
+ 
+When invoice issues:
+ 
+Card/ACH is charged automatically
+ 
+Client receives email with:
+ 
+PDF invoice
+ 
+Receipt
+ 
+Billing history page:
+ 
+Invoice list
+ 
+Status: paid / unpaid / declined / pending
+ 
+Download PDFs anytime
+ 
+D4) Declined Card / Failed ACH (pressure + lockouts)
+ 
+If payment fails:
+ 
+“Harassment-level” reminders (your words) via SMS/email/in-app until updated
+ 
+If they do not update payment method:
+ 
+Employee should not be able to clock in
+ 
+When client uploads new card:
+ 
+System automatically charges all unpaid invoices immediately
+ 
+Must be clean, secure, and reliable
+ 
+E) Payroll Pressure System (8th/22nd + manual overrides for holidays)
+
+E1) Payroll Dates
+ 
+Payroll is twice monthly:
+ 
+8th
+ 
+22nd
+ 
+Sometimes payroll date moves earlier (ex: before Jewish holiday)
+ 
+Admin must be able to override payroll schedule and trigger notifications early
+ 
+E2) Payroll Reminder for UNAPPROVED OVERTIME
+ 
+Overtime not approved should generate pressure in two places:
+ 
+Before weekly billing closes (2 days window)
+ 
+Before payroll pays out (8th/22nd), especially overtime from prior billing cycles
+ 
+E3) Weekly Billing Close Pressure (2-day push)
+ 
+Beginning 2 days before billing closes:
+ 
+Client gets SMS/email/in-app alerts:
+ 
+“Hi, your account will be charged for your employee (name). There is overtime that is not approved. Please click here to approve or deny the overtime before your account is billed so the employee can get paid for approved hours.”
+ 
+If client ignores:
+ 
+Regular time still bills automatically
+ 
+Overtime remains unbilled/unpaid until approved
+ 
+E4) Payroll-Day “Global Push” Button (Admin-triggered)
+ 
+Admin button to send a broadcast notification to all clients who have unapproved overtime (from previous billing cycles between 8th and 22nd)
+ 
+Message meaning:
+ 
+“Your employee will be paid tomorrow. We see overtime not approved. If you do not approve it, they will NOT get paid for that time.”
+ 
+Professional tone (not “sad” wording but same concept)
+ 
+F) PTO/VTO Admin Configuration (critical)
+ 
+Admin setup page per client to configure:
+ 
+PTO eligibility (on/off)
+ 
+VTO eligibility (on/off)
+ 
+“VTO only clients”
+ 
+PTO rule templates:
+ 
+“3 days PTO every 6 months” (6 days/year)
+ 
+“14 days/year”
+ 
+Rollover allowed or not allowed
+ 
+Other configurations as needed
+ 
+System tracks accrual and balances automatically
+ 
+When balance is used up:
+ 
+PTO request blocked with explanation
+ 
+Suggest VTO
+ 
+PTO/VTO approvals:
+ 
+Client approves/denies first
+ 
+If client approves, it becomes approved
+ 
+(Earlier you also said Hello Team final approval for VTO — keep this as a configurable rule: “client approves then Hello Team final approves”)
+ 
+G) Communication + Files + Recording
+
+G1) Chat
+ 
+Employee ↔️ client chat
+ 
+Employee ↔️ Hello Team chat (private)
+ 
+Supports large files, videos, documents
+ 
+G2) Internal Calling (not public phone system)
+ 
+Call button in portal:
+ 
+Client can call employee
+ 
+Employee can call client
+ 
+Not for calling random numbers
+ 
+All calls recorded
+ 
+Integration options:
+ 
+3CX or Leiby’s system (developer can propose)
+ 
+G3) Video meetings
+ 
+Built-in Zoom-style video meeting from platform
+ 
+Must be recorded
+ 
+AI involvement at end (see AI section)
+ 
+H) Tasks System (client tasks + employee tasks + nudges)
+ 
+Client can create tasks for employee
+ 
+Employee can create tasks for themselves
+ 
+Tasks are checkboxes / completion states
+ 
+System nudges employee to complete tasks (reminders)
+ 
+I) Monitoring / Teramind Integration + Client Visibility
+ 
+Client monitoring page integrated with Teramind (or whichever monitoring system we use)
+ 
+Client can view:
+ 
+Live screens (if permitted)
+ 
+Screenshots
+ 
+Productivity metrics
+ 
+General productivity numbers
+ 
+This is separate from clock-in/out but tied to it (client sees activity for the time employee is clocked in)
+ 
+J) AI Layer (critical, embedded into chat + calls + monitoring)
+ 
+AI reads chat and suggests actions:
+ 
+“Should I create a task for this?”
+ 
+AI at end of calls:
+ 
+Summarizes action items
+ 
+Offers to create tasks:
+ 
+“Based on your conversation, these things should be done. Do you want them as tasks?”
+ 
+AI should assist the employee but employee must understand it’s only AI help (not guaranteed perfect)
+ 
+AI should also use monitoring metrics + task completion to suggest:
+ 
+Add work / reduce work
+ 
+Employee doing well / not doing well
+ 
+Productivity insights
+ 
+AI should appear “nicely” in the UI (not hidden)
+ 
+K) Client Scheduling Rules (minimum hours enforcement — you added this)
+ 
+Each client has a required weekly hour minimum (ex: 40 hrs/week or 35 hrs/week)
+ 
+Client cannot create schedules below the minimum required hours
+ 
+They may adjust shift times, but total weekly hours must equal the required minimum
+ 
+System blocks reductions and shows clear message
+ 
+L) Bonus + Raise System (with admin delivery workflow)
+
+Bonuses
+ 
+Client clicks easy “Give Bonus”
+ 
+Enter amount
+ 
+Friendly confirmation message:
+ 
+“Thank you for giving a bonus… we’ll deliver it…”
+ 
+Bonus status workflow:
+ 
+Pending
+ 
+Delivered (only after admin checks off that it was paid via Deel)
+ 
+Admin page to manage all pending bonuses and mark delivered
+ 
+Raises
+ 
+Client clicks “Give Raise”
+ 
+Select:
+ 
+Amount per hour
+ 
+Start date
+ 
+Must show client what billing impact is
+ 
+Message:
+ 
+“All raises go directly to the employee, no additional fees” (same as bonus)
+ 
+Raise workflow/status:
+ 
+Pending
+ 
+Employee notified (admin action)
+ 
+Active on date X
+ 
+Include note:
+ 
+“Please do not discuss specific pay/raises directly with employee” (or similar)
+ 

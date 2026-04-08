@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, FileText, Send, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, Button, Badge } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
-import { formatHours } from '../../../utils/formatDateTime';
-import { formatDate } from '../../../utils/formatDateTime';
+import { formatDate, formatHours } from '../../../utils/formatDateTime';
 
 const formatCurrency = (amount, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);

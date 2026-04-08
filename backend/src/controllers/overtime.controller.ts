@@ -475,13 +475,18 @@ export const approveOvertimeRequest = async (req: AuthenticatedRequest, res: Res
     });
 
     // If there's a time record with overtime for this date, cascade the approval
+    // Check overtimeMinutes, shiftExtensionMinutes, or extraTimeMinutes (OT can be tracked in any of these)
     const existingTimeRecord = await prisma.timeRecord.findFirst({
       where: {
         employeeId: request.employeeId,
         clientId: request.clientId,
         date: request.date,
         status: { in: ['PENDING', 'AUTO_APPROVED', 'APPROVED'] },
-        overtimeMinutes: { gt: 0 },
+        OR: [
+          { overtimeMinutes: { gt: 0 } },
+          { shiftExtensionMinutes: { gt: 0 } },
+          { extraTimeMinutes: { gt: 0 } },
+        ],
       },
     });
 

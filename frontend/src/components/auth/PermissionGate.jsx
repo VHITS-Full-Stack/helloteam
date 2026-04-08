@@ -80,48 +80,4 @@ const PermissionGate = ({
   return children;
 };
 
-/**
- * HOC version of PermissionGate for wrapping components
- *
- * Usage:
- * const ProtectedButton = withPermission(Button, 'employees.create');
- */
-export const withPermission = (Component, permission, options = {}) => {
-  return function PermissionWrappedComponent(props) {
-    return (
-      <PermissionGate permission={permission} {...options}>
-        <Component {...props} />
-      </PermissionGate>
-    );
-  };
-};
-
-/**
- * Hook-based permission check for conditional rendering in components
- *
- * Usage:
- * const canCreate = useCanAccess('employees.create');
- * if (canCreate) { ... }
- */
-export const useCanAccess = (permission) => {
-  const { hasPermission, loading } = usePermissions();
-  return !loading && hasPermission(permission);
-};
-
-/**
- * Hook for checking multiple permissions
- *
- * Usage:
- * const canEditOrDelete = useCanAccessAny(['employees.edit', 'employees.delete']);
- */
-export const useCanAccessAny = (permissions) => {
-  const { hasAnyPermission, loading } = usePermissions();
-  return !loading && hasAnyPermission(permissions);
-};
-
-export const useCanAccessAll = (permissions) => {
-  const { hasAllPermissions, loading } = usePermissions();
-  return !loading && hasAllPermissions(permissions);
-};
-
 export default PermissionGate;

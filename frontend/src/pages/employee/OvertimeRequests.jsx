@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Clock, AlertCircle, CheckCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { Card, Badge } from '../../components/common';
-import { formatTime12 } from '../../utils/formatDateTime';
-import { formatDate } from '../../utils/formatDateTime';
+import { formatDate, formatTime12 } from '../../utils/formatDateTime';
 import overtimeService from '../../services/overtime.service';
 
 const statusConfig = {

@@ -26,12 +26,13 @@ import {
 import clientPortalService from "../../services/clientPortal.service";
 import overtimeService from "../../services/overtime.service";
 import {
+  formatDate,
+  formatDateTime,
   formatHours,
   formatTime12,
   formatTimeInTimeZone,
   formatDuration,
 } from "../../utils/formatDateTime";
-import { formatDate, formatDateTime } from "../../utils/formatDateTime";
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();

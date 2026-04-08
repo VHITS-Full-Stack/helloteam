@@ -12,10 +12,9 @@ import leavePolicyService from '../services/leavePolicy.service';
  * @param {string} params.id - Client ID (required for detail mode)
  */
 export const useClientData = ({ mode = 'list', id } = {}) => {
-  if (mode === 'detail') {
-    return useClientDetail(id);
-  }
-  return useClientList();
+  const list = useClientList();
+  const detail = useClientDetail(id);
+  return mode === 'detail' ? detail : list;
 };
 
 // ── List Mode ──────────────────────────────────────────────
@@ -341,16 +340,28 @@ function useClientDetail(id) {
     const hrOverride = rf?.hourlyRate !== '' && rf?.hourlyRate !== null ? Number(rf.hourlyRate) : 0;
     if (hrOverride > 0) return hrOverride;
 
-    const employeeBilling = rf?.employeeBillingRate != null ? Number(rf.employeeBillingRate) : 0;
+    const employeeBilling =
+      rf?.employeeBillingRate !== null && rf?.employeeBillingRate !== undefined
+        ? Number(rf.employeeBillingRate)
+        : 0;
     if (employeeBilling > 0) return employeeBilling;
 
-    const clientGroupBilling = rf?.clientGroupBillingRate != null ? Number(rf.clientGroupBillingRate) : 0;
+    const clientGroupBilling =
+      rf?.clientGroupBillingRate !== null && rf?.clientGroupBillingRate !== undefined
+        ? Number(rf.clientGroupBillingRate)
+        : 0;
     if (clientGroupBilling > 0) return clientGroupBilling;
 
-    const groupBilling = rf?.groupBillingRate != null ? Number(rf.groupBillingRate) : 0;
+    const groupBilling =
+      rf?.groupBillingRate !== null && rf?.groupBillingRate !== undefined
+        ? Number(rf.groupBillingRate)
+        : 0;
     if (groupBilling > 0) return groupBilling;
 
-    const defaultHourly = rf?.defaultHourlyRate != null ? Number(rf.defaultHourlyRate) : 0;
+    const defaultHourly =
+      rf?.defaultHourlyRate !== null && rf?.defaultHourlyRate !== undefined
+        ? Number(rf.defaultHourlyRate)
+        : 0;
     return defaultHourly > 0 ? defaultHourly : 0;
   };
 

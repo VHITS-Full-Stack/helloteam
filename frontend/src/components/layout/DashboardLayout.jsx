@@ -112,9 +112,9 @@ const DashboardLayout = ({
   // Show login blocker for client portal users on initial load
   useEffect(() => {
     if (portalType === 'client') {
-      // Check if blocker was already dismissed this session
       const dismissed = sessionStorage.getItem('ot_blocker_dismissed');
       if (!dismissed) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setShowOTBlocker(true);
       }
     }

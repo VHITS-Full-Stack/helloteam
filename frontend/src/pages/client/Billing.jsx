@@ -15,8 +15,7 @@ import {
 } from "lucide-react";
 import { Card, Button, Badge, ExportButton } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
-import { formatHours } from "../../utils/formatDateTime";
-import { formatDate } from "../../utils/formatDateTime";
+import { formatDate, formatHours } from "../../utils/formatDateTime";
 
 const Billing = () => {
   const [loading, setLoading] = useState(true);

@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './AuthContext';
@@ -18,20 +19,8 @@ export const SocketProvider = ({ children }) => {
   const socketRef = useRef(null);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) {
-      // Disconnect if logged out
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-        setSocket(null);
-        setIsConnected(false);
-        setOnlineUsers([]);
-      }
-      return;
-    }
-
     const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!isAuthenticated || !user || !token) return undefined;
 
     const newSocket = io(SOCKET_URL, {
       auth: { token },
@@ -40,6 +29,10 @@ export const SocketProvider = ({ children }) => {
       reconnectionDelay: 1000,
       reconnectionAttempts: 10,
     });
+
+    // Keep state in sync immediately (preserves previous behavior)
+    socketRef.current = newSocket;
+    const socketTimer = setTimeout(() => setSocket(newSocket), 0);
 
     newSocket.on('connect', () => {
       setIsConnected(true);
@@ -65,12 +58,13 @@ export const SocketProvider = ({ children }) => {
       setOnlineUsers((prev) => prev.filter((id) => id !== userId));
     });
 
-    socketRef.current = newSocket;
-    setSocket(newSocket);
-
     return () => {
+      clearTimeout(socketTimer);
       newSocket.disconnect();
       socketRef.current = null;
+      setSocket(null);
+      setIsConnected(false);
+      setOnlineUsers([]);
     };
   }, [isAuthenticated, user?.id]);
 
@@ -87,5 +81,3 @@ export const SocketProvider = ({ children }) => {
     </SocketContext.Provider>
   );
 };
-
-export default SocketContext;
