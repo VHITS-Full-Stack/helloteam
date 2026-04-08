@@ -816,44 +816,46 @@ const Approvals = () => {
 
       {/* Filters */}
       <div className="flex items-center gap-3">
-        <input
-          type="date"
-          value={dateRange.startDate}
-          onChange={(e) =>
-            setDateRange((prev) => ({
-              ...prev,
-              startDate: e.target.value,
-            }))
-          }
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-        />
-        <span className="text-gray-400 text-sm">to</span>
-        <input
-          type="date"
-          value={dateRange.endDate}
-          onChange={(e) =>
-            setDateRange((prev) => ({ ...prev, endDate: e.target.value }))
-          }
-          className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
-        />
-        {(dateRange.startDate || dateRange.endDate) && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDateRange({ startDate: "", endDate: "" })}
-          >
-            Clear
-          </Button>
-        )}
-        <div className="relative ml-auto">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+        <div className="ml-auto flex flex-wrap items-center gap-3">
           <input
-            type="text"
-            placeholder="Search employees..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-48 h-9 pl-8 pr-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            type="date"
+            value={dateRange.startDate}
+            onChange={(e) =>
+              setDateRange((prev) => ({
+                ...prev,
+                startDate: e.target.value,
+              }))
+            }
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
           />
+          <span className="text-gray-400 text-sm">to</span>
+          <input
+            type="date"
+            value={dateRange.endDate}
+            onChange={(e) =>
+              setDateRange((prev) => ({ ...prev, endDate: e.target.value }))
+            }
+            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+          />
+          {(dateRange.startDate || dateRange.endDate) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setDateRange({ startDate: "", endDate: "" })}
+            >
+              Clear
+            </Button>
+          )}
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search employees..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-48 h-9 pl-8 pr-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+            />
+          </div>
         </div>
       </div>
 

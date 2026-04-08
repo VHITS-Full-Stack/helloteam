@@ -49,15 +49,17 @@ const TimesheetDetail = () => {
     photo: stateData.employeePhoto || null,
   });
 
-  const [customStart, setCustomStart] = useState(() => {
+  const defaultStart = (() => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  });
-  const [customEnd, setCustomEnd] = useState(() => {
+  })();
+  const defaultEnd = (() => {
     const now = new Date();
     const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     return `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`;
-  });
+  })();
+  const [customStart, setCustomStart] = useState(defaultStart);
+  const [customEnd, setCustomEnd] = useState(defaultEnd);
 
   const [record, setRecord] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -73,28 +75,13 @@ const TimesheetDetail = () => {
   const [otSelectionAction, setOTSelectionAction] = useState("approve");
   const [otSelectionEntries, setOTSelectionEntries] = useState([]);
 
-  const getDateRange = useCallback(() => {
-    if (customStart && customEnd) {
-      return { start: new Date(customStart), end: new Date(customEnd) };
-    }
-    const now = new Date();
-    return {
-      start: new Date(now.getFullYear(), now.getMonth(), 1),
-      end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
-    };
-  }, [customStart, customEnd]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const { start, end } = getDateRange();
-      const startDate = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, "0")}-${String(start.getDate()).padStart(2, "0")}`;
-      const endDate = `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
-
       const response = await clientPortalService.getTimeRecords({
-        startDate,
-        endDate,
+        startDate: customStart,
+        endDate: customEnd,
       });
       if (response.success) {
         if (response.data.clientTimezone)
@@ -120,7 +107,7 @@ const TimesheetDetail = () => {
     } finally {
       setLoading(false);
     }
-  }, [getDateRange, employeeId]);
+  }, [customStart, customEnd, employeeId]);
 
   useEffect(() => {
     fetchData();
@@ -256,7 +243,8 @@ const TimesheetDetail = () => {
   };
 
   const periodLabel = (() => {
-    const { start, end } = getDateRange();
+    const start = new Date(customStart);
+    const end = new Date(customEnd);
     return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
   })();
 
@@ -313,18 +301,19 @@ const TimesheetDetail = () => {
               onChange={(e) => setCustomEnd(e.target.value)}
               className="px-2.5 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-primary focus:border-primary"
             />
-            <button
-              onClick={() => {
-                const now = new Date();
-                const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                setCustomStart(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`);
-                setCustomEnd(`${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, "0")}-${String(last.getDate()).padStart(2, "0")}`);
-              }}
-              className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
-              title="Reset to current month"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            {(customStart !== defaultStart || customEnd !== defaultEnd) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomStart(defaultStart);
+                  setCustomEnd(defaultEnd);
+                }}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                title="Reset to current month"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-5">
             <div className="text-center">
@@ -402,7 +391,8 @@ const TimesheetDetail = () => {
 
           {/* Monthly Table */}
           {(() => {
-            const { start, end } = getDateRange();
+            const start = new Date(customStart);
+            const end = new Date(customEnd);
             const today = new Date();
             const totalLabel = "Total";
 
