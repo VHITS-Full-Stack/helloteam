@@ -27,6 +27,7 @@ import {
 } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
 import clientService from '../../../services/client.service';
+import { formatDate } from '../../../utils/formatDateTime';
 
 const Invoices = () => {
   const navigate = useNavigate();
@@ -311,11 +312,6 @@ const Invoices = () => {
     return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '—';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
-
   const formatPeriod = (start) => {
     if (!start) return '—';
     const s = new Date(start);
@@ -344,7 +340,7 @@ const Invoices = () => {
               Number(inv.overtimeHours || 0).toFixed(2),
               formatCurrency(inv.total, inv.currency),
               inv.status,
-              formatDate(inv.dueDate),
+              formatDate(inv.dueDate, { emptyValue: '—' }),
             ]);
             const csv = [headers.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))].join('\n');
             const blob = new Blob([csv], { type: 'text/csv' });
@@ -545,10 +541,14 @@ const Invoices = () => {
                       {getStatusBadge(invoice.status)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <p className="text-sm text-gray-600">{formatDate(invoice.dueDate)}</p>
+                      <p className="text-sm text-gray-600">
+                        {formatDate(invoice.dueDate, { emptyValue: '—' })}
+                      </p>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <p className="text-sm text-gray-600">{formatDate(invoice.createdAt)}</p>
+                      <p className="text-sm text-gray-600">
+                        {formatDate(invoice.createdAt, { emptyValue: '—' })}
+                      </p>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -966,7 +966,9 @@ const Invoices = () => {
               </div>
               <div>
                 <p className="text-xs text-gray-500">Due Date</p>
-                <p className="text-sm font-medium text-gray-900">{formatDate(selectedInvoice.dueDate)}</p>
+                <p className="text-sm font-medium text-gray-900">
+                  {formatDate(selectedInvoice.dueDate, { emptyValue: '—' })}
+                </p>
               </div>
               <div className="text-right">
                 <p className="text-xs text-gray-500">Total</p>

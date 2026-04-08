@@ -21,6 +21,7 @@ import { PERMISSIONS, PERMISSION_LABELS, PERMISSION_CATEGORIES } from '../../con
 import rolesService from '../../services/roles.service';
 import usersService from '../../services/users.service';
 import settingsService from '../../services/settings.service';
+import { formatDateTime } from '../../utils/formatDateTime';
 
 const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -363,19 +364,6 @@ const Settings = () => {
     setImpersonatingUserId(null);
   };
 
-  // Format date for display
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Never';
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
   // General settings state
   const [generalSettings, setGeneralSettings] = useState({
     companyName: 'Hello Team',
@@ -708,7 +696,11 @@ const Settings = () => {
                             </Badge>
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            Last login: {formatDate(user.lastLoginAt)}
+                            Last login:{" "}
+                            {formatDateTime(user.lastLoginAt, {
+                              emptyValue: "Never",
+                              includeYear: true,
+                            })}
                           </p>
                         </div>
                         {isSuperAdmin && (

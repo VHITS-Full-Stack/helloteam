@@ -88,6 +88,7 @@ const EmployeeChat = () => {
     setConversations((prev) =>
       prev.map((c) => (c.id === conv.id ? { ...c, unreadCount: 0 } : c))
     );
+    window.dispatchEvent(new Event("chat-updated"));
   }, [socket, fetchMessages]);
 
   // Start new conversation

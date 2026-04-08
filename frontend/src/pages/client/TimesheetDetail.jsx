@@ -17,7 +17,7 @@ import {
   OTSelectionModal,
 } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
-import { formatHours } from "../../utils/formatTime";
+import { formatHours } from "../../utils/formatDateTime";
 
 const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Card, Badge, Avatar } from "../../components/common";
 import payrollService from "../../services/payroll.service";
+import { formatDate } from "../../utils/formatDateTime";
 
 const PayrollEmployeeDetail = () => {
   const { employeeId } = useParams();
@@ -47,16 +48,6 @@ const PayrollEmployeeDetail = () => {
     };
     fetchDetail();
   }, [employeeId, periodStart, periodEnd]);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      timeZone: "UTC",
-    });
-  };
 
   const clientTimezone = data?.client?.timezone || 'America/New_York';
   const formatTime = (dateStr) => {
@@ -172,8 +163,22 @@ const PayrollEmployeeDetail = () => {
             {employee.firstName} {employee.lastName}
           </h2>
           <p className="text-sm text-gray-500">
-            {client.companyName} &middot; {formatDate(periodStart)} –{" "}
-            {formatDate(periodEnd)}
+            {client.companyName} &middot;{" "}
+            {formatDate(periodStart, {
+              emptyValue: "—",
+              includeWeekday: true,
+              includeYear: false,
+              timeZone: "UTC",
+              dateOnlyAsUTC: true,
+            })}{" "}
+            –{" "}
+            {formatDate(periodEnd, {
+              emptyValue: "—",
+              includeWeekday: true,
+              includeYear: false,
+              timeZone: "UTC",
+              dateOnlyAsUTC: true,
+            })}
           </p>
         </div>
       </div>
@@ -271,7 +276,13 @@ const PayrollEmployeeDetail = () => {
                     }
                   >
                     <td className="px-4 py-2.5 text-sm font-medium text-gray-900">
-                      {formatDate(rec.date)}
+                      {formatDate(rec.date, {
+                        emptyValue: "—",
+                        includeWeekday: true,
+                        includeYear: false,
+                        timeZone: "UTC",
+                        dateOnlyAsUTC: true,
+                      })}
                       {rec.isLate && (
                         <span className="ml-1 text-[10px] text-red-500 font-semibold">
                           LATE

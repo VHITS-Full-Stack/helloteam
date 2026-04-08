@@ -32,7 +32,12 @@ import adminPortalService from '../../services/adminPortal.service';
 import overtimeService from '../../services/overtime.service';
 import clientService from '../../services/client.service';
 import employeeService from '../../services/employee.service';
-import { formatTime12 } from '../../utils/formatTime';
+import {
+  formatTime12,
+  formatDuration,
+  formatDate,
+  formatDateTime,
+} from '../../utils/formatDateTime';
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
@@ -262,9 +267,29 @@ const Approvals = () => {
       const empName = isOTType ? (item.employee ? `${item.employee.firstName} ${item.employee.lastName}` : 'Unknown') : item.employee;
       const client = isOTType ? (item.clientName || 'Unknown') : item.client;
       if (isOTType) {
-        return [empName, client, item.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension', item.reason, formatDate(item.date), formatMinutesToHours(item.requestedMinutes), item.status, formatDateTime(item.createdAt)].map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',');
+        return [
+          empName,
+          client,
+          item.type === 'OFF_SHIFT' ? 'Off-Shift' : 'Extension',
+          item.reason,
+          formatDate(item.date, { timeZone: 'UTC', dateOnlyAsUTC: true }),
+          formatDuration(item.requestedMinutes),
+          item.status,
+          formatDateTime(item.createdAt),
+        ]
+          .map(v => `"${(v || '').toString().replace(/"/g, '""')}"`)
+          .join(',');
       }
-      return [empName, client, item.description, formatDate(item.date), item.status || item.approvalStatus, formatDateTime(item.submittedAt)].map(v => `"${(v || '').toString().replace(/"/g, '""')}"`).join(',');
+      return [
+        empName,
+        client,
+        item.description,
+        formatDate(item.date, { timeZone: 'UTC', dateOnlyAsUTC: true }),
+        item.status || item.approvalStatus,
+        formatDateTime(item.submittedAt),
+      ]
+        .map(v => `"${(v || '').toString().replace(/"/g, '""')}"`)
+        .join(',');
     });
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -274,26 +299,6 @@ const Approvals = () => {
     a.download = `approvals-${activeType}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-  };
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const d = new Date(dateStr);
-    return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
-  };
-
-  const formatMinutesToHours = (minutes) => {
-    if (!minutes) return '0h';
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
   };
 
   const getStatusBadge = (status) => {
@@ -477,7 +482,12 @@ const Approvals = () => {
                         {!isOTType && item.details && <p className="text-xs text-gray-500 mt-0.5">{item.details}</p>}
                       </TableCell>
                       <TableCell className="!px-3">
-                        <span className="text-sm">{formatDate(item.date)}</span>
+                        <span className="text-sm">
+                          {formatDate(item.date, {
+                            timeZone: 'UTC',
+                            dateOnlyAsUTC: true,
+                          })}
+                        </span>
                         {isOTType && (item.requestedStartTime || item.estimatedEndTime) && (
                           <p className="text-xs text-gray-400">
                             {item.requestedStartTime && item.requestedEndTime
@@ -514,7 +524,7 @@ const Approvals = () => {
                       )}
                       {isOTType && (
                         <TableCell className="!px-3">
-                          <span className="font-semibold text-sm">{formatMinutesToHours(item.requestedMinutes)}</span>
+                          <span className="font-semibold text-sm">{formatDuration(item.requestedMinutes)}</span>
                         </TableCell>
                       )}
                       <TableCell className="!px-3">{getStatusBadge(itemStatus)}</TableCell>
@@ -652,7 +662,12 @@ const Approvals = () => {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">Date</span>
-                <span className="font-medium">{formatDate(selectedItem.date)}</span>
+                <span className="font-medium">
+                  {formatDate(selectedItem.date, {
+                    timeZone: 'UTC',
+                    dateOnlyAsUTC: true,
+                  })}
+                </span>
               </div>
               {isOTType && (
                 <>
@@ -662,7 +677,7 @@ const Approvals = () => {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500">Duration</span>
-                    <span className="font-medium">{formatMinutesToHours(selectedItem.requestedMinutes)}</span>
+                    <span className="font-medium">{formatDuration(selectedItem.requestedMinutes)}</span>
                   </div>
                 </>
               )}

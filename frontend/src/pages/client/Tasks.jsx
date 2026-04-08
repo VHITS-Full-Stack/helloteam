@@ -40,6 +40,7 @@ import {
 } from '../../components/common';
 import taskService from '../../services/task.service';
 import clientPortalService from '../../services/clientPortal.service';
+import { formatDate } from '../../utils/formatDateTime';
 
 const PRIORITY_CONFIG = {
   LOW: { label: 'Low', color: 'bg-gray-100 text-gray-700', dot: 'bg-gray-400' },
@@ -309,11 +310,6 @@ const Tasks = () => {
   const isOverdue = (task) => {
     if (!task.dueDate || task.status === 'DONE') return false;
     return new Date(task.dueDate) < new Date(new Date().toDateString());
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   const formatRelativeTime = (dateStr) => {

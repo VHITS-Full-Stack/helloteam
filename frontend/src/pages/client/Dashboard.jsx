@@ -19,7 +19,7 @@ import {
   Button,
   Avatar,
 } from "../../components/common";
-import { formatTimeInTimeZone } from "../../utils/formatTime";
+import { formatTimeInTimeZone } from "../../utils/formatDateTime";
 import clientPortalService from "../../services/clientPortal.service";
 import overtimeService from "../../services/overtime.service";
 import payrollService from "../../services/payroll.service";

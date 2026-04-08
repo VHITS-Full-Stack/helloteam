@@ -9,10 +9,14 @@ import {
   ChevronDown,
   ChevronUp,
   Building2,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { Card, Button, Badge, ExportButton } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
-import { formatHours } from "../../utils/formatTime";
+import { formatHours } from "../../utils/formatDateTime";
+import { formatDate } from "../../utils/formatDateTime";
 
 const Billing = () => {
   const [loading, setLoading] = useState(true);
@@ -23,6 +27,8 @@ const Billing = () => {
   const [invoiceTab, setInvoiceTab] = useState("pending");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [savingPayment, setSavingPayment] = useState(false);
+  const [payConfirmInvoice, setPayConfirmInvoice] = useState(null);
+  const [paymentResult, setPaymentResult] = useState(null);
   const [paymentForm, setPaymentForm] = useState({
     paymentMethod: "credit_card",
     ccCardholderName: "",
@@ -65,17 +71,21 @@ const Billing = () => {
 
   const [payingId, setPayingId] = useState(null);
 
-  const handleMarkPaid = async (invoiceId) => {
+  const handlePayInvoice = async (invoiceId) => {
     setPayingId(invoiceId);
+    setError(null);
+    setPaymentResult(null);
     try {
-      const response = await clientPortalService.markInvoicePaid(invoiceId);
+      const response = await clientPortalService.payInvoice(invoiceId);
       if (response.success) {
+        setPaymentResult({ success: true, data: response.data });
+        setPayConfirmInvoice(null);
         fetchBilling();
       } else {
-        setError(response.error || "Failed to mark as paid");
+        setPaymentResult({ success: false, error: response.error || "Payment was declined" });
       }
     } catch (err) {
-      setError(err.error || err.message || "Failed to mark as paid");
+      setPaymentResult({ success: false, error: err.error || err.message || "Payment failed. Please try again." });
     } finally {
       setPayingId(null);
     }
@@ -134,15 +144,6 @@ const Billing = () => {
       currency,
       minimumFractionDigits: 2,
     }).format(Number(amount) || 0);
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
   };
 
   const handleExportStatement = () => {
@@ -524,7 +525,7 @@ const Billing = () => {
                         {(invoice.status === "SENT" ||
                           invoice.status === "OVERDUE") && (
                           <button
-                            onClick={() => handleMarkPaid(invoice.id)}
+                            onClick={() => setPayConfirmInvoice(invoice)}
                             disabled={payingId === invoice.id}
                             className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 rounded-lg transition-colors disabled:opacity-50"
                           >
@@ -1062,6 +1063,146 @@ const Billing = () => {
                 Add Payment Method
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {payConfirmInvoice && !payingId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setPayConfirmInvoice(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Confirm Payment
+            </h3>
+            <p className="text-sm text-gray-500 mb-5">
+              You are about to pay invoice{" "}
+              <span className="font-semibold text-gray-700">
+                {payConfirmInvoice.invoiceNumber}
+              </span>
+            </p>
+
+            <div className="bg-gray-50 rounded-xl p-4 mb-5 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Period</span>
+                <span className="text-gray-900">
+                  {formatDate(payConfirmInvoice.periodStart)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Amount</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {formatCurrency(payConfirmInvoice.total, payConfirmInvoice.currency)}
+                </span>
+              </div>
+              {paymentMethod && (
+                <div className="flex justify-between text-sm pt-2 border-t border-gray-200">
+                  <span className="text-gray-500">Payment Method</span>
+                  <span className="text-gray-900">
+                    {paymentMethod.method === "ach" && paymentMethod.ach
+                      ? `ACH ···${paymentMethod.ach.lastFour}`
+                      : paymentMethod.creditCard
+                        ? `${paymentMethod.creditCard.cardType || "Card"} ····${paymentMethod.creditCard.lastFour}`
+                        : "On file"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setPayConfirmInvoice(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  const id = payConfirmInvoice.id;
+                  setPayConfirmInvoice(null);
+                  handlePayInvoice(id);
+                }}
+                className="px-5 py-2 text-sm font-semibold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors inline-flex items-center gap-2"
+              >
+                <DollarSign className="w-4 h-4" />
+                Pay {formatCurrency(payConfirmInvoice.total, payConfirmInvoice.currency)}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Processing Overlay */}
+      {payingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-sm mx-4 text-center">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">
+              Processing Payment
+            </h3>
+            <p className="text-sm text-gray-500">
+              Please wait while we process your payment...
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Result Modal */}
+      {paymentResult && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => setPaymentResult(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {paymentResult.success ? (
+              <>
+                <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Payment Successful
+                </h3>
+                <p className="text-sm text-gray-500 mb-2">
+                  Your payment has been processed successfully.
+                </p>
+                {paymentResult.data?.refNum && (
+                  <p className="text-xs text-gray-400 mb-4">
+                    Reference: {paymentResult.data.refNum}
+                  </p>
+                )}
+                {paymentResult.data?.maskedCard && (
+                  <p className="text-xs text-gray-400 mb-4">
+                    Charged to: {paymentResult.data.maskedCard}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <XCircle className="w-8 h-8 text-red-600" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Payment Failed
+                </h3>
+                <p className="text-sm text-red-600 mb-4">
+                  {paymentResult.error}
+                </p>
+              </>
+            )}
+            <button
+              onClick={() => setPaymentResult(null)}
+              className="px-5 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              {paymentResult.success ? "Done" : "Close"}
+            </button>
           </div>
         </div>
       )}

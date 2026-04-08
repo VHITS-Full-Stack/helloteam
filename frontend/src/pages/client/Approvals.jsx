@@ -29,7 +29,9 @@ import {
   formatHours,
   formatTime12,
   formatTimeInTimeZone,
-} from "../../utils/formatTime";
+  formatDuration,
+} from "../../utils/formatDateTime";
+import { formatDate, formatDateTime } from "../../utils/formatDateTime";
 
 const Approvals = () => {
   const [searchParams] = useSearchParams();
@@ -638,56 +640,6 @@ const Approvals = () => {
     }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    // Handle date range strings like "2026-02-03 to 2026-02-05"
-    if (typeof dateStr === "string" && dateStr.includes(" to ")) {
-      const [startStr, endStr] = dateStr.split(" to ");
-      const formatSingleDate = (str) => {
-        const [year, month, day] = str.trim().split("-").map(Number);
-        const d = new Date(year, month - 1, day);
-        return d.toLocaleDateString("en-US", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-        });
-      };
-      const startFormatted = formatSingleDate(startStr);
-      const endFormatted = formatSingleDate(endStr);
-      // If same date, just show once
-      if (startStr.trim() === endStr.trim()) {
-        return startFormatted;
-      }
-      return `${startFormatted} - ${endFormatted}`;
-    }
-    const date = new Date(dateStr);
-    // Check for Invalid Date
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true,
-    });
-  };
-
-  const formatMinutesToHours = (minutes) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
-
   const formatTimesheetDescription = (item) => {
     if (!item) return "";
     if (Number.isFinite(Number(item.hours))) {
@@ -935,7 +887,7 @@ const Approvals = () => {
                     ? timesheetSummary.revision_requested
                     : activeType === "autoOvertime"
                       ? autoOvertimeSummary.pending
-                      : formatMinutesToHours(overtimeSummary.totalPendingMinutes)}
+                      : formatDuration(overtimeSummary.totalPendingMinutes)}
               </p>
               <p className="text-sm text-gray-500">
                 {activeType === "leave"
@@ -1452,7 +1404,7 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <Badge variant="warning">
-                        {formatMinutesToHours(request.requestedMinutes)}
+                        {formatDuration(request.requestedMinutes)}
                       </Badge>
                     </TableCell>
                     <TableCell className="!px-3">
@@ -1600,7 +1552,7 @@ const Approvals = () => {
                 <span className="text-gray-500">Duration</span>
                 <span className="font-medium">
                   {activeType === "overtime" || activeType === "autoOvertime"
-                    ? formatMinutesToHours(selectedItem.requestedMinutes)
+                    ? formatDuration(selectedItem.requestedMinutes)
                     : selectedItem.hours !== undefined
                       ? `${selectedItem.hours} hours`
                       : `${selectedItem.days} days`}

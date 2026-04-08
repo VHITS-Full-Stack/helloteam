@@ -34,7 +34,7 @@ import { useEmployeeDetail } from '../../../hooks/useEmployeeData';
 import { useAuth } from '../../../context/AuthContext';
 import adminPortalService from '../../../services/adminPortal.service';
 
-import { formatDuration } from '../../../utils/formatTime';
+import { formatDuration } from '../../../utils/formatDateTime';
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

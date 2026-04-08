@@ -24,6 +24,7 @@ import {
   ExportButton,
 } from '../../components/common';
 import timeAdjustmentService from '../../services/timeAdjustment.service';
+import { formatDateTime } from '../../utils/formatDateTime';
 
 const AuditLog = () => {
   const [loading, setLoading] = useState(true);
@@ -83,19 +84,6 @@ const AuditLog = () => {
   useEffect(() => {
     fetchLogs();
   }, [fetchLogs]);
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
 
   const getActionBadge = (action) => {
     const variants = {

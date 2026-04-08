@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Clock, AlertCircle, CheckCircle, XCircle, Loader2, Search } from 'lucide-react';
 import { Card, Badge } from '../../components/common';
-import { formatTime12 } from '../../utils/formatTime';
+import { formatTime12 } from '../../utils/formatDateTime';
+import { formatDate } from '../../utils/formatDateTime';
 import overtimeService from '../../services/overtime.service';
 
 const statusConfig = {
@@ -48,10 +49,6 @@ const OvertimeRequests = () => {
     };
     fetchRequests();
   }, [filter, startDate, endDate]);
-
-  const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  };
 
   const formatMinutes = (minutes) => {
     if (!minutes) return '—';

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import { formatHours } from "../../utils/formatTime";
+import { formatHours } from "../../utils/formatDateTime";
 
 const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;

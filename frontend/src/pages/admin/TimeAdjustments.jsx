@@ -28,6 +28,7 @@ import {
   Modal,
 } from '../../components/common';
 import timeAdjustmentService from '../../services/timeAdjustment.service';
+import { formatDate, formatDateTime } from '../../utils/formatDateTime';
 
 const TimeAdjustments = () => {
   const [loading, setLoading] = useState(true);
@@ -144,44 +145,6 @@ const TimeAdjustments = () => {
     } finally {
       setAdjustLoading(false);
     }
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    // Handle YYYY-MM-DD format to avoid timezone issues
-    if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      });
-    }
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return '-';
-    return date.toLocaleString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
   };
 
   const formatMinutes = (minutes) => {
@@ -348,7 +311,12 @@ const TimeAdjustments = () => {
                         <span>{record.client.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell>{formatDate(record.date)}</TableCell>
+                    <TableCell>
+                      {formatDate(record.date, {
+                        includeWeekday: true,
+                        includeYear: true,
+                      })}
+                    </TableCell>
                     <TableCell>
                       <div>
                         <span className="font-medium">{formatMinutes(record.totalMinutes)}</span>
@@ -464,7 +432,12 @@ const TimeAdjustments = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Date</span>
-                <span className="font-medium">{formatDate(selectedRecord.date)}</span>
+                <span className="font-medium">
+                  {formatDate(selectedRecord.date, {
+                    includeWeekday: true,
+                    includeYear: true,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">Current Hours</span>
@@ -541,7 +514,13 @@ const TimeAdjustments = () => {
                 <Avatar name={selectedRecord.employee.name} src={selectedRecord.employee.profilePhoto} size="md" />
                 <div>
                   <p className="font-medium">{selectedRecord.employee.name}</p>
-                  <p className="text-sm text-gray-500">{formatDate(selectedRecord.date)} - {selectedRecord.client.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {formatDate(selectedRecord.date, {
+                      includeWeekday: true,
+                      includeYear: true,
+                    })}{' '}
+                    - {selectedRecord.client.name}
+                  </p>
                 </div>
               </div>
             </div>
@@ -570,7 +549,11 @@ const TimeAdjustments = () => {
                           )}
                         </p>
                         <p className="text-sm text-gray-500">
-                          by {adj.adjuster?.email || 'Unknown'} on {formatDateTime(adj.adjustedAt)}
+                          by {adj.adjuster?.email || 'Unknown'} on{' '}
+                          {formatDateTime(adj.adjustedAt, {
+                            includeWeekday: true,
+                            includeYear: true,
+                          })}
                         </p>
                       </div>
                       {adj.minutesDifference !== null && (

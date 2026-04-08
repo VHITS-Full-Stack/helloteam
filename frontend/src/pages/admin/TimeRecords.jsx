@@ -29,7 +29,8 @@ import {
   formatHours,
   formatDuration,
   formatTime12,
-} from "../../utils/formatTime";
+} from "../../utils/formatDateTime";
+import { formatDate } from "../../utils/formatDateTime";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
@@ -347,15 +348,6 @@ const TimeRecords = () => {
           </Badge>
         );
     }
-  };
-
-  const formatDate = (dateStr) => {
-    const date = new Date(dateStr + "T00:00:00");
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
   };
 
   // Format clock time to 12h display in client timezone when possible.
@@ -925,7 +917,7 @@ const TimeRecords = () => {
                         {/* Date */}
                         <td className="px-4 py-3 whitespace-nowrap">
                           <p className="text-sm text-gray-900">
-                            {formatDate(day.date)}
+                            {formatDate(day.date, { includeWeekday: true, includeYear: false })}
                           </p>
                         </td>
 
@@ -1355,7 +1347,7 @@ const TimeRecords = () => {
                   </p>
                   <p className="font-medium text-gray-900 text-sm mt-0.5">
                     {selectedRecord.date
-                      ? formatDate(selectedRecord.date)
+                      ? formatDate(selectedRecord.date, { includeWeekday: true, includeYear: false })
                       : "-"}
                   </p>
                 </div>

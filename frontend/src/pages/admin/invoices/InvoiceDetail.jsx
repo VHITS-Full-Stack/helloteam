@@ -3,15 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, FileText, Send, Trash2, CheckCircle, Loader2 } from 'lucide-react';
 import { Card, Button, Badge } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
-import { formatHours } from '../../../utils/formatTime';
+import { formatHours } from '../../../utils/formatDateTime';
+import { formatDate } from '../../../utils/formatDateTime';
 
 const formatCurrency = (amount, currency = 'USD') =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
-
-const formatDate = (dateStr) => {
-  if (!dateStr) return '—';
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
 
 const formatPeriod = (dateStr) => {
   if (!dateStr) return '—';
@@ -230,7 +226,9 @@ const InvoiceDetail = () => {
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Due Date</p>
-              <p className="text-sm font-semibold text-gray-900">{formatDate(invoice.dueDate)}</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {formatDate(invoice.dueDate, { emptyValue: "—" })}
+              </p>
             </div>
           </div>
         </Card>

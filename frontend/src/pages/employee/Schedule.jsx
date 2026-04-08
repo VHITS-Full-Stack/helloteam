@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { Card, Button, Badge } from "../../components/common";
 import scheduleService from "../../services/schedule.service";
-import { formatTime12 } from "../../utils/formatTime";
+import { formatTime12, formatDuration } from "../../utils/formatDateTime";
 
 // Helper: local date to YYYY-MM-DD (avoids UTC shift from toISOString)
 const toLocalDateStr = (date) => {
@@ -265,14 +265,6 @@ const Schedule = () => {
     return formatTime12(time);
   };
 
-  const formatMinutesToHours = (minutes) => {
-    if (!minutes) return "0h";
-    const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    if (mins === 0) return `${hrs}h`;
-    return `${hrs}h ${mins}m`;
-  };
-
   // Get display title
   const getDisplayTitle = () => {
     if (viewMode === "week") {
@@ -366,7 +358,7 @@ const Schedule = () => {
             </h3>
             <p className="text-sm text-gray-500">
               Total: {totals.totalHours} hours scheduled (
-              {formatMinutesToHours(totals.totalMinutes)})
+              {formatDuration(totals.totalMinutes)})
             </p>
           </div>
           <button
@@ -414,7 +406,7 @@ const Schedule = () => {
                               {formatTime(day.startTime)} - {formatTime(day.endTime)} (EST)
                             </p>
                             <p className="text-xs font-medium text-gray-900">
-                              {formatMinutesToHours(day.scheduledMinutes)}
+                              {formatDuration(day.scheduledMinutes)}
                             </p>
                           </>
                         ) : (
@@ -515,9 +507,7 @@ const Schedule = () => {
                                   {formatTime(day.schedule.startTime)}
                                 </p>
                                 <p className="text-xs font-medium text-green-600">
-                                  {formatMinutesToHours(
-                                    day.schedule.scheduledMinutes,
-                                  )}
+                                  {formatDuration(day.schedule.scheduledMinutes)}
                                 </p>
                               </>
                             ) : (
@@ -588,7 +578,7 @@ const Schedule = () => {
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Total Hours</span>
                     <span className="font-semibold text-gray-900">
-                      {formatMinutesToHours(todaySchedule.scheduledMinutes)}
+                      {formatDuration(todaySchedule.scheduledMinutes)}
                     </span>
                   </div>
                 </div>
@@ -719,7 +709,7 @@ const Schedule = () => {
                             {formatTime(day.endTime)}
                           </td>
                           <td className="py-3 px-4 text-right font-medium text-gray-900">
-                            {formatMinutesToHours(day.scheduledMinutes)}
+                            {formatDuration(day.scheduledMinutes)}
                           </td>
                         </tr>
                       );

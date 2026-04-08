@@ -31,8 +31,8 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePermissions } from "../../hooks/usePermissions";
 import { PERMISSIONS } from "../../config/permissions";
 import clientPortalService from "../../services/clientPortal.service";
-import overtimeService from "../../services/overtime.service";
 import adminPortalService from "../../services/adminPortal.service";
+import chatService from "../../services/chat.service";
 
 const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlledCollapsed, onToggleCollapse }) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -41,28 +41,48 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
 
   // Fetch pending approval counts for sidebar badge
   const fetchPendingCounts = useCallback(async () => {
     if (portalType === "client") {
       try {
-        const [approvalsRes, otSummaryRes] = await Promise.all([
+        const [approvalsRes, timesheetRes, chatRes] = await Promise.all([
           clientPortalService.getApprovals({
             status: "pending",
             type: "leave",
           }),
-          overtimeService.getOvertimeSummary({}),
+          clientPortalService.getApprovals({
+            status: "pending",
+            limit: 1,
+          }),
+          chatService.getUnreadCount(),
         ]);
         let total = 0;
         if (approvalsRes.success) {
+          // Pending leave requests + pending OT requests
           total += approvalsRes.data?.summary?.pending || 0;
+          total += approvalsRes.data?.summary?.overtimePending || 0;
         }
-        if (otSummaryRes.success) {
-          total += otSummaryRes.data?.pending || 0;
+        if (timesheetRes.success) {
+          // Pending time records (from pagination total)
+          total += timesheetRes.data?.pagination?.total || 0;
         }
         setPendingApprovalCount(total);
+        if (chatRes.success) {
+          setUnreadChatCount(chatRes.data?.count || 0);
+        }
       } catch (e) {
         console.error("Failed to fetch pending counts:", e);
+      }
+    } else if (portalType === "employee") {
+      try {
+        const chatRes = await chatService.getUnreadCount();
+        if (chatRes.success) {
+          setUnreadChatCount(chatRes.data?.count || 0);
+        }
+      } catch (e) {
+        console.error("Failed to fetch employee chat count:", e);
       }
     } else if (portalType === "admin") {
       try {
@@ -92,7 +112,11 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     // Re-fetch when approvals are updated
     const handleUpdate = () => fetchPendingCounts();
     window.addEventListener("approvals-updated", handleUpdate);
-    return () => window.removeEventListener("approvals-updated", handleUpdate);
+    window.addEventListener("chat-updated", handleUpdate);
+    return () => {
+      window.removeEventListener("approvals-updated", handleUpdate);
+      window.removeEventListener("chat-updated", handleUpdate);
+    };
   }, [fetchPendingCounts]);
 
   const employeeLinks = [
@@ -107,7 +131,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     { group: "Finance" },
     { to: "/employee/payslips", icon: Wallet, label: "Payslips" },
     { group: "" },
-    { to: "/employee/chat", icon: MessageCircle, label: "Chat" },
+    { to: "/employee/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
     { to: "/employee/support", icon: MessageSquare, label: "Support" },
     { to: "/employee/profile", icon: User, label: "Profile" },
   ];
@@ -130,7 +154,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     { to: "/client/billing", icon: CreditCard, label: "Billing & Invoices" },
     { to: "/client/rate-history", icon: TrendingUp, label: "Rate History" },
     { group: "Team" },
-    { to: "/client/chat", icon: MessageCircle, label: "Chat" },
+    { to: "/client/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
     { to: "/client/tasks", icon: ClipboardList, label: "Tasks" },
     { group: "" },
     { to: "/client/profile", icon: User, label: "Profile" },

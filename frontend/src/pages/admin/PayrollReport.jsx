@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, Users, Clock, DollarSign, Loader2, FileText } from 'lucide-react';
 import { Card, Button } from '../../components/common';
 import payrollService from '../../services/payroll.service';
-import { formatHours } from '../../utils/formatTime';
+import { formatHours } from '../../utils/formatDateTime';
 
 const PayrollReport = () => {
   const navigate = useNavigate();

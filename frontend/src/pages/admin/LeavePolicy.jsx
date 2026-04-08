@@ -31,6 +31,7 @@ import {
   AddButton,
 } from "../../components/common";
 import leavePolicyService from "../../services/leavePolicy.service";
+import { formatDate } from "../../utils/formatDateTime";
 
 const LeavePolicy = () => {
   const [activeTab, setActiveTab] = useState("policies");
@@ -362,26 +363,6 @@ const LeavePolicy = () => {
   // ============================================
   // HELPERS
   // ============================================
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      const [year, month, day] = dateStr.split("-").map(Number);
-      const date = new Date(year, month - 1, day);
-      return date.toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return "-";
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const getEntitlementLabel = (type) => {
     switch (type) {

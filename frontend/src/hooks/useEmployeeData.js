@@ -4,7 +4,7 @@ import clientService from "../services/client.service";
 import groupService from "../services/group.service";
 import api from "../services/api";
 import scheduleService from "../services/schedule.service";
-import { formatTime12 } from "../utils/formatTime";
+import { formatTime12 } from "../utils/formatDateTime";
 
 /**
  * Custom hook for employee data fetching and state management

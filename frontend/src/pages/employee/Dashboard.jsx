@@ -57,7 +57,7 @@ import {
   playBreakStartSound,
   playBreakEndSound,
 } from "../../utils/sounds";
-import { formatTime12, formatDuration } from "../../utils/formatTime";
+import { formatTime12, formatDuration } from "../../utils/formatDateTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 

@@ -138,6 +138,30 @@ const clientPortalService = {
     return response;
   },
 
+  // Process payment for an invoice via Sola
+  payInvoice: async (invoiceId) => {
+    const response = await api.post(`/client-portal/invoices/${invoiceId}/pay`);
+    return response;
+  },
+
+  // Get payment history
+  getPayments: async () => {
+    const response = await api.get('/client-portal/payments');
+    return response;
+  },
+
+  // Get payment gateway config (iFields key)
+  getPaymentConfig: async () => {
+    const response = await api.get('/client-portal/payment-config');
+    return response;
+  },
+
+  // Tokenize a new payment method
+  tokenizePaymentMethod: async (data) => {
+    const response = await api.post('/client-portal/payment-method/tokenize', data);
+    return response;
+  },
+
   // Settings APIs
   getSettings: async () => {
     const response = await api.get('/client-portal/settings');

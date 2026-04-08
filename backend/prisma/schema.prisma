@@ -279,6 +279,7 @@ model Client {
   autoApprovalLogs AutoApprovalLog[]
   payslips         Payslip[]
   clientRequests   ClientRequest[]
+  payments         Payment[]
 
   @@map("clients")
 }
@@ -342,6 +343,12 @@ model ClientAgreement {
   achRoutingNumber String?
   achAccountNumber String?
   achAccountType   String?
+
+  // Sola Payment Tokens (PCI-compliant tokenized storage)
+  solaCardToken    String?   // xToken from Sola for credit card
+  solaAchToken     String?   // xToken from Sola for ACH
+  solaCardLastFour String?   // Last 4 digits of tokenized card
+  solaCardType     String?   // Card brand from Sola (Visa, Mastercard, etc.)
 
   // Signed PDF data (base64)
   signedPdfData String?
@@ -1308,11 +1315,63 @@ model Invoice {
 
   client    Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
   lineItems InvoiceLineItem[]
+  payments  Payment[]
 
   @@index([clientId])
   @@index([status])
   @@index([createdAt])
   @@map("invoices")
+}
+
+// ============================================
+// PAYMENTS (Sola Payment Gateway)
+// ============================================
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  APPROVED
+  DECLINED
+  ERROR
+  VOIDED
+  REFUNDED
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  invoiceId       String
+  clientId        String
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("USD")
+  status          PaymentStatus @default(PENDING)
+  paymentMethod   String        // 'credit_card' or 'ach'
+
+  // Sola transaction details
+  solaRefNum      String?       // xRefNum from Sola
+  solaAuthCode    String?       // xAuthCode
+  solaAuthAmount  Decimal?      @db.Decimal(10, 2) // xAuthAmount
+  solaMaskedCard  String?       // xMaskedCardNumber
+  solaCardType    String?       // xCardType
+  solaToken       String?       // xToken returned
+  solaBatch       String?       // xBatch
+  solaError       String?       // xError if failed
+  solaErrorCode   String?       // xErrorCode
+  solaResult      String?       // xResult (A/D/E)
+  solaDate        String?       // xDate from response
+
+  processedAt     DateTime?
+  processedBy     String?       // userId who initiated
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([clientId])
+  @@index([status])
+  @@index([solaRefNum])
+  @@map("payments")
 }
 
 model InvoiceLineItem {

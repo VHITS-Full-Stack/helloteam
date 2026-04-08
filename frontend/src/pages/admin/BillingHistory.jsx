@@ -27,6 +27,7 @@ import {
   ExportButton,
 } from '../../components/common';
 import rateHistoryService from '../../services/rateHistory.service';
+import { formatDateTime } from '../../utils/formatDateTime';
 
 const BillingHistory = () => {
   const [loading, setLoading] = useState(true);
@@ -92,19 +93,6 @@ const BillingHistory = () => {
   useEffect(() => {
     setPagination(prev => ({ ...prev, page: 1 }));
   }, [debouncedSearch, rateTypeFilter, dateFrom, dateTo]);
-
-  const formatDateTime = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
 
   const formatRate = (value) => {
     if (value === null || value === undefined) return '—';

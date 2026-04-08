@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import leaveService from '../../services/leave.service';
+import { formatDate } from '../../utils/formatDateTime';
 
 const Leave = () => {
   const [activeTab, setActiveTab] = useState('request');
@@ -182,16 +183,6 @@ const Leave = () => {
     } catch (err) {
       setError(err.error || err.message || 'Failed to cancel request');
     }
-  };
-
-  // Format date
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
   };
 
   // Get status badge
@@ -594,8 +585,18 @@ const Leave = () => {
                             {getLeaveTypeLabel(request.leaveType)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(request.startDate)}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(request.endDate)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {formatDate(request.startDate, {
+                            includeWeekday: true,
+                            includeYear: true,
+                          })}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600">
+                          {formatDate(request.endDate, {
+                            includeWeekday: true,
+                            includeYear: true,
+                          })}
+                        </td>
                         <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">
                           {request.requestedDays}
                         </td>
@@ -702,11 +703,21 @@ const Leave = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Start Date:</span>
-                <span className="font-medium">{formatDate(selectedRequest.startDate)}</span>
+                <span className="font-medium">
+                  {formatDate(selectedRequest.startDate, {
+                    includeWeekday: true,
+                    includeYear: true,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">End Date:</span>
-                <span className="font-medium">{formatDate(selectedRequest.endDate)}</span>
+                <span className="font-medium">
+                  {formatDate(selectedRequest.endDate, {
+                    includeWeekday: true,
+                    includeYear: true,
+                  })}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-gray-500">Total Days:</span>

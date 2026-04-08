@@ -39,6 +39,12 @@ import {
   clientMarkInvoicePaid,
 } from '../controllers/invoice.controller';
 import { updatePaymentMethod } from '../controllers/agreement.controller';
+import {
+  processInvoicePayment,
+  getClientPayments,
+  getPaymentConfig,
+  tokenizePaymentMethod,
+} from '../controllers/payment.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 import { requireOnboardingComplete } from '../middleware/onboarding.middleware';
 
@@ -143,8 +149,20 @@ router.get('/invoices/:invoiceId', getClientInvoiceById);
 // Client marks invoice as paid
 router.post('/invoices/:invoiceId/mark-paid', clientMarkInvoicePaid);
 
+// Process payment for an invoice via Sola
+router.post('/invoices/:invoiceId/pay', processInvoicePayment);
+
+// Payment history
+router.get('/payments', getClientPayments);
+
+// Payment gateway config (iFields key)
+router.get('/payment-config', getPaymentConfig);
+
 // Update payment method
 router.post('/payment-method', updatePaymentMethod);
+
+// Tokenize payment method via Sola
+router.post('/payment-method/tokenize', tokenizePaymentMethod);
 
 // ============================================
 // SETTINGS ROUTES

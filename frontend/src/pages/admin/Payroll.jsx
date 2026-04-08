@@ -46,7 +46,8 @@ import {
   TableCell,
 } from "../../components/common";
 import payrollService from "../../services/payroll.service";
-import { formatHours } from "../../utils/formatTime";
+import { formatHours } from "../../utils/formatDateTime";
+import { formatDate } from "../../utils/formatDateTime";
 import adminPortalService from "../../services/adminPortal.service";
 
 const Payroll = () => {
@@ -298,16 +299,6 @@ const Payroll = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "-";
-    const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
 
   const formatPeriodLabel = (start, end) => {
     const startDate = new Date(start);

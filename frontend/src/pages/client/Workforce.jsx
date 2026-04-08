@@ -29,7 +29,7 @@ import {
   TableCell,
   Modal
 } from '../../components/common';
-import { formatTimeInTimeZone } from '../../utils/formatTime';
+import { formatTimeInTimeZone } from '../../utils/formatDateTime';
 import clientPortalService from '../../services/clientPortal.service';
 
 const Workforce = () => {

@@ -33,7 +33,7 @@ import timeRecordService from "../../services/timeRecord.service";
 import {
   formatDuration as formatDurationShort,
   formatTime12,
-} from "../../utils/formatTime";
+} from "../../utils/formatDateTime";
 
 const TimeRecords = () => {
   const [activeTab, setActiveTab] = useState("timesheets");

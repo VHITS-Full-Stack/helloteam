@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Card, Badge, Avatar, Button, ExportButton } from "../../components/common";
 import payslipService from "../../services/payslip.service";
+import { formatDate } from "../../utils/formatDateTime";
 
 const Payslips = () => {
   const [loading, setLoading] = useState(true);
@@ -47,16 +48,6 @@ const Payslips = () => {
     } finally {
       setDetailLoading(false);
     }
-  };
-
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      timeZone: "UTC",
-    });
   };
 
   const formatPeriod = (start, end) => {
@@ -207,7 +198,11 @@ const Payslips = () => {
                 {d.dailyRecords.map((rec, idx) => (
                   <tr key={idx} className="hover:bg-gray-50">
                     <td className="px-3 py-2 font-medium text-gray-900">
-                      {formatDate(rec.date)}
+                      {formatDate(rec.date, {
+                        timeZone: "UTC",
+                        emptyValue: "—",
+                        dateOnlyAsUTC: true,
+                      })}
                     </td>
                     <td className="px-3 py-2 text-center text-gray-600">
                       {rec.billingStart && rec.billingEnd ? (

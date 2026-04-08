@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import workSessionService from '../../services/workSession.service';
 import notificationService from '../../services/notification.service';
-import { formatTime12 } from '../../utils/formatTime';
+import { formatTime12 } from '../../utils/formatDateTime';
 
 /**
  * Global shift-related modals for employee portal.

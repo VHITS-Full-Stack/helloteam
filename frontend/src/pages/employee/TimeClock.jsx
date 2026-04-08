@@ -21,7 +21,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
-import { formatTime12 } from '../../utils/formatTime';
+import { formatTime12 } from '../../utils/formatDateTime';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
