@@ -601,12 +601,8 @@ export const generateInvoicesForPeriod = async (
 
     // When a specific client is requested or admin manual trigger, include all active clients.
     // Only filter by agreement type during cron job (automatic generation).
-    const clientWhere: any = {
-      user: { status: 'ACTIVE' },
-    };
-    if (clientId) {
-      clientWhere.id = clientId;
-    } else if (cronMode) {
+    const clientWhere: any = clientId ? { id: clientId } : { user: { status: 'ACTIVE' } };
+    if (!clientId && cronMode) {
       // Cron job: only MONTHLY or null/unset agreement clients
       clientWhere.OR = [
         { agreementType: { notIn: ['WEEKLY', 'BI_WEEKLY'] } },
@@ -696,12 +692,8 @@ export const generateWeeklyInvoicesForWeek = async (
     const sunday = new Date(monday);
     sunday.setUTCDate(monday.getUTCDate() + 6);
 
-    const clientWhere: any = {
-      user: { status: 'ACTIVE' },
-    };
-    if (clientId) {
-      clientWhere.id = clientId;
-    } else if (cronMode) {
+    const clientWhere: any = clientId ? { id: clientId } : { user: { status: 'ACTIVE' } };
+    if (!clientId && cronMode) {
       // Cron job: only WEEKLY agreement clients (BI_WEEKLY handled by separate bi-weekly job)
       clientWhere.agreementType = 'WEEKLY';
     }
@@ -825,15 +817,11 @@ export const generateBiWeeklyInvoicesForPeriod = async (
       periodEnd = new Date(Date.UTC(year, month, 0)); // last day of month
     }
 
-    const clientWhere: any = {
+    const clientWhere: any = clientId ? { id: clientId } : {
       user: { status: 'ACTIVE' },
-    };
-    if (clientId) {
-      clientWhere.id = clientId;
-    } else {
       // Always filter to BI_WEEKLY clients — generating half-month invoices for other types is wrong
-      clientWhere.agreementType = 'BI_WEEKLY';
-    }
+      agreementType: 'BI_WEEKLY',
+    };
 
     const clients = await prisma.client.findMany({
       where: clientWhere,
@@ -1187,12 +1175,7 @@ export const previewInvoicesForPeriod = async (
   const periodEnd = new Date(Date.UTC(year, month, 0));
 
   // Preview always includes all active clients (admin manual action)
-  const clientWhere: any = {
-    user: { status: 'ACTIVE' },
-  };
-  if (clientId) {
-    clientWhere.id = clientId;
-  }
+  const clientWhere: any = clientId ? { id: clientId } : { user: { status: 'ACTIVE' } };
 
   const clients = await prisma.client.findMany({
     where: clientWhere,
@@ -1232,12 +1215,7 @@ export const previewWeeklyInvoicesForWeek = async (
   sunday.setUTCDate(monday.getUTCDate() + 6);
 
   // Include all active clients for weekly preview (admin manual trigger).
-  const clientWhere: any = {
-    user: { status: 'ACTIVE' },
-  };
-  if (clientId) {
-    clientWhere.id = clientId;
-  }
+  const clientWhere: any = clientId ? { id: clientId } : { user: { status: 'ACTIVE' } };
 
   const clients = await prisma.client.findMany({
     where: clientWhere,
@@ -1286,15 +1264,11 @@ export const previewBiWeeklyInvoicesForPeriod = async (
     periodEnd = new Date(Date.UTC(year, month, 0));
   }
 
-  const clientWhere: any = {
+  const clientWhere: any = clientId ? { id: clientId } : {
     user: { status: 'ACTIVE' },
-  };
-  if (clientId) {
-    clientWhere.id = clientId;
-  } else {
     // Only preview BI_WEEKLY clients for half-month periods
-    clientWhere.agreementType = 'BI_WEEKLY';
-  }
+    agreementType: 'BI_WEEKLY',
+  };
 
   const clients = await prisma.client.findMany({
     where: clientWhere,
