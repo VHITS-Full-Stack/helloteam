@@ -46,14 +46,14 @@ const Invoices = () => {
     const day = now.getDay() || 7;
     const mon = new Date(now);
     mon.setDate(now.getDate() - day + 1);
-    return mon.toISOString().slice(0, 10);
+    return `${mon.getFullYear()}-${String(mon.getMonth() + 1).padStart(2, '0')}-${String(mon.getDate()).padStart(2, '0')}`;
   });
   const [dateTo, setDateTo] = useState(() => {
     const now = new Date();
     const day = now.getDay() || 7;
     const sun = new Date(now);
     sun.setDate(now.getDate() - day + 7);
-    return sun.toISOString().slice(0, 10);
+    return `${sun.getFullYear()}-${String(sun.getMonth() + 1).padStart(2, '0')}-${String(sun.getDate()).padStart(2, '0')}`;
   });
 
   // Generate modal
