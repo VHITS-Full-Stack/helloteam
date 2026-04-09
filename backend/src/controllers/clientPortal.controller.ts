@@ -1770,8 +1770,24 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             }
           }
           const sessionBillingMins = isActive ? 0 : (timeRecord?.billingMinutes || effectiveSessionMinutes);
-          // Use billing minutes (which respect 7-min grace rule) for regular hours
-          const sessionRegularMinutes = isActive ? 0 : Math.max(0, sessionBillingMins - sessionOvertimeMinutes);
+          // Compute scheduled duration for this session to cap regular hours
+          let scheduledDurationMins = 0;
+          if (daySchedule?.startTime && daySchedule?.endTime) {
+            const [sH, sM] = daySchedule.startTime.split(':').map(Number);
+            const [eH, eM] = daySchedule.endTime.split(':').map(Number);
+            scheduledDurationMins = (eH * 60 + eM) - (sH * 60 + sM);
+            if (scheduledDurationMins <= 0) scheduledDurationMins += 24 * 60; // overnight shift
+          }
+          // Regular hours: if worked beyond schedule, cap at scheduled work time; otherwise use billing - OT
+          const scheduledWorkMins = Math.max(0, scheduledDurationMins - breakMins);
+          let sessionRegularMinutes: number;
+          if (isActive) {
+            sessionRegularMinutes = 0;
+          } else if (scheduledDurationMins > 0 && sessionMins > scheduledWorkMins) {
+            sessionRegularMinutes = scheduledWorkMins;
+          } else {
+            sessionRegularMinutes = Math.max(0, sessionBillingMins - sessionOvertimeMinutes);
+          }
           console.log(`[DEBUG-CLIENT] emp=${empId.substring(0,8)} session=${session.id.substring(0,8)} start=${session.startTime.toISOString()} sessionMins=${sessionMins} effectiveMin=${effectiveSessionMinutes} billingMins=${sessionBillingMins} trExtra=${timeRecord?.extraTimeMinutes||0} trExt=${timeRecord?.shiftExtensionMinutes||0} matchedOT=${sessionOvertime} finalOT=${sessionOvertimeMinutes} regular=${sessionRegularMinutes}`);
           const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
 
