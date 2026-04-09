@@ -426,6 +426,7 @@ const GenerateInvoice = () => {
                             <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">OT Hours</th>
                             <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">Rate</th>
                             <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">OT Rate</th>
+                            <th className="text-right px-3 py-2 text-[10px] font-semibold text-gray-400 uppercase">Total Hours</th>
                             <th className="text-right px-4 py-2 text-[10px] font-semibold text-gray-400 uppercase">Amount</th>
                           </tr>
                         </thead>
@@ -441,6 +442,7 @@ const GenerateInvoice = () => {
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}</td>
                               <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.overtimeRate)}</td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatHours(Number(li.hours) + Number(li.overtimeHours || 0))}</td>
                               <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{formatCurrency(li.amount)}</td>
                             </tr>
                           ))}
