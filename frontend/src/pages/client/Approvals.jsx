@@ -1067,7 +1067,7 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(item.submittedAt)}
+                        {formatDateTime(item.submittedAt, { timeZone: clientTimezone })}
                       </span>
                     </TableCell>
                     {activeTab === "pending" && (
@@ -1097,7 +1097,7 @@ const Approvals = () => {
                     {activeTab === "approved" && (
                       <TableCell className="!px-3">
                         <span className="text-xs text-green-600">
-                          {formatDateTime(item.approvedAt)}
+                          {formatDateTime(item.approvedAt, { timeZone: clientTimezone })}
                         </span>
                       </TableCell>
                     )}
@@ -1240,7 +1240,7 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(item.submittedAt)}
+                        {formatDateTime(item.submittedAt, { timeZone: clientTimezone })}
                       </span>
                     </TableCell>
                     <TableCell className="!px-3">
@@ -1268,7 +1268,7 @@ const Approvals = () => {
                         </div>
                       ) : item.status === "approved" || item.status === "auto_approved" ? (
                         <span className="text-xs text-green-600">
-                          {formatDateTime(item.approvedAt)}
+                          {formatDateTime(item.approvedAt, { timeZone: clientTimezone })}
                         </span>
                       ) : item.status === "revision_requested" ? (
                         <span
@@ -1419,7 +1419,7 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(request.createdAt)}
+                        {formatDateTime(request.createdAt, { timeZone: clientTimezone })}
                       </span>
                     </TableCell>
                     {activeTab === "pending" && (
@@ -1450,7 +1450,7 @@ const Approvals = () => {
                       <TableCell className="!px-3">
                         <div>
                           <span className="text-xs text-green-600">
-                            {formatDateTime(request.approvedAt)}
+                            {formatDateTime(request.approvedAt, { timeZone: clientTimezone })}
                           </span>
                           {request.approver && (
                             <p className="text-xs text-gray-500">

@@ -526,7 +526,7 @@ const Approvals = () => {
                       )}
                       <TableCell className="!px-3">{getStatusBadge(itemStatus)}</TableCell>
                       <TableCell className="!px-3">
-                        <span className="text-xs text-gray-500">{formatDateTime(isOTType ? item.createdAt : item.submittedAt)}</span>
+                        <span className="text-xs text-gray-500">{formatDateTime(isOTType ? item.createdAt : item.submittedAt, { timeZone: 'America/New_York' })}</span>
                       </TableCell>
                       {(statusFilter === 'pending' || statusFilter === 'all') && (
                         <TableCell className="!px-3">
