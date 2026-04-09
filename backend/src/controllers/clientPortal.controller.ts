@@ -3039,16 +3039,16 @@ export const getClientBilling = async (req: AuthenticatedRequest, res: Response)
     // Get per-employee billing rates (assignment override > employee billing rate > client default)
     const clientEmployees = await prisma.clientEmployee.findMany({
       where: { clientId, isActive: true },
-      select: {
-        employeeId: true,
-        hourlyRate: true,
-        employee: { select: { billingRate: true } },
+      include: {
+        employee: {
+          select: { billingRate: true },
+        },
       },
     });
 
     const employeeRateMap: Record<string, number> = {};
     for (const ce of clientEmployees) {
-      const employeeBillingRate = (ce as any).employee?.billingRate ? Number((ce as any).employee.billingRate) : null;
+      const employeeBillingRate = ce.employee.billingRate ? Number(ce.employee.billingRate) : null;
       employeeRateMap[ce.employeeId] = ce.hourlyRate ? Number(ce.hourlyRate)
         : employeeBillingRate ? employeeBillingRate
         : defaultHourlyRate;
