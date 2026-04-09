@@ -1947,7 +1947,9 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               }
               // If TimeRecord has shift extension or extra time OT but no matching OvertimeRequest,
               // create a synthetic entry so the frontend can display it in the correct column
-              if (entries.length === 0 && timeRecord && !isActive) {
+              // Only create synthetic entries for off-shift sessions (extra time / shift extension
+              // OT belongs to the session that actually worked beyond the schedule)
+              if (entries.length === 0 && timeRecord && !isActive && isOffShiftSession) {
                 const trExtMins = timeRecord.shiftExtensionMinutes || 0;
                 const trExtraMins = timeRecord.extraTimeMinutes || 0;
                 if (trExtMins > 0) {
