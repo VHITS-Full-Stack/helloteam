@@ -42,7 +42,11 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
           status: 'PENDING',
           actualStart: { not: null },
           createdAt: { lte: cutoffTime },
-          ...(policy.overtimeRequiresApproval !== false ? { overtimeMinutes: { lte: OT_GRACE_MINUTES } } : {}),
+          ...(policy.overtimeRequiresApproval !== false ? {
+            overtimeMinutes: { lte: OT_GRACE_MINUTES },
+            extraTimeMinutes: { lte: OT_GRACE_MINUTES },
+            shiftExtensionMinutes: { lte: OT_GRACE_MINUTES },
+          } : {}),
         },
         include: {
           employee: {
