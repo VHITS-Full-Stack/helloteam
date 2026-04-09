@@ -339,11 +339,11 @@ const generateInvoiceForClient = async (
       hourlyRate: defaultHourlyRate,
       overtimeRate: defaultOTRate,
     };
-    const totalHours = Math.round((agg.totalMinutes / 60) * 100) / 100;
+    const regularMinutes = agg.totalMinutes - agg.overtimeMinutes;
+    const regularHours = Math.round((regularMinutes / 60) * 100) / 100;
     const otHours = Math.round((agg.overtimeMinutes / 60) * 100) / 100;
-    const regularHours = Math.round((totalHours - otHours) * 100) / 100;
-    const regularPay = Math.round(regularHours * rates.hourlyRate * 100) / 100;
-    const overtimePay = Math.round(otHours * rates.overtimeRate * 100) / 100;
+    const regularPay = Math.round((regularMinutes * rates.hourlyRate / 60) * 100) / 100;
+    const overtimePay = Math.round((agg.overtimeMinutes * rates.overtimeRate / 60) * 100) / 100;
     const lineAmount = regularPay + overtimePay;
 
     totalHoursAll += regularHours + otHours;
@@ -1141,11 +1141,11 @@ const previewInvoiceForClient = async (
     if (rates.hourlyRate > 0 && !ratesUsed.includes(rates.hourlyRate)) {
       ratesUsed.push(rates.hourlyRate);
     }
-    const totalHrs = Math.round((agg.totalMin / 60) * 100) / 100;
+    const regularMin = agg.totalMin - agg.otMin;
+    const regularHrs = Math.round((regularMin / 60) * 100) / 100;
     const otHrs = Math.round((agg.otMin / 60) * 100) / 100;
-    const regularHrs = Math.round((totalHrs - otHrs) * 100) / 100;
-    const regularPay = Math.round(regularHrs * rates.hourlyRate * 100) / 100;
-    const overtimePay = Math.round(otHrs * rates.overtimeRate * 100) / 100;
+    const regularPay = Math.round((regularMin * rates.hourlyRate / 60) * 100) / 100;
+    const overtimePay = Math.round((agg.otMin * rates.overtimeRate / 60) * 100) / 100;
     const lineAmount = regularPay + overtimePay;
     estimatedTotal += lineAmount;
 
