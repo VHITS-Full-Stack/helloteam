@@ -106,7 +106,7 @@ const Tasks = () => {
   const [isEditing, setIsEditing] = useState(false);
 
   // Form
-  const [form, setForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: '', employeeId: '' });
+  const [form, setForm] = useState({ title: '', description: '', priority: 'MEDIUM', dueDate: new Date().toISOString().split('T')[0], employeeId: '' });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
 
@@ -178,7 +178,7 @@ const Tasks = () => {
     DONE: filteredTasks.filter(t => t.status === 'DONE'),
   }), [filteredTasks]);
 
-  const resetForm = () => { setForm({ title: '', description: '', priority: 'MEDIUM', dueDate: '', employeeId: '' }); setFormError(''); };
+  const resetForm = () => { setForm({ title: '', description: '', priority: 'MEDIUM', dueDate: new Date().toISOString().split('T')[0], employeeId: '' }); setFormError(''); };
 
   const openCreate = () => { resetForm(); setIsEditing(false); setShowCreateModal(true); };
 
