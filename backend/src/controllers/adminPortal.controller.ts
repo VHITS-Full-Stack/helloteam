@@ -1024,7 +1024,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
             // If multiple sessions on this day with OT requests,
             // sessions without OT show auto_approved, sessions with OT show approved
             if (daySessions.length > 1 && allDayOTs.length > 0) {
-              const thisSessionHasOT = sessionOTEntries.length > 0 || overtimeHours > 0;
+              const thisSessionHasOT = sessionOTEntries.length > 0 || overtimeHours > 0 || isOffShiftSession;
               if (!thisSessionHasOT) return 'auto_approved';
             }
           }
