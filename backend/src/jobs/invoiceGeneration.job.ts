@@ -267,11 +267,10 @@ const generateInvoiceForClient = async (
   // Determine rates
   const policy = client.clientPolicies;
   const defaultHourlyRate = policy ? Number(policy.defaultHourlyRate) : 0;
-  const defaultOTRate = policy
-    ? Number(policy.defaultOvertimeRate) > 0
-      ? Number(policy.defaultOvertimeRate)
-      : defaultHourlyRate * 1
-    : 0;
+  // defaultOvertimeRate schema default is 1, which means "use 1x hourly rate" (not $1/hr).
+  // Only use as an absolute OT rate if explicitly configured above 1.
+  const rawDefaultOT = policy ? Number(policy.defaultOvertimeRate) : 0;
+  const defaultOTRate = rawDefaultOT > 1 ? rawDefaultOT : 0;
   const currency = policy?.currency || 'USD';
 
   // Fetch client-group billing rates
@@ -1052,11 +1051,8 @@ const previewInvoiceForClient = async (
   // Rate priority: assignment override > employee billing rate > client-group rate > group rate > client default
   const policy = client.clientPolicies;
   const defaultHourlyRate = policy ? Number(policy.defaultHourlyRate) : 0;
-  const defaultOTRate = policy
-    ? Number(policy.defaultOvertimeRate) > 0
-      ? Number(policy.defaultOvertimeRate)
-      : defaultHourlyRate * 1
-    : 0;
+  const rawDefaultOT2 = policy ? Number(policy.defaultOvertimeRate) : 0;
+  const defaultOTRate = rawDefaultOT2 > 1 ? rawDefaultOT2 : 0;
 
   // Fetch client-group billing rates
   const clientGroupRecords = await prisma.clientGroup.findMany({
