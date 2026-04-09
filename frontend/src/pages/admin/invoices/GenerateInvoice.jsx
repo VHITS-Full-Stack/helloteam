@@ -440,11 +440,7 @@ const GenerateInvoice = () => {
                                   : <span className="text-gray-300">—</span>}
                               </td>
                               <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.rate)}</td>
-                              <td className="px-3 py-2 text-sm text-right">
-                                {Number(li.overtimeHours) > 0
-                                  ? <span className="text-orange-600">{formatCurrency(li.overtimeRate)}</span>
-                                  : <span className="text-gray-300">—</span>}
-                              </td>
+                              <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(li.overtimeRate)}</td>
                               <td className="px-4 py-2 text-sm font-semibold text-gray-900 text-right">{formatCurrency(li.amount)}</td>
                             </tr>
                           ))}
