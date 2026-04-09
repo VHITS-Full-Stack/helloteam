@@ -43,7 +43,7 @@ async function main() {
       status: true,
       periodStart: true,
       periodEnd: true,
-      totalAmount: true,
+      total: true,
       createdAt: true,
       _count: { select: { timeRecords: true } },
     },
@@ -56,7 +56,7 @@ async function main() {
   for (const inv of invoices) {
     const start = inv.periodStart.toISOString().split('T')[0];
     const end = inv.periodEnd.toISOString().split('T')[0];
-    console.log(`  ${inv.invoiceNumber}  [${inv.status}]  ${start} → ${end}  records: ${inv._count.timeRecords}  amount: ${inv.totalAmount}  created: ${inv.createdAt.toISOString().split('T')[0]}`);
+    console.log(`  ${inv.invoiceNumber}  [${inv.status}]  ${start} → ${end}  records: ${inv._count.timeRecords}  total: ${inv.total}  created: ${inv.createdAt.toISOString().split('T')[0]}`);
   }
 
   // Find time records that have invoiceId set
