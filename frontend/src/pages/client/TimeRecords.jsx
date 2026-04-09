@@ -745,6 +745,7 @@ const TimeRecords = () => {
                     ...rec,
                     empId: emp.id,
                     empName: emp.employee,
+                    empPhoto: emp.profilePhoto,
                   })),
                 )
                 .sort((a, b) => {
@@ -961,46 +962,58 @@ const TimeRecords = () => {
                                 {getStatusBadge(displayStatus)}
                               </td>
                               <td className="py-2.5 px-4 text-right">
-                                {pendingOTs.length > 0 ? (
-                                  <div className="flex items-center justify-end gap-1">
+                                <div className="flex items-center justify-end gap-1">
+                                  {pendingOTs.length > 0 ? (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          openOTSelectionModal(
+                                            pendingOTs,
+                                            "approve",
+                                          )
+                                        }
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50"
+                                      >
+                                        <Check className="w-3 h-3" /> Approve
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          openOTSelectionModal(
+                                            pendingOTs,
+                                            "reject",
+                                          )
+                                        }
+                                        disabled={actionLoading}
+                                        className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50"
+                                      >
+                                        <X className="w-3 h-3" /> Deny
+                                      </button>
+                                    </>
+                                  ) : rec.timeRecordId && status === "pending" ? (
                                     <button
                                       onClick={() =>
-                                        openOTSelectionModal(
-                                          pendingOTs,
-                                          "approve",
-                                        )
+                                        handleApprove(rec.timeRecordId)
                                       }
                                       disabled={actionLoading}
                                       className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50"
                                     >
                                       <Check className="w-3 h-3" /> Approve
                                     </button>
-                                    <button
-                                      onClick={() =>
-                                        openOTSelectionModal(
-                                          pendingOTs,
-                                          "reject",
-                                        )
-                                      }
-                                      disabled={actionLoading}
-                                      className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-red-700 bg-red-50 rounded hover:bg-red-100 disabled:opacity-50"
-                                    >
-                                      <X className="w-3 h-3" /> Deny
-                                    </button>
-                                  </div>
-                                ) : rec.timeRecordId && status === "pending" ? (
+                                  ) : null}
                                   <button
                                     onClick={() =>
-                                      handleApprove(rec.timeRecordId)
+                                      handleViewTimesheet(
+                                        rec.empId,
+                                        rec.empName,
+                                        rec.empPhoto,
+                                      )
                                     }
-                                    disabled={actionLoading}
-                                    className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-green-700 bg-green-50 rounded hover:bg-green-100 disabled:opacity-50"
+                                    className="inline-flex items-center gap-0.5 px-2 py-1 text-[10px] font-medium text-primary-600 bg-primary-50 rounded hover:bg-primary-100 transition-colors"
                                   >
-                                    <Check className="w-3 h-3" /> Approve
+                                    <Eye className="w-3 h-3" /> View
                                   </button>
-                                ) : (
-                                  <span className="text-gray-300">—</span>
-                                )}
+                                </div>
                               </td>
                             </tr>
                           );
