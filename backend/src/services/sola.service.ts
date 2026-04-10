@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 const SOLA_GATEWAY_URL = 'https://x1.cardknox.com/gatewayjson';
-const SOLA_API_KEY = process.env.SOLA_PAYMENT || '';
 const SOFTWARE_NAME = 'HelloTeam';
 const SOFTWARE_VERSION = '1.0.0';
 const API_VERSION = '5.0.0';
@@ -36,7 +35,7 @@ export interface SolaResponse {
 }
 
 const buildBaseRequest = (command: string, amount: number, invoiceNumber?: string): SolaBaseRequest => ({
-  xKey: SOLA_API_KEY,
+  xKey: process.env.SOLA_API_KEY || '',
   xVersion: API_VERSION,
   xSoftwareName: SOFTWARE_NAME,
   xSoftwareVersion: SOFTWARE_VERSION,
