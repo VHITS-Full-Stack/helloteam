@@ -412,6 +412,10 @@ const GenerateInvoice = () => {
                         <span className="text-xs text-orange-400 mr-1">OT:</span>
                         <span className="text-xs font-semibold text-orange-600">{formatHours(Number(item.overtimeHours || 0))}</span>
                       </div>
+                           <div className="hidden sm:block">
+                        <span className="text-xs text-orange-400 mr-1">Total Hrs:</span>
+                        <span className="text-xs font-semibold text-orange-600">{formatHours(Number(item.totalHours))}</span>
+                      </div>
                       <p className="text-sm font-bold text-gray-900">{formatCurrency(item.estimatedTotal, item.currency)}</p>
                     </div>
                   </div>
