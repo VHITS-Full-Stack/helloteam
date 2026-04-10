@@ -20,7 +20,7 @@ import { createNotification } from './notification.controller';
 export const processInvoicePayment = async (req: Request, res: Response): Promise<void> => {
   try {
     const { invoiceId } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
 
     // Get the client
     const client = await prisma.client.findFirst({
@@ -201,7 +201,7 @@ export const processInvoicePayment = async (req: Request, res: Response): Promis
  */
 export const getClientPayments = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const client = await prisma.client.findFirst({ where: { userId } });
 
     if (!client) {
@@ -246,7 +246,7 @@ export const getPaymentConfig = async (_req: Request, res: Response): Promise<vo
  */
 export const tokenizePaymentMethod = async (req: Request, res: Response): Promise<void> => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = (req as any).user?.userId;
     const { paymentMethod, cardNumber, exp, cvv, name, street, zip, routingNumber, accountNumber } = req.body;
 
     const client = await prisma.client.findFirst({
