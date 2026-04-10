@@ -583,6 +583,19 @@ const generateEmployeeWiseInvoices = async (
 ): Promise<number> => {
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
 
+  // Free time records from any old draft invoices for this period (e.g. old group-wise drafts)
+  // so they can be picked up in the query below.
+  const oldDrafts = await prisma.invoice.findMany({
+    where: { clientId: client.id, periodStart, periodEnd, status: 'DRAFT' },
+    select: { id: true, invoiceNumber: true },
+  });
+  if (oldDrafts.length > 0) {
+    console.log(`[Invoice] Cleaning up ${oldDrafts.length} old draft(s) for ${client.companyName}: ${oldDrafts.map(d => d.invoiceNumber).join(', ')}`);
+    const oldIds = oldDrafts.map(d => d.id);
+    await prisma.timeRecord.updateMany({ where: { invoiceId: { in: oldIds } }, data: { invoiceId: null } });
+    await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
+  }
+
   // Get all employee IDs that have actual approved time records for this period
   const recordEmployeeIds = (await prisma.timeRecord.findMany({
     where: {

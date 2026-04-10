@@ -84,8 +84,10 @@ const GenerateInvoice = () => {
     }
     if (clientId !== 'all') {
       params.clientId = clientId;
+      params.invoiceByGroup = invoiceByGroup === 'group';
     }
-    params.invoiceByGroup = invoiceByGroup === 'group';
+    // When 'all clients' is selected, don't send invoiceByGroup so each client
+    // uses its own policy setting from the database.
     return params;
   }, [year, frequency, week, month, half, clientId, invoiceByGroup]);
 
