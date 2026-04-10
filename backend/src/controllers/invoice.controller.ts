@@ -134,103 +134,149 @@ const buildInvoicePdf = async (
   const rowHeight = 28;
   const headerHeight = 28;
 
-  // Build line item rows from invoice data
+  // Build line item rows from invoice data, grouped by groupName when present
   const lineItems = invoice.lineItems || [];
-  const tableRows: { item: string; desc: string; unitPrice: string; qty: string; amount: string }[] = [];
+  const hasGroups = lineItems.some((li: any) => li.groupName);
 
-  for (const li of lineItems) {
-    const hours = parseFloat(String(li.hours)) || 0;
-    const rate = parseFloat(String(li.rate)) || 0;
-    const otHours = parseFloat(String(li.overtimeHours)) || 0;
-    const otRate = parseFloat(String(li.overtimeRate)) || 0;
-    const empName = li.employeeName || 'Unknown';
+  type TableEntry =
+    | { type: 'group-header'; name: string }
+    | { type: 'row'; item: string; desc: string; unitPrice: string; qty: string; amount: string }
+    | { type: 'group-subtotal'; name: string; amount: string };
 
-    if (hours > 0) {
-      const regularAmount = Math.round(hours * rate * 100) / 100;
-      tableRows.push({
-        item: 'Hours',
-        desc: empName,
-        unitPrice: rate.toFixed(2),
-        qty: hours.toFixed(2),
-        amount: regularAmount.toFixed(2),
-      });
+  const tableEntries: TableEntry[] = [];
+
+  if (hasGroups) {
+    // Group line items: grouped employees first (sorted by group name), ungrouped at bottom
+    const grouped = new Map<string, typeof lineItems>();
+    const ungrouped: typeof lineItems = [];
+
+    for (const li of lineItems) {
+      const gName = (li as any).groupName;
+      if (gName) {
+        if (!grouped.has(gName)) grouped.set(gName, []);
+        grouped.get(gName)!.push(li);
+      } else {
+        ungrouped.push(li);
+      }
     }
 
-    if (otHours > 0) {
-      const otAmount = Math.round(otHours * otRate * 100) / 100;
-      tableRows.push({
-        item: 'OT Hours',
-        desc: empName,
-        unitPrice: otRate.toFixed(2),
-        qty: otHours.toFixed(2),
-        amount: otAmount.toFixed(2),
-      });
+    const renderGroup = (groupName: string | null, items: typeof lineItems) => {
+      if (groupName) tableEntries.push({ type: 'group-header', name: groupName });
+      let groupTotal = 0;
+      for (const li of items) {
+        const hours = parseFloat(String(li.hours)) || 0;
+        const rate = parseFloat(String(li.rate)) || 0;
+        const otHours = parseFloat(String((li as any).overtimeHours)) || 0;
+        const otRate = parseFloat(String((li as any).overtimeRate)) || 0;
+        const empName = (li as any).employeeName || 'Unknown';
+        if (hours > 0) {
+          const amt = Math.round(hours * rate * 100) / 100;
+          groupTotal += amt;
+          tableEntries.push({ type: 'row', item: 'Hours', desc: empName, unitPrice: rate.toFixed(2), qty: hours.toFixed(2), amount: amt.toFixed(2) });
+        }
+        if (otHours > 0) {
+          const amt = Math.round(otHours * otRate * 100) / 100;
+          groupTotal += amt;
+          tableEntries.push({ type: 'row', item: 'OT Hours', desc: empName, unitPrice: otRate.toFixed(2), qty: otHours.toFixed(2), amount: amt.toFixed(2) });
+        }
+      }
+      if (groupName) tableEntries.push({ type: 'group-subtotal', name: groupName, amount: groupTotal.toFixed(2) });
+    };
+
+    for (const [gName, items] of grouped) renderGroup(gName, items);
+    if (ungrouped.length > 0) renderGroup(null, ungrouped);
+  } else {
+    // Flat list — no group headers
+    for (const li of lineItems) {
+      const hours = parseFloat(String(li.hours)) || 0;
+      const rate = parseFloat(String(li.rate)) || 0;
+      const otHours = parseFloat(String((li as any).overtimeHours)) || 0;
+      const otRate = parseFloat(String((li as any).overtimeRate)) || 0;
+      const empName = (li as any).employeeName || 'Unknown';
+      if (hours > 0) {
+        const amt = Math.round(hours * rate * 100) / 100;
+        tableEntries.push({ type: 'row', item: 'Hours', desc: empName, unitPrice: rate.toFixed(2), qty: hours.toFixed(2), amount: amt.toFixed(2) });
+      }
+      if (otHours > 0) {
+        const amt = Math.round(otHours * otRate * 100) / 100;
+        tableEntries.push({ type: 'row', item: 'OT Hours', desc: empName, unitPrice: otRate.toFixed(2), qty: otHours.toFixed(2), amount: amt.toFixed(2) });
+      }
     }
   }
+
+  // Helper: draw table column header row
+  const drawTableHeader = (topY: number) => {
+    drawRect(col.item, topY - headerHeight, contentWidth, headerHeight);
+    const midY = topY - headerHeight / 2 + 4;
+    page.drawText('Item', { x: col.item + 8, y: midY, size: 10, font: fontBold, color: darkGray });
+    page.drawText('Description', { x: col.desc + 8, y: midY, size: 10, font: fontBold, color: darkGray });
+    page.drawText('Unit Price', { x: col.unitPrice + 8, y: midY, size: 10, font: fontBold, color: darkGray });
+    page.drawText('Quantity', { x: col.qty + 8, y: midY, size: 10, font: fontBold, color: darkGray });
+    page.drawText('Amount', { x: col.amount + 8, y: midY, size: 10, font: fontBold, color: darkGray });
+    for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
+      page.drawLine({ start: { x: cx, y: topY }, end: { x: cx, y: topY - headerHeight }, thickness: 0.5, color: black });
+    }
+  };
 
   // Draw table header
-  const headerTop = y;
-  drawRect(col.item, headerTop - headerHeight, contentWidth, headerHeight);
+  drawTableHeader(y);
+  y -= headerHeight;
 
-  // Header vertical lines
-  const headerMidY = headerTop - headerHeight / 2 + 4;
-  page.drawText('Item', { x: col.item + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
-  page.drawText('Description', { x: col.desc + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
-  page.drawText('Unit Price', { x: col.unitPrice + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
-  page.drawText('Quantity', { x: col.qty + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
-  page.drawText('Amount', { x: col.amount + 8, y: headerMidY, size: 10, font: fontBold, color: darkGray });
+  // Draw entries
+  for (let idx = 0; idx < tableEntries.length; idx++) {
+    const entry = tableEntries[idx];
 
-  // Vertical column lines in header
-  for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
-    page.drawLine({
-      start: { x: cx, y: headerTop },
-      end: { x: cx, y: headerTop - headerHeight },
-      thickness: 0.5, color: black,
-    });
-  }
-
-  y = headerTop - headerHeight;
-
-  // Draw rows
-  for (let idx = 0; idx < tableRows.length; idx++) {
-    const row = tableRows[idx];
-
-    // Check if we need a new page (reserve space for notes + totals)
-    if (y - rowHeight < 180 && idx < tableRows.length) {
-      // Close table bottom line on current page
+    // Check if we need a new page
+    if (y - rowHeight < 180) {
       hLine(margin, y, contentWidth);
       addNewPage();
-
-      // Re-draw table header on new page
-      const newHeaderTop = y;
-      drawRect(col.item, newHeaderTop - headerHeight, contentWidth, headerHeight);
-      page.drawText('Item', { x: col.item + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
-      page.drawText('Description', { x: col.desc + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
-      page.drawText('Unit Price', { x: col.unitPrice + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
-      page.drawText('Quantity', { x: col.qty + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
-      page.drawText('Amount', { x: col.amount + 8, y: newHeaderTop - headerHeight / 2 + 4, size: 10, font: fontBold, color: darkGray });
-      for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
-        page.drawLine({ start: { x: cx, y: newHeaderTop }, end: { x: cx, y: newHeaderTop - headerHeight }, thickness: 0.5, color: black });
-      }
-      y = newHeaderTop - headerHeight;
+      drawTableHeader(y);
+      y -= headerHeight;
     }
 
+    if (entry.type === 'group-header') {
+      // Gray full-width header for the group
+      const rowTop = y;
+      const rowBottom = rowTop - rowHeight;
+      page.drawRectangle({ x: margin, y: rowBottom, width: contentWidth, height: rowHeight, color: rgb(0.92, 0.92, 0.92) });
+      hLine(margin, rowTop, contentWidth);
+      hLine(margin, rowBottom, contentWidth);
+      page.drawLine({ start: { x: margin, y: rowTop }, end: { x: margin, y: rowBottom }, thickness: 0.5, color: black });
+      page.drawLine({ start: { x: tableRight, y: rowTop }, end: { x: tableRight, y: rowBottom }, thickness: 0.5, color: black });
+      page.drawText(entry.name, { x: col.item + 8, y: rowTop - rowHeight / 2 - 3, size: 10, font: fontBold, color: darkGray });
+      y = rowBottom;
+      continue;
+    }
+
+    if (entry.type === 'group-subtotal') {
+      // Subtotal row — right-aligned bold amount
+      const rowTop = y;
+      const rowBottom = rowTop - rowHeight;
+      hLine(margin, rowTop, contentWidth);
+      hLine(margin, rowBottom, contentWidth);
+      page.drawLine({ start: { x: margin, y: rowTop }, end: { x: margin, y: rowBottom }, thickness: 0.5, color: black });
+      page.drawLine({ start: { x: tableRight, y: rowTop }, end: { x: tableRight, y: rowBottom }, thickness: 0.5, color: black });
+      const subtotalLabel = `${entry.name} Subtotal`;
+      const subtotalLabelW = fontBold.widthOfTextAtSize(subtotalLabel, 9);
+      const amtW = fontBold.widthOfTextAtSize(entry.amount, 9);
+      const midY2 = rowTop - rowHeight / 2 - 3;
+      page.drawText(subtotalLabel, { x: col.amount - 8 - subtotalLabelW - 10, y: midY2, size: 9, font: fontBold, color: darkGray });
+      page.drawText(entry.amount, { x: tableRight - 8 - amtW, y: midY2, size: 9, font: fontBold, color: darkGray });
+      y = rowBottom;
+      continue;
+    }
+
+    // Normal row
+    const row = entry;
     const rowTop = y;
     const rowBottom = rowTop - rowHeight;
-
-    // Row borders: left, right, bottom
-    // Left border
     page.drawLine({ start: { x: margin, y: rowTop }, end: { x: margin, y: rowBottom }, thickness: 0.5, color: black });
-    // Right border
     page.drawLine({ start: { x: tableRight, y: rowTop }, end: { x: tableRight, y: rowBottom }, thickness: 0.5, color: black });
-    // Bottom border
     hLine(margin, rowBottom, contentWidth);
-    // Vertical column lines
     for (const cx of [col.desc, col.unitPrice, col.qty, col.amount]) {
       page.drawLine({ start: { x: cx, y: rowTop }, end: { x: cx, y: rowBottom }, thickness: 0.5, color: black });
     }
 
-    // Row text (vertically centered)
     const textY = rowTop - rowHeight / 2 - 3;
     page.drawText(row.item, { x: col.item + 8, y: textY, size: 10, font, color: darkGray });
 
@@ -468,7 +514,7 @@ export const getInvoiceById = async (req: AuthenticatedRequest, res: Response): 
             user: { select: { email: true } },
           },
         },
-        lineItems: true,
+        lineItems: { orderBy: [{ groupName: 'asc' }, { employeeName: 'asc' }] },
       },
     });
 
@@ -894,7 +940,9 @@ export const getClientInvoiceById = async (req: AuthenticatedRequest, res: Respo
 
     const invoice = await prisma.invoice.findFirst({
       where: { id: invoiceId, clientId: client.id },
-      include: { lineItems: true },
+      include: {
+        lineItems: { orderBy: [{ groupName: 'asc' }, { employeeName: 'asc' }] },
+      },
     });
 
     if (!invoice) {
@@ -983,10 +1031,9 @@ export const downloadInvoicePdf = async (req: AuthenticatedRequest, res: Respons
             address: true,
             phone: true,
             user: { select: { email: true } },
-            clientPolicies: { select: { invoiceByGroup: true } },
           },
         },
-        lineItems: true,
+        lineItems: { orderBy: [{ groupName: 'asc' }, { employeeName: 'asc' }] },
       },
     });
 
@@ -1014,62 +1061,10 @@ export const downloadInvoicePdf = async (req: AuthenticatedRequest, res: Respons
       }
     }
 
-    // For group-wise invoicing: merge all invoices for the same client + period into one PDF
-    const isGroupWise = !!(invoice.client as any)?.clientPolicies?.invoiceByGroup;
-    let invoiceForPdf: any = invoice;
-
-    if (isGroupWise) {
-      const siblingInvoices = await prisma.invoice.findMany({
-        where: {
-          clientId: invoice.clientId,
-          periodStart: invoice.periodStart,
-          periodEnd: invoice.periodEnd,
-        },
-        include: { lineItems: true },
-        orderBy: { invoiceNumber: 'asc' },
-      });
-
-      if (siblingInvoices.length > 1) {
-        // Merge all line items and sum totals
-        const mergedLineItems = siblingInvoices.flatMap(inv => inv.lineItems);
-        const mergedSubtotal = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.subtotal)), 0
-        );
-        const mergedTotal = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.total)), 0
-        );
-        const mergedTotalHours = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.totalHours)), 0
-        );
-        const mergedNotes = siblingInvoices
-          .map(inv => inv.notes)
-          .filter(Boolean)
-          .join('\n');
-
-        // Use a clean combined invoice number (strip group/employee prefix)
-        const clientPrefix = invoice.clientId.substring(0, 6).toUpperCase();
-        const periodMatch = invoice.invoiceNumber.match(/^(INV-\d{4}-\w+?(?:-H\d)?)-/);
-        const combinedNumber = periodMatch
-          ? `${periodMatch[1]}-${clientPrefix}`
-          : invoice.invoiceNumber;
-
-        invoiceForPdf = {
-          ...invoice,
-          invoiceNumber: combinedNumber,
-          lineItems: mergedLineItems,
-          subtotal: mergedSubtotal,
-          total: mergedTotal,
-          totalHours: mergedTotalHours,
-          notes: mergedNotes || null,
-          dueDate: siblingInvoices[siblingInvoices.length - 1].dueDate,
-        };
-      }
-    }
-
-    const pdfBytes = await buildInvoicePdf(invoiceForPdf, companyInfo);
+    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${invoiceForPdf.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Download invoice PDF error:', error);
@@ -1134,60 +1129,10 @@ export const downloadClientInvoicePdf = async (req: AuthenticatedRequest, res: R
       }
     }
 
-    // For group-wise invoicing: merge all invoices for the same client + period into one PDF
-    const isGroupWise = !!(invoice.client as any)?.clientPolicies?.invoiceByGroup;
-    let invoiceForPdf: any = invoice;
-
-    if (isGroupWise) {
-      const siblingInvoices = await prisma.invoice.findMany({
-        where: {
-          clientId: invoice.clientId,
-          periodStart: invoice.periodStart,
-          periodEnd: invoice.periodEnd,
-        },
-        include: { lineItems: true },
-        orderBy: { invoiceNumber: 'asc' },
-      });
-
-      if (siblingInvoices.length > 1) {
-        const mergedLineItems = siblingInvoices.flatMap(inv => inv.lineItems);
-        const mergedSubtotal = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.subtotal)), 0
-        );
-        const mergedTotal = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.total)), 0
-        );
-        const mergedTotalHours = siblingInvoices.reduce(
-          (sum, inv) => sum + parseFloat(String(inv.totalHours)), 0
-        );
-        const mergedNotes = siblingInvoices
-          .map(inv => inv.notes)
-          .filter(Boolean)
-          .join('\n');
-
-        const clientPrefix = invoice.clientId.substring(0, 6).toUpperCase();
-        const periodMatch = invoice.invoiceNumber.match(/^(INV-\d{4}-\w+?(?:-H\d)?)-/);
-        const combinedNumber = periodMatch
-          ? `${periodMatch[1]}-${clientPrefix}`
-          : invoice.invoiceNumber;
-
-        invoiceForPdf = {
-          ...invoice,
-          invoiceNumber: combinedNumber,
-          lineItems: mergedLineItems,
-          subtotal: mergedSubtotal,
-          total: mergedTotal,
-          totalHours: mergedTotalHours,
-          notes: mergedNotes || null,
-          dueDate: siblingInvoices[siblingInvoices.length - 1].dueDate,
-        };
-      }
-    }
-
-    const pdfBytes = await buildInvoicePdf(invoiceForPdf, companyInfo);
+    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${invoiceForPdf.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Download client invoice PDF error:', error);

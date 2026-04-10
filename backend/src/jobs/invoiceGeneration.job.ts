@@ -70,6 +70,7 @@ const generateInvoiceForClient = async (
   invoiceNumber: string,
   io?: Server,
   employeeFilter?: Set<string>,
+  employeeGroupMap?: Map<string, string>, // employeeId -> groupName
 ): Promise<boolean> => {
   // Check if invoice already exists
   const existing = await prisma.invoice.findUnique({
@@ -329,6 +330,7 @@ const generateInvoiceForClient = async (
   const lineItemsData: {
     employeeId: string;
     employeeName: string;
+    groupName: string | null;
     hours: number;
     overtimeHours: number;
     rate: number;
@@ -361,6 +363,7 @@ const generateInvoiceForClient = async (
     lineItemsData.push({
       employeeId: empId,
       employeeName: agg.employeeName,
+      groupName: employeeGroupMap?.get(empId) ?? null,
       hours: regularHours,
       overtimeHours: otHours,
       rate: rates.hourlyRate,
@@ -487,8 +490,9 @@ const generateInvoiceForClient = async (
  * Only processes clients with MONTHLY agreement type (or null for backward compatibility).
  */
 /**
- * Generate separate invoices per group for a client with invoiceByGroup enabled.
- * Employees not in any group get a separate "Ungrouped" invoice.
+ * Generate ONE invoice for a client with invoiceByGroup enabled.
+ * All employees are included — grouped employees tagged with their group name,
+ * ungrouped employees tagged as null (shown at bottom of PDF).
  */
 const generateGroupWiseInvoices = async (
   client: ClientWithRelations,
@@ -510,66 +514,36 @@ const generateGroupWiseInvoices = async (
     },
   });
 
-  // Get all employee IDs that have actual time records for this period (includes inactive-at-client employees)
-  const recordEmployeeIds = new Set<string>(
-    (await prisma.timeRecord.findMany({
-      where: {
-        clientId: client.id,
-        status: { in: ['APPROVED', 'AUTO_APPROVED'] },
-        date: { gte: periodStart, lte: periodEnd },
-        invoiceId: null,
-      },
-      select: { employeeId: true },
-    })).map(r => r.employeeId)
-  );
-
-  // Build group -> employeeIds map
-  const groupEmployeeMap = new Map<string, { groupName: string; employeeIds: Set<string> }>();
-  const allGroupedEmployeeIds = new Set<string>();
-
+  // Build employeeId -> groupName map for all grouped employees
+  const employeeGroupMap = new Map<string, string>();
   for (const cg of clientGroups) {
-    const empIds = new Set(cg.group.employees.map(e => e.employeeId));
-    // Include employees that have records for this period (covers inactive-at-client employees too)
-    const validEmpIds = new Set([...empIds].filter(id => recordEmployeeIds.has(id)));
-
-    if (validEmpIds.size > 0) {
-      groupEmployeeMap.set(cg.groupId, { groupName: cg.group.name, employeeIds: validEmpIds });
-      validEmpIds.forEach(id => allGroupedEmployeeIds.add(id));
+    for (const emp of cg.group.employees) {
+      // If an employee is in multiple groups, last one wins (edge case)
+      employeeGroupMap.set(emp.employeeId, cg.group.name);
     }
   }
 
-  // Find ungrouped employees (employees with records not in any of this client's groups)
-  const ungroupedEmpIds = [...recordEmployeeIds].filter(id => !allGroupedEmployeeIds.has(id));
-
-  let generated = 0;
+  // Generate ONE invoice for all employees, passing the group map so line items are tagged
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
+  const invoiceNumber = `${invoicePrefix}-${clientPrefix}`;
+  const dueDate = new Date(periodEnd);
+  dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
 
-  // Generate invoice per group
-  for (const [groupId, { groupName, employeeIds }] of groupEmployeeMap) {
-    const groupPrefix = groupId.substring(0, 4).toUpperCase();
-    const invoiceNumber = `${invoicePrefix}-G${groupPrefix}-${clientPrefix}`;
-    const dueDate = new Date(periodEnd);
-    dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
-
-    try {
-      const success = await generateInvoiceForClient(
-        client, periodStart, periodEnd, dueDate, invoiceNumber, io, employeeIds
-      );
-      if (success) {
-        console.log(`[Invoice] Generated group invoice ${invoiceNumber} for ${client.companyName} / ${groupName}`);
-        generated++;
-      }
-    } catch (err: any) {
-      console.error(`[Invoice] Failed group invoice for ${client.companyName}/${groupName}:`, err.message);
+  try {
+    const success = await generateInvoiceForClient(
+      client, periodStart, periodEnd, dueDate, invoiceNumber, io,
+      undefined, // no employee filter — include all
+      employeeGroupMap,
+    );
+    if (success) {
+      console.log(`[Invoice] Generated group-wise invoice ${invoiceNumber} for ${client.companyName}`);
+      return 1;
     }
+  } catch (err: any) {
+    console.error(`[Invoice] Failed group-wise invoice for ${client.companyName}:`, err.message);
   }
 
-  // Skip ungrouped employees when invoiceByGroup is enabled
-  if (ungroupedEmpIds.length > 0) {
-    console.log(`[Invoice] Skipping ${ungroupedEmpIds.length} ungrouped employee(s) for ${client.companyName} — invoiceByGroup is enabled, assign them to a group to include them`);
-  }
-
-  return generated;
+  return 0;
 };
 
 /**

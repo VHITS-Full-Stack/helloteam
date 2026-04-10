@@ -1379,6 +1379,7 @@ model InvoiceLineItem {
   invoiceId     String
   employeeId    String
   employeeName  String
+  groupName     String?
   hours         Decimal @default(0) @db.Decimal(10, 2)
   overtimeHours Decimal @default(0) @db.Decimal(10, 2)
   rate          Decimal @default(0) @db.Decimal(10, 2)
