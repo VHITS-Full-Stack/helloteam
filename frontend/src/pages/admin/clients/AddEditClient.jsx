@@ -695,13 +695,11 @@ const AddClient = () => {
                   </p>
                 </div>
               )}
-            </div>
-
               {/* Invoice by Group */}
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">Group-wise Invoicing</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
+                  <label className="text-sm text-gray-700">Group-wise Invoicing</label>
+                  <p className="text-xs text-gray-400">
                     Generate separate invoices for each group instead of one invoice per client
                   </p>
                 </div>
@@ -712,6 +710,7 @@ const AddClient = () => {
                   className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                 />
               </div>
+            </div>
           </div>
 
           {/* Holiday Configuration */}
