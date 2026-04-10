@@ -572,6 +572,55 @@ const generateGroupWiseInvoices = async (
   return generated;
 };
 
+/**
+ * Generate separate invoices per employee for a client without invoiceByGroup.
+ */
+const generateEmployeeWiseInvoices = async (
+  client: ClientWithRelations,
+  periodStart: Date,
+  periodEnd: Date,
+  paymentTermsDays: number,
+  invoicePrefix: string,
+  io?: Server,
+): Promise<number> => {
+  // Get all employee IDs that have actual approved time records for this period
+  const recordEmployeeIds = (await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      status: { in: ['APPROVED', 'AUTO_APPROVED'] },
+      date: { gte: periodStart, lte: periodEnd },
+      invoiceId: null,
+    },
+    select: { employeeId: true },
+  })).map(r => r.employeeId);
+
+  const uniqueEmployeeIds = [...new Set(recordEmployeeIds)];
+
+  let generated = 0;
+  const clientPrefix = client.id.substring(0, 6).toUpperCase();
+
+  for (const empId of uniqueEmployeeIds) {
+    const empPrefix = empId.substring(0, 4).toUpperCase();
+    const invoiceNumber = `${invoicePrefix}-E${empPrefix}-${clientPrefix}`;
+    const dueDate = new Date(periodEnd);
+    dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
+
+    try {
+      const success = await generateInvoiceForClient(
+        client, periodStart, periodEnd, dueDate, invoiceNumber, io, new Set([empId])
+      );
+      if (success) {
+        console.log(`[Invoice] Generated employee invoice ${invoiceNumber} for ${client.companyName}`);
+        generated++;
+      }
+    } catch (err: any) {
+      console.error(`[Invoice] Failed employee invoice ${invoiceNumber} for ${client.companyName}:`, err.message);
+    }
+  }
+
+  return generated;
+};
+
 export const generateInvoicesForPeriod = async (
   year: number,
   month: number, // 1-indexed (1 = January)
@@ -613,7 +662,6 @@ export const generateInvoicesForPeriod = async (
     for (const client of clients) {
       try {
         const monthStr = String(month).padStart(2, '0');
-        const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
 
         const useGroupWise = invoiceByGroupOverride !== undefined
@@ -627,19 +675,11 @@ export const generateInvoicesForPeriod = async (
           );
           generated += groupResults;
         } else {
-          const invoiceNumber = `INV-${year}-${monthStr}-${clientPrefix}`;
-          const dueDate = new Date(periodEnd);
-          dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
-
-          const success = await generateInvoiceForClient(
-            client as any,
-            periodStart,
-            periodEnd,
-            dueDate,
-            invoiceNumber,
-            io,
+          // Employee-wise invoicing: generate separate invoice per employee
+          const empResults = await generateEmployeeWiseInvoices(
+            client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}`, io
           );
-          if (success) generated++;
+          generated += empResults;
         }
       } catch (clientError: any) {
         const errMsg = `Failed to generate invoice for client ${client.companyName}: ${clientError.message}`;
@@ -701,7 +741,6 @@ export const generateWeeklyInvoicesForWeek = async (
     for (const client of clients) {
       try {
         const weekStr = String(week).padStart(2, '0');
-        const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 7;
 
         const useGroupWise = invoiceByGroupOverride !== undefined
@@ -714,19 +753,11 @@ export const generateWeeklyInvoicesForWeek = async (
           );
           generated += groupResults;
         } else {
-          const invoiceNumber = `INV-${year}-W${weekStr}-${clientPrefix}`;
-          const dueDate = new Date(sunday);
-          dueDate.setUTCDate(sunday.getUTCDate() + paymentTermsDays);
-
-          const success = await generateInvoiceForClient(
-            client as any,
-            monday,
-            sunday,
-            dueDate,
-            invoiceNumber,
-            io,
+          // Employee-wise invoicing: generate separate invoice per employee
+          const empResults = await generateEmployeeWiseInvoices(
+            client as any, monday, sunday, paymentTermsDays, `INV-${year}-W${weekStr}`, io
           );
-          if (success) generated++;
+          generated += empResults;
         }
       } catch (clientError: any) {
         const errMsg = `Failed to generate weekly invoice for client ${client.companyName}: ${clientError.message}`;
@@ -826,7 +857,6 @@ export const generateBiWeeklyInvoicesForPeriod = async (
     for (const client of clients) {
       try {
         const monthStr = String(month).padStart(2, '0');
-        const clientPrefix = client.id.substring(0, 6).toUpperCase();
         const paymentTermsDays = client.clientPolicies?.paymentTermsDays ?? 15;
 
         const useGroupWise = invoiceByGroupOverride !== undefined
@@ -839,19 +869,11 @@ export const generateBiWeeklyInvoicesForPeriod = async (
           );
           generated += groupResults;
         } else {
-          const invoiceNumber = `INV-${year}-${monthStr}-H${half}-${clientPrefix}`;
-          const dueDate = new Date(periodEnd);
-          dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
-
-          const success = await generateInvoiceForClient(
-            client as any,
-            periodStart,
-            periodEnd,
-            dueDate,
-            invoiceNumber,
-            io,
+          // Employee-wise invoicing: generate separate invoice per employee
+          const empResults = await generateEmployeeWiseInvoices(
+            client as any, periodStart, periodEnd, paymentTermsDays, `INV-${year}-${monthStr}-H${half}`, io
           );
-          if (success) generated++;
+          generated += empResults;
         }
       } catch (clientError: any) {
         const errMsg = `Failed to generate bi-weekly invoice for client ${client.companyName}: ${clientError.message}`;
