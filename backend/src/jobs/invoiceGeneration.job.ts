@@ -77,8 +77,15 @@ const generateInvoiceForClient = async (
     where: { invoiceNumber },
   });
   if (existing) {
-    console.log(`[Invoice] Skipping ${invoiceNumber} - already exists`);
-    return false;
+    if (existing.status !== 'DRAFT') {
+      // Already sent or paid — do not overwrite
+      console.log(`[Invoice] Skipping ${invoiceNumber} - already exists with status ${existing.status}`);
+      return false;
+    }
+    // Stale DRAFT from a previous attempt — free its time records and delete it so we can regenerate
+    console.log(`[Invoice] Found stale DRAFT ${invoiceNumber} — deleting and regenerating`);
+    await prisma.timeRecord.updateMany({ where: { invoiceId: existing.id }, data: { invoiceId: null } });
+    await prisma.invoice.delete({ where: { id: existing.id } });
   }
 
   // Before generating: check for unapproved worked Shift Extensions and Extra Time,
