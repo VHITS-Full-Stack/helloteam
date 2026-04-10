@@ -590,8 +590,7 @@ const generateEmployeeWiseInvoices = async (
 ): Promise<number> => {
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
 
-  // Free time records from any old draft invoices for this period (e.g. old group-wise drafts)
-  // so they can be picked up in the query below.
+  // Free time records from any old DRAFT invoices for this period (e.g. old group-wise drafts)
   const oldDrafts = await prisma.invoice.findMany({
     where: { clientId: client.id, periodStart, periodEnd, status: 'DRAFT' },
     select: { id: true, invoiceNumber: true },
@@ -601,6 +600,30 @@ const generateEmployeeWiseInvoices = async (
     const oldIds = oldDrafts.map(d => d.id);
     await prisma.timeRecord.updateMany({ where: { invoiceId: { in: oldIds } }, data: { invoiceId: null } });
     await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
+  }
+
+  // Also clear orphaned invoiceId references — time records that point to invoices which no
+  // longer exist in the DB (e.g. invoices deleted directly without clearing time records).
+  const linkedRecords = await prisma.timeRecord.findMany({
+    where: {
+      clientId: client.id,
+      date: { gte: periodStart, lte: periodEnd },
+      invoiceId: { not: null },
+    },
+    select: { id: true, invoiceId: true },
+  });
+  if (linkedRecords.length > 0) {
+    const invoiceIds = [...new Set(linkedRecords.map(r => r.invoiceId!))];
+    const existingInvoices = await prisma.invoice.findMany({
+      where: { id: { in: invoiceIds } },
+      select: { id: true },
+    });
+    const existingIds = new Set(existingInvoices.map(i => i.id));
+    const orphanedIds = linkedRecords.filter(r => !existingIds.has(r.invoiceId!)).map(r => r.id);
+    if (orphanedIds.length > 0) {
+      await prisma.timeRecord.updateMany({ where: { id: { in: orphanedIds } }, data: { invoiceId: null } });
+      console.log(`[Invoice] Cleared ${orphanedIds.length} orphaned invoiceId reference(s) for ${client.companyName}`);
+    }
   }
 
   // Get all employee IDs that have actual approved time records for this period
