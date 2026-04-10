@@ -983,6 +983,7 @@ export const downloadInvoicePdf = async (req: AuthenticatedRequest, res: Respons
             address: true,
             phone: true,
             user: { select: { email: true } },
+            clientPolicies: { select: { invoiceByGroup: true } },
           },
         },
         lineItems: true,
@@ -1013,10 +1014,62 @@ export const downloadInvoicePdf = async (req: AuthenticatedRequest, res: Respons
       }
     }
 
-    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
+    // For group-wise invoicing: merge all invoices for the same client + period into one PDF
+    const isGroupWise = !!(invoice.client as any)?.clientPolicies?.invoiceByGroup;
+    let invoiceForPdf: any = invoice;
+
+    if (isGroupWise) {
+      const siblingInvoices = await prisma.invoice.findMany({
+        where: {
+          clientId: invoice.clientId,
+          periodStart: invoice.periodStart,
+          periodEnd: invoice.periodEnd,
+        },
+        include: { lineItems: true },
+        orderBy: { invoiceNumber: 'asc' },
+      });
+
+      if (siblingInvoices.length > 1) {
+        // Merge all line items and sum totals
+        const mergedLineItems = siblingInvoices.flatMap(inv => inv.lineItems);
+        const mergedSubtotal = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.subtotal)), 0
+        );
+        const mergedTotal = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.total)), 0
+        );
+        const mergedTotalHours = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.totalHours)), 0
+        );
+        const mergedNotes = siblingInvoices
+          .map(inv => inv.notes)
+          .filter(Boolean)
+          .join('\n');
+
+        // Use a clean combined invoice number (strip group/employee prefix)
+        const clientPrefix = invoice.clientId.substring(0, 6).toUpperCase();
+        const periodMatch = invoice.invoiceNumber.match(/^(INV-\d{4}-\w+?(?:-H\d)?)-/);
+        const combinedNumber = periodMatch
+          ? `${periodMatch[1]}-${clientPrefix}`
+          : invoice.invoiceNumber;
+
+        invoiceForPdf = {
+          ...invoice,
+          invoiceNumber: combinedNumber,
+          lineItems: mergedLineItems,
+          subtotal: mergedSubtotal,
+          total: mergedTotal,
+          totalHours: mergedTotalHours,
+          notes: mergedNotes || null,
+          dueDate: siblingInvoices[siblingInvoices.length - 1].dueDate,
+        };
+      }
+    }
+
+    const pdfBytes = await buildInvoicePdf(invoiceForPdf, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${invoiceForPdf.invoiceNumber}.pdf"`);
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Download invoice PDF error:', error);
@@ -1050,6 +1103,7 @@ export const downloadClientInvoicePdf = async (req: AuthenticatedRequest, res: R
             address: true,
             phone: true,
             user: { select: { email: true } },
+            clientPolicies: { select: { invoiceByGroup: true } },
           },
         },
         lineItems: true,
@@ -1080,10 +1134,60 @@ export const downloadClientInvoicePdf = async (req: AuthenticatedRequest, res: R
       }
     }
 
-    const pdfBytes = await buildInvoicePdf(invoice, companyInfo);
+    // For group-wise invoicing: merge all invoices for the same client + period into one PDF
+    const isGroupWise = !!(invoice.client as any)?.clientPolicies?.invoiceByGroup;
+    let invoiceForPdf: any = invoice;
+
+    if (isGroupWise) {
+      const siblingInvoices = await prisma.invoice.findMany({
+        where: {
+          clientId: invoice.clientId,
+          periodStart: invoice.periodStart,
+          periodEnd: invoice.periodEnd,
+        },
+        include: { lineItems: true },
+        orderBy: { invoiceNumber: 'asc' },
+      });
+
+      if (siblingInvoices.length > 1) {
+        const mergedLineItems = siblingInvoices.flatMap(inv => inv.lineItems);
+        const mergedSubtotal = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.subtotal)), 0
+        );
+        const mergedTotal = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.total)), 0
+        );
+        const mergedTotalHours = siblingInvoices.reduce(
+          (sum, inv) => sum + parseFloat(String(inv.totalHours)), 0
+        );
+        const mergedNotes = siblingInvoices
+          .map(inv => inv.notes)
+          .filter(Boolean)
+          .join('\n');
+
+        const clientPrefix = invoice.clientId.substring(0, 6).toUpperCase();
+        const periodMatch = invoice.invoiceNumber.match(/^(INV-\d{4}-\w+?(?:-H\d)?)-/);
+        const combinedNumber = periodMatch
+          ? `${periodMatch[1]}-${clientPrefix}`
+          : invoice.invoiceNumber;
+
+        invoiceForPdf = {
+          ...invoice,
+          invoiceNumber: combinedNumber,
+          lineItems: mergedLineItems,
+          subtotal: mergedSubtotal,
+          total: mergedTotal,
+          totalHours: mergedTotalHours,
+          notes: mergedNotes || null,
+          dueDate: siblingInvoices[siblingInvoices.length - 1].dueDate,
+        };
+      }
+    }
+
+    const pdfBytes = await buildInvoicePdf(invoiceForPdf, companyInfo);
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${invoice.invoiceNumber}.pdf"`);
+    res.setHeader('Content-Disposition', `attachment; filename="${invoiceForPdf.invoiceNumber}.pdf"`);
     res.send(Buffer.from(pdfBytes));
   } catch (error) {
     console.error('Download client invoice PDF error:', error);
