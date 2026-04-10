@@ -564,23 +564,9 @@ const generateGroupWiseInvoices = async (
     }
   }
 
-  // Generate invoice for ungrouped employees
+  // Skip ungrouped employees when invoiceByGroup is enabled
   if (ungroupedEmpIds.length > 0) {
-    const invoiceNumber = `${invoicePrefix}-UNG-${clientPrefix}`;
-    const dueDate = new Date(periodEnd);
-    dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
-
-    try {
-      const success = await generateInvoiceForClient(
-        client, periodStart, periodEnd, dueDate, invoiceNumber, io, new Set(ungroupedEmpIds)
-      );
-      if (success) {
-        console.log(`[Invoice] Generated ungrouped invoice ${invoiceNumber} for ${client.companyName}`);
-        generated++;
-      }
-    } catch (err: any) {
-      console.error(`[Invoice] Failed ungrouped invoice for ${client.companyName}:`, err.message);
-    }
+    console.log(`[Invoice] Skipping ${ungroupedEmpIds.length} ungrouped employee(s) for ${client.companyName} — invoiceByGroup is enabled, assign them to a group to include them`);
   }
 
   return generated;
