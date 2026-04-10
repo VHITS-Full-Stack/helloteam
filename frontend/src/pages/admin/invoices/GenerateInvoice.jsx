@@ -354,16 +354,14 @@ const GenerateInvoice = () => {
               </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
                 <Clock className="w-3.5 h-3.5 text-green-500" />
-                <span className="text-sm text-green-600">Hours</span>
-                <span className="text-sm font-bold text-green-700">{formatHours(Number(previewData.summary.totalHours || 0))}</span>
+                <span className="text-sm text-green-600">Reg Hrs</span>
+                <span className="text-sm font-bold text-green-700">{formatHours(Math.max(0, Number(previewData.summary.totalHours || 0) - Number(previewData.summary.totalOvertimeHours || 0)))}</span>
               </div>
-              {Number(previewData.summary.totalOvertimeHours || 0) > 0 && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
-                  <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
-                  <span className="text-sm text-orange-600">OT</span>
-                  <span className="text-sm font-bold text-orange-700">{formatHours(Number(previewData.summary.totalOvertimeHours))}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
+                <AlertCircle className="w-3.5 h-3.5 text-orange-500" />
+                <span className="text-sm text-orange-600">OT Hrs</span>
+                <span className="text-sm font-bold text-orange-700">{formatHours(Number(previewData.summary.totalOvertimeHours || 0))}</span>
+              </div>
               <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 rounded-lg">
                 <DollarSign className="w-3.5 h-3.5 text-purple-500" />
                 <span className="text-sm text-purple-600">Est. Total</span>
@@ -402,15 +400,13 @@ const GenerateInvoice = () => {
                         <span className="text-xs font-semibold text-gray-700">{item.employeeCount}</span>
                       </div>
                       <div className="hidden sm:block">
-                        <span className="text-xs text-gray-400 mr-1">Hrs:</span>
-                        <span className="text-xs font-semibold text-gray-700">{formatHours(Number(item.totalHours))}</span>
+                        <span className="text-xs text-gray-400 mr-1">Reg:</span>
+                        <span className="text-xs font-semibold text-gray-700">{formatHours(Math.max(0, Number(item.totalHours) - Number(item.overtimeHours || 0)))}</span>
                       </div>
-                      {Number(item.overtimeHours) > 0 && (
-                        <div className="hidden sm:block">
-                          <span className="text-xs text-orange-400 mr-1">OT:</span>
-                          <span className="text-xs font-semibold text-orange-600">{formatHours(Number(item.overtimeHours))}</span>
-                        </div>
-                      )}
+                      <div className="hidden sm:block">
+                        <span className="text-xs text-orange-400 mr-1">OT:</span>
+                        <span className="text-xs font-semibold text-orange-600">{formatHours(Number(item.overtimeHours || 0))}</span>
+                      </div>
                       <p className="text-sm font-bold text-gray-900">{formatCurrency(item.estimatedTotal, item.currency)}</p>
                     </div>
                   </div>
