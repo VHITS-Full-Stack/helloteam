@@ -523,9 +523,34 @@ const generateGroupWiseInvoices = async (
     }
   }
 
-  // Generate ONE invoice for all employees, passing the group map so line items are tagged
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
   const invoiceNumber = `${invoicePrefix}-${clientPrefix}`;
+
+  // Clean up old DRAFT invoices for this client+period that don't match the new number.
+  // These are leftovers from the previous separate-per-group format (e.g. -GDEFA-, -UNG-).
+  // We free their time-record links and delete them so generation can proceed fresh.
+  const oldDraftInvoices = await prisma.invoice.findMany({
+    where: {
+      clientId: client.id,
+      periodStart,
+      periodEnd,
+      status: 'DRAFT',
+      invoiceNumber: { not: invoiceNumber },
+    },
+    select: { id: true, invoiceNumber: true },
+  });
+
+  if (oldDraftInvoices.length > 0) {
+    const oldIds = oldDraftInvoices.map(i => i.id);
+    await prisma.timeRecord.updateMany({
+      where: { invoiceId: { in: oldIds } },
+      data: { invoiceId: null },
+    });
+    await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
+    console.log(`[Invoice] Removed ${oldDraftInvoices.length} old draft invoice(s) for ${client.companyName} to regenerate as combined format`);
+  }
+
+  // Generate ONE invoice for all employees, passing the group map so line items are tagged
   const dueDate = new Date(periodEnd);
   dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
 
@@ -557,6 +582,32 @@ const generateEmployeeWiseInvoices = async (
   invoicePrefix: string,
   io?: Server,
 ): Promise<number> => {
+  const clientPrefix = client.id.substring(0, 6).toUpperCase();
+
+  // Clean up old DRAFT invoices for this client+period that don't match the employee-wise
+  // naming pattern (e.g. old combined invoice INV-YYYY-MM-CLIENTID or old group invoices).
+  const expectedPrefix = `${invoicePrefix}-E`;
+  const oldDraftInvoices = await prisma.invoice.findMany({
+    where: {
+      clientId: client.id,
+      periodStart,
+      periodEnd,
+      status: 'DRAFT',
+      NOT: { invoiceNumber: { startsWith: expectedPrefix } },
+    },
+    select: { id: true, invoiceNumber: true },
+  });
+
+  if (oldDraftInvoices.length > 0) {
+    const oldIds = oldDraftInvoices.map(i => i.id);
+    await prisma.timeRecord.updateMany({
+      where: { invoiceId: { in: oldIds } },
+      data: { invoiceId: null },
+    });
+    await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
+    console.log(`[Invoice] Removed ${oldDraftInvoices.length} old draft invoice(s) for ${client.companyName} to regenerate as employee-wise format`);
+  }
+
   // Get all employee IDs that have actual approved time records for this period
   const recordEmployeeIds = (await prisma.timeRecord.findMany({
     where: {
@@ -571,7 +622,6 @@ const generateEmployeeWiseInvoices = async (
   const uniqueEmployeeIds = [...new Set(recordEmployeeIds)];
 
   let generated = 0;
-  const clientPrefix = client.id.substring(0, 6).toUpperCase();
 
   for (const empId of uniqueEmployeeIds) {
     const empPrefix = empId.substring(0, 4).toUpperCase();
