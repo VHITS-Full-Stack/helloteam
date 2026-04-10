@@ -64,6 +64,8 @@ export const processInvoicePayment = async (req: Request, res: Response): Promis
     const paymentMethod = agreement.paymentMethod || 'credit_card';
     const primaryMethod = paymentMethod === 'both' ? 'credit_card' : paymentMethod;
 
+    console.log(`[Payment] Client: ${client.companyName}, method: ${primaryMethod}, hasCardToken: ${!!agreement.solaCardToken}, hasRawCard: ${!!(agreement.ccCardNumber && agreement.ccExpiration)}, hasAchToken: ${!!agreement.solaAchToken}, hasRawAch: ${!!(agreement.achRoutingNumber && agreement.achAccountNumber)}`);
+
     const payment = await prisma.payment.create({
       data: {
         invoiceId: invoice.id,

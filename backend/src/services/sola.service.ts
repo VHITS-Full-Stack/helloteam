@@ -121,7 +121,7 @@ export async function tokenizeCreditCard(params: {
   zip?: string;
 }): Promise<SolaResponse> {
   const request: Record<string, string | undefined> = {
-    xKey: SOLA_API_KEY,
+    xKey: process.env.SOLA_API_KEY || '',
     xVersion: API_VERSION,
     xSoftwareName: SOFTWARE_NAME,
     xSoftwareVersion: SOFTWARE_VERSION,
@@ -180,7 +180,7 @@ export async function tokenizeAchAccount(params: {
   name?: string;
 }): Promise<SolaResponse> {
   const request: Record<string, string | undefined> = {
-    xKey: SOLA_API_KEY,
+    xKey: process.env.SOLA_API_KEY || '',
     xVersion: API_VERSION,
     xSoftwareName: SOFTWARE_NAME,
     xSoftwareVersion: SOFTWARE_VERSION,
@@ -197,7 +197,7 @@ export async function tokenizeAchAccount(params: {
  */
 export async function voidTransaction(refNum: string): Promise<SolaResponse> {
   const request: Record<string, string | undefined> = {
-    xKey: SOLA_API_KEY,
+    xKey: process.env.SOLA_API_KEY || '',
     xVersion: API_VERSION,
     xSoftwareName: SOFTWARE_NAME,
     xSoftwareVersion: SOFTWARE_VERSION,
@@ -212,7 +212,7 @@ export async function voidTransaction(refNum: string): Promise<SolaResponse> {
  */
 export async function refundTransaction(refNum: string, amount: number): Promise<SolaResponse> {
   const request: Record<string, string | undefined> = {
-    xKey: SOLA_API_KEY,
+    xKey: process.env.SOLA_API_KEY || '',
     xVersion: API_VERSION,
     xSoftwareName: SOFTWARE_NAME,
     xSoftwareVersion: SOFTWARE_VERSION,
