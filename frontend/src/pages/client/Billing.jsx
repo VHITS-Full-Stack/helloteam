@@ -80,6 +80,7 @@ const Billing = () => {
         setPaymentResult({ success: true, data: response.data });
         setPayConfirmInvoice(null);
         fetchBilling();
+        window.dispatchEvent(new Event('billing-updated'));
       } else {
         setPaymentResult({ success: false, error: response.error || "Payment was declined" });
       }

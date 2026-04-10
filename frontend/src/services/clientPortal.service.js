@@ -103,6 +103,17 @@ const clientPortalService = {
     return response;
   },
 
+  // Get count of outstanding invoices (SENT + OVERDUE) for sidebar badge
+  getOutstandingInvoiceCount: async () => {
+    const [sentRes, overdueRes] = await Promise.all([
+      api.get('/client-portal/invoices?status=SENT&limit=1'),
+      api.get('/client-portal/invoices?status=OVERDUE&limit=1'),
+    ]);
+    const sent = sentRes?.data?.pagination?.total || 0;
+    const overdue = overdueRes?.data?.pagination?.total || 0;
+    return sent + overdue;
+  },
+
   // Add/update payment method
   addPaymentMethod: async (data) => {
     const response = await api.post('/client-portal/payment-method', data);

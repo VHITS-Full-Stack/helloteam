@@ -43,6 +43,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [outstandingInvoiceCount, setOutstandingInvoiceCount] = useState(0);
 
   // Fetch pending approval counts for sidebar badge
   const fetchPendingCounts = useCallback(async () => {
@@ -75,6 +76,12 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
         }
       } catch (e) {
         console.error("Failed to fetch pending counts:", e);
+      }
+      try {
+        const count = await clientPortalService.getOutstandingInvoiceCount();
+        setOutstandingInvoiceCount(count);
+      } catch (e) {
+        console.error("Failed to fetch invoice count:", e);
       }
     } else if (portalType === "employee") {
       try {
@@ -110,13 +117,15 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   useEffect(() => {
     // Use microtask to avoid synchronous setState in effect body
     queueMicrotask(() => fetchPendingCounts());
-    // Re-fetch when approvals are updated
+    // Re-fetch when approvals, chat, or billing are updated
     const handleUpdate = () => fetchPendingCounts();
     window.addEventListener("approvals-updated", handleUpdate);
     window.addEventListener("chat-updated", handleUpdate);
+    window.addEventListener("billing-updated", handleUpdate);
     return () => {
       window.removeEventListener("approvals-updated", handleUpdate);
       window.removeEventListener("chat-updated", handleUpdate);
+      window.removeEventListener("billing-updated", handleUpdate);
     };
   }, [fetchPendingCounts]);
 
@@ -152,7 +161,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       badge: pendingApprovalCount,
     },
     { group: "Billing" },
-    { to: "/client/billing", icon: CreditCard, label: "Billing & Invoices" },
+    { to: "/client/billing", icon: CreditCard, label: "Billing & Invoices", badge: outstandingInvoiceCount },
     { to: "/client/rate-history", icon: TrendingUp, label: "Rate History" },
     { group: "Team" },
     { to: "/client/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
