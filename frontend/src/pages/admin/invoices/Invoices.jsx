@@ -27,7 +27,7 @@ import {
 } from '../../../components/common';
 import invoiceService from '../../../services/invoice.service';
 import clientService from '../../../services/client.service';
-import { formatDate } from '../../../utils/formatDateTime';
+import { formatDate, formatHours } from '../../../utils/formatDateTime';
 
 const Invoices = () => {
   const navigate = useNavigate();
@@ -76,7 +76,7 @@ const Invoices = () => {
 
   // Status update
   const [updatingId, setUpdatingId] = useState(null);
-  const [stats, setStats] = useState({ total: 0, draft: 0, totalAmount: 0, paidAmount: 0 });
+  const [stats, setStats] = useState({ total: 0, draft: 0, totalAmount: 0, paidAmount: 0, totalHours: 0, totalOvertimeHours: 0 });
 
   // Detail modal
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -390,9 +390,19 @@ const Invoices = () => {
           </div>
         )}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 rounded-lg">
-          <DollarSign className="w-3.5 h-3.5 text-green-500" />
-          <span className="text-sm text-green-600">Paid</span>
-          <span className="text-sm font-bold text-green-700">{formatCurrency(stats.paidAmount)}</span>
+          <Clock className="w-3.5 h-3.5 text-green-500" />
+          <span className="text-sm text-green-600">Reg Hrs</span>
+          <span className="text-sm font-bold text-green-700">{formatHours(Math.max(0, Number(stats.totalHours || 0) - Number(stats.totalOvertimeHours || 0)))}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-50 rounded-lg">
+          <Clock className="w-3.5 h-3.5 text-orange-500" />
+          <span className="text-sm text-orange-600">OT Hrs</span>
+          <span className="text-sm font-bold text-orange-700">{formatHours(Number(stats.totalOvertimeHours || 0))}</span>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 rounded-lg">
+          <DollarSign className="w-3.5 h-3.5 text-teal-500" />
+          <span className="text-sm text-teal-600">Paid</span>
+          <span className="text-sm font-bold text-teal-700">{formatCurrency(stats.paidAmount)}</span>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
           <DollarSign className="w-3.5 h-3.5 text-blue-500" />

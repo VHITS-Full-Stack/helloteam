@@ -409,7 +409,7 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
       prisma.invoice.groupBy({
         by: ['status'],
         where: baseWhere,
-        _sum: { total: true },
+        _sum: { total: true, totalHours: true, overtimeHours: true },
         _count: true,
       }),
     ]);
@@ -420,6 +420,8 @@ export const getInvoices = async (req: AuthenticatedRequest, res: Response): Pro
       draft: aggregateStats.find(g => g.status === 'DRAFT')?._count || 0,
       totalAmount: aggregateStats.reduce((sum, g) => sum + (Number(g._sum.total) || 0), 0),
       paidAmount: Number(aggregateStats.find(g => g.status === 'PAID')?._sum.total || 0),
+      totalHours: aggregateStats.reduce((sum, g) => sum + (Number(g._sum.totalHours) || 0), 0),
+      totalOvertimeHours: aggregateStats.reduce((sum, g) => sum + (Number(g._sum.overtimeHours) || 0), 0),
     };
 
     // Convert Prisma Decimal fields to plain numbers
