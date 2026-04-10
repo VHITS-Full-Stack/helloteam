@@ -122,6 +122,29 @@ const generateInvoiceForClient = async (
     console.error(`[Invoice] Pre-generation reminder failed for ${client.companyName}:`, reminderErr);
   }
 
+  // Free time records that are linked to DRAFT invoices for the same period.
+  // This happens when old separate-group invoices exist and we're regenerating as a combined invoice.
+  // DRAFT invoices haven't been sent/paid so it's safe to re-include their records.
+  const draftInvoicesForPeriod = await prisma.invoice.findMany({
+    where: {
+      clientId: client.id,
+      periodStart,
+      periodEnd,
+      status: 'DRAFT',
+      invoiceNumber: { not: invoiceNumber }, // don't clear the invoice we're about to create
+    },
+    select: { id: true, invoiceNumber: true },
+  });
+  if (draftInvoicesForPeriod.length > 0) {
+    const draftIds = draftInvoicesForPeriod.map(i => i.id);
+    await prisma.timeRecord.updateMany({
+      where: { invoiceId: { in: draftIds } },
+      data: { invoiceId: null },
+    });
+    await prisma.invoice.deleteMany({ where: { id: { in: draftIds } } });
+    console.log(`[Invoice] Freed time records from ${draftInvoicesForPeriod.length} old draft invoice(s) for ${client.companyName}: ${draftInvoicesForPeriod.map(i => i.invoiceNumber).join(', ')}`);
+  }
+
   // Clean up orphaned invoiceId references (where invoice was deleted but invoiceId wasn't cleared)
   const orphanedRecords = await prisma.timeRecord.findMany({
     where: {
@@ -526,30 +549,6 @@ const generateGroupWiseInvoices = async (
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
   const invoiceNumber = `${invoicePrefix}-${clientPrefix}`;
 
-  // Clean up old DRAFT invoices for this client+period that don't match the new number.
-  // These are leftovers from the previous separate-per-group format (e.g. -GDEFA-, -UNG-).
-  // We free their time-record links and delete them so generation can proceed fresh.
-  const oldDraftInvoices = await prisma.invoice.findMany({
-    where: {
-      clientId: client.id,
-      periodStart,
-      periodEnd,
-      status: 'DRAFT',
-      invoiceNumber: { not: invoiceNumber },
-    },
-    select: { id: true, invoiceNumber: true },
-  });
-
-  if (oldDraftInvoices.length > 0) {
-    const oldIds = oldDraftInvoices.map(i => i.id);
-    await prisma.timeRecord.updateMany({
-      where: { invoiceId: { in: oldIds } },
-      data: { invoiceId: null },
-    });
-    await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
-    console.log(`[Invoice] Removed ${oldDraftInvoices.length} old draft invoice(s) for ${client.companyName} to regenerate as combined format`);
-  }
-
   // Generate ONE invoice for all employees, passing the group map so line items are tagged
   const dueDate = new Date(periodEnd);
   dueDate.setUTCDate(dueDate.getUTCDate() + paymentTermsDays);
@@ -583,30 +582,6 @@ const generateEmployeeWiseInvoices = async (
   io?: Server,
 ): Promise<number> => {
   const clientPrefix = client.id.substring(0, 6).toUpperCase();
-
-  // Clean up old DRAFT invoices for this client+period that don't match the employee-wise
-  // naming pattern (e.g. old combined invoice INV-YYYY-MM-CLIENTID or old group invoices).
-  const expectedPrefix = `${invoicePrefix}-E`;
-  const oldDraftInvoices = await prisma.invoice.findMany({
-    where: {
-      clientId: client.id,
-      periodStart,
-      periodEnd,
-      status: 'DRAFT',
-      NOT: { invoiceNumber: { startsWith: expectedPrefix } },
-    },
-    select: { id: true, invoiceNumber: true },
-  });
-
-  if (oldDraftInvoices.length > 0) {
-    const oldIds = oldDraftInvoices.map(i => i.id);
-    await prisma.timeRecord.updateMany({
-      where: { invoiceId: { in: oldIds } },
-      data: { invoiceId: null },
-    });
-    await prisma.invoice.deleteMany({ where: { id: { in: oldIds } } });
-    console.log(`[Invoice] Removed ${oldDraftInvoices.length} old draft invoice(s) for ${client.companyName} to regenerate as employee-wise format`);
-  }
 
   // Get all employee IDs that have actual approved time records for this period
   const recordEmployeeIds = (await prisma.timeRecord.findMany({
