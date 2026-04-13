@@ -15,9 +15,9 @@ import {
   Badge,
   Avatar,
   OTSelectionModal,
-} from "../../components/common";
-import clientPortalService from "../../services/clientPortal.service";
-import { formatHours } from "../../utils/formatDateTime";
+} from "../../../components/common";
+import clientPortalService from "../../../services/clientPortal.service";
+import { formatHours } from "../../../utils/formatDateTime";
 
 const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;

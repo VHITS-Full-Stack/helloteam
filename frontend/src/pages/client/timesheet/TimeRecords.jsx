@@ -27,9 +27,9 @@ import {
   Avatar,
   OTSelectionModal,
   ExportButton,
-} from "../../components/common";
-import clientPortalService from "../../services/clientPortal.service";
-import { formatHours, formatTime12 } from "../../utils/formatDateTime";
+} from "../../../components/common";
+import clientPortalService from "../../../services/clientPortal.service";
+import { formatHours, formatTime12 } from "../../../utils/formatDateTime";
 
 const formatClockTime = (dateStr, tz) => {
   if (!dateStr) return null;

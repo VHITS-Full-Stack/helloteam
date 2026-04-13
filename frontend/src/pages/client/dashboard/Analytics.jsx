@@ -14,8 +14,8 @@ import {
   Wifi,
   Loader2
 } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardContent, Badge } from '../../components/common';
-import clientPortalService from '../../services/clientPortal.service';
+import { Card, CardHeader, CardTitle, CardContent, Badge } from '../../../components/common';
+import clientPortalService from '../../../services/clientPortal.service';
 
 const Analytics = () => {
   const [loading, setLoading] = useState(true);

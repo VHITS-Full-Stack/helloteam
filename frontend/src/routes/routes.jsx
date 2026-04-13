@@ -28,15 +28,15 @@ const EmployeeOnboarding = lazy(() => import('../pages/employee/Onboarding'));
 
 // Client Pages (lazy)
 const ClientOnboarding = lazy(() => import('../pages/client/Onboarding'));
-const ClientDashboard = lazy(() => import('../pages/client/Dashboard'));
-const ClientTasks = lazy(() => import('../pages/client/Tasks'));
+const ClientDashboard = lazy(() => import('../pages/client/dashboard/Dashboard'));
+const ClientTasks = lazy(() => import('../pages/client/tasks/Tasks'));
 const ClientSupport = lazy(() => import('../pages/client/Support'));
 const ClientChat = lazy(() => import('../pages/client/Chat'));
 const Workforce = lazy(() => import('../pages/client/Workforce'));
 const Approvals = lazy(() => import('../pages/client/Approvals'));
-const ClientAnalytics = lazy(() => import('../pages/client/Analytics'));
-const ClientTimeRecords = lazy(() => import('../pages/client/TimeRecords'));
-const ClientTimesheetDetail = lazy(() => import('../pages/client/TimesheetDetail'));
+const ClientAnalytics = lazy(() => import('../pages/client/dashboard/Analytics'));
+const ClientTimeRecords = lazy(() => import('../pages/client/timesheet/TimeRecords'));
+const ClientTimesheetDetail = lazy(() => import('../pages/client/timesheet/TimesheetDetail'));
 const Billing = lazy(() => import('../pages/client/Billing'));
 const ClientSettings = lazy(() => import('../pages/client/Settings'));
 const ClientProfile = lazy(() => import('../pages/client/Profile'));
@@ -75,6 +75,9 @@ const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
 const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
+const AdminTaskDetail = lazy(() => import('../pages/admin/TaskDetail'));
+const EmployeeTaskDetail = lazy(() => import('../pages/employee/TaskDetail'));
+const ClientTaskDetail = lazy(() => import('../pages/client/tasks/TaskDetail'));
 const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
 const AdminRaiseRequests = lazy(() => import('../pages/admin/RaiseRequests'));
 const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
@@ -175,6 +178,7 @@ const AppRoutes = () => {
           <Route path="leave" element={<LeaveRequests />} />
           <Route path="payslips" element={<EmployeePayslips />} />
           <Route path="tasks" element={<EmployeeTasks />} />
+          <Route path="tasks/:id" element={<EmployeeTaskDetail />} />
           <Route path="chat" element={<EmployeeChat />} />
           <Route path="support" element={<Support />} />
           <Route path="profile" element={<Profile />} />
@@ -197,6 +201,7 @@ const AppRoutes = () => {
           <Route path="workforce" element={<Workforce />} />
           <Route path="groups" element={<ClientGroups />} />
           <Route path="tasks" element={<ClientTasks />} />
+          <Route path="tasks/:id" element={<ClientTaskDetail />} />
           <Route path="support" element={<ClientSupport />} />
           <Route path="chat" element={<ClientChat />} />
           <Route path="approvals" element={<Approvals />} />
@@ -230,6 +235,7 @@ const AppRoutes = () => {
           <Route path="groups" element={<Groups />} />
           <Route path="support" element={<AdminSupport />} />
           <Route path="tasks" element={<AdminTasks />} />
+          <Route path="tasks/:id" element={<AdminTaskDetail />} />
           <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />

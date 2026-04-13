@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Search,
-  Calendar,
   MessageSquare,
   AlertCircle,
   X,
@@ -10,21 +10,11 @@ import {
   Circle,
   Loader2,
   ClipboardList,
-  Building2,
   User,
-  Activity,
-  ArrowRight,
-  Flag,
-  UserPlus,
-  UserMinus,
-  Type,
-  FileText,
-  CalendarDays,
 } from 'lucide-react';
 import {
   Card,
   Button,
-  Modal,
   Table,
   TableHead,
   TableBody,
@@ -48,36 +38,9 @@ const STATUS_CONFIG = {
   DONE: { label: 'Done', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
 };
 
-const ACTIVITY_ICONS = {
-  CREATED: CheckCircle2,
-  STATUS_CHANGED: ArrowRight,
-  ASSIGNED: UserPlus,
-  UNASSIGNED: UserMinus,
-  PRIORITY_CHANGED: Flag,
-  DUE_DATE_CHANGED: CalendarDays,
-  TITLE_UPDATED: Type,
-  DESCRIPTION_UPDATED: FileText,
-  COMMENTED: MessageSquare,
-};
-
-const STATUS_LABELS = { TODO: 'To Do', IN_PROGRESS: 'In Progress', DONE: 'Done' };
-
-const getActivityMessage = (activity) => {
-  switch (activity.action) {
-    case 'CREATED': return 'created this task';
-    case 'STATUS_CHANGED': return `changed status from ${STATUS_LABELS[activity.oldValue] || activity.oldValue} to ${STATUS_LABELS[activity.newValue] || activity.newValue}`;
-    case 'ASSIGNED': return activity.oldValue ? `reassigned from ${activity.oldValue} to ${activity.newValue}` : `assigned to ${activity.newValue}`;
-    case 'UNASSIGNED': return `unassigned ${activity.oldValue}`;
-    case 'PRIORITY_CHANGED': return `changed priority from ${activity.oldValue} to ${activity.newValue}`;
-    case 'DUE_DATE_CHANGED': return activity.newValue ? `changed due date to ${new Date(activity.newValue).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : 'removed due date';
-    case 'TITLE_UPDATED': return 'updated the title';
-    case 'DESCRIPTION_UPDATED': return 'updated the description';
-    case 'COMMENTED': return 'added a comment';
-    default: return activity.action;
-  }
-};
 
 const Tasks = () => {
+  const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -87,14 +50,6 @@ const Tasks = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
-
-  // Detail modal
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [detailTab, setDetailTab] = useState('activity');
-  const [comments, setComments] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Unique clients for filter
   const clients = useMemo(() => {
@@ -143,43 +98,12 @@ const Tasks = () => {
     return { total: filteredTasks.length, todo, inProgress, done, overdue };
   }, [filteredTasks]);
 
-  const openDetail = async (task) => {
-    setSelectedTask(task);
-    setShowDetailModal(true);
-    setDetailTab('activity');
-    setLoadingDetail(true);
-    try {
-      const [taskRes, actRes] = await Promise.all([
-        taskService.getTask(task.id),
-        taskService.getTaskActivities(task.id),
-      ]);
-      if (taskRes.success) { setSelectedTask(taskRes.data); setComments(taskRes.data.comments || []); }
-      if (actRes.success) setActivities(actRes.data || []);
-    } catch (err) {
-      console.error('Failed to load task details:', err);
-    } finally {
-      setLoadingDetail(false);
-    }
-  };
 
   const isOverdue = (task) => {
     if (!task.dueDate || task.status === 'DONE') return false;
     return new Date(task.dueDate) < new Date(new Date().toDateString());
   };
 
-  const formatRelativeTime = (dateStr) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffMs = now - date;
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h ago`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  };
 
   return (
     <div className="space-y-6">
@@ -271,7 +195,7 @@ const Tasks = () => {
             </TableHead>
             <TableBody>
               {filteredTasks.map(task => (
-                <TableRow key={task.id} className="cursor-pointer hover:bg-gray-50" onClick={() => openDetail(task)}>
+                <TableRow key={task.id} className="cursor-pointer hover:bg-gray-50" onClick={() => navigate(task.id)}>
                   <TableCell>
                     <div>
                       <p className={`font-medium text-sm ${task.status === 'DONE' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</p>
@@ -323,139 +247,6 @@ const Tasks = () => {
         </Card>
       )}
 
-      {/* Task Detail Modal (read-only) */}
-      <Modal
-        isOpen={showDetailModal && !!selectedTask}
-        onClose={() => { setShowDetailModal(false); setSelectedTask(null); setComments([]); setActivities([]); }}
-        title=""
-        size="2xl"
-      >
-        {selectedTask && (
-          <div className="flex flex-col lg:flex-row gap-6 -mt-2">
-            {/* Left Side */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap mb-3">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${PRIORITY_CONFIG[selectedTask.priority].color}`}>
-                  {PRIORITY_CONFIG[selectedTask.priority].label}
-                </span>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[selectedTask.status].color}`}>
-                  {STATUS_CONFIG[selectedTask.status].label}
-                </span>
-                {isOverdue(selectedTask) && (
-                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Overdue</span>
-                )}
-              </div>
-
-              <h2 className="text-xl font-bold text-gray-900">{selectedTask.title}</h2>
-              {selectedTask.description && (
-                <p className="text-sm text-gray-600 mt-2 whitespace-pre-wrap">{selectedTask.description}</p>
-              )}
-
-              <div className="grid grid-cols-2 gap-3 mt-4 text-sm">
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Client</p>
-                  <p className="font-medium text-gray-900">{selectedTask.client?.companyName || '-'}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Assignee</p>
-                  {selectedTask.assignee ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center">
-                        {selectedTask.assignee.profilePhoto ? (
-                          <img src={selectedTask.assignee.profilePhoto} alt="" className="w-6 h-6 rounded-full object-cover" />
-                        ) : (
-                          <span className="text-[10px] font-bold text-primary-700">{selectedTask.assignee.firstName?.charAt(0)}</span>
-                        )}
-                      </div>
-                      <span className="font-medium text-gray-900">{selectedTask.assignee.firstName} {selectedTask.assignee.lastName}</span>
-                    </div>
-                  ) : (
-                    <span className="text-gray-400">Unassigned</span>
-                  )}
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Due Date</p>
-                  <p className={`font-medium ${isOverdue(selectedTask) ? 'text-red-500' : 'text-gray-900'}`}>{formatDate(selectedTask.dueDate)}</p>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-500 mb-1">Created</p>
-                  <p className="font-medium text-gray-900">{formatDate(selectedTask.createdAt)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Side: Activity / Comments Tabs */}
-            <div className="lg:w-[340px] lg:border-l lg:pl-6 border-t lg:border-t-0 pt-4 lg:pt-0 flex flex-col min-h-[400px]">
-              <div className="flex border-b mb-3">
-                <button onClick={() => setDetailTab('activity')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${detailTab === 'activity' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                  <Activity className="w-4 h-4 inline mr-1.5" />Activity
-                </button>
-                <button onClick={() => setDetailTab('comments')} className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${detailTab === 'comments' ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-                  <MessageSquare className="w-4 h-4 inline mr-1.5" />Comments ({comments.length})
-                </button>
-              </div>
-
-              <div className="flex-1 overflow-y-auto overflow-x-hidden max-h-[400px]">
-                {loadingDetail ? (
-                  <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin text-gray-400" /></div>
-                ) : detailTab === 'activity' ? (
-                  activities.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">No activity yet</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {activities.map(act => {
-                        const Icon = ACTIVITY_ICONS[act.action] || Activity;
-                        return (
-                          <div key={act.id} className="flex gap-3">
-                            <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                              <Icon className="w-3.5 h-3.5 text-gray-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-700">
-                                <span className="font-medium text-gray-900">{act.authorName}</span>{' '}
-                                {getActivityMessage(act)}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-0.5">{formatRelativeTime(act.createdAt)}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
-                ) : (
-                  comments.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-8">No comments</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {comments.map(comment => (
-                        <div key={comment.id} className="flex gap-3">
-                          <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                            {comment.authorAvatar ? (
-                              <img src={comment.authorAvatar} alt="" className="w-7 h-7 rounded-full object-cover" />
-                            ) : (
-                              <span className="text-[10px] font-bold text-primary-700">{comment.authorName?.charAt(0) || '?'}</span>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-900">{comment.authorName}</span>
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${comment.authorRole === 'CLIENT' ? 'bg-purple-100 text-purple-600' : 'bg-blue-100 text-blue-600'}`}>
-                                {comment.authorRole === 'CLIENT' ? 'Client' : comment.authorRole === 'EMPLOYEE' ? 'Employee' : 'Admin'}
-                              </span>
-                              <span className="text-xs text-gray-400">{formatRelativeTime(comment.createdAt)}</span>
-                            </div>
-                            <p className="text-sm text-gray-600 mt-0.5 whitespace-pre-wrap break-words">{comment.message}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 };

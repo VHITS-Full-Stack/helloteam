@@ -12,17 +12,17 @@ import {
   Timer,
   ChevronRight,
 } from "lucide-react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../../context/AuthContext";
 import {
   Card,
   Badge,
   Button,
   Avatar,
-} from "../../components/common";
-import { formatTimeInTimeZone } from "../../utils/formatDateTime";
-import clientPortalService from "../../services/clientPortal.service";
-import overtimeService from "../../services/overtime.service";
-import payrollService from "../../services/payroll.service";
+} from "../../../components/common";
+import { formatTimeInTimeZone } from "../../../utils/formatDateTime";
+import clientPortalService from "../../../services/clientPortal.service";
+import overtimeService from "../../../services/overtime.service";
+import payrollService from "../../../services/payroll.service";
 
 const ClientDashboard = () => {
   const navigate = useNavigate();
