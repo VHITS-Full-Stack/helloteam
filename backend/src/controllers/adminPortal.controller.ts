@@ -1513,7 +1513,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           profilePhoto: await refreshProfilePhotoUrl(lr.employee.profilePhoto),
           client: lr.client?.companyName || 'N/A',
           description: `${lr.leaveType} Leave Request`,
-          date: `${lr.startDate.toISOString().split('T')[0]} - ${lr.endDate.toISOString().split('T')[0]}`,
+          date: `${lr.startDate.toISOString().split('T')[0]} to ${lr.endDate.toISOString().split('T')[0]}`,
           details: `${days} day${days > 1 ? 's' : ''} - ${lr.reason || 'No reason provided'}`,
           totalMinutes: days * 8 * 60,
           submitted: lr.createdAt,
