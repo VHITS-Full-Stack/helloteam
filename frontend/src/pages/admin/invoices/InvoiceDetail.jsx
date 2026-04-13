@@ -304,7 +304,7 @@ const InvoiceDetail = () => {
               <tfoot>
                 <tr className="bg-gray-50 border-t border-gray-200">
                   <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">Total</td>
-                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(Number(invoice.totalHours))}</td>
+                  <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(Number(invoice.totalHours) - Number(invoice.overtimeHours))}</td>
                   <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(Number(invoice.overtimeHours))}</td>
                   <td className="px-4 py-2.5" />
                   <td className="px-4 py-2.5" />

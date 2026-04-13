@@ -998,6 +998,8 @@ const Invoices = () => {
                         <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Hours</th>
                         <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT Hours</th>
                         <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Rate</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">OT Rate</th>
+                        <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Total Hours</th>
                         <th className="text-right px-3 py-2 text-xs font-semibold text-gray-500">Amount</th>
                       </tr>
                     </thead>
@@ -1013,6 +1015,12 @@ const Invoices = () => {
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.hours).toFixed(2)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{Number(item.overtimeHours || 0).toFixed(2)}</td>
                           <td className="px-3 py-2 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}</td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">
+                            {Number(item.overtimeHours || 0) > 0 && Number(item.overtimeRate || 0) > 0
+                              ? formatCurrency(item.overtimeRate)
+                              : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-sm text-gray-600 text-right">{(Number(item.hours) + Number(item.overtimeHours || 0)).toFixed(2)}</td>
                           <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">{formatCurrency(item.amount)}</td>
                         </tr>
                       ))}
@@ -1020,9 +1028,11 @@ const Invoices = () => {
                     <tfoot>
                       <tr className="bg-gray-50 border-t border-gray-200">
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900">Total</td>
-                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.totalHours).toFixed(2)}</td>
+                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{(Number(selectedInvoice.totalHours) - Number(selectedInvoice.overtimeHours)).toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.overtimeHours).toFixed(2)}</td>
                         <td className="px-3 py-2" />
+                        <td className="px-3 py-2" />
+                        <td className="px-3 py-2 text-sm font-semibold text-gray-900 text-right">{Number(selectedInvoice.totalHours).toFixed(2)}</td>
                         <td className="px-3 py-2 text-sm font-bold text-gray-900 text-right">{formatCurrency(selectedInvoice.total, selectedInvoice.currency)}</td>
                       </tr>
                     </tfoot>
