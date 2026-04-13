@@ -667,6 +667,12 @@ const Approvals = () => {
                   })}
                 </span>
               </div>
+              {selectedItem.timesheetConflict && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2 text-yellow-700 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <span>This employee has <strong>{selectedItem.timesheetConflict.count} timesheet record{selectedItem.timesheetConflict.count > 1 ? 's' : ''}</strong> on the leave dates ({selectedItem.timesheetConflict.dates.join(', ')}).</span>
+                </div>
+              )}
               {isOTType && (
                 <>
                   <div className="flex justify-between text-sm">

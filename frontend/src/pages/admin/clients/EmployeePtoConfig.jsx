@@ -44,41 +44,17 @@ const EmployeePtoConfig = () => {
         }
 
         if (ptoRes.success) {
-          const { override, clientDefaults } = ptoRes.data;
+          const { override, clientDefaults, effective } = ptoRes.data;
           setPtoFormData({
-            ptoAllowPaidLeave:
-              override.ptoAllowPaidLeave !== null
-                ? String(override.ptoAllowPaidLeave)
-                : "",
-            ptoEntitlementType: override.ptoEntitlementType || "",
-            ptoAnnualDays:
-              override.ptoAnnualDays !== null
-                ? String(override.ptoAnnualDays)
-                : "",
-            ptoAccrualRatePerMonth:
-              override.ptoAccrualRatePerMonth !== null
-                ? String(override.ptoAccrualRatePerMonth)
-                : "",
-            ptoMaxCarryoverDays:
-              override.ptoMaxCarryoverDays !== null
-                ? String(override.ptoMaxCarryoverDays)
-                : "",
-            ptoCarryoverExpiryMonths:
-              override.ptoCarryoverExpiryMonths !== null
-                ? String(override.ptoCarryoverExpiryMonths)
-                : "",
-            ptoAllowUnpaidLeave:
-              override.ptoAllowUnpaidLeave !== null
-                ? String(override.ptoAllowUnpaidLeave)
-                : "",
-            ptoAllowPaidHolidays:
-              override.ptoAllowPaidHolidays !== null
-                ? String(override.ptoAllowPaidHolidays)
-                : "",
-            ptoAllowUnpaidHolidays:
-              override.ptoAllowUnpaidHolidays !== null
-                ? String(override.ptoAllowUnpaidHolidays)
-                : "",
+            ptoAllowPaidLeave: String(override.ptoAllowPaidLeave ?? clientDefaults.allowPaidLeave),
+            ptoEntitlementType: override.ptoEntitlementType || clientDefaults.paidLeaveEntitlementType || '',
+            ptoAnnualDays: String(override.ptoAnnualDays ?? clientDefaults.annualPaidLeaveDays ?? ''),
+            ptoAccrualRatePerMonth: String(override.ptoAccrualRatePerMonth ?? clientDefaults.accrualRatePerMonth ?? ''),
+            ptoMaxCarryoverDays: String(override.ptoMaxCarryoverDays ?? clientDefaults.maxCarryoverDays ?? ''),
+            ptoCarryoverExpiryMonths: String(override.ptoCarryoverExpiryMonths ?? clientDefaults.carryoverExpiryMonths ?? ''),
+            ptoAllowUnpaidLeave: String(override.ptoAllowUnpaidLeave ?? clientDefaults.allowUnpaidLeave),
+            ptoAllowPaidHolidays: String(override.ptoAllowPaidHolidays ?? clientDefaults.allowPaidHolidays),
+            ptoAllowUnpaidHolidays: String(override.ptoAllowUnpaidHolidays ?? clientDefaults.allowUnpaidHolidays),
             clientDefaults,
           });
         }
@@ -125,17 +101,19 @@ const EmployeePtoConfig = () => {
   };
 
   const handleClearOverrides = () => {
+    const cd = ptoFormData.clientDefaults;
+    if (!cd) return;
     setPtoFormData((prev) => ({
       ...prev,
-      ptoAllowPaidLeave: "",
-      ptoEntitlementType: "",
-      ptoAnnualDays: "",
-      ptoAccrualRatePerMonth: "",
-      ptoMaxCarryoverDays: "",
-      ptoCarryoverExpiryMonths: "",
-      ptoAllowUnpaidLeave: "",
-      ptoAllowPaidHolidays: "",
-      ptoAllowUnpaidHolidays: "",
+      ptoAllowPaidLeave: String(cd.allowPaidLeave),
+      ptoEntitlementType: cd.paidLeaveEntitlementType || 'NONE',
+      ptoAnnualDays: String(cd.annualPaidLeaveDays ?? ''),
+      ptoAccrualRatePerMonth: String(cd.accrualRatePerMonth ?? ''),
+      ptoMaxCarryoverDays: String(cd.maxCarryoverDays ?? ''),
+      ptoCarryoverExpiryMonths: String(cd.carryoverExpiryMonths ?? ''),
+      ptoAllowUnpaidLeave: String(cd.allowUnpaidLeave),
+      ptoAllowPaidHolidays: String(cd.allowPaidHolidays),
+      ptoAllowUnpaidHolidays: String(cd.allowUnpaidHolidays),
     }));
   };
 
@@ -229,8 +207,7 @@ const EmployeePtoConfig = () => {
       {/* PTO Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="text-sm text-gray-500">
-          Set overrides for this employee. Leave as "Client default" to inherit
-          the client policy.
+          Configure PTO for this employee. Values are pre-filled from client policy. Changes will override the client defaults.
         </p>
 
         {/* Paid Leave */}
@@ -252,7 +229,6 @@ const EmployeePtoConfig = () => {
                 }
                 className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-8"
               >
-                <option value="">Client default</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
@@ -260,7 +236,7 @@ const EmployeePtoConfig = () => {
             </div>
           </div>
 
-          {ptoFormData.ptoAllowPaidLeave !== "false" && (
+          {(ptoFormData.ptoAllowPaidLeave === "true" || (ptoFormData.ptoAllowPaidLeave === "" && ptoFormData.clientDefaults?.allowPaidLeave)) && (
             <div className="mt-4 space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -277,7 +253,7 @@ const EmployeePtoConfig = () => {
                     }
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   >
-                    <option value="">Client default</option>
+                    <option value="NONE">None</option>
                     <option value="FIXED">Fixed Annual</option>
                     <option value="FIXED_HALF_YEARLY">Fixed Half-Yearly</option>
                     <option value="ACCRUED">Accrued</option>
@@ -399,7 +375,6 @@ const EmployeePtoConfig = () => {
                 }
                 className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-8"
               >
-                <option value="">Client default</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
@@ -427,7 +402,6 @@ const EmployeePtoConfig = () => {
                 }
                 className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-8"
               >
-                <option value="">Client default</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>
@@ -455,7 +429,6 @@ const EmployeePtoConfig = () => {
                 }
                 className="px-3 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-8"
               >
-                <option value="">Client default</option>
                 <option value="true">Yes</option>
                 <option value="false">No</option>
               </select>

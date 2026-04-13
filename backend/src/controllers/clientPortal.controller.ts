@@ -3210,6 +3210,23 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
       },
     });
 
+    // Update leave balance: move days from pending to used
+    const oneDay = 24 * 60 * 60 * 1000;
+    const requestedDays = Math.round(Math.abs((request.endDate.getTime() - request.startDate.getTime()) / oneDay)) + 1;
+    const currentYear = new Date().getFullYear();
+    const balanceField = request.leaveType === 'PAID'
+      ? { paidLeavePending: { decrement: requestedDays }, paidLeaveUsed: { increment: requestedDays } }
+      : { unpaidLeavePending: { decrement: requestedDays } };
+
+    await prisma.leaveBalance.updateMany({
+      where: {
+        employeeId: request.employeeId,
+        clientId: request.clientId,
+        year: currentYear,
+      },
+      data: balanceField,
+    });
+
     res.json({
       success: true,
       message: 'Leave request approved',

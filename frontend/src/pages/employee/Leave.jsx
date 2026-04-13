@@ -291,6 +291,12 @@ const Leave = () => {
                       <span>{leaveBalance.paidLeave.pending} days</span>
                     </div>
                   )}
+                  {leaveBalance.paidLeave.rejected > 0 && (
+                    <div className="flex justify-between text-red-500">
+                      <span>Rejected:</span>
+                      <span>{leaveBalance.paidLeave.rejected}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

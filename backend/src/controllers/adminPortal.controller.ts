@@ -1506,6 +1506,15 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         const endDate = new Date(lr.endDate);
         const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
 
+        // Check if employee has timesheet records on any of the leave dates
+        const timesheetConflicts = await prisma.timeRecord.findMany({
+          where: {
+            employeeId: lr.employeeId,
+            date: { gte: lr.startDate, lte: lr.endDate },
+          },
+          select: { date: true, totalMinutes: true },
+        });
+
         return {
           id: lr.id,
           type: 'leave',
@@ -1519,6 +1528,10 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           submitted: lr.createdAt,
           submittedBy: 'Employee',
           status: lr.status.toLowerCase(),
+          timesheetConflict: timesheetConflicts.length > 0 ? {
+            count: timesheetConflicts.length,
+            dates: timesheetConflicts.map(tc => tc.date.toISOString().split('T')[0]),
+          } : null,
         };
       })
     );
@@ -1624,6 +1637,101 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
 };
 
 // Final approve (admin approval after client approval)
+// Helper: auto-cancel or adjust leave when timesheet is approved for the same date
+const resolveLeaveConflict = async (employeeId: string, recordDate: Date, adminId?: string) => {
+  const conflictingLeaves = await prisma.leaveRequest.findMany({
+    where: {
+      employeeId,
+      status: { in: ['APPROVED', 'PENDING', 'APPROVED_BY_CLIENT'] },
+      startDate: { lte: recordDate },
+      endDate: { gte: recordDate },
+    },
+  });
+
+  for (const leave of conflictingLeaves) {
+    const startStr = leave.startDate.toISOString().split('T')[0];
+    const endStr = leave.endDate.toISOString().split('T')[0];
+    const recordStr = recordDate.toISOString().split('T')[0];
+    const oldValues = { status: leave.status, startDate: startStr, endDate: endStr };
+
+    let description = '';
+    let newValues: any = {};
+
+    if (startStr === endStr) {
+      // Single-day leave — cancel it
+      await prisma.leaveRequest.update({
+        where: { id: leave.id },
+        data: { status: 'REJECTED', rejectionReason: 'Auto-cancelled: timesheet approved for this date' },
+      });
+      description = `Leave request auto-cancelled: single-day ${leave.leaveType} leave on ${startStr} cancelled because timesheet was approved for the same date`;
+      newValues = { status: 'REJECTED' };
+    } else if (recordStr === startStr) {
+      // Worked on first day — shrink start forward
+      const newStart = new Date(leave.startDate);
+      newStart.setDate(newStart.getDate() + 1);
+      if (newStart > leave.endDate) {
+        await prisma.leaveRequest.update({
+          where: { id: leave.id },
+          data: { status: 'REJECTED', rejectionReason: 'Auto-cancelled: timesheet approved for all leave dates' },
+        });
+        description = `Leave request auto-cancelled: ${leave.leaveType} leave (${startStr} to ${endStr}) cancelled because timesheet was approved for all leave dates`;
+        newValues = { status: 'REJECTED' };
+      } else {
+        const newStartStr = newStart.toISOString().split('T')[0];
+        await prisma.leaveRequest.update({
+          where: { id: leave.id },
+          data: { startDate: newStart },
+        });
+        description = `Leave request auto-adjusted: ${leave.leaveType} leave start date changed from ${startStr} to ${newStartStr} because timesheet was approved for ${recordStr}`;
+        newValues = { startDate: newStartStr };
+      }
+    } else if (recordStr === endStr) {
+      // Worked on last day — shrink end backward
+      const newEnd = new Date(leave.endDate);
+      newEnd.setDate(newEnd.getDate() - 1);
+      if (newEnd < leave.startDate) {
+        await prisma.leaveRequest.update({
+          where: { id: leave.id },
+          data: { status: 'REJECTED', rejectionReason: 'Auto-cancelled: timesheet approved for all leave dates' },
+        });
+        description = `Leave request auto-cancelled: ${leave.leaveType} leave (${startStr} to ${endStr}) cancelled because timesheet was approved for all leave dates`;
+        newValues = { status: 'REJECTED' };
+      } else {
+        const newEndStr = newEnd.toISOString().split('T')[0];
+        await prisma.leaveRequest.update({
+          where: { id: leave.id },
+          data: { endDate: newEnd },
+        });
+        description = `Leave request auto-adjusted: ${leave.leaveType} leave end date changed from ${endStr} to ${newEndStr} because timesheet was approved for ${recordStr}`;
+        newValues = { endDate: newEndStr };
+      }
+    } else {
+      // Worked on a middle day — cancel the whole leave
+      await prisma.leaveRequest.update({
+        where: { id: leave.id },
+        data: { status: 'REJECTED', rejectionReason: `Auto-cancelled: timesheet approved for ${recordStr} which falls within leave period` },
+      });
+      description = `Leave request auto-cancelled: ${leave.leaveType} leave (${startStr} to ${endStr}) cancelled because timesheet was approved for ${recordStr} which falls within leave period`;
+      newValues = { status: 'REJECTED' };
+    }
+
+    // Create audit log
+    if (adminId && description) {
+      await prisma.auditLog.create({
+        data: {
+          userId: adminId,
+          action: 'UPDATE',
+          entityType: 'LeaveRequest',
+          entityId: leave.id,
+          description,
+          oldValues,
+          newValues,
+        },
+      });
+    }
+  }
+};
+
 export const finalApproveTimeRecord = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const recordId = req.params.recordId as string;
@@ -1686,6 +1794,9 @@ export const finalApproveTimeRecord = async (req: AuthenticatedRequest, res: Res
 
     // Create approval log
     await createApprovalLog(recordId, adminId!, 'APPROVED', approverName);
+
+    // Auto-resolve leave conflicts
+    await resolveLeaveConflict(record.employeeId, record.date, adminId);
 
     res.json({
       success: true,
@@ -1844,6 +1955,12 @@ export const bulkFinalApprove = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    // Fetch records first to get employee/date info for leave conflict resolution
+    const records = await prisma.timeRecord.findMany({
+      where: { id: { in: recordIds }, status: 'PENDING' },
+      select: { id: true, employeeId: true, date: true },
+    });
+
     const result = await prisma.timeRecord.updateMany({
       where: { id: { in: recordIds }, status: 'PENDING' },
       data: {
@@ -1852,6 +1969,11 @@ export const bulkFinalApprove = async (req: AuthenticatedRequest, res: Response)
         approvedAt: new Date(),
       },
     });
+
+    // Auto-resolve leave conflicts for each approved record
+    for (const rec of records) {
+      await resolveLeaveConflict(rec.employeeId, rec.date, adminId);
+    }
 
     res.json({
       success: true,
@@ -1889,6 +2011,23 @@ export const approveLeaveRequest = async (req: AuthenticatedRequest, res: Respon
         adminApprovedBy: adminId,
         adminApprovedAt: new Date(),
       },
+    });
+
+    // Update leave balance: move days from pending to used
+    const oneDay = 24 * 60 * 60 * 1000;
+    const requestedDays = Math.round(Math.abs((request.endDate.getTime() - request.startDate.getTime()) / oneDay)) + 1;
+    const currentYear = new Date().getFullYear();
+    const balanceField = request.leaveType === 'PAID'
+      ? { paidLeavePending: { decrement: requestedDays }, paidLeaveUsed: { increment: requestedDays } }
+      : { unpaidLeavePending: { decrement: requestedDays } };
+
+    await prisma.leaveBalance.updateMany({
+      where: {
+        employeeId: request.employeeId,
+        clientId: request.clientId,
+        year: currentYear,
+      },
+      data: balanceField,
     });
 
     res.json({

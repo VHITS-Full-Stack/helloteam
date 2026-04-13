@@ -246,7 +246,18 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
       blockInfo = { blockStart: block.blockStart, blockEnd: block.blockEnd };
     }
 
-    const paidLeaveAvailable = Math.max(0, paidLeaveEntitled + paidLeaveCarryover - paidLeaveUsed - paidLeavePending);
+    const paidLeaveAvailable = Math.max(0, paidLeaveEntitled + paidLeaveCarryover - paidLeaveUsed);
+
+    // Count rejected leaves for the current year
+    const rejectedCount = await prisma.leaveRequest.count({
+      where: {
+        employeeId: employee.id,
+        clientId: assignment.clientId,
+        status: 'REJECTED',
+        startDate: { gte: new Date(`${balance.year}-01-01`) },
+        endDate: { lte: new Date(`${balance.year}-12-31T23:59:59`) },
+      },
+    });
 
     res.json({
       success: true,
@@ -257,6 +268,7 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
           carryover: paidLeaveCarryover,
           used: paidLeaveUsed,
           pending: paidLeavePending,
+          rejected: rejectedCount,
           available: paidLeaveAvailable,
           entitlementType: effectivePto.paidLeaveEntitlementType,
           ...(blockInfo.blockStart ? {
