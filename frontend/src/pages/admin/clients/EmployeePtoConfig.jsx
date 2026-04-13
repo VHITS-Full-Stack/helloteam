@@ -113,8 +113,7 @@ const EmployeePtoConfig = () => {
         }
       );
       if (response.success) {
-        setSuccess("PTO configuration saved successfully");
-        setTimeout(() => setSuccess(""), 3000);
+        navigate(`/admin/clients/${clientId}/employees`);
       } else {
         setError(response.error || "Failed to save PTO config");
       }
