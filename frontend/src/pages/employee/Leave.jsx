@@ -665,6 +665,84 @@ const Leave = () => {
         )}
       </Card>
 
+      {/* Request Leave Modal */}
+      <Modal
+        isOpen={showRequestModal}
+        onClose={() => setShowRequestModal(false)}
+        title="New Leave Request"
+      >
+        <form onSubmit={handleSubmitRequest} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type *</label>
+            <div className="relative">
+              <select
+                value={requestForm.leaveType}
+                onChange={(e) => setRequestForm(f => ({ ...f, leaveType: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none pr-9"
+                required
+              >
+                {leaveOptions?.options?.map(opt => (
+                  <option key={opt.type} value={opt.type}>{opt.label || opt.type}</option>
+                ))}
+              </select>
+              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
+              <input
+                type="date"
+                value={requestForm.startDate}
+                onChange={(e) => setRequestForm(f => ({ ...f, startDate: e.target.value }))}
+                min={new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
+              <input
+                type="date"
+                value={requestForm.endDate}
+                onChange={(e) => setRequestForm(f => ({ ...f, endDate: e.target.value }))}
+                min={requestForm.startDate || new Date().toISOString().split('T')[0]}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                required
+              />
+            </div>
+          </div>
+          {requestedDays > 0 && (
+            <p className="text-sm text-gray-600">
+              Requesting <span className="font-semibold">{requestedDays} day{requestedDays !== 1 ? 's' : ''}</span> of leave
+            </p>
+          )}
+          {shortNoticeWarning && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2 text-yellow-700 text-sm">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              Short notice: less than 2 weeks before start date
+            </div>
+          )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+            <textarea
+              value={requestForm.reason}
+              onChange={(e) => setRequestForm(f => ({ ...f, reason: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              rows={3}
+              placeholder="Reason for leave (optional)"
+            />
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button type="button" variant="outline" onClick={() => setShowRequestModal(false)}>Cancel</Button>
+            <Button type="submit" disabled={submitting} className="cursor-pointer">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Submit Request
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
       {/* Detail Modal */}
       <Modal
         isOpen={showDetailModal}
