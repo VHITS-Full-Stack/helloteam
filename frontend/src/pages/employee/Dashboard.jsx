@@ -92,6 +92,9 @@ const EmployeeDashboard = () => {
   const [overtimeError, setOvertimeError] = useState("");
   const [overtimeSuccess, setOvertimeSuccess] = useState("");
 
+  // Resolve client timezone
+  const clientTz = sessionData?.clientTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
   // Shift extension state (driven by session data)
   const [isInExtension, setIsInExtension] = useState(false);
 
@@ -951,13 +954,13 @@ const EmployeeDashboard = () => {
               <div className="flex flex-col items-center gap-4">
                 <div className="text-center">
                   <p className="text-primary-100 text-sm font-medium">
-                    New York Time (EST)
+                    Current Time
                   </p>
                   <p className="text-4xl font-bold mt-1 font-heading">
                     {currentTime.toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
-                      timeZone: "America/New_York",
+                      timeZone: clientTz,
                     })}
                   </p>
                   <p className="text-primary-200 text-xs mt-1">
@@ -965,7 +968,7 @@ const EmployeeDashboard = () => {
                       weekday: "long",
                       month: "short",
                       day: "numeric",
-                      timeZone: "America/New_York",
+                      timeZone: clientTz,
                     })}
                   </p>
                 </div>

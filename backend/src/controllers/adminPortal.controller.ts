@@ -1436,7 +1436,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         where: timeRecordWhere,
         include: {
           employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
-          client: { select: { companyName: true } },
+          client: { select: { companyName: true, timezone: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -1449,7 +1449,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         },
         include: {
           employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
-          client: { select: { companyName: true } },
+          client: { select: { companyName: true, timezone: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip: type === 'leave' ? skip : 0,
@@ -1477,6 +1477,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
           profilePhoto: await refreshProfilePhotoUrl(tr.employee.profilePhoto),
           client: tr.client?.companyName || 'N/A',
+          clientTimezone: tr.client?.timezone || 'UTC',
           description: isAdjustment
             ? 'Clock-out time correction'
             : isOvertime

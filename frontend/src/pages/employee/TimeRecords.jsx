@@ -1605,6 +1605,7 @@ const TimeRecords = () => {
                               {
                                 month: "short",
                                 day: "numeric",
+                                timeZone: displayTimezone,
                               },
                             )}
                             ,{" "}
@@ -1613,6 +1614,7 @@ const TimeRecords = () => {
                                 hour: "numeric",
                                 minute: "2-digit",
                                 hour12: true,
+                                timeZone: displayTimezone,
                               })
                               .toLowerCase()}
                           </div>

@@ -1153,6 +1153,7 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
         success: true,
         isWorking: false,
         session: null,
+        clientTimezone: tz,
         schedule: schedule ? {
           startTime: schedule.startTime,
           endTime: schedule.endTime,
@@ -1203,6 +1204,7 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
           ),
         } : null,
       },
+      clientTimezone: tz,
       schedule: schedule ? {
         startTime: schedule.startTime,
         endTime: schedule.endTime,

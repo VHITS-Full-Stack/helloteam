@@ -21,7 +21,7 @@ import {
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
-import { formatTime12 } from '../../utils/formatDateTime';
+import { formatTime12, formatTimeInTimeZone } from '../../utils/formatDateTime';
 
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -91,6 +91,9 @@ const TimeClock = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Resolve client timezone from session data or history
+  const clientTz = sessionData?.clientTimezone || sessionHistory?.[0]?.client?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Update current time every second
   useEffect(() => {
@@ -355,6 +358,7 @@ const TimeClock = () => {
                   minute: '2-digit',
                   second: '2-digit',
                   hour12: true,
+                  timeZone: clientTz,
                 })}
               </p>
               <p className="text-primary-200 text-sm">
@@ -363,6 +367,7 @@ const TimeClock = () => {
                   month: 'long',
                   day: 'numeric',
                   year: 'numeric',
+                  timeZone: clientTz,
                 })}
               </p>
             </div>
@@ -538,11 +543,7 @@ const TimeClock = () => {
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
                   <span className="text-gray-600">Clock In Time</span>
                   <span className="font-semibold">
-                    {new Date(sessionData.session.startTime).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true,
-                    })}
+                    {formatTimeInTimeZone(sessionData.session.startTime, clientTz)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-100">
@@ -575,17 +576,9 @@ const TimeClock = () => {
                           className="flex justify-between items-center text-sm bg-gray-50 rounded-lg px-3 py-2"
                         >
                           <span className="text-gray-600">
-                            {new Date(brk.startTime).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            })}
+                            {formatTimeInTimeZone(brk.startTime, clientTz)}
                             {brk.endTime && (
-                              <> - {new Date(brk.endTime).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                hour12: true,
-                              })}</>
+                              <> - {formatTimeInTimeZone(brk.endTime, clientTz)}</>
                             )}
                           </span>
                           <span className="font-medium">
@@ -640,24 +633,17 @@ const TimeClock = () => {
                               weekday: 'short',
                               month: 'short',
                               day: 'numeric',
+                              timeZone: clientTz,
                             })}
                           </p>
                         </td>
                         <td className="py-3 px-4">
                           <p className="text-sm text-gray-600">
-                            {new Date(session.startTime).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            })}
+                            {formatTimeInTimeZone(session.startTime, clientTz)}
                             {session.endTime && (
                               <span className="text-gray-400"> - </span>
                             )}
-                            {session.endTime && new Date(session.endTime).toLocaleTimeString('en-US', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              hour12: true,
-                            })}
+                            {session.endTime && formatTimeInTimeZone(session.endTime, clientTz)}
                           </p>
                         </td>
                         <td className="py-3 px-4">
@@ -808,11 +794,7 @@ const TimeClock = () => {
               <span className="text-gray-600">Session Started</span>
               <span className="font-semibold">
                 {sessionData?.session?.startTime
-                  ? new Date(sessionData.session.startTime).toLocaleTimeString('en-US', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true,
-                    })
+                  ? formatTimeInTimeZone(sessionData.session.startTime, clientTz)
                   : '--:--'}
               </span>
             </div>

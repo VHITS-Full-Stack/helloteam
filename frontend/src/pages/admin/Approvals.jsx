@@ -37,6 +37,7 @@ import {
   formatDuration,
   formatDate,
   formatDateTime,
+  formatTimeInTimeZone,
 } from '../../utils/formatDateTime';
 
 const Approvals = () => {
@@ -499,9 +500,9 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.scheduledStart && item.scheduledEnd ? (
                             <span className="text-sm text-gray-700">
-                              {formatTime12(typeof item.scheduledStart === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledStart) ? item.scheduledStart : new Date(item.scheduledStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }))}
+                              {formatTime12(typeof item.scheduledStart === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledStart) ? item.scheduledStart : new Date(item.scheduledStart).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false, timeZone: item.clientTimezone || 'UTC' }))}
                               <span className="text-gray-300 mx-0.5">–</span>
-                              {formatTime12(typeof item.scheduledEnd === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledEnd) ? item.scheduledEnd : new Date(item.scheduledEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }))}
+                              {formatTime12(typeof item.scheduledEnd === 'string' && /^\d{1,2}:\d{2}$/.test(item.scheduledEnd) ? item.scheduledEnd : new Date(item.scheduledEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false, timeZone: item.clientTimezone || 'UTC' }))}
                             </span>
                           ) : <span className="text-gray-300">—</span>}
                         </TableCell>
@@ -510,10 +511,10 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.clockIn ? (
                             <span className="text-sm text-gray-700">
-                              {new Date(item.clockIn).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                              {formatTimeInTimeZone(item.clockIn, item.clientTimezone || 'UTC')}
                               <span className="text-gray-300 mx-0.5">–</span>
                               {item.clockOut
-                                ? new Date(item.clockOut).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+                                ? formatTimeInTimeZone(item.clockOut, item.clientTimezone || 'UTC')
                                 : <span className="text-green-600">Active</span>}
                             </span>
                           ) : <span className="text-gray-300">—</span>}
