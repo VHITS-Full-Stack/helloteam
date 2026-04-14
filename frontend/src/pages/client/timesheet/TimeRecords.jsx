@@ -867,7 +867,7 @@ const TimeRecords = () => {
                           const pendingOTs = otEntries.filter(
                             (ot) => ot.status === "PENDING",
                           );
-                          const clockIn = rec.billingStart || rec.clockIn;
+                          const clockIn = rec.clockIn;
                           const clockOut = rec.billingEnd || rec.clockOut;
 
                           return (
@@ -1244,7 +1244,7 @@ const TimeRecords = () => {
                               },
                             );
 
-                            const clockIn = rec.billingStart || rec.clockIn;
+                            const clockIn = rec.clockIn;
                             const clockOut = rec.billingEnd || rec.clockOut;
 
                             return (
@@ -1508,7 +1508,7 @@ const TimeRecords = () => {
                             _clockOut: rec.billingEnd || rec.clockOut,
                           }));
 
-                        const clockIn = rec.billingStart || rec.clockIn;
+                        const clockIn = rec.clockIn;
                         const clockOut = rec.billingEnd || rec.clockOut;
                         const dateLabel = rec.dateObj.toLocaleDateString(
                           "en-US",
