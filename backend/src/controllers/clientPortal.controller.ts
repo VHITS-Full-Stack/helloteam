@@ -1703,8 +1703,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           // For active sessions, use current time as the end reference
           const sessionMins = (() => {
             const effectiveEnd = endRef || new Date();
-            const rawMs = effectiveEnd.getTime() - session.startTime.getTime();
-            return Math.max(0, Math.round(rawMs / 60000) - breakMins);
+            // Truncate to minute boundary to match displayed times (sub-minute seconds in stored timestamps cause off-by-one)
+            const startMs = Math.floor(session.startTime.getTime() / 60000) * 60000;
+            const endMs = Math.floor(effectiveEnd.getTime() / 60000) * 60000;
+            return Math.max(0, Math.floor((endMs - startMs) / 60000) - breakMins);
           })();
 
           // Detect if this session is off-shift (started after schedule end)
