@@ -924,7 +924,9 @@ const TimeRecords = () => {
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-center text-sm font-medium text-gray-900">
-                                {regularM > 0 ? (
+                                {!rec.clockOut ? (
+                                  <span className="text-gray-300">—</span>
+                                ) : regularM > 0 ? (
                                   formatHours(regularM / 60)
                                 ) : (
                                   <span className="text-gray-300">0m</span>
@@ -1318,15 +1320,19 @@ const TimeRecords = () => {
                                     </td>
 
                                     <td className="py-2.5 px-3 text-center text-sm">
-                                      <span
-                                        className={
-                                          regularM > 0
-                                            ? "font-semibold text-gray-900"
-                                            : "text-gray-300"
-                                        }
-                                      >
-                                        {formatHours(regularM / 60)}
-                                      </span>
+                                      {!rec.clockOut ? (
+                                        <span className="text-gray-300">—</span>
+                                      ) : (
+                                        <span
+                                          className={
+                                            regularM > 0
+                                              ? "font-semibold text-gray-900"
+                                              : "text-gray-300"
+                                          }
+                                        >
+                                          {formatHours(regularM / 60)}
+                                        </span>
+                                      )}
                                     </td>
 
                                     {/* Overtime (pre-requested) */}
@@ -1554,9 +1560,11 @@ const TimeRecords = () => {
                                   ) : null}
                                 </div>
                                 <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
+                                  {!rec.clockOut ? null : (
                                   <span className="text-gray-700 font-medium">
                                     Reg: {formatHours(regularM / 60)}
                                   </span>
+                                  )}
                                   {requestedOTEntries.map((ot, i) => (
                                     <span
                                       key={ot.id || `r-${i}`}
