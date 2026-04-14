@@ -1392,6 +1392,8 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     const isAllStatus = status === 'all';
     const type = req.query.type as string | undefined;
     const clientId = req.query.clientId as string | undefined;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
@@ -1428,6 +1430,11 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
     }
     if (clientId) {
       timeRecordWhere.clientId = clientId;
+    }
+    if (startDate || endDate) {
+      timeRecordWhere.date = {};
+      if (startDate) timeRecordWhere.date.gte = new Date(startDate);
+      if (endDate) timeRecordWhere.date.lte = new Date(endDate);
     }
     if (type === 'time-adjustment') {
       timeRecordWhere.adjustmentNotes = { not: null };

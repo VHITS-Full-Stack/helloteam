@@ -141,6 +141,8 @@ const Approvals = () => {
           limit: pageSize,
           status: statusFilter === 'all' ? 'all' : statusFilter,
           clientId: clientFilterId !== 'all' ? clientFilterId : undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
         };
         const res = await adminPortalService.getApprovals(params);
         if (res?.success) {
