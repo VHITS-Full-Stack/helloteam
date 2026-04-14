@@ -1099,6 +1099,12 @@ const TimeRecords = () => {
                         {/* Billing In/Out */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           {(() => {
+                            if (day.status === "active")
+                              return (
+                                <span className="text-gray-400 italic">
+                                  In progress
+                                </span>
+                              );
                             const otEntries = day.overtimeEntries || [];
                             const hasOffShift = otEntries.some(
                               (ot) => ot.type === "OFF_SHIFT",
@@ -1146,12 +1152,6 @@ const TimeRecords = () => {
                                 </span>
                               );
                             }
-                            if (day.status === "active")
-                              return (
-                                <span className="text-gray-400 italic">
-                                  In progress
-                                </span>
-                              );
                             return <span className="text-gray-300">—</span>;
                           })()}
                         </td>
@@ -1170,7 +1170,9 @@ const TimeRecords = () => {
 
                         {/* Regular */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                          {day.regularHours !== null &&
+                          {day.status === "active" ? (
+                            <span className="text-gray-400">—</span>
+                          ) : day.regularHours !== null &&
                           day.regularHours !== undefined
                             ? formatHours(day.regularHours)
                             : day.hours !== null && day.hours !== undefined
