@@ -1,12 +1,9 @@
 /**
- * Fix old TimeRecord totalMinutes and billingMinutes.
- *
- * Problem: When employees checked in early (before scheduled start), the
- * display showed 0 regular hours for active sessions. Some completed records
- * may also have incorrect totalMinutes or billingMinutes stored.
- *
- * This script recalculates totalMinutes and billingMinutes from the stored
- * actualStart/actualEnd timestamps and updates any mismatched records.
+ * Fix old TimeRecord fields:
+ * 1. scheduledStart/scheduledEnd — resolves the correct schedule from the Schedule table
+ *    (latest effectiveFrom for the employee + day of week)
+ * 2. totalMinutes — recalculated from actualStart/actualEnd
+ * 3. billingMinutes/billingStart/billingEnd — recalculated using computeBillingTimes
  *
  * Run:  npx ts-node src/scripts/fix-time-record-minutes.ts
  * Dry:  npx ts-node src/scripts/fix-time-record-minutes.ts --dry-run
@@ -51,11 +48,46 @@ function computeBillingTimes(
   return { billingStart, billingEnd };
 }
 
+/**
+ * Build a full DateTime from a date + "HH:MM" time string.
+ * The date is a UTC date (e.g. 2026-04-14T00:00:00Z) and the time is in client timezone,
+ * but we combine them as UTC for consistency with how shiftEnd.job does it.
+ */
+function buildScheduleTimestamp(date: Date, timeStr: string): Date {
+  const [h, m] = timeStr.split(':').map(Number);
+  const ts = new Date(date);
+  ts.setUTCHours(h, m, 0, 0);
+  return ts;
+}
+
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
 
   console.log(`[Fix] ${dryRun ? 'DRY RUN - ' : ''}Scanning time records...`);
 
+  // 1. Fetch all schedules (latest effectiveFrom per employee+dayOfWeek)
+  const allSchedules = await prisma.schedule.findMany({
+    where: { isActive: true },
+    select: {
+      employeeId: true,
+      dayOfWeek: true,
+      startTime: true,
+      endTime: true,
+      effectiveFrom: true,
+    },
+    orderBy: { effectiveFrom: 'desc' },
+  });
+
+  // Build lookup: employeeId_dayOfWeek -> { startTime, endTime } (latest effectiveFrom wins)
+  const scheduleMap = new Map<string, { startTime: string; endTime: string }>();
+  for (const sched of allSchedules) {
+    const key = `${sched.employeeId}_${sched.dayOfWeek}`;
+    if (!scheduleMap.has(key)) {
+      scheduleMap.set(key, { startTime: sched.startTime, endTime: sched.endTime });
+    }
+  }
+
+  // 2. Fetch all time records with actual timestamps
   const records = await prisma.timeRecord.findMany({
     where: {
       actualStart: { not: null },
@@ -63,6 +95,7 @@ async function main() {
     },
     select: {
       id: true,
+      employeeId: true,
       date: true,
       actualStart: true,
       actualEnd: true,
@@ -77,9 +110,10 @@ async function main() {
     },
   });
 
-  console.log(`[Fix] Found ${records.length} records with actual start/end times`);
+  console.log(`[Fix] Found ${records.length} records, ${scheduleMap.size} schedule entries`);
 
-  let fixed = 0;
+  let fixedSchedule = 0;
+  let fixedMinutes = 0;
   let skipped = 0;
 
   for (const record of records) {
@@ -91,54 +125,84 @@ async function main() {
     const actualStart = new Date(record.actualStart);
     const actualEnd = new Date(record.actualEnd);
     const breakMins = record.breakMinutes || 0;
+    const name = `${record.employee.firstName} ${record.employee.lastName}`;
+    const dateStr = record.date.toISOString().split('T')[0];
 
-    // Recalculate totalMinutes
+    let changed = false;
+    const updateData: any = {};
+
+    // --- Fix scheduledStart/scheduledEnd from Schedule table ---
+    const dayOfWeek = record.date.getUTCDay();
+    const schedKey = `${record.employeeId}_${dayOfWeek}`;
+    const schedule = scheduleMap.get(schedKey);
+
+    if (schedule) {
+      const correctSchedStart = buildScheduleTimestamp(record.date, schedule.startTime);
+      const correctSchedEnd = buildScheduleTimestamp(record.date, schedule.endTime);
+      // Handle overnight shifts (end time < start time)
+      if (correctSchedEnd <= correctSchedStart) {
+        correctSchedEnd.setUTCDate(correctSchedEnd.getUTCDate() + 1);
+      }
+
+      const currentSchedStart = record.scheduledStart ? new Date(record.scheduledStart).getTime() : null;
+      const currentSchedEnd = record.scheduledEnd ? new Date(record.scheduledEnd).getTime() : null;
+
+      if (currentSchedStart !== correctSchedStart.getTime() || currentSchedEnd !== correctSchedEnd.getTime()) {
+        updateData.scheduledStart = correctSchedStart;
+        updateData.scheduledEnd = correctSchedEnd;
+        console.log(
+          `[Fix-Sched] ${name} on ${dateStr}: ` +
+          `schedule ${record.scheduledStart ? new Date(record.scheduledStart).toISOString() : 'null'} → ${correctSchedStart.toISOString()}, ` +
+          `${record.scheduledEnd ? new Date(record.scheduledEnd).toISOString() : 'null'} → ${correctSchedEnd.toISOString()}`
+        );
+        fixedSchedule++;
+        changed = true;
+      }
+    }
+
+    // --- Fix totalMinutes ---
     const correctTotalMinutes = Math.max(0,
       Math.round((actualEnd.getTime() - actualStart.getTime()) / 60000) - breakMins
     );
 
-    // Recalculate billing
-    const billing = computeBillingTimes(
-      actualStart,
-      actualEnd,
-      record.scheduledStart ? new Date(record.scheduledStart) : null,
-      record.scheduledEnd ? new Date(record.scheduledEnd) : null,
-    );
+    // Use the corrected schedule for billing calculation
+    const schedStart = updateData.scheduledStart || (record.scheduledStart ? new Date(record.scheduledStart) : null);
+    const schedEnd = updateData.scheduledEnd || (record.scheduledEnd ? new Date(record.scheduledEnd) : null);
+
+    const billing = computeBillingTimes(actualStart, actualEnd, schedStart, schedEnd);
     const correctBillingMinutes = Math.max(0,
       Math.floor((billing.billingEnd.getTime() - billing.billingStart.getTime()) / 60000) - breakMins
     );
 
-    const needsFix =
-      record.totalMinutes !== correctTotalMinutes ||
-      record.billingMinutes !== correctBillingMinutes;
-
-    if (needsFix) {
-      const name = `${record.employee.firstName} ${record.employee.lastName}`;
-      const dateStr = record.date.toISOString().split('T')[0];
+    if (record.totalMinutes !== correctTotalMinutes || record.billingMinutes !== correctBillingMinutes) {
+      updateData.totalMinutes = correctTotalMinutes;
+      updateData.billingMinutes = correctBillingMinutes;
+      updateData.billingStart = billing.billingStart;
+      updateData.billingEnd = billing.billingEnd;
       console.log(
-        `[Fix] ${name} on ${dateStr}: ` +
+        `[Fix-Mins] ${name} on ${dateStr}: ` +
         `totalMinutes ${record.totalMinutes} → ${correctTotalMinutes}, ` +
         `billingMinutes ${record.billingMinutes} → ${correctBillingMinutes}`
       );
-
-      if (!dryRun) {
-        await prisma.timeRecord.update({
-          where: { id: record.id },
-          data: {
-            totalMinutes: correctTotalMinutes,
-            billingMinutes: correctBillingMinutes,
-            billingStart: billing.billingStart,
-            billingEnd: billing.billingEnd,
-          },
-        });
-      }
-      fixed++;
-    } else {
-      skipped++;
+      fixedMinutes++;
+      changed = true;
     }
+
+    if (changed && !dryRun) {
+      await prisma.timeRecord.update({
+        where: { id: record.id },
+        data: updateData,
+      });
+    }
+
+    if (!changed) skipped++;
   }
 
-  console.log(`\n[Fix] Done. ${fixed} records ${dryRun ? 'would be' : ''} fixed, ${skipped} already correct.`);
+  console.log(`\n[Fix] Done.`);
+  console.log(`  Schedule fixed: ${fixedSchedule}`);
+  console.log(`  Minutes fixed: ${fixedMinutes}`);
+  console.log(`  Already correct: ${skipped}`);
+  if (dryRun) console.log(`  (DRY RUN — no changes written)`);
 }
 
 main()
