@@ -1099,7 +1099,7 @@ const TimeRecords = () => {
                         {/* Billing In/Out */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm">
                           {(() => {
-                            if (day.status === "active")
+                            if (!day.clockOut)
                               return (
                                 <span className="text-gray-400 italic">
                                   In progress
@@ -1170,7 +1170,7 @@ const TimeRecords = () => {
 
                         {/* Regular */}
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                          {day.status === "active" ? (
+                          {!day.clockOut ? (
                             <span className="text-gray-400">—</span>
                           ) : day.regularHours !== null &&
                           day.regularHours !== undefined
