@@ -868,7 +868,7 @@ const TimeRecords = () => {
                             (ot) => ot.status === "PENDING",
                           );
                           const clockIn = rec.clockIn;
-                          const clockOut = rec.billingEnd || rec.clockOut;
+                          const clockOut = rec.clockOut;
 
                           return (
                             <tr
@@ -1245,7 +1245,7 @@ const TimeRecords = () => {
                             );
 
                             const clockIn = rec.clockIn;
-                            const clockOut = rec.billingEnd || rec.clockOut;
+                            const clockOut = rec.clockOut;
 
                             return (
                               <tr
@@ -1509,7 +1509,7 @@ const TimeRecords = () => {
                           }));
 
                         const clockIn = rec.clockIn;
-                        const clockOut = rec.billingEnd || rec.clockOut;
+                        const clockOut = rec.clockOut;
                         const dateLabel = rec.dateObj.toLocaleDateString(
                           "en-US",
                           {
