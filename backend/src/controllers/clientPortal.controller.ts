@@ -1793,7 +1793,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               sessionOvertimeMinutes = effectiveSessionMinutes;
             }
           }
-          const sessionBillingMins = isActive ? effectiveSessionMinutes : (timeRecord?.billingMinutes || effectiveSessionMinutes);
+          const sessionBillingMins = effectiveSessionMinutes;
           // Compute scheduled duration for this session to cap regular hours
           let scheduledDurationMins = 0;
           if (daySchedule?.startTime && daySchedule?.endTime) {
