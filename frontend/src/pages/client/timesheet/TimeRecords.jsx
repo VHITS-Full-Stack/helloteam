@@ -867,8 +867,9 @@ const TimeRecords = () => {
                           const pendingOTs = otEntries.filter(
                             (ot) => ot.status === "PENDING",
                           );
+                          const isActive = rec.status?.toLowerCase() === 'active';
                           const clockIn = rec.clockIn;
-                          const clockOut = rec.clockOut;
+                          const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
 
                           return (
                             <tr
@@ -904,9 +905,9 @@ const TimeRecords = () => {
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-center text-sm">
-                                {rec.clockOut ? (
+                                {clockOut ? (
                                   formatClockTime(clockOut, clientTimezone)
-                                ) : clockIn ? (
+                                ) : isActive && clockIn ? (
                                   <span className="text-green-600 font-medium text-xs">
                                     In Progress
                                   </span>
@@ -924,7 +925,7 @@ const TimeRecords = () => {
                                 )}
                               </td>
                               <td className="py-2.5 px-3 text-center text-sm font-medium text-gray-900">
-                                {!rec.clockOut ? (
+                                {isActive ? (
                                   <span className="text-gray-300">—</span>
                                 ) : regularM > 0 ? (
                                   formatHours(regularM / 60)
@@ -1244,8 +1245,9 @@ const TimeRecords = () => {
                               },
                             );
 
+                            const isActive = rec.status?.toLowerCase() === 'active';
                             const clockIn = rec.clockIn;
-                            const clockOut = rec.clockOut;
+                            const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
 
                             return (
                               <tr
@@ -1296,7 +1298,7 @@ const TimeRecords = () => {
                                             clientTimezone,
                                           )}
                                         </span>
-                                      ) : clockIn ? (
+                                      ) : isActive && clockIn ? (
                                         <span className="text-green-600 font-medium text-xs">
                                           In Progress
                                         </span>
@@ -1320,7 +1322,7 @@ const TimeRecords = () => {
                                     </td>
 
                                     <td className="py-2.5 px-3 text-center text-sm">
-                                      {!rec.clockOut ? (
+                                      {isActive ? (
                                         <span className="text-gray-300">—</span>
                                       ) : (
                                         <span
@@ -1508,8 +1510,9 @@ const TimeRecords = () => {
                             _clockOut: rec.billingEnd || rec.clockOut,
                           }));
 
+                        const isActive = rec.status?.toLowerCase() === 'active';
                         const clockIn = rec.clockIn;
-                        const clockOut = rec.clockOut;
+                        const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
                         const dateLabel = rec.dateObj.toLocaleDateString(
                           "en-US",
                           {
@@ -1553,14 +1556,14 @@ const TimeRecords = () => {
                                         clientTimezone,
                                       )}
                                     </span>
-                                  ) : clockIn ? (
+                                  ) : isActive && clockIn ? (
                                     <span className="text-green-600">
                                       In Progress
                                     </span>
                                   ) : null}
                                 </div>
                                 <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
-                                  {!rec.clockOut ? null : (
+                                  {!isActive && (
                                   <span className="text-gray-700 font-medium">
                                     Reg: {formatHours(regularM / 60)}
                                   </span>
