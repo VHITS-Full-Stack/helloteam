@@ -1408,17 +1408,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const sessions = await prisma.workSession.findMany({
       where: sessionWhere,
       orderBy: { startTime: 'asc' },
-      select: {
-        id: true,
-        employeeId: true,
-        startTime: true,
-        endTime: true,
-        status: true,
-        totalBreakMinutes: true,
-        scheduledStartTime: true,
-        scheduledEndTime: true,
-        notes: true,
-        shiftEndAction: true,
+      include: {
         employee: {
           select: { id: true, firstName: true, lastName: true, profilePhoto: true },
         },

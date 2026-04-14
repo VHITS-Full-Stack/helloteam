@@ -501,7 +501,7 @@ const TimeRecords = () => {
 
   const tabs = [
     { id: "timesheets", label: "Timesheets" },
-    { id: "manual", label: "Manual Entry" },
+    // { id: "manual", label: "Manual Entry" },
   ];
 
   return (

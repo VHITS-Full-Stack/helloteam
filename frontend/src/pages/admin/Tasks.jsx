@@ -23,6 +23,7 @@ import {
   TableCell,
 } from '../../components/common';
 import taskService from '../../services/task.service';
+import clientService from '../../services/client.service';
 import { formatDate } from '../../utils/formatDateTime';
 
 const PRIORITY_CONFIG = {
@@ -42,6 +43,7 @@ const STATUS_CONFIG = {
 const Tasks = () => {
   const navigate = useNavigate();
   const [allTasks, setAllTasks] = useState([]);
+  const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,21 +53,16 @@ const Tasks = () => {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [clientFilter, setClientFilter] = useState('');
 
-  // Unique clients for filter
-  const clients = useMemo(() => {
-    const map = new Map();
-    allTasks.forEach(t => {
-      if (t.client && !map.has(t.client.id)) map.set(t.client.id, t.client.companyName);
-    });
-    return Array.from(map, ([id, name]) => ({ id, name }));
-  }, [allTasks]);
-
   const fetchTasks = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const response = await taskService.getTasks({ limit: 200 });
-      if (response.success) setAllTasks(response.data.tasks);
+      const [tasksRes, clientsRes] = await Promise.all([
+        taskService.getTasks({ limit: 200 }),
+        clientService.getClients({ limit: 200 }),
+      ]);
+      if (tasksRes.success) setAllTasks(tasksRes.data.tasks);
+      if (clientsRes.success) setClients(clientsRes.data.clients.map(c => ({ id: c.id, name: c.companyName })));
     } catch (err) {
       setError(err.message || 'Failed to load tasks');
     } finally {
