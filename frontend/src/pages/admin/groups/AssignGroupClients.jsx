@@ -1,7 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building, AlertCircle, X, Loader2, Users } from 'lucide-react';
-import { Card, Button } from '../../../components/common';
+import { ArrowLeft, AlertCircle, X, Loader2, Users } from 'lucide-react';
+import {
+  Card,
+  Button,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableHeader,
+  TableCell,
+} from '../../../components/common';
 import groupService from '../../../services/group.service';
 import clientService from '../../../services/client.service';
 
@@ -119,46 +128,60 @@ const AssignGroupClients = () => {
         </div>
       )}
 
-      {/* Clients List */}
+      {/* Clients Table */}
       <Card>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4">Select Clients</h2>
         {clients.length === 0 ? (
           <p className="text-sm text-gray-400 py-4 text-center">No clients found.</p>
         ) : (
-          <div className="space-y-3">
-            {clients.map((client) => {
-              const assigned = isAssigned(client.id);
-              const busy = submitting === client.id;
-              return (
-                <div
-                  key={client.id}
-                  className={`flex items-center justify-between p-4 border rounded-xl transition-colors ${
-                    assigned ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${assigned ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      <Building className={`w-4 h-4 ${assigned ? 'text-green-600' : 'text-gray-400'}`} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{client.companyName}</p>
-                      {client.contactPerson && <p className="text-sm text-gray-500">{client.contactPerson}</p>}
-                    </div>
-                  </div>
-                  <Button
-                    variant={assigned ? 'ghost' : 'primary'}
-                    size="sm"
-                    loading={busy}
-                    onClick={() => assigned ? handleUnassign(client.id) : handleAssign(client.id)}
-                    disabled={!group?.employees?.length || submitting !== null}
-                    className={assigned ? 'text-red-600 hover:bg-red-50 border-red-200' : ''}
-                  >
-                    {assigned ? 'Unassign' : 'Assign'}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableHeader>Client</TableHeader>
+                <TableHeader>Contact</TableHeader>
+                <TableHeader>Status</TableHeader>
+                <TableHeader align="right">Action</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {clients.map((client) => {
+                const assigned = isAssigned(client.id);
+                const busy = submitting === client.id;
+                return (
+                  <TableRow key={client.id}>
+                    <TableCell>
+                      <span className="font-medium text-gray-900">{client.companyName}</span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-gray-500">{client.contactPerson || '—'}</span>
+                    </TableCell>
+                    <TableCell>
+                      {assigned ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          Assigned
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                          Not Assigned
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button
+                        variant={assigned ? 'ghost' : 'primary'}
+                        size="sm"
+                        loading={busy}
+                        onClick={() => assigned ? handleUnassign(client.id) : handleAssign(client.id)}
+                        disabled={!group?.employees?.length || submitting !== null}
+                        className={assigned ? 'text-red-600 hover:bg-red-50 border border-red-200' : ''}
+                      >
+                        {assigned ? 'Unassign' : 'Assign'}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         )}
       </Card>
     </div>
