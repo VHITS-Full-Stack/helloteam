@@ -74,6 +74,7 @@ const AuditLog = lazy(() => import('../pages/admin/AuditLog'));
 const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
+const AssignGroupClients = lazy(() => import('../pages/admin/groups/AssignGroupClients'));
 const AdminTasks = lazy(() => import('../pages/admin/Tasks'));
 const AdminTaskDetail = lazy(() => import('../pages/admin/TaskDetail'));
 const EmployeeTaskDetail = lazy(() => import('../pages/employee/TaskDetail'));
@@ -233,6 +234,7 @@ const AppRoutes = () => {
           <Route path="clients/:id/groups" element={<ClientConnectedGroups />} />
           <Route path="clients/:id" element={<ClientDetail />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="groups/:id/clients" element={<AssignGroupClients />} />
           <Route path="support" element={<AdminSupport />} />
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="tasks/:id" element={<AdminTaskDetail />} />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Plus,
   Search,
@@ -35,6 +36,7 @@ import employeeService from '../../../services/employee.service';
 import clientService from '../../../services/client.service';
 
 const Groups = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClientId, setFilterClientId] = useState('');
   const isInitialMount = useRef(true);
@@ -42,7 +44,7 @@ const Groups = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
-  const [showAssignClientModal, setShowAssignClientModal] = useState(false);
+
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [groups, setGroups] = useState([]);
   const [allEmployees, setAllEmployees] = useState([]);
@@ -272,97 +274,6 @@ const Groups = () => {
     }
   };
 
-  const handleAssignGroupToClient = async (clientId) => {
-    if (!selectedGroup || !clientId) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      // Get the full group with employees
-      const groupResponse = await groupService.getGroup(selectedGroup.id);
-      if (!groupResponse.success) {
-        setError('Failed to fetch group details');
-        return;
-      }
-
-      const employeeIds = groupResponse.data.employees?.map(
-        (ge) => ge.employee?.id || ge.employeeId
-      ).filter(Boolean);
-
-      if (!employeeIds || employeeIds.length === 0) {
-        setError('No employees in this group to assign');
-        return;
-      }
-
-      const response = await clientService.assignEmployees(clientId, employeeIds);
-      if (response.success) {
-        setShowAssignClientModal(false);
-        setSelectedGroup(null);
-        setError('');
-      } else {
-        setError(response.error || 'Failed to assign group to client');
-      }
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to assign group to client');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleUnassignGroupFromClient = async (clientId) => {
-    if (!selectedGroup || !clientId) return;
-
-    setSubmitting(true);
-    setError('');
-
-    try {
-      const groupResponse = await groupService.getGroup(selectedGroup.id);
-      if (!groupResponse.success) {
-        setError('Failed to fetch group details');
-        return;
-      }
-
-      const employeeIds = groupResponse.data.employees?.map(
-        (ge) => ge.employee?.id || ge.employeeId
-      ).filter(Boolean);
-
-      if (!employeeIds || employeeIds.length === 0) {
-        setError('No employees in this group to unassign');
-        return;
-      }
-
-      // Remove each employee from the client
-      for (const employeeId of employeeIds) {
-        await clientService.removeEmployee(clientId, employeeId);
-      }
-
-      // Refresh group data
-      const updatedGroup = await groupService.getGroup(selectedGroup.id);
-      if (updatedGroup.success) {
-        setSelectedGroup(updatedGroup.data);
-      }
-      setError('');
-      fetchGroups();
-    } catch (err) {
-      setError(err.error || err.message || 'Failed to unassign group from client');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const openAssignClientModal = (group) => {
-    setError('');
-    setSelectedGroup(group);
-    setShowAssignClientModal(true);
-    // Fetch full group details with clientAssignments in background
-    groupService.getGroup(group.id).then((response) => {
-      if (response.success) {
-        setSelectedGroup(response.data);
-      }
-    }).catch(() => {});
-  };
-
   const openEditModal = (group) => {
     setError('');
     setSelectedGroup(group);
@@ -427,26 +338,6 @@ const Groups = () => {
     return Object.entries(clientMap).map(([id, info]) => ({ id, ...info }));
   };
 
-  // For the assign modal: get assignment status per client (reads directly from group data)
-  const getClientAssignmentStatus = (clientId) => {
-    if (!selectedGroup?.employees || selectedGroup.employees.length === 0) return { assigned: 0, total: 0 };
-    const total = selectedGroup.employees.length;
-    let assigned = 0;
-
-    selectedGroup.employees.forEach((ge) => {
-      const emp = ge.employee;
-      if (emp?.clientAssignments) {
-        const isAssigned = emp.clientAssignments.some((ca) => {
-          const cid = ca.client?.id || ca.clientId;
-          return cid === clientId;
-        });
-        if (isAssigned) assigned++;
-      }
-    });
-
-    return { assigned, total };
-  };
-
   // Get employees not already in the selected group
   const getAvailableEmployees = () => {
     if (!selectedGroup || !selectedGroup.employees) return allEmployees;
@@ -483,7 +374,7 @@ const Groups = () => {
       </div>
 
       {/* Error Alert */}
-      {error && !showAddModal && !showEditModal && !showDeleteModal && !showManageModal && !showAssignClientModal && (
+      {error && !showAddModal && !showEditModal && !showDeleteModal && !showManageModal && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-sm text-red-600">
           <AlertCircle className="w-4 h-4 flex-shrink-0" />
           {error}
@@ -673,7 +564,7 @@ const Groups = () => {
                       </button>
                       <button
                         className="p-1.5 hover:bg-green-50 rounded-lg transition-colors"
-                        onClick={() => openAssignClientModal(group)}
+                        onClick={() => navigate(`/admin/groups/${group.id}/clients`)}
                         title="Assign to Client"
                       >
                         <Building className="w-4 h-4 text-green-500" />
@@ -881,80 +772,6 @@ const Groups = () => {
             </Button>
             <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={handleDeleteGroup} loading={submitting}>
               Delete
-            </Button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Assign Group to Client Modal */}
-      <Modal
-        isOpen={showAssignClientModal}
-        onClose={() => { setShowAssignClientModal(false); setSelectedGroup(null); setError(''); }}
-        title={`Assign Group to Client - ${selectedGroup?.name || ''}`}
-        size="sm"
-      >
-        <div className="space-y-4">
-          <p className="text-gray-600">
-            Assign all <strong>{selectedGroup?.employees?.length || 0} employees</strong> in
-            <strong> {selectedGroup?.name}</strong> to a client:
-          </p>
-
-          {selectedGroup?.employees?.length > 0 ? (
-            <div className="space-y-2">
-              {clients.map((client) => {
-                const status = getClientAssignmentStatus(client.id);
-                const isAssigned = status.assigned > 0;
-
-                return (
-                  <div
-                    key={client.id}
-                    className={`w-full p-4 border rounded-xl transition-colors ${
-                      isAssigned ? 'border-green-300 bg-green-50' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Building className="w-5 h-5 text-gray-400" />
-                        <div>
-                          <p className="font-medium text-gray-900">{client.companyName}</p>
-                          <p className="text-sm text-gray-500">{client.contactPerson}</p>
-                        </div>
-                      </div>
-                      {isAssigned ? (
-                        <button
-                          className="px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors"
-                          onClick={() => handleUnassignGroupFromClient(client.id)}
-                          disabled={submitting}
-                        >
-                          Unassign
-                        </button>
-                      ) : (
-                        <button
-                          className="px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 hover:bg-primary-100 border border-primary-200 rounded-lg transition-colors"
-                          onClick={() => handleAssignGroupToClient(client.id)}
-                          disabled={submitting}
-                        >
-                          Assign
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400 py-3">This group has no employees to assign. Add employees first.</p>
-          )}
-
-          {error && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
-
-          <div className="flex justify-end pt-4">
-            <Button variant="ghost" onClick={() => { setShowAssignClientModal(false); setSelectedGroup(null); setError(''); }}>
-              Cancel
             </Button>
           </div>
         </div>
