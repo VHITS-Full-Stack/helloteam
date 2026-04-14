@@ -133,10 +133,8 @@ const TimeRecords = () => {
     setLoading(true);
     setError(null);
     try {
-      const rs = rangeStart;
-      const re = rangeEnd;
-      const startDate = toLocalDateStr(rs);
-      const endDate = toLocalDateStr(re);
+      const startDate = customStart || todayStr;
+      const endDate = customEnd || todayStr;
       const response = await clientPortalService.getTimeRecords({
         startDate,
         endDate,
@@ -158,7 +156,7 @@ const TimeRecords = () => {
       setLoading(false);
       fetchingRef.current = false;
     }
-  }, [statusFilter, rangeStart, rangeEnd]);
+  }, [statusFilter, customStart, customEnd, todayStr]);
 
   useEffect(() => {
     fetchTimeRecords();
