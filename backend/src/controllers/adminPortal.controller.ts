@@ -862,8 +862,10 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       const breakMins = session.totalBreakMinutes || 0;
       const workMinutes = (() => {
         const effectiveEnd = session.endTime || new Date();
-        const rawMs = effectiveEnd.getTime() - session.startTime.getTime();
-        return Math.max(0, Math.round(rawMs / 60000) - breakMins);
+        // Truncate to minute boundary to match displayed times (sub-minute seconds cause off-by-one)
+        const startMs = Math.floor(session.startTime.getTime() / 60000) * 60000;
+        const endMs = Math.floor(effectiveEnd.getTime() / 60000) * 60000;
+        return Math.max(0, Math.floor((endMs - startMs) / 60000) - breakMins);
       })();
 
       const breakHours = Math.round(breakMins / 60 * 100) / 100;
