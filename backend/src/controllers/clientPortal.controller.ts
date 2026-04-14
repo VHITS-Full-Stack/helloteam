@@ -1701,9 +1701,10 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           const breakMins = session.totalBreakMinutes || 0;
           const endRef = session.endTime || null;
           // Calculate per-session minutes from clock in/out, rounded to nearest minute
+          // For active sessions, use current time as the end reference
           const sessionMins = (() => {
-            if (!endRef) return 0;
-            const rawMs = endRef.getTime() - session.startTime.getTime();
+            const effectiveEnd = endRef || new Date();
+            const rawMs = effectiveEnd.getTime() - session.startTime.getTime();
             return Math.max(0, Math.round(rawMs / 60000) - breakMins);
           })();
 
@@ -1783,7 +1784,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               sessionOvertimeMinutes = effectiveSessionMinutes;
             }
           }
-          const sessionBillingMins = isActive ? 0 : (timeRecord?.billingMinutes || effectiveSessionMinutes);
+          const sessionBillingMins = isActive ? effectiveSessionMinutes : (timeRecord?.billingMinutes || effectiveSessionMinutes);
           // Compute scheduled duration for this session to cap regular hours
           let scheduledDurationMins = 0;
           if (daySchedule?.startTime && daySchedule?.endTime) {
@@ -1795,9 +1796,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           // Regular hours: if worked beyond schedule, cap at scheduled work time; otherwise use billing - OT
           const scheduledWorkMins = Math.max(0, scheduledDurationMins - breakMins);
           let sessionRegularMinutes: number;
-          if (isActive) {
-            sessionRegularMinutes = 0;
-          } else if (scheduledDurationMins > 0 && sessionMins > scheduledWorkMins) {
+          if (scheduledDurationMins > 0 && sessionMins > scheduledWorkMins) {
             sessionRegularMinutes = scheduledWorkMins;
           } else {
             sessionRegularMinutes = Math.max(0, sessionBillingMins - sessionOvertimeMinutes);

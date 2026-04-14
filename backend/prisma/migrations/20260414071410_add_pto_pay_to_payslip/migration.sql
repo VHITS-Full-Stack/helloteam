@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "payslips" ADD COLUMN     "ptoHours" DECIMAL(10,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "ptoPay" DECIMAL(10,2) NOT NULL DEFAULT 0;

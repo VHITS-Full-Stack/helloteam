@@ -184,7 +184,35 @@ export const generatePayslips = async (
       const totalDeductions = Math.round(
         empAdjustments.filter((a) => a.type === "DEDUCTION").reduce((sum, a) => sum + Number(a.amount), 0) * 100,
       ) / 100;
-      const grossPay = Math.max(0, Math.round((regularPay + overtimePay + totalBonuses - totalDeductions) * 100) / 100);
+
+      // Fetch approved paid leave for this employee in this period
+      const empLeaveRequests = await prisma.leaveRequest.findMany({
+        where: {
+          employeeId: employee.id,
+          status: 'APPROVED',
+          leaveType: 'PAID',
+          startDate: { lte: periodEnd },
+          endDate: { gte: periodStart },
+        },
+        select: { startDate: true, endDate: true },
+      });
+
+      let ptoDays = 0;
+      for (const leave of empLeaveRequests) {
+        const leaveStart = leave.startDate > periodStart ? leave.startDate : periodStart;
+        const leaveEnd = leave.endDate < periodEnd ? leave.endDate : periodEnd;
+        const days = Math.max(0, Math.floor((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        const d = new Date(leaveStart);
+        for (let i = 0; i < days; i++) {
+          const dow = d.getDay();
+          if (dow >= 1 && dow <= 5) ptoDays++;
+          d.setDate(d.getDate() + 1);
+        }
+      }
+      const ptoHours = Math.round(ptoDays * 8 * 100) / 100;
+      const ptoPay = Math.round(ptoHours * hourlyRate * 100) / 100;
+
+      const grossPay = Math.max(0, Math.round((regularPay + overtimePay + ptoPay + totalBonuses - totalDeductions) * 100) / 100);
 
       // Upsert payslip
       await prisma.payslip.upsert({
@@ -204,6 +232,8 @@ export const generatePayslips = async (
           overtimeRate,
           regularPay,
           overtimePay,
+          ptoHours,
+          ptoPay,
           totalBonuses,
           totalDeductions,
           grossPay,
@@ -222,6 +252,8 @@ export const generatePayslips = async (
           overtimeRate,
           regularPay,
           overtimePay,
+          ptoHours,
+          ptoPay,
           totalBonuses,
           totalDeductions,
           grossPay,
@@ -278,6 +310,8 @@ export const getMyPayslips = async (req: AuthenticatedRequest, res: Response): P
         overtimeRate: Number(p.overtimeRate),
         regularPay: Number(p.regularPay),
         overtimePay: Number(p.overtimePay),
+        ptoHours: Number(p.ptoHours),
+        ptoPay: Number(p.ptoPay),
         totalBonuses: Number(p.totalBonuses),
         totalDeductions: Number(p.totalDeductions),
         grossPay: Number(p.grossPay),
@@ -387,6 +421,8 @@ export const getMyPayslipDetail = async (req: AuthenticatedRequest, res: Respons
         overtimeRate: Number(payslip.overtimeRate),
         regularPay: Number(payslip.regularPay),
         overtimePay: Number(payslip.overtimePay),
+        ptoHours: Number(payslip.ptoHours),
+        ptoPay: Number(payslip.ptoPay),
         totalBonuses: Number(payslip.totalBonuses),
         totalDeductions: Number(payslip.totalDeductions),
         grossPay: Number(payslip.grossPay),

@@ -1503,6 +1503,19 @@ const Payroll = () => {
                                   </p>
                                 )}
                               </div>
+                              {(emp.ptoPay || 0) > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+                                    PTO Pay (Paid Leave)
+                                  </h4>
+                                  <span className="text-sm font-semibold text-purple-600">
+                                    +${(emp.ptoPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                  <span className="text-xs text-gray-400 ml-1">
+                                    ({formatHours(emp.ptoHours || 0)})
+                                  </span>
+                                </div>
+                              )}
                               {emp.employeeDeduction > 0 && (
                                 <div>
                                   <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">

@@ -163,6 +163,33 @@ export const getPayrollPeriods = async (
           totalGrossPay += employeePay;
         }
 
+        // Add PTO pay for paid leave
+        const periodLeaveRequests = await prisma.leaveRequest.findMany({
+          where: {
+            employeeId: { in: employeeIds },
+            status: 'APPROVED',
+            leaveType: 'PAID',
+            startDate: { lte: group.periodEnd },
+            endDate: { gte: group.periodStart },
+          },
+          select: { employeeId: true, startDate: true, endDate: true },
+        });
+        for (const leave of periodLeaveRequests) {
+          const emp = empTotals[leave.employeeId];
+          if (!emp) continue;
+          const leaveStart = leave.startDate > group.periodStart ? leave.startDate : group.periodStart;
+          const leaveEnd = leave.endDate < group.periodEnd ? leave.endDate : group.periodEnd;
+          const days = Math.max(0, Math.floor((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+          let weekdays = 0;
+          const d = new Date(leaveStart);
+          for (let i = 0; i < days; i++) {
+            const dow = d.getDay();
+            if (dow >= 1 && dow <= 5) weekdays++;
+            d.setDate(d.getDate() + 1);
+          }
+          totalGrossPay += Math.round(weekdays * 8 * emp.hourlyRate * 100) / 100;
+        }
+
         // Add bonuses, subtract adjustment deductions
         const adjustments = await prisma.payrollAdjustment.findMany({
           where: {
@@ -1415,7 +1442,7 @@ export const getPayrollExportData = async (
     });
 
     // Convert to array and calculate hours, pay, and adjustments
-    const exportData = Object.values(employeeData).map((emp: any) => {
+    const exportData = await Promise.all(Object.values(employeeData).map(async (emp: any) => {
       const totalHours = Math.round((emp.totalMinutes / 60) * 100) / 100;
       const regularHours = Math.round((emp.regularMinutes / 60) * 100) / 100;
       const overtimeHours = Math.round((emp.overtimeMinutes / 60) * 100) / 100;
@@ -1441,9 +1468,37 @@ export const getPayrollExportData = async (
       const employeeDeduction = emp.employee?.deduction ? Number(emp.employee.deduction) : 0;
       const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
 
+      // Calculate PTO pay from approved paid leave
+      const empLeaveReqs = await prisma.leaveRequest.findMany({
+        where: {
+          employeeId: emp.employeeId,
+          status: 'APPROVED',
+          leaveType: 'PAID',
+          startDate: { lte: new Date((periodEnd as string) + 'T23:59:59Z') },
+          endDate: { gte: new Date((periodStart as string) + 'T00:00:00Z') },
+        },
+        select: { startDate: true, endDate: true },
+      });
+      let ptoDays = 0;
+      for (const leave of empLeaveReqs) {
+        const pStartDate = new Date(periodStart as string);
+        const pEndDate = new Date(periodEnd as string);
+        const leaveStart = leave.startDate > pStartDate ? leave.startDate : pStartDate;
+        const leaveEnd = leave.endDate < pEndDate ? leave.endDate : pEndDate;
+        const days = Math.max(0, Math.floor((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+        const d = new Date(leaveStart);
+        for (let i = 0; i < days; i++) {
+          const dow = d.getDay();
+          if (dow >= 1 && dow <= 5) ptoDays++;
+          d.setDate(d.getDate() + 1);
+        }
+      }
+      const ptoHours = Math.round(ptoDays * 8 * 100) / 100;
+      const ptoPay = Math.round(ptoHours * emp.hourlyRate * 100) / 100;
+
       const grossPay = Math.max(0,
         Math.round(
-          (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
+          (regularPay + overtimePay + ptoPay + totalBonuses - totalDeductions) * 100,
         ) / 100);
 
       return {
@@ -1452,6 +1507,8 @@ export const getPayrollExportData = async (
         regularHours,
         overtimeHours,
         breakHours,
+        ptoHours,
+        ptoPay,
         regularPay,
         overtimePay,
         totalBonuses,
@@ -1459,7 +1516,7 @@ export const getPayrollExportData = async (
         employeeDeduction,
         grossPay,
       };
-    });
+    }));
 
     // Calculate totals
     const totals = {
@@ -1990,9 +2047,12 @@ export const getEmployeePayrollSummary = async (
       // Total hours = approved work hours + PTO hours
       const totalHoursWithPTO = Math.round((totalHours + ptoHours) * 100) / 100;
 
+      // Paid leave: pay employee for PTO days (added to gross pay)
+      const ptoPay = Math.round(ptoHours * resolvedHourlyRate * 100) / 100;
+
       const grossPay = Math.max(0,
         Math.round(
-          (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
+          (regularPay + overtimePay + ptoPay + totalBonuses - totalDeductions) * 100,
         ) / 100);
 
       return {
@@ -2009,6 +2069,7 @@ export const getEmployeePayrollSummary = async (
         totalHoursWithPTO,
         regularPay,
         overtimePay,
+        ptoPay,
         grossPay,
         adjustments: empAdjustments,
         employeeDeduction,
@@ -2367,9 +2428,46 @@ export const getEmployeePayrollDetail = async (
     // Include employee's fixed deduction from their profile
     const employeeDeduction = employee.deduction ? Number(employee.deduction) : 0;
     const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
+
+    // Fetch approved leave requests in this period for PTO/VTO
+    const detailLeaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: employeeId,
+        status: 'APPROVED',
+        startDate: { lte: new Date(periodEnd + 'T23:59:59Z') },
+        endDate: { gte: new Date(periodStart + 'T00:00:00Z') },
+      },
+      select: { leaveType: true, startDate: true, endDate: true },
+    });
+
+    let detailPtoDays = 0;
+    let detailVtoDays = 0;
+    for (const leave of detailLeaveRequests) {
+      const pStartDate = new Date(periodStart);
+      const pEndDate = new Date(periodEnd);
+      const leaveStart = leave.startDate > pStartDate ? leave.startDate : pStartDate;
+      const leaveEnd = leave.endDate < pEndDate ? leave.endDate : pEndDate;
+      const days = Math.max(0, Math.floor((leaveEnd.getTime() - leaveStart.getTime()) / (1000 * 60 * 60 * 24)) + 1);
+      let weekdays = 0;
+      const d = new Date(leaveStart);
+      for (let i = 0; i < days; i++) {
+        const dow = d.getDay();
+        if (dow >= 1 && dow <= 5) weekdays++;
+        d.setDate(d.getDate() + 1);
+      }
+      if (leave.leaveType === 'PAID') {
+        detailPtoDays += weekdays;
+      } else {
+        detailVtoDays += weekdays;
+      }
+    }
+    const ptoHours = Math.round(detailPtoDays * 8 * 100) / 100;
+    const vtoHours = Math.round(detailVtoDays * 8 * 100) / 100;
+    const ptoPay = Math.round(ptoHours * hourlyRate * 100) / 100;
+
     const grossPay = Math.max(0,
       Math.round(
-        (regularPay + overtimePay + totalBonuses - totalDeductions) * 100,
+        (regularPay + overtimePay + ptoPay + totalBonuses - totalDeductions) * 100,
       ) / 100);
 
     res.json({
@@ -2388,6 +2486,9 @@ export const getEmployeePayrollDetail = async (
           totalHours,
           regularHours,
           overtimeHours,
+          ptoHours,
+          vtoHours,
+          ptoPay,
           approvedHours: Math.round((totalApprovedMinutes / 60) * 100) / 100,
           pendingHours: Math.round((totalPendingMinutes / 60) * 100) / 100,
           workDays: records.length,
