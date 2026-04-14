@@ -1824,7 +1824,7 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           if (scheduledDurationMins > 0 && sessionMins > scheduledWorkMins) {
             sessionRegularMinutes = scheduledWorkMins;
           } else {
-            sessionRegularMinutes = Math.max(0, sessionBillingMins - sessionOvertimeMinutes);
+            sessionRegularMinutes = Math.max(0, effectiveSessionMinutes - sessionOvertimeMinutes);
           }
           console.log(`[DEBUG-CLIENT] emp=${empId.substring(0,8)} session=${session.id.substring(0,8)} start=${session.startTime.toISOString()} sessionMins=${sessionMins} effectiveMin=${effectiveSessionMinutes} billingMins=${sessionBillingMins} trExtra=${timeRecord?.extraTimeMinutes||0} trExt=${timeRecord?.shiftExtensionMinutes||0} matchedOT=${sessionOvertime} finalOT=${sessionOvertimeMinutes} regular=${sessionRegularMinutes}`);
           const sessionHours = Math.round((sessionBillingMins / 60) * 100) / 100;
