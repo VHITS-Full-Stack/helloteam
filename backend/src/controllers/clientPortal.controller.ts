@@ -1795,10 +1795,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
           }
           const sessionBillingMins = effectiveSessionMinutes;
           // Compute scheduled duration for this session to cap regular hours
+          // Use session's own scheduled times (set at clock-in) for accuracy on split-shift days
           let scheduledDurationMins = 0;
-          if (daySchedule?.startTime && daySchedule?.endTime) {
-            const [sH, sM] = daySchedule.startTime.split(':').map(Number);
-            const [eH, eM] = daySchedule.endTime.split(':').map(Number);
+          const sessionSchedStart = session.scheduledStartTime || daySchedule?.startTime;
+          const sessionSchedEnd = session.scheduledEndTime || daySchedule?.endTime;
+          if (sessionSchedStart && sessionSchedEnd) {
+            const [sH, sM] = sessionSchedStart.split(':').map(Number);
+            const [eH, eM] = sessionSchedEnd.split(':').map(Number);
             scheduledDurationMins = (eH * 60 + eM) - (sH * 60 + sM);
             if (scheduledDurationMins <= 0) scheduledDurationMins += 24 * 60; // overnight shift
           }
