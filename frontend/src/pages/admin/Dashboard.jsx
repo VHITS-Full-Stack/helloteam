@@ -15,6 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Card, StatCard, Badge, Button, Avatar, RefreshButton } from '../../components/common';
 import adminPortalService from '../../services/adminPortal.service';
+import supportTicketService from '../../services/supportTicket.service';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ const AdminDashboard = () => {
   const [recentActivity, setRecentActivity] = useState([]);
   const [pendingActions, setPendingActions] = useState([]);
   const [clientOverview, setClientOverview] = useState([]);
+  const [tickets, setTickets] = useState([]);
   const [unapprovedOT, setUnapprovedOT] = useState(null);
   const [payrollReadiness, setPayrollReadiness] = useState({
     approvedHours: 0,
@@ -49,13 +51,14 @@ const AdminDashboard = () => {
     fetchingRef.current = true;
     setLoading(true);
     try {
-      const [statsRes, activityRes, actionsRes, clientsRes, payrollRes, unapprovedOTRes] = await Promise.all([
+      const [statsRes, activityRes, actionsRes, clientsRes, payrollRes, unapprovedOTRes, ticketsRes] = await Promise.all([
         adminPortalService.getDashboardStats(),
         adminPortalService.getRecentActivity(5),
         adminPortalService.getPendingActions(),
         adminPortalService.getClientOverview(),
         adminPortalService.getPayrollReadiness(),
         adminPortalService.getClientWiseUnapprovedOT(),
+        supportTicketService.getTickets({ status: 'OPEN,IN_PROGRESS', limit: 5 }),
       ]);
 
       if (statsRes?.success) {
@@ -77,6 +80,9 @@ const AdminDashboard = () => {
         setUnapprovedOT(unapprovedOTRes.data);
       } else {
         setUnapprovedOT(null);
+      }
+      if (ticketsRes?.success) {
+        setTickets(ticketsRes.data?.tickets || []);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -376,59 +382,59 @@ const AdminDashboard = () => {
           </div>
         </Card>
 
-        {/* Payroll Status */}
-        {/* <Card>
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll Readiness</h3>
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-700">Approved Hours</span>
-                <span className="font-semibold text-green-600">{payrollReadiness.approvedHours.toLocaleString()}h</span>
-              </div>
-              <div className="w-full h-2 bg-green-200 rounded-full">
-                <div
-                  className="h-full bg-green-500 rounded-full transition-all"
-                  style={{ width: `${payrollReadiness.approvedPercentage}%` }}
-                />
-              </div>
-            </div>
-            <div className="p-4 bg-yellow-50 rounded-lg">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-700">Pending Approval</span>
-                <span className="font-semibold text-yellow-600">{payrollReadiness.pendingHours.toLocaleString()}h</span>
-              </div>
-              <div className="w-full h-2 bg-yellow-200 rounded-full">
-                <div
-                  className="h-full bg-yellow-500 rounded-full transition-all"
-                  style={{ width: `${100 - payrollReadiness.approvedPercentage}%` }}
-                />
-              </div>
-            </div>
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <div>
-                <p className="font-medium text-gray-900">Payroll Cutoff</p>
-                <p className="text-sm text-gray-500">
-                  {payrollReadiness.payrollCutoff
-                    ? new Date(payrollReadiness.payrollCutoff).toLocaleDateString('en-US', {
-                        weekday: 'long',
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })
-                    : 'Not set'}
-                </p>
-              </div>
-              <Badge variant={payrollReadiness.daysUntilCutoff <= 1 ? 'danger' : 'warning'}>
-                {payrollReadiness.daysUntilCutoff} Day{payrollReadiness.daysUntilCutoff !== 1 ? 's' : ''} Left
-              </Badge>
-            </div>
-            <Button variant="primary" fullWidth>
-              Process Payroll
-            </Button>
+        {/* Support Tickets */}
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Support Tickets</h3>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/admin/support')}>View All</Button>
           </div>
-        </Card> */}
+          <div className="space-y-3">
+            {tickets.length > 0 ? (
+              tickets.map((ticket) => (
+                <div
+                  key={ticket.id}
+                  className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg transition-colors cursor-pointer"
+                  onClick={() => navigate(`/admin/support?ticket=${ticket.id}`)}
+                >
+                  <div className={`p-2 rounded-lg flex-shrink-0 ${
+                    ticket.priority === 'URGENT' ? 'bg-red-100' :
+                    ticket.priority === 'HIGH' ? 'bg-orange-100' :
+                    ticket.priority === 'MEDIUM' ? 'bg-yellow-100' : 'bg-gray-100'
+                  }`}>
+                    <MessageSquare className={`w-4 h-4 ${
+                      ticket.priority === 'URGENT' ? 'text-red-600' :
+                      ticket.priority === 'HIGH' ? 'text-orange-600' :
+                      ticket.priority === 'MEDIUM' ? 'text-yellow-600' : 'text-gray-500'
+                    }`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-900 truncate">{ticket.subject}</p>
+                    <p className="text-xs text-gray-500">
+                      {ticket.employee?.firstName} {ticket.employee?.lastName}
+                      {' · '}
+                      {new Date(ticket.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </p>
+                  </div>
+                  <Badge
+                    variant={
+                      ticket.status === 'OPEN' ? 'warning' :
+                      ticket.status === 'IN_PROGRESS' ? 'info' :
+                      ticket.status === 'RESOLVED' ? 'success' : 'default'
+                    }
+                    size="sm"
+                  >
+                    {ticket.status === 'IN_PROGRESS' ? 'In Progress' : ticket.status.charAt(0) + ticket.status.slice(1).toLowerCase()}
+                  </Badge>
+                </div>
+              ))
+            ) : (
+              <div className="p-8 text-center text-gray-500">
+                <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p>No open tickets</p>
+              </div>
+            )}
+          </div>
+        </Card>
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MessageSquare, Send, Search, Clock, AlertCircle, Loader2, ArrowLeft, X, CheckCircle, ChevronDown } from 'lucide-react';
 import { Card, Button, Badge, Avatar, Modal } from '../../components/common';
 import supportTicketService from '../../services/supportTicket.service';
 
 const Support = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -11,7 +13,7 @@ const Support = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // View ticket
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [selectedTicket, setSelectedTicket] = useState(searchParams.get('ticket') || null);
   const [ticketDetail, setTicketDetail] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null); // { ticketId, status }
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -37,6 +39,15 @@ const Support = () => {
   }, [statusFilter, searchQuery]);
 
   useEffect(() => { fetchTickets(); }, [fetchTickets]);
+
+  // Open ticket from URL param (?ticket=id)
+  useEffect(() => {
+    const ticketId = searchParams.get('ticket');
+    if (ticketId && !ticketDetail) {
+      setSelectedTicket(ticketId);
+      fetchTicketDetail(ticketId);
+    }
+  }, [searchParams]);
 
   const fetchTicketDetail = async (id) => {
     setLoadingDetail(true);

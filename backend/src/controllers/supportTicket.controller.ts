@@ -31,7 +31,10 @@ export const getTickets = async (req: AuthenticatedRequest, res: Response): Prom
       where.employeeId = { in: assignments.map(a => a.employeeId) };
     }
 
-    if (status) where.status = status;
+    if (status) {
+      const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+      where.status = statuses.length > 1 ? { in: statuses } : statuses[0];
+    }
     if (priority) where.priority = priority;
     if (search) {
       where.OR = [

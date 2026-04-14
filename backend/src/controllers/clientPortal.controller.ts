@@ -1537,14 +1537,13 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       },
     });
 
-    // Build schedule lookup: employeeId_dayOfWeek -> schedule (latest effective)
-    const scheduleMap = new Map<string, { startTime: string; endTime: string }>();
+    // Build schedule lookup: employeeId_dayOfWeek -> schedule (latest effectiveFrom wins)
+    const scheduleMap = new Map<string, { startTime: string; endTime: string; effectiveFrom: Date }>();
     for (const sched of schedules) {
       const key = `${sched.employeeId}_${sched.dayOfWeek}`;
       const existing = scheduleMap.get(key);
-      // Keep the latest effectiveFrom if multiple
-      if (!existing) {
-        scheduleMap.set(key, { startTime: sched.startTime, endTime: sched.endTime });
+      if (!existing || sched.effectiveFrom > existing.effectiveFrom) {
+        scheduleMap.set(key, { startTime: sched.startTime, endTime: sched.endTime, effectiveFrom: sched.effectiveFrom });
       }
     }
 
