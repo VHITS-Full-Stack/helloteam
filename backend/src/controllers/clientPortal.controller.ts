@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
 import { computeBillingTimes } from '../utils/helpers';
-import { formatDuration } from '../utils/timezone';
+import { formatDuration, buildScheduleTimestamp } from '../utils/timezone';
 
 // Helper to get local date string from a Date (avoids timezone shift from toISOString)
 const toLocalDateStr = (d: Date) =>
@@ -1793,15 +1793,28 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
               sessionOvertimeMinutes = effectiveSessionMinutes;
             }
           }
-          const sessionBillingMins = effectiveSessionMinutes;
+          // Compute per-session billing using computeBillingTimes (respects grace period)
+          let sessionBillingMins: number;
+          const sessionSchedStartStr = session.scheduledStartTime || daySchedule?.startTime;
+          const sessionSchedEndStr = session.scheduledEndTime || daySchedule?.endTime;
+          if (!isActive && session.endTime && sessionSchedStartStr && sessionSchedEndStr) {
+            const schedStart = buildScheduleTimestamp(clientTimezone, sessionSchedStartStr, session.startTime);
+            const schedEnd = buildScheduleTimestamp(clientTimezone, sessionSchedEndStr, session.startTime);
+            // Handle overnight: if schedEnd <= schedStart, push schedEnd to next day
+            if (schedEnd.getTime() <= schedStart.getTime()) {
+              schedEnd.setUTCDate(schedEnd.getUTCDate() + 1);
+            }
+            const billing = computeBillingTimes(session.startTime, session.endTime, schedStart, schedEnd);
+            sessionBillingMins = Math.max(0, Math.floor((billing.billingEnd.getTime() - billing.billingStart.getTime()) / 60000) - (session.totalBreakMinutes || 0));
+          } else {
+            sessionBillingMins = effectiveSessionMinutes;
+          }
           // Compute scheduled duration for this session to cap regular hours
           // Use session's own scheduled times (set at clock-in) for accuracy on split-shift days
           let scheduledDurationMins = 0;
-          const sessionSchedStart = session.scheduledStartTime || daySchedule?.startTime;
-          const sessionSchedEnd = session.scheduledEndTime || daySchedule?.endTime;
-          if (sessionSchedStart && sessionSchedEnd) {
-            const [sH, sM] = sessionSchedStart.split(':').map(Number);
-            const [eH, eM] = sessionSchedEnd.split(':').map(Number);
+          if (sessionSchedStartStr && sessionSchedEndStr) {
+            const [sH, sM] = sessionSchedStartStr.split(':').map(Number);
+            const [eH, eM] = sessionSchedEndStr.split(':').map(Number);
             scheduledDurationMins = (eH * 60 + eM) - (sH * 60 + sM);
             if (scheduledDurationMins <= 0) scheduledDurationMins += 24 * 60; // overnight shift
           }
