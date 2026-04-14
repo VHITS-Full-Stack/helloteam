@@ -1408,7 +1408,17 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     const sessions = await prisma.workSession.findMany({
       where: sessionWhere,
       orderBy: { startTime: 'asc' },
-      include: {
+      select: {
+        id: true,
+        employeeId: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+        totalBreakMinutes: true,
+        scheduledStartTime: true,
+        scheduledEndTime: true,
+        notes: true,
+        shiftEndAction: true,
         employee: {
           select: { id: true, firstName: true, lastName: true, profilePhoto: true },
         },
@@ -1860,8 +1870,8 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
             date,
             clockIn: session.startTime,
             clockOut: session.endTime || null,
-            scheduledStart: daySchedule?.startTime || null,
-            scheduledEnd: daySchedule?.endTime || null,
+            scheduledStart: session.scheduledStartTime || daySchedule?.startTime || null,
+            scheduledEnd: session.scheduledEndTime || daySchedule?.endTime || null,
             billingStart: timeRecord?.billingStart || session.startTime,
             billingEnd: timeRecord?.billingEnd || session.endTime || null,
             billingMinutes: sessionRegularMinutes,
