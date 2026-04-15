@@ -494,7 +494,7 @@ const Leave = () => {
         <form onSubmit={handleSubmitRequest}>
           {/* CODE dropdown */}
           <div className="mb-5">
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Code</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Leave Type</label>
             <div className="flex items-center gap-2">
               <div className="relative flex-1">
                 <select
