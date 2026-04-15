@@ -297,7 +297,7 @@ const InvoiceDetail = () => {
                     <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{formatCurrency(item.rate)}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{formatCurrency(item.overtimeRate)}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-600 text-right">{formatHours(Number(item.hours) + Number(item.overtimeHours || 0))}</td>
-                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatCurrency(item.amount)}</td>
+                    <td className="px-4 py-2.5 text-sm font-semibold text-gray-900 text-right">{formatHours(item.amount)}</td>
                   </tr>
                 ))}
               </tbody>
