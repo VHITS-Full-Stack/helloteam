@@ -52,6 +52,13 @@ const getLeaveTypeLabel = (type) => {
   return labels[type] || type;
 };
 
+const formatDurationFromDays = (days) => {
+  const totalMinutes = Math.round(Number(days || 0) * 8 * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  return `${hours}h ${String(mins).padStart(2, "0")}m`;
+};
+
 const today = () => new Date().toISOString().split("T")[0];
 
 const AdminLeave = () => {
@@ -624,19 +631,19 @@ const AdminLeave = () => {
                         </button>
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Employee
+                        Team Member
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Client
+                        Days Off
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Type
+                        Duration
+                      </th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                        Code
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Dates
-                      </th>
-                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Days
+                        Submitted On
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                         Status
@@ -692,14 +699,6 @@ const AdminLeave = () => {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
-                            {r.client.name}
-                          </td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {getLeaveTypeLabel(r.leaveType)}
-                            </span>
-                          </td>
                           <td className="px-4 py-3">
                             <p className="text-sm text-gray-900">
                               {formatDate(r.startDate, { includeYear: true })}
@@ -710,9 +709,20 @@ const AdminLeave = () => {
                                 {formatDate(r.endDate, { includeYear: true })}
                               </p>
                             )}
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {r.client.name}
+                            </p>
                           </td>
                           <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">
-                            {r.days}
+                            {formatDurationFromDays(r.days)}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span className="text-sm font-medium text-gray-900">
+                              {getLeaveTypeLabel(r.leaveType)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-600">
+                            {formatDate(r.createdAt, { includeYear: true })}
                           </td>
                           <td className="px-4 py-3 text-center">
                             {getStatusBadge(r.status)}

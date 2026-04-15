@@ -28,6 +28,18 @@ const formatCurrency = (amount, currency = 'USD') => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
 };
 
+const mapAgreementTypeToFrequency = (agreementType) => {
+  const normalized = String(agreementType || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+
+  if (normalized === 'WEEKLY') return 'weekly';
+  if (normalized === 'BI_WEEKLY' || normalized === 'BIWEEKLY') return 'bi-weekly';
+  if (normalized === 'MONTHLY') return 'monthly';
+  return null;
+};
+
 const GenerateInvoice = () => {
   const navigate = useNavigate();
   const [clients, setClients] = useState([]);
@@ -71,6 +83,18 @@ const GenerateInvoice = () => {
     };
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    if (clientId === 'all' || clients.length === 0) return;
+
+    const selectedClient = clients.find((c) => c.id === clientId);
+    const frequencyFromAgreement = mapAgreementTypeToFrequency(
+      selectedClient?.agreementType,
+    );
+    if (frequencyFromAgreement && frequency !== frequencyFromAgreement) {
+      setFrequency(frequencyFromAgreement);
+    }
+  }, [clientId, clients, frequency]);
 
   const getParams = useCallback(() => {
     const params = { year, frequency };
