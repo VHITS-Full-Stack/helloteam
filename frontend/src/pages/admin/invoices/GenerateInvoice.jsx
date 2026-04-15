@@ -152,17 +152,19 @@ const GenerateInvoice = () => {
     fetchClients();
   }, []);
 
-  useEffect(() => {
-    if (clientId === "all" || clients.length === 0) return;
-
+  // When a specific client is selected, lock frequency to their agreement type
+  const lockedFrequency = (() => {
+    if (clientId === "all" || clients.length === 0) return null;
     const selectedClient = clients.find((c) => c.id === clientId);
-    const frequencyFromAgreement = mapAgreementTypeToFrequency(
-      selectedClient?.agreementType,
-    );
-    if (frequencyFromAgreement && frequency !== frequencyFromAgreement) {
-      setFrequency(frequencyFromAgreement);
+    return mapAgreementTypeToFrequency(selectedClient?.agreementType) || null;
+  })();
+
+  useEffect(() => {
+    if (!lockedFrequency) return;
+    if (frequency !== lockedFrequency) {
+      setFrequency(lockedFrequency);
     }
-  }, [clientId, clients, frequency]);
+  }, [lockedFrequency, frequency]);
 
   const getParams = useCallback(() => {
     const params = { year, frequency };
@@ -345,20 +347,26 @@ const GenerateInvoice = () => {
                   { key: "monthly", label: "Monthly" },
                   { key: "bi-weekly", label: "Bi-Weekly" },
                   { key: "weekly", label: "Weekly" },
-                ].map((f) => (
-                  <button
-                    key={f.key}
-                    type="button"
-                    onClick={() => setFrequency(f.key)}
-                    className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                      frequency === f.key
-                        ? "bg-primary text-white"
-                        : "bg-white text-gray-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    {f.label}
-                  </button>
-                ))}
+                ].map((f) => {
+                  const isDisabled = lockedFrequency && lockedFrequency !== f.key;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => !isDisabled && setFrequency(f.key)}
+                      disabled={isDisabled}
+                      className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                        frequency === f.key
+                          ? "bg-primary text-white"
+                          : isDisabled
+                            ? "bg-gray-50 text-gray-300 cursor-not-allowed"
+                            : "bg-white text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >
+                      {f.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
