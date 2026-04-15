@@ -483,10 +483,7 @@ const Approvals = () => {
                       </TableCell>
                       <TableCell className="!px-3">
                         <span className="text-sm">
-                          {formatDate(item.date, {
-                            timeZone: item.clientTimezone || 'UTC',
-                            dateOnlyAsUTC: true,
-                          })}
+                          {formatDate(item.date)}
                         </span>
                         {isOTType && (item.requestedStartTime || item.estimatedEndTime) && (
                           <p className="text-xs text-gray-400">
