@@ -20,7 +20,6 @@ import leaveService from '../../services/leave.service';
 import { formatDate } from '../../utils/formatDateTime';
 
 const Leave = () => {
-  const [activeTab, setActiveTab] = useState('request');
   const [leaveOptions, setLeaveOptions] = useState(null);
   const [leaveBalance, setLeaveBalance] = useState(null);
   const [leaveHistory, setLeaveHistory] = useState([]);
@@ -29,14 +28,11 @@ const Leave = () => {
 
   // Request form state
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestForm, setRequestForm] = useState({
-    leaveType: '',
-    startDate: '',
-    endDate: '',
-    reason: '',
-  });
+  const [leaveType, setLeaveType] = useState('');
+  const today = new Date().toISOString().split('T')[0];
+  const [leaveDays, setLeaveDays] = useState([{ date: today, hours: 8, mins: 0 }]);
+  const [leaveNotes, setLeaveNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [shortNoticeWarning, setShortNoticeWarning] = useState(false);
 
   // Detail modal state
   const [showDetailModal, setShowDetailModal] = useState(false);
@@ -63,12 +59,8 @@ const Leave = () => {
 
       if (optionsRes?.success) {
         setLeaveOptions(optionsRes.data);
-        // Set default leave type if available
-        if (optionsRes.data?.options?.length > 0 && !requestForm.leaveType) {
-          setRequestForm(prev => ({
-            ...prev,
-            leaveType: optionsRes.data.options[0].type,
-          }));
+        if (optionsRes.data?.options?.length > 0 && !leaveType) {
+          setLeaveType(optionsRes.data.options[0].type);
         }
       }
 
@@ -91,28 +83,10 @@ const Leave = () => {
     fetchData();
   }, [fetchData]);
 
-  // Check for short notice (< 2 weeks)
-  useEffect(() => {
-    if (requestForm.startDate) {
-      const startDate = new Date(requestForm.startDate);
-      const twoWeeksFromNow = new Date();
-      twoWeeksFromNow.setDate(twoWeeksFromNow.getDate() + 14);
-      setShortNoticeWarning(startDate < twoWeeksFromNow);
-    } else {
-      setShortNoticeWarning(false);
-    }
-  }, [requestForm.startDate]);
-
-  // Calculate requested days
-  const calculateDays = (start, end) => {
-    if (!start || !end) return 0;
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const oneDay = 24 * 60 * 60 * 1000;
-    return Math.round(Math.abs((endDate - startDate) / oneDay)) + 1;
-  };
-
-  const requestedDays = calculateDays(requestForm.startDate, requestForm.endDate);
+  // Total minutes across all days
+  const totalMinutes = leaveDays.reduce((sum, d) => sum + Number(d.hours) * 60 + Number(d.mins), 0);
+  const totalHours = Math.floor(totalMinutes / 60);
+  const totalMins = totalMinutes % 60;
 
   // Submit leave request
   const handleSubmitRequest = async (e) => {
@@ -122,20 +96,16 @@ const Leave = () => {
 
     try {
       const result = await leaveService.submitLeaveRequest({
-        leaveType: requestForm.leaveType,
-        startDate: requestForm.startDate,
-        endDate: requestForm.endDate,
-        reason: requestForm.reason,
+        leaveType,
+        days: leaveDays,
+        notes: leaveNotes,
       });
 
       if (result?.success) {
         setShowRequestModal(false);
-        setRequestForm({
-          leaveType: leaveOptions?.options?.[0]?.type || '',
-          startDate: '',
-          endDate: '',
-          reason: '',
-        });
+        setLeaveType(leaveOptions?.options?.[0]?.type || '');
+        setLeaveDays([{ date: new Date().toISOString().split('T')[0], hours: 8, mins: 0 }]);
+        setLeaveNotes('');
         fetchData();
       } else {
         setError(result?.error || 'Failed to submit leave request');
@@ -199,13 +169,10 @@ const Leave = () => {
 
   // Get leave type label
   const getLeaveTypeLabel = (type) => {
-    return type === 'PAID' ? 'Paid Leave' : 'Unpaid Leave';
+    const labels = { PTO: 'PTO', VTO: 'VTO', PAID: 'PTO', UNPAID: 'VTO' };
+    return labels[type] || type;
   };
 
-  const tabs = [
-    { id: 'request', label: 'Request Leave' },
-    { id: 'history', label: 'History' },
-  ];
 
   if (isLoading) {
     return (
@@ -342,8 +309,11 @@ const Leave = () => {
                 </div>
               </div>
               <div className="mt-3 text-xs text-gray-500 space-y-1">
-                {leaveBalance.policy?.requiresTwoWeeksNotice && (
-                  <p>2 weeks notice recommended</p>
+                {leaveBalance.policy?.requiresTwoWeeksNoticePaidLeave && (
+                  <p>2 weeks notice required for paid leave</p>
+                )}
+                {leaveBalance.policy?.requiresTwoWeeksNoticeUnpaidLeave && (
+                  <p>2 weeks notice required for unpaid leave</p>
                 )}
                 {leaveBalance.policy?.allowPaidLeave && (
                   <p>Paid leave available</p>
@@ -359,162 +329,7 @@ const Leave = () => {
 
       {/* Main Content */}
       <Card>
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <div className="flex items-center gap-1 px-4 pt-4">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-                  activeTab === tab.id
-                    ? 'bg-gray-100 text-gray-900 border-b-2 border-primary'
-                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Request Tab Content */}
-        {activeTab === 'request' && (
-          <CardContent className="p-6">
-            <div className="max-w-2xl">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Submit Leave Request</h3>
-
-              {!leaveOptions?.options?.length ? (
-                <div className="text-center py-8">
-                  <AlertCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-gray-500">No leave options available for your client.</p>
-                  <p className="text-sm text-gray-400 mt-1">Please contact your administrator.</p>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmitRequest} className="space-y-4">
-                  {/* Leave Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Leave Type
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      {leaveOptions.options.map((option) => (
-                        <button
-                          key={option.type}
-                          type="button"
-                          onClick={() => setRequestForm(prev => ({ ...prev, leaveType: option.type }))}
-                          className={`p-4 rounded-lg border-2 text-left transition-colors ${
-                            requestForm.leaveType === option.type
-                              ? 'border-primary bg-primary-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <p className="font-medium text-gray-900">{option.label}</p>
-                          <p className="text-sm text-gray-500 mt-1">{option.description}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Date Range */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Start Date
-                      </label>
-                      <input
-                        type="date"
-                        value={requestForm.startDate}
-                        onChange={(e) => setRequestForm(prev => ({ ...prev, startDate: e.target.value }))}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        End Date
-                      </label>
-                      <input
-                        type="date"
-                        value={requestForm.endDate}
-                        onChange={(e) => setRequestForm(prev => ({ ...prev, endDate: e.target.value }))}
-                        min={requestForm.startDate || new Date().toISOString().split('T')[0]}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Days Summary */}
-                  {requestedDays > 0 && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-600">Total Days Requested:</span>
-                        <span className="text-lg font-bold text-gray-900">{requestedDays} day{requestedDays !== 1 ? 's' : ''}</span>
-                      </div>
-                      {requestForm.leaveType === 'PAID' && leaveBalance && (
-                        <div className="mt-2 flex items-center justify-between text-sm">
-                          <span className="text-gray-600">Remaining after request:</span>
-                          <span className={`font-medium ${
-                            leaveBalance.paidLeave.available - requestedDays < 0
-                              ? 'text-red-600'
-                              : 'text-green-600'
-                          }`}>
-                            {Math.max(0, leaveBalance.paidLeave.available - requestedDays)} days
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Short Notice Warning */}
-                  {shortNoticeWarning && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-medium text-yellow-800">Short Notice Request</p>
-                        <p className="text-sm text-yellow-700 mt-1">
-                          This request is within 2 weeks. While allowed, please note that approval may be affected.
-                        </p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Reason */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Reason (Optional)
-                    </label>
-                    <textarea
-                      value={requestForm.reason}
-                      onChange={(e) => setRequestForm(prev => ({ ...prev, reason: e.target.value }))}
-                      placeholder="Provide a reason for your leave request..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <div className="flex justify-end gap-3 pt-4">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      loading={submitting}
-                      disabled={!requestForm.leaveType || !requestForm.startDate || !requestForm.endDate}
-                    >
-                      Submit Request
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </div>
-          </CardContent>
-        )}
-
-        {/* History Tab Content */}
-        {activeTab === 'history' && (
-          <CardContent className="p-6">
+        <CardContent className="p-6">
             {/* Filter */}
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
               <h3 className="text-lg font-medium text-gray-900">Request History</h3>
@@ -667,8 +482,7 @@ const Leave = () => {
               </>
             );
             })()}
-          </CardContent>
-        )}
+        </CardContent>
       </Card>
 
       {/* Request Leave Modal */}
@@ -677,74 +491,144 @@ const Leave = () => {
         onClose={() => setShowRequestModal(false)}
         title="New Leave Request"
       >
-        <form onSubmit={handleSubmitRequest} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Leave Type *</label>
-            <div className="relative">
-              <select
-                value={requestForm.leaveType}
-                onChange={(e) => setRequestForm(f => ({ ...f, leaveType: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none pr-9"
-                required
-              >
-                {leaveOptions?.options?.map(opt => (
-                  <option key={opt.type} value={opt.type}>{opt.label || opt.type}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <form onSubmit={handleSubmitRequest}>
+          {/* CODE dropdown */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Code</label>
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <select
+                  value={leaveType}
+                  onChange={(e) => setLeaveType(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
+                  required
+                >
+                  {leaveOptions?.options?.map(opt => (
+                    <option key={opt.type} value={opt.type}>{opt.label}</option>
+                  ))}
+                </select>
+                <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+              <div className="flex items-center justify-center w-8 h-8 rounded-full border border-gray-300 text-gray-400 text-xs cursor-default" title={leaveType === 'PTO' ? 'Paid Time Off' : 'Voluntary Time Off'}>
+                <Info className="w-4 h-4" />
+              </div>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date *</label>
-              <input
-                type="date"
-                value={requestForm.startDate}
-                onChange={(e) => setRequestForm(f => ({ ...f, startDate: e.target.value }))}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date *</label>
-              <input
-                type="date"
-                value={requestForm.endDate}
-                onChange={(e) => setRequestForm(f => ({ ...f, endDate: e.target.value }))}
-                min={requestForm.startDate || new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                required
-              />
-            </div>
+
+          {/* Per-day rows */}
+          <div className="space-y-3 mb-3">
+            {leaveDays.map((day, idx) => (
+              <div key={idx} className="flex items-end gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Date</label>
+                  <input
+                    type="date"
+                    value={day.date}
+                    onChange={(e) => {
+                      const updated = [...leaveDays];
+                      updated[idx] = { ...updated[idx], date: e.target.value };
+                      setLeaveDays(updated);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary"
+                    required
+                  />
+                </div>
+                <div className="w-20">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Hours</label>
+                  <div className="relative">
+                    <select
+                      value={day.hours}
+                      onChange={(e) => {
+                        const updated = [...leaveDays];
+                        updated[idx] = { ...updated[idx], hours: Number(e.target.value) };
+                        setLeaveDays(updated);
+                      }}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-6"
+                    >
+                      {Array.from({ length: 13 }, (_, i) => (
+                        <option key={i} value={i}>{i}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="w-20">
+                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Mins</label>
+                  <div className="relative">
+                    <select
+                      value={day.mins}
+                      onChange={(e) => {
+                        const updated = [...leaveDays];
+                        updated[idx] = { ...updated[idx], mins: Number(e.target.value) };
+                        setLeaveDays(updated);
+                      }}
+                      className="w-full px-2 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-6"
+                    >
+                      {[0, 15, 30, 45].map(m => (
+                        <option key={m} value={m}>{String(m).padStart(2, '0')}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-3 h-3 text-gray-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLeaveDays(leaveDays.filter((_, i) => i !== idx))}
+                  disabled={leaveDays.length === 1}
+                  className="mb-0.5 flex items-center justify-center w-7 h-7 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
           </div>
-          {requestedDays > 0 && (
-            <p className="text-sm text-gray-600">
-              Requesting <span className="font-semibold">{requestedDays} day{requestedDays !== 1 ? 's' : ''}</span> of leave
-            </p>
-          )}
-          {shortNoticeWarning && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2 text-yellow-700 text-sm">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              Short notice: less than 2 weeks before start date
-            </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+
+          {/* Add day */}
+          <button
+            type="button"
+            onClick={() => setLeaveDays([...leaveDays, { date: new Date().toISOString().split('T')[0], hours: 8, mins: 0 }])}
+            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:text-primary-700 mb-5"
+          >
+            <span className="flex items-center justify-center w-5 h-5 rounded-full bg-primary text-white text-xs">
+              <Plus className="w-3 h-3" />
+            </span>
+            Add day
+          </button>
+
+          {/* Notes */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Notes</label>
             <textarea
-              value={requestForm.reason}
-              onChange={(e) => setRequestForm(f => ({ ...f, reason: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              rows={3}
-              placeholder="Reason for leave (optional)"
+              value={leaveNotes}
+              onChange={(e) => setLeaveNotes(e.target.value)}
+              maxLength={1000}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+              placeholder=""
             />
+            <p className="text-right text-xs text-gray-400 mt-1">{leaveNotes.length} / 1000 characters</p>
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => setShowRequestModal(false)}>Cancel</Button>
-            <Button type="submit" disabled={submitting} className="cursor-pointer">
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-              Submit Request
-            </Button>
+
+          {/* Footer: total + actions */}
+          <div className="flex items-center justify-between pt-2">
+            <div>
+              <span className="text-2xl font-bold text-gray-900">
+                {totalHours}<span className="text-base font-semibold">h</span>{' '}
+                {String(totalMins).padStart(2, '0')}<span className="text-base font-semibold">m</span>
+              </span>
+              <p className="text-xs text-gray-400">This request</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button type="button" variant="outline" onClick={() => setShowRequestModal(false)}>Cancel</Button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={submitting}
+                disabled={!leaveType || leaveDays.some(d => !d.date) || totalMinutes === 0}
+              >
+                Save
+              </Button>
+            </div>
           </div>
         </form>
       </Modal>

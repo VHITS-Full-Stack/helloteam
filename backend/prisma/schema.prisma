@@ -49,6 +49,8 @@ enum ApprovalStatus {
 enum LeaveType {
   PAID
   UNPAID
+  PTO
+  VTO
 }
 
 enum AgreementType {
@@ -777,6 +779,9 @@ model LeaveRequest {
   startDate        DateTime    @db.Date
   endDate          DateTime    @db.Date
   reason           String?
+  notes            String?     // Notes field for new PTO/VTO requests
+  days             Json?       // Array of { date, hours, mins } for per-day requests
+  totalMinutes     Int?        // Sum of all day hours in minutes
   status           LeaveStatus @default(PENDING)
   clientApprovedAt DateTime?
   clientApprovedBy String?
@@ -1471,4 +1476,40 @@ model RateChangeHistory {
   @@index([clientId])
   @@index([changeDate])
   @@map("rate_change_history")
+}
+
+// ============================================
+// SCHEDULE LOGS
+// ============================================
+
+model ScheduleLog {
+  id               String   @id @default(uuid())
+  sessionId        String
+  employeeId       String
+  employeeName     String
+  date             String   // YYYY-MM-DD in client timezone
+  clientTimezone   String?
+
+  // Raw values stored on the session at clock-in
+  storedStart      String?  // session.scheduledStartTime (HH:MM)
+  storedEnd        String?  // session.scheduledEndTime (HH:MM)
+  isOffShift       Boolean  @default(false)
+
+  // Resolved values sent to the frontend
+  effectiveStart   String?  // effectiveScheduledStart (HH:MM)
+  effectiveEnd     String?  // effectiveScheduledEnd (HH:MM)
+  arrivalStatus    String?
+
+  // OT request override details (when isOffShift + pre-requested OT exists)
+  otRequestId      String?
+  otRequestStart   String?  // requestedStartTime (HH:MM)
+  otRequestEnd     String?  // requestedEndTime (HH:MM)
+
+  createdAt        DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([employeeId])
+  @@index([date])
+  @@index([createdAt])
+  @@map("schedule_logs")
 }

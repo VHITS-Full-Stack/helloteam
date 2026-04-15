@@ -110,25 +110,26 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
         available: boolean;
         description: string;
       }>,
-      requiresTwoWeeksNotice: policy?.requireTwoWeeksNotice ?? true,
+      requiresTwoWeeksNoticePaidLeave: policy?.requireTwoWeeksNoticePaidLeave ?? true,
+      requiresTwoWeeksNoticeUnpaidLeave: policy?.requireTwoWeeksNoticeUnpaidLeave ?? true,
       paidLeaveEntitlementType: effectivePto.paidLeaveEntitlementType,
     };
 
-    // Add unpaid leave option if allowed
+    // Add VTO option if unpaid leave is allowed
     if (effectivePto.allowUnpaidLeave) {
       leaveOptions.options.push({
-        type: 'UNPAID',
-        label: 'Unpaid Leave',
+        type: 'VTO',
+        label: 'VTO',
         available: true,
-        description: 'Request unpaid time off',
+        description: 'Voluntary time off (unpaid)',
       });
     }
 
-    // Add paid leave option if allowed
+    // Add PTO option if paid leave is allowed
     if (effectivePto.allowPaidLeave) {
       leaveOptions.options.push({
-        type: 'PAID',
-        label: 'Paid Leave',
+        type: 'PTO',
+        label: 'PTO',
         available: true,
         description: `Paid time off (${effectivePto.paidLeaveEntitlementType} entitlement)`,
       });
@@ -283,7 +284,8 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
         policy: {
           allowPaidLeave: effectivePto.allowPaidLeave,
           allowUnpaidLeave: effectivePto.allowUnpaidLeave,
-          requiresTwoWeeksNotice: policy?.requireTwoWeeksNotice ?? true,
+          requiresTwoWeeksNoticePaidLeave: policy?.requireTwoWeeksNoticePaidLeave ?? true,
+          requiresTwoWeeksNoticeUnpaidLeave: policy?.requireTwoWeeksNoticeUnpaidLeave ?? true,
         },
       },
     });
@@ -297,25 +299,34 @@ export const getLeaveBalance = async (req: AuthenticatedRequest, res: Response):
 export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { leaveType, startDate, endDate, reason } = req.body;
+    const { leaveType, startDate, endDate, reason, notes, days } = req.body;
 
-    // Validate input
-    if (!leaveType || !startDate || !endDate) {
-      res.status(400).json({
-        success: false,
-        error: 'Leave type, start date, and end date are required',
-      });
+    // Validate input — support both per-day (days array) and legacy date-range requests
+    if (!leaveType) {
+      res.status(400).json({ success: false, error: 'Leave type is required' });
       return;
     }
 
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    let start: Date;
+    let end: Date;
+    let totalMinutes: number | null = null;
 
-    if (end < start) {
-      res.status(400).json({
-        success: false,
-        error: 'End date must be after start date',
-      });
+    if (days && Array.isArray(days) && days.length > 0) {
+      // New per-day format: [{ date, hours, mins }]
+      const sorted = [...days].sort((a: any, b: any) => a.date.localeCompare(b.date));
+      start = new Date(sorted[0].date);
+      end = new Date(sorted[sorted.length - 1].date);
+      totalMinutes = days.reduce((sum: number, d: any) => sum + (Number(d.hours) * 60 + Number(d.mins)), 0);
+    } else if (startDate && endDate) {
+      // Legacy date-range format
+      start = new Date(startDate);
+      end = new Date(endDate);
+      if (end < start) {
+        res.status(400).json({ success: false, error: 'End date must be after start date' });
+        return;
+      }
+    } else {
+      res.status(400).json({ success: false, error: 'Either days array or startDate/endDate are required' });
       return;
     }
 
@@ -354,27 +365,25 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     const effectivePto = resolveEffectivePtoConfig(policy, assignment);
 
     // Validate leave type is allowed (using effective per-employee PTO config)
-    if (leaveType === 'PAID' && !effectivePto.allowPaidLeave) {
-      res.status(400).json({
-        success: false,
-        error: 'Paid leave is not available for you',
-      });
+    if ((leaveType === 'PAID' || leaveType === 'PTO') && !effectivePto.allowPaidLeave) {
+      res.status(400).json({ success: false, error: 'Paid leave is not available for you' });
       return;
     }
 
-    if (leaveType === 'UNPAID' && !effectivePto.allowUnpaidLeave) {
-      res.status(400).json({
-        success: false,
-        error: 'Unpaid leave is not available for you',
-      });
+    if ((leaveType === 'UNPAID' || leaveType === 'VTO') && !effectivePto.allowUnpaidLeave) {
+      res.status(400).json({ success: false, error: 'Unpaid leave is not available for you' });
       return;
     }
 
     const requestedDays = calculateDays(start, end);
-    const shortNotice = isShortNotice(start);
+    const isPaid = leaveType === 'PAID' || leaveType === 'PTO';
+    const noticeRequired = isPaid
+      ? (policy?.requireTwoWeeksNoticePaidLeave ?? true)
+      : (policy?.requireTwoWeeksNoticeUnpaidLeave ?? true);
+    const shortNotice = noticeRequired && isShortNotice(start);
 
     // Check balance for paid leave
-    if (leaveType === 'PAID') {
+    if (leaveType === 'PAID' || leaveType === 'PTO') {
       let available: number;
 
       if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && employee.hireDate) {
@@ -445,13 +454,16 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
         startDate: start,
         endDate: end,
         reason: reason || null,
+        notes: notes || null,
+        days: days || null,
+        totalMinutes: totalMinutes,
         status: 'PENDING',
         isShortNotice: shortNotice,
       },
     });
 
     // Update pending balance
-    if (leaveType === 'PAID') {
+    if (leaveType === 'PAID' || leaveType === 'PTO') {
       await prisma.leaveBalance.update({
         where: {
           employeeId_clientId_year: {

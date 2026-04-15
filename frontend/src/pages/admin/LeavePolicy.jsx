@@ -109,7 +109,8 @@ const LeavePolicy = () => {
         maxCarryoverDays: 0,
         carryoverExpiryMonths: null,
         allowUnpaidLeave: true,
-        requireTwoWeeksNotice: true,
+        requireTwoWeeksNoticePaidLeave: true,
+        requireTwoWeeksNoticeUnpaidLeave: true,
         allowPaidHolidays: false,
         numberOfPaidHolidays: 0,
         allowUnpaidHolidays: false,
@@ -1162,6 +1163,21 @@ const LeavePolicy = () => {
                 </div>
               </>
             )}
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={policyForm.requireTwoWeeksNoticePaidLeave !== false}
+                onChange={(e) =>
+                  setPolicyForm({
+                    ...policyForm,
+                    requireTwoWeeksNoticePaidLeave: e.target.checked,
+                  })
+                }
+                className="rounded border-gray-300"
+              />
+              <span>Require 2 Weeks Notice for Paid Leave</span>
+            </label>
           </div>
 
           {/* Unpaid Leave Section */}
@@ -1188,18 +1204,16 @@ const LeavePolicy = () => {
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
-                checked={policyForm.requireTwoWeeksNotice !== false}
+                checked={policyForm.requireTwoWeeksNoticeUnpaidLeave !== false}
                 onChange={(e) =>
                   setPolicyForm({
                     ...policyForm,
-                    requireTwoWeeksNotice: e.target.checked,
+                    requireTwoWeeksNoticeUnpaidLeave: e.target.checked,
                   })
                 }
                 className="rounded border-gray-300"
               />
-              <span>
-                Require 2 Weeks Notice (warn for short notice requests)
-              </span>
+              <span>Require 2 Weeks Notice for Unpaid Leave</span>
             </label>
           </div>
 
