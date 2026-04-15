@@ -957,9 +957,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         );
 
         if (sameDayPreRequestedOT) {
-          // Use the pre-requested OT's times as the off-shift schedule
-          effectiveScheduledStart = sameDayPreRequestedOT.requestedStartTime;
-          effectiveScheduledEnd = sameDayPreRequestedOT.requestedEndTime;
+          // Keep the actual shift schedule for display — do NOT override with OT request times.
+          // Late/arrival status is recalculated against the OT request window below.
 
           // Recalculate late against OT requestedStartTime (HH:MM string)
           const [otH, otM] = sameDayPreRequestedOT.requestedStartTime.split(':').map(Number);
