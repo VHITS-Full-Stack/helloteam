@@ -28,6 +28,45 @@ const formatCurrency = (amount, currency = 'USD') => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(Number(amount) || 0);
 };
 
+const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const getIsoWeeksInYear = (targetYear) => {
+  const dec28 = new Date(Date.UTC(targetYear, 11, 28));
+  const dayNum = dec28.getUTCDay() || 7;
+  dec28.setUTCDate(dec28.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(dec28.getUTCFullYear(), 0, 1));
+  return Math.ceil(((dec28.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+};
+
+const getIsoWeekStartDate = (targetYear, targetWeek) => {
+  const jan4 = new Date(Date.UTC(targetYear, 0, 4));
+  const dayNum = jan4.getUTCDay() || 7;
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - dayNum + 1);
+
+  const weekStart = new Date(week1Monday);
+  weekStart.setUTCDate(week1Monday.getUTCDate() + (targetWeek - 1) * 7);
+  return weekStart;
+};
+
+const formatWeekRangeLabel = (targetYear, targetWeek) => {
+  const start = getIsoWeekStartDate(targetYear, targetWeek);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+
+  const startMonth = shortMonthNames[start.getUTCMonth()];
+  const endMonth = shortMonthNames[end.getUTCMonth()];
+  const startDay = start.getUTCDate();
+  const endDay = end.getUTCDate();
+
+  const rangeText =
+    startMonth === endMonth
+      ? `${startMonth} ${startDay} - ${endDay}`
+      : `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+
+  return `Week ${targetWeek} (${rangeText})`;
+};
+
 const mapAgreementTypeToFrequency = (agreementType) => {
   const normalized = String(agreementType || '')
     .trim()
@@ -164,6 +203,18 @@ const GenerateInvoice = () => {
 
   const selectClass = "appearance-none pr-8 w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm bg-white";
   const inputClass = "w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm";
+  const now = new Date();
+  const maxWeekForSelectedYear =
+    year < now.getFullYear()
+      ? getIsoWeeksInYear(year)
+      : (() => {
+          const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+          const dayNum = d.getUTCDay() || 7;
+          d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+          const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+          return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+        })();
+  const availableWeeks = Array.from({ length: maxWeekForSelectedYear }, (_, i) => i + 1);
 
   return (
     <div className="space-y-5 animate-fade-in">
@@ -302,22 +353,20 @@ const GenerateInvoice = () => {
                   {frequency === 'weekly' ? 'Week' : 'Month'}
                 </label>
                 {frequency === 'weekly' ? (
-                  <input
-                    type="number"
-                    value={week}
-                    onChange={(e) => setWeek(parseInt(e.target.value))}
-                    className={inputClass}
-                    min={1}
-                    max={(() => {
-                      const now = new Date();
-                      if (year < now.getFullYear()) return 53;
-                      const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-                      const dayNum = d.getUTCDay() || 7;
-                      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-                      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-                      return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
-                    })()}
-                  />
+                  <div className="relative">
+                    <select
+                      value={week}
+                      onChange={(e) => setWeek(parseInt(e.target.value, 10))}
+                      className={selectClass}
+                    >
+                      {availableWeeks.map((w) => (
+                        <option key={w} value={w}>
+                          {formatWeekRangeLabel(year, w)}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
                 ) : (
                   <div className="relative">
                     <select value={month} onChange={(e) => setMonth(parseInt(e.target.value))} className={selectClass}>
