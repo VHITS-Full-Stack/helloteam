@@ -88,6 +88,8 @@ const leavePolicyService = {
     if (params.status) queryParams.append('status', params.status);
     if (params.clientId) queryParams.append('clientId', params.clientId);
     if (params.search) queryParams.append('search', params.search);
+    if (params.startDate) queryParams.append('startDate', params.startDate);
+    if (params.endDate) queryParams.append('endDate', params.endDate);
     if (params.page) queryParams.append('page', params.page);
     if (params.limit) queryParams.append('limit', params.limit);
 

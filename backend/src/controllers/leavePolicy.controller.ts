@@ -971,11 +971,14 @@ export const getAllPendingLeaveRequests = async (req: AuthenticatedRequest, res:
     const status = req.query.status as string || 'all';
     const clientId = req.query.clientId as string | undefined;
     const search = req.query.search as string | undefined;
+    const startDate = req.query.startDate as string | undefined;
+    const endDate = req.query.endDate as string | undefined;
     const page = parseInt(req.query.page as string, 10) || 1;
     const limit = parseInt(req.query.limit as string, 10) || 20;
     const skip = (page - 1) * limit;
 
     const where: any = {};
+    const andFilters: any[] = [];
 
     // Filter by status
     if (status === 'pending') {
@@ -999,6 +1002,30 @@ export const getAllPendingLeaveRequests = async (req: AuthenticatedRequest, res:
           { lastName: { contains: search, mode: 'insensitive' } },
         ],
       };
+    }
+
+    // Date range overlap filter:
+    // leave.endDate >= startDate AND leave.startDate <= endDate
+    if (startDate) {
+      const parsedStartDate = new Date(`${startDate}T00:00:00.000Z`);
+      if (Number.isNaN(parsedStartDate.getTime())) {
+        res.status(400).json({ success: false, error: 'Invalid startDate' });
+        return;
+      }
+      andFilters.push({ endDate: { gte: parsedStartDate } });
+    }
+
+    if (endDate) {
+      const parsedEndDate = new Date(`${endDate}T23:59:59.999Z`);
+      if (Number.isNaN(parsedEndDate.getTime())) {
+        res.status(400).json({ success: false, error: 'Invalid endDate' });
+        return;
+      }
+      andFilters.push({ startDate: { lte: parsedEndDate } });
+    }
+
+    if (andFilters.length > 0) {
+      where.AND = andFilters;
     }
 
     const [requests, total] = await Promise.all([
