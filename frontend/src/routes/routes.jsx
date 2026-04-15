@@ -71,6 +71,7 @@ const AdminSettings = lazy(() => import('../pages/admin/Settings'));
 const AdminProfile = lazy(() => import('../pages/admin/Profile'));
 const TimeAdjustments = lazy(() => import('../pages/admin/TimeAdjustments'));
 const AuditLog = lazy(() => import('../pages/admin/AuditLog'));
+const AdminLeave = lazy(() => import('../pages/admin/Leave'));
 const LeavePolicy = lazy(() => import('../pages/admin/LeavePolicy'));
 const ScheduleManagement = lazy(() => import('../pages/admin/ScheduleManagement'));
 const Groups = lazy(() => import('../pages/admin/groups/Groups'));
@@ -253,6 +254,7 @@ const AppRoutes = () => {
           <Route path="reports" element={<AdminAnalytics />} />
           <Route path="time-adjustments" element={<TimeAdjustments />} />
           <Route path="audit-log" element={<AuditLog />} />
+          <Route path="leave" element={<AdminLeave />} />
           <Route path="leave-policy" element={<LeavePolicy />} />
           <Route path="schedules" element={<ScheduleManagement />} />
           <Route path="document-types" element={<DocumentTypes />} />

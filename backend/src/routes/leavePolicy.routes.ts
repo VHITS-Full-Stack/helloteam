@@ -17,6 +17,7 @@ import {
   adminApproveLeave,
   adminRejectLeave,
   bulkApproveLeave,
+  adminCreateLeave,
 } from '../controllers/leavePolicy.controller';
 
 const router = Router();
@@ -43,5 +44,6 @@ router.get('/requests', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), getAllPe
 router.post('/requests/:requestId/approve', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), adminApproveLeave);
 router.post('/requests/:requestId/reject', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), adminRejectLeave);
 router.post('/requests/bulk-approve', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), bulkApproveLeave);
+router.post('/requests/admin-create', authorizeRoles(['SUPER_ADMIN', 'ADMIN', 'HR']), adminCreateLeave);
 
 export default router;

@@ -219,6 +219,12 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       badge: pendingApprovalCount,
     },
     {
+      to: "/admin/leave",
+      icon: Calendar,
+      label: "Time Off",
+      permission: PERMISSIONS.APPROVALS.VIEW,
+    },
+    {
       to: "/admin/raise-requests",
       icon: Gift,
       label: "Bonuses & Raises",

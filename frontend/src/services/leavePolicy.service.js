@@ -110,6 +110,11 @@ const leavePolicyService = {
   async bulkApproveLeaveRequests(requestIds) {
     return await api.post('/leave-policy/requests/bulk-approve', { requestIds });
   },
+
+  // Admin creates leave on behalf of an employee
+  async adminCreateLeave(data) {
+    return await api.post('/leave-policy/requests/admin-create', data);
+  },
 };
 
 export default leavePolicyService;

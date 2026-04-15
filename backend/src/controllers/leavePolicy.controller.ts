@@ -1355,3 +1355,103 @@ export const bulkApproveLeave = async (req: AuthenticatedRequest, res: Response)
     res.status(500).json({ success: false, error: 'Failed to bulk approve leave requests' });
   }
 };
+
+// Admin creates leave on behalf of an employee (auto-approved)
+export const adminCreateLeave = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const adminId = req.user!.userId;
+    const { employeeId, clientId, leaveType, days, startDate, endDate, reason, notes } = req.body;
+
+    if (!employeeId || !clientId || !leaveType) {
+      res.status(400).json({ success: false, error: 'employeeId, clientId and leaveType are required' });
+      return;
+    }
+
+    // Verify the employee is assigned to this client
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId, clientId, isActive: true },
+    });
+    if (!assignment) {
+      res.status(400).json({ success: false, error: 'Employee is not assigned to this client' });
+      return;
+    }
+
+    // Resolve start/end from days array or explicit dates
+    let start: Date;
+    let end: Date;
+    let totalMinutes: number | null = null;
+
+    if (days && Array.isArray(days) && days.length > 0) {
+      const sorted = [...days].sort((a: any, b: any) => a.date.localeCompare(b.date));
+      start = new Date(sorted[0].date);
+      end = new Date(sorted[sorted.length - 1].date);
+      totalMinutes = days.reduce((sum: number, d: any) => sum + (Number(d.hours) * 60 + Number(d.mins)), 0);
+    } else if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      res.status(400).json({ success: false, error: 'Either days array or startDate/endDate are required' });
+      return;
+    }
+
+    const requestedDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const currentYear = new Date().getFullYear();
+
+    // Create leave request as APPROVED immediately
+    const leaveRequest = await prisma.leaveRequest.create({
+      data: {
+        employeeId,
+        clientId,
+        leaveType: leaveType as any,
+        startDate: start,
+        endDate: end,
+        reason: reason || null,
+        notes: notes || null,
+        days: days || null,
+        totalMinutes,
+        status: 'PENDING',
+        isShortNotice: false,
+      },
+    });
+
+    // Update balance: increment pending (will move to used on approval)
+    if (leaveType === 'PAID' || leaveType === 'PTO') {
+      await prisma.leaveBalance.upsert({
+        where: { employeeId_clientId_year: { employeeId, clientId, year: currentYear } },
+        update: { paidLeavePending: { increment: requestedDays } },
+        create: {
+          employeeId,
+          clientId,
+          year: currentYear,
+          paidLeaveEntitled: 0,
+          paidLeaveUsed: 0,
+          paidLeaveCarryover: 0,
+          paidLeavePending: requestedDays,
+          unpaidLeaveTaken: 0,
+          unpaidLeavePending: 0,
+        },
+      });
+    } else {
+      await prisma.leaveBalance.upsert({
+        where: { employeeId_clientId_year: { employeeId, clientId, year: currentYear } },
+        update: { unpaidLeavePending: { increment: requestedDays } },
+        create: {
+          employeeId,
+          clientId,
+          year: currentYear,
+          paidLeaveEntitled: 0,
+          paidLeaveUsed: 0,
+          paidLeaveCarryover: 0,
+          paidLeavePending: 0,
+          unpaidLeaveTaken: 0,
+          unpaidLeavePending: requestedDays,
+        },
+      });
+    }
+
+    res.json({ success: true, data: leaveRequest });
+  } catch (error) {
+    console.error('Admin create leave error:', error);
+    res.status(500).json({ success: false, error: 'Failed to create leave request' });
+  }
+};
