@@ -611,13 +611,24 @@ const Billing = () => {
                             {invoice.lineItems.map((item) => (
                               <tr key={item.id} className="hover:bg-gray-50/50">
                                 <td className="px-3 py-2 text-sm text-gray-900">
-                                  {item.employeeName}
+                                  <div className="flex items-center gap-2">
+                                    <span>{item.employeeName}</span>
+                                    {item.notes?.includes("CLIENT_BONUS_REQUEST:") && (
+                                      <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold">
+                                        Bonus
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {formatHours(Number(item.hours))}
+                                  {item.notes?.includes("CLIENT_BONUS_REQUEST:")
+                                    ? <span className="text-gray-300">—</span>
+                                    : formatHours(Number(item.hours))}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-right">
-                                  {Number(item.overtimeHours) > 0 ? (
+                                  {item.notes?.includes("CLIENT_BONUS_REQUEST:") ? (
+                                    <span className="text-gray-300">—</span>
+                                  ) : Number(item.overtimeHours) > 0 ? (
                                     <span className="text-orange-600">
                                       {formatHours(Number(item.overtimeHours))}
                                     </span>
@@ -626,15 +637,21 @@ const Billing = () => {
                                   )}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {formatCurrency(item.rate)}
+                                  {item.notes?.includes("CLIENT_BONUS_REQUEST:")
+                                    ? <span className="text-gray-300">—</span>
+                                    : formatCurrency(item.rate)}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {Number(item.overtimeHours) > 0 && Number(item.overtimeRate) > 0
+                                  {item.notes?.includes("CLIENT_BONUS_REQUEST:")
+                                    ? <span className="text-gray-300">—</span>
+                                    : Number(item.overtimeHours) > 0 && Number(item.overtimeRate) > 0
                                     ? formatCurrency(item.overtimeRate)
                                     : <span className="text-gray-300">—</span>}
                                 </td>
                                 <td className="px-3 py-2 text-sm text-gray-600 text-right">
-                                  {formatHours(Number(item.hours) + Number(item.overtimeHours || 0))}
+                                  {item.notes?.includes("CLIENT_BONUS_REQUEST:")
+                                    ? <span className="text-gray-300">—</span>
+                                    : formatHours(Number(item.hours) + Number(item.overtimeHours || 0))}
                                 </td>
                                 <td className="px-3 py-2 text-sm font-medium text-gray-900 text-right">
                                   {formatCurrency(item.amount)}

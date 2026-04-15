@@ -10,6 +10,15 @@ interface EmployeeTimeAggregation {
   overtimeMinutes: number;
 }
 
+interface ApprovedBonusRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  amount: number;
+  reason: string | null;
+  reviewedAt: Date | null;
+}
+
 // Client type from Prisma query with includes
 type ClientWithRelations = {
   id: string;
@@ -56,6 +65,75 @@ const getMondayOfISOWeek = (year: number, week: number): Date => {
   const target = new Date(mondayWeek1);
   target.setUTCDate(mondayWeek1.getUTCDate() + (week - 1) * 7);
   return target;
+};
+
+const BONUS_REQUEST_NOTE_PREFIX = 'CLIENT_BONUS_REQUEST:';
+
+const extractBonusRequestIdFromNotes = (notes?: string | null): string | null => {
+  if (!notes) return null;
+  const match = notes.match(/CLIENT_BONUS_REQUEST:([a-zA-Z0-9-]+)/);
+  return match?.[1] || null;
+};
+
+const getAlreadyInvoicedBonusRequestIds = async (clientId: string): Promise<Set<string>> => {
+  const lines = await prisma.invoiceLineItem.findMany({
+    where: {
+      invoice: { clientId },
+      notes: { contains: BONUS_REQUEST_NOTE_PREFIX },
+    },
+    select: { notes: true },
+  });
+
+  const ids = new Set<string>();
+  for (const line of lines) {
+    const id = extractBonusRequestIdFromNotes(line.notes);
+    if (id) ids.add(id);
+  }
+  return ids;
+};
+
+const getApprovedBonusRequestsForPeriod = async (
+  clientId: string,
+  periodStart: Date,
+  periodEnd: Date,
+  employeeFilter?: Set<string>,
+  includeAlreadyInvoiced: boolean = false,
+): Promise<ApprovedBonusRequest[]> => {
+  const where: any = {
+    clientId,
+    type: 'BONUS',
+    status: 'APPROVED',
+    reviewedAt: { gte: periodStart, lte: periodEnd },
+    ...(employeeFilter ? { employeeId: { in: [...employeeFilter] } } : {}),
+  };
+
+  const requests = await prisma.clientRequest.findMany({
+    where,
+    include: {
+      employee: {
+        select: { firstName: true, lastName: true },
+      },
+    },
+    orderBy: { reviewedAt: 'asc' },
+  });
+
+  if (requests.length === 0) return [];
+
+  let invoicedIds = new Set<string>();
+  if (!includeAlreadyInvoiced) {
+    invoicedIds = await getAlreadyInvoicedBonusRequestIds(clientId);
+  }
+
+  return requests
+    .filter((r) => includeAlreadyInvoiced || !invoicedIds.has(r.id))
+    .map((r) => ({
+      id: r.id,
+      employeeId: r.employeeId,
+      employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
+      amount: Number(r.amount || 0),
+      reason: r.reason || null,
+      reviewedAt: r.reviewedAt || null,
+    }));
 };
 
 /**
@@ -207,7 +285,15 @@ const generateInvoiceForClient = async (
   // Merge both sets
   const allRecords = [...timeRecords, ...lateApprovedOT];
 
-  if (allRecords.length === 0) return false;
+  // Include approved bonus requests reviewed within this invoice period.
+  const bonusRequests = await getApprovedBonusRequestsForPeriod(
+    client.id,
+    periodStart,
+    periodEnd,
+    employeeFilter,
+  );
+
+  if (allRecords.length === 0 && bonusRequests.length === 0) return false;
 
   // Fetch approved OvertimeRequests for the period to complement TimeRecord fields
   const allEmployeeIds = [...new Set(allRecords.map(r => r.employeeId))];
@@ -377,6 +463,26 @@ const generateInvoiceForClient = async (
     });
   }
 
+  // Add each approved bonus request as its own invoice line item.
+  for (const bonus of bonusRequests) {
+    const bonusAmount = Math.round(Number(bonus.amount || 0) * 100) / 100;
+    if (bonusAmount <= 0) continue;
+
+    subtotal += bonusAmount;
+
+    lineItemsData.push({
+      employeeId: bonus.employeeId,
+      employeeName: bonus.employeeName,
+      groupName: employeeGroupMap?.get(bonus.employeeId) ?? null,
+      hours: 0,
+      overtimeHours: 0,
+      rate: 0,
+      overtimeRate: 0,
+      amount: bonusAmount,
+      notes: `${BONUS_REQUEST_NOTE_PREFIX}${bonus.id}${bonus.reason ? ` | ${bonus.reason}` : ''}`,
+    });
+  }
+
   // Build invoice-level notes for late OT audit trail
   let invoiceNotes: string | null = null;
   if (lateOtByEmployee.size > 0) {
@@ -386,6 +492,12 @@ const generateInvoiceForClient = async (
       summaries.push(`${empName}: ${periods.join(', ')}`);
     }
     invoiceNotes = `Late-approved OT included from previous periods:\n${summaries.join('\n')}`;
+  }
+  if (bonusRequests.length > 0) {
+    const bonusSummary = bonusRequests
+      .map((b) => `${b.employeeName}: $${Number(b.amount || 0).toFixed(2)}`)
+      .join('\n');
+    invoiceNotes = `${invoiceNotes ? `${invoiceNotes}\n` : ''}Approved bonuses included:\n${bonusSummary}`;
   }
 
   // Create invoice with line items and mark time records as invoiced — all in one transaction
@@ -987,7 +1099,14 @@ const previewInvoiceForClient = async (
   });
 
   const allRecords = [...timeRecords, ...lateApprovedOT];
-  if (allRecords.length === 0) return null;
+  const bonusRequests = await getApprovedBonusRequestsForPeriod(
+    client.id,
+    periodStart,
+    periodEnd,
+    undefined,
+    !!existing,
+  );
+  if (allRecords.length === 0 && bonusRequests.length === 0) return null;
 
   // Fetch approved OvertimeRequests as fallback for TimeRecord fields
   const previewEmpIds = [...new Set(allRecords.map(r => r.employeeId))];
@@ -1146,6 +1265,21 @@ const previewInvoiceForClient = async (
       rate: rates.hourlyRate,
       overtimeRate: rates.overtimeRate,
       amount: Math.round(lineAmount * 100) / 100,
+    });
+  }
+
+  // Include approved bonuses in preview totals and line items.
+  for (const bonus of bonusRequests) {
+    const bonusAmount = Math.round(Number(bonus.amount || 0) * 100) / 100;
+    if (bonusAmount <= 0) continue;
+    estimatedTotal += bonusAmount;
+    lineItems.push({
+      employeeName: `${bonus.employeeName} (Bonus)`,
+      hours: 0,
+      overtimeHours: 0,
+      rate: 0,
+      overtimeRate: 0,
+      amount: bonusAmount,
     });
   }
 

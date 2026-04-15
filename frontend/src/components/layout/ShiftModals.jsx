@@ -5,6 +5,7 @@ import { Button, Badge } from '../common';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import workSessionService from '../../services/workSession.service';
+import overtimeService from '../../services/overtime.service';
 import notificationService from '../../services/notification.service';
 import { formatTime12 } from '../../utils/formatDateTime';
 
@@ -19,7 +20,8 @@ const ShiftModals = () => {
   // Shift ending warning modal (30 min before)
   const [showShiftEndModal, setShowShiftEndModal] = useState(false);
   const [shiftEndData, setShiftEndData] = useState(null);
-  const [shiftEndReason, setShiftEndReason] = useState('');
+  const [shiftEndForm, setShiftEndForm] = useState({ duration: '', customMinutes: '', reason: '' });
+  const [shiftEndSuccess, setShiftEndSuccess] = useState('');
   const [shiftEndLoading, setShiftEndLoading] = useState(false);
   const [shiftEndError, setShiftEndError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -162,23 +164,48 @@ const ShiftModals = () => {
     }
   }, [dismissShiftEndPopup]);
 
-  const handleContinueWorking = async () => {
+  const handleShiftEndSubmit = async (e) => {
+    e.preventDefault();
     setShiftEndError('');
-    if (!shiftEndReason.trim()) {
-      setShiftEndError('Please provide a reason for continuing to work');
+    setShiftEndSuccess('');
+
+    const minutes =
+      shiftEndForm.duration === 'custom'
+        ? parseInt(shiftEndForm.customMinutes)
+        : parseInt(shiftEndForm.duration);
+
+    if (!minutes || minutes <= 0) {
+      setShiftEndError('Please select a duration');
       return;
     }
+    if (!shiftEndForm.reason.trim()) {
+      setShiftEndError('Please provide a reason');
+      return;
+    }
+
+    const endTime = new Date(Date.now() + minutes * 60000);
+    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+
     try {
       setShiftEndLoading(true);
-      await workSessionService.shiftEndResponse('CONTINUE_WORKING', shiftEndReason.trim());
-      dismissShiftEndPopup();
+      await overtimeService.createOvertimeRequest({
+        type: 'SHIFT_EXTENSION',
+        date: new Date().toISOString().split('T')[0],
+        requestedHours: minutes / 60,
+        reason: shiftEndForm.reason,
+        estimatedEndTime,
+        clientId: shiftEndData?.clientId,
+      });
+      setShiftEndSuccess('Overtime request submitted! You will stay clocked in.');
       markShiftEndNotificationsRead();
-      setShowShiftEndModal(false);
-      setShiftEndReason('');
-      setShiftEndError('');
       window.dispatchEvent(new CustomEvent('session-updated'));
+      setTimeout(() => {
+        setShowShiftEndModal(false);
+        setShiftEndSuccess('');
+        setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
+      }, 2000);
     } catch (err) {
-      setShiftEndError(err.error || err.message || 'Failed to continue working');
+      setShiftEndError(err.error || err.message || 'Failed to submit overtime request');
     } finally {
       setShiftEndLoading(false);
     }
@@ -234,7 +261,8 @@ const ShiftModals = () => {
                   dismissShiftEndPopup();
                   setShowShiftEndModal(false);
                   setShiftEndError('');
-                  setShiftEndReason('');
+                  setShiftEndSuccess('');
+                  setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
                 }}
                 className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
               >
@@ -297,13 +325,12 @@ const ShiftModals = () => {
                 </div>
               </div>
             ) : (
-              <div className="p-6 space-y-4">
+              <form onSubmit={handleShiftEndSubmit} className="p-6 space-y-4">
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-800 text-sm font-medium">
-                    Your shift ends at {formatTime12(shiftEndData?.shiftEnd)}.
-                    If you continue working past your shift, the extra time will
-                    be tracked as overtime without prior approval.
-                    You may not be compensated for unapproved overtime.
+                    You will be automatically clocked out at the end of your
+                    shift. If you need overtime, request it now so your client
+                    has time to approve.
                   </p>
                 </div>
 
@@ -314,20 +341,71 @@ const ShiftModals = () => {
                   </div>
                 )}
 
+                {shiftEndSuccess && (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <p className="text-green-700 text-sm">{shiftEndSuccess}</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    How long do you need?
+                  </label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { value: '15', label: '15 min' },
+                      { value: '30', label: '30 min' },
+                      { value: '60', label: '1 hour' },
+                      { value: 'custom', label: 'Custom' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setShiftEndForm({ ...shiftEndForm, duration: opt.value })}
+                        className={`py-2.5 px-3 rounded-lg text-sm font-medium border transition-all ${
+                          shiftEndForm.duration === opt.value
+                            ? 'border-primary bg-primary-50 text-primary ring-2 ring-primary/20'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {shiftEndForm.duration === 'custom' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Custom Duration (minutes)
+                    </label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="480"
+                      placeholder="e.g., 45"
+                      value={shiftEndForm.customMinutes}
+                      onChange={(e) => setShiftEndForm({ ...shiftEndForm, customMinutes: e.target.value })}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Reason <span className="text-red-500">*</span>
                   </label>
                   <textarea
                     rows={3}
-                    placeholder="Why do you need to continue working?"
-                    value={shiftEndReason}
-                    onChange={(e) => setShiftEndReason(e.target.value)}
+                    placeholder="Why do you need to stay clocked in?"
+                    value={shiftEndForm.reason}
+                    onChange={(e) => setShiftEndForm({ ...shiftEndForm, reason: e.target.value })}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary transition-colors resize-none"
                   />
                 </div>
 
-                <div className="flex gap-3 pt-2">
+                <div className="flex gap-3 pt-4">
                   <Button
                     type="button"
                     variant="ghost"
@@ -335,23 +413,24 @@ const ShiftModals = () => {
                       dismissShiftEndPopup();
                       setShowShiftEndModal(false);
                       setShiftEndError('');
-                      setShiftEndReason('');
+                      setShiftEndSuccess('');
+                      setShiftEndForm({ duration: '', customMinutes: '', reason: '' });
                     }}
                     className="flex-1"
                   >
                     No, I'm Good
                   </Button>
                   <Button
-                    type="button"
+                    type="submit"
                     variant="primary"
                     loading={shiftEndLoading}
-                    onClick={handleContinueWorking}
-                    className="flex-1 !bg-orange-600 hover:!bg-orange-700"
+                    disabled={!shiftEndForm.duration}
+                    className="flex-1"
                   >
-                    Continue Working
+                    Stay Clocked In
                   </Button>
                 </div>
-              </div>
+              </form>
             )}
           </div>
         </div>
