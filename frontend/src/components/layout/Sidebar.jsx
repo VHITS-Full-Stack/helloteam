@@ -136,7 +136,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     { to: "/employee/schedule", icon: Calendar, label: "Schedule" },
     { to: "/employee/time-records", icon: FileText, label: "Time Records" },
     { to: "/employee/overtime-requests", icon: Clock, label: "Overtime Requests" },
-    { to: "/employee/leave", icon: Calendar, label: "Leave Requests" },
+    { to: "/employee/leave", icon: Calendar, label: "Time Off" },
     { to: "/employee/tasks", icon: ClipboardList, label: "Tasks" },
     { group: "Finance" },
     { to: "/employee/payslips", icon: Wallet, label: "Payslips" },

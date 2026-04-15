@@ -114,15 +114,17 @@ export const getOvertimeRequests = async (req: AuthenticatedRequest, res: Respon
     const clientIds = [...new Set(requests.map(r => r.clientId))];
     const requestClients = await prisma.client.findMany({
       where: { id: { in: clientIds } },
-      select: { id: true, companyName: true },
+      select: { id: true, companyName: true, timezone: true },
     });
     const clientNameMap = new Map(requestClients.map(c => [c.id, c.companyName]));
+    const clientTimezoneMap = new Map(requestClients.map(c => [c.id, c.timezone]));
 
     const employeeMap = new Map(employees.map(e => [e.id, e]));
     const requestsWithEmployee = requests.map(r => ({
       ...r,
       employee: employeeMap.get(r.employeeId),
       clientName: clientNameMap.get(r.clientId) || 'Unknown',
+      clientTimezone: clientTimezoneMap.get(r.clientId) || 'UTC',
       approver: r.approvedBy ? userMap.get(r.approvedBy) : null,
       rejecter: r.rejectedBy ? userMap.get(r.rejectedBy) : null,
     }));
