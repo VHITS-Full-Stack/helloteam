@@ -493,15 +493,10 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
         }
       }
 
-      // Find or create the "Default" group
-      let defaultGroup = await tx.group.findFirst({
-        where: { name: 'Default' },
+      // Create a new default group for this client
+      const defaultGroup = await tx.group.create({
+        data: { name: 'Default', description: `Default group for ${companyName}` },
       });
-      if (!defaultGroup) {
-        defaultGroup = await tx.group.create({
-          data: { name: 'Default', description: 'Default group assigned to all clients' },
-        });
-      }
 
       // Assign the Default group to this client
       await tx.clientGroup.create({
