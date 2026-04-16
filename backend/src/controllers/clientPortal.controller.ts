@@ -3705,18 +3705,52 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
       where: { clientId: client.id, isActive: true },
       include: {
         employee: {
-          select: { id: true, firstName: true, lastName: true, profilePhoto: true },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            profilePhoto: true,
+            billingRate: true,
+            groupAssignments: {
+              include: {
+                group: {
+                  select: {
+                    billingRate: true,
+                    clientGroups: {
+                      where: { clientId: client.id },
+                      select: { billingRate: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
         },
       },
     });
 
-    const employees = clientEmployees.map((ce) => ({
-      id: ce.employee.id,
-      firstName: ce.employee.firstName,
-      lastName: ce.employee.lastName,
-      profilePhoto: ce.employee.profilePhoto,
-      hourlyRate: ce.hourlyRate ? Number(ce.hourlyRate) : 0,
-    }));
+    const employees = clientEmployees.map((ce) => {
+      const emp = ce.employee;
+      const group = emp.groupAssignments?.[0]?.group;
+      const clientGroupRate = group?.clientGroups?.[0]?.billingRate;
+      const groupRate = group?.billingRate;
+
+      // Rate hierarchy: assignment override > employee rate > client-group rate > group rate
+      const effectiveRate =
+        ce.hourlyRate ??
+        emp.billingRate ??
+        clientGroupRate ??
+        groupRate ??
+        null;
+
+      return {
+        id: emp.id,
+        firstName: emp.firstName,
+        lastName: emp.lastName,
+        profilePhoto: emp.profilePhoto,
+        hourlyRate: effectiveRate ? Number(effectiveRate) : 0,
+      };
+    });
 
     res.json({ success: true, data: { employees } });
   } catch (error) {
