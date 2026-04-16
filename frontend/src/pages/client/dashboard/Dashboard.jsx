@@ -212,18 +212,12 @@ const ClientDashboard = () => {
               <AlertCircle className="w-6 h-6 text-amber-600" />
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="text-lg font-bold text-amber-900">
-                WORKED OVERTIME WITHOUT PRIOR APPROVAL — Action Required
+              <h3 className="text-base font-bold text-amber-900 uppercase tracking-wide">
+                Worked OT Without Prior Approval — Action Required
               </h3>
-              <p className="text-amber-800 mt-1">
+              <p className="text-sm text-amber-800 mt-1">
                 Please approve or deny before your billing cycle closes.
                 Unapproved hours cannot be processed for payment.
-              </p>
-              <p>
-                One or more employees worked overtime without prior approval.
-                These hours have already been worked and will not be paid or
-                billed unless you approve them. Please review and approve or
-                deny the hours below.
               </p>
               {pendingOT.employees && pendingOT.employees.length > 0 && (
                 <div className="mt-3 space-y-2">
@@ -235,14 +229,15 @@ const ClientDashboard = () => {
                       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                       <span className="text-sm text-amber-900">
                         <strong>{emp.name}</strong> worked{" "}
-                        <strong>{emp.hours}</strong> of unapproved overtime on
-                        [date]. Approve or deny to process payment
+                        <strong>{emp.hours}</strong> of unapproved overtime
+                        {emp.entries > 1 && ` across ${emp.entries} entries`}.
+                        Approve or deny to process payment.
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="mt-4 flex items-center gap-3">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                   variant="primary"
                   icon={CheckCircle}
@@ -254,16 +249,13 @@ const ClientDashboard = () => {
                 </Button>
                 <span className="text-sm text-amber-700">
                   {pendingOT.count}{" "}
-                  {pendingOT.count === 1 ? "entry" : "entries"} total{" "}
+                  {pendingOT.count === 1 ? "entry" : "entries"} total —{" "}
                   <strong>{pendingOT.totalHours}</strong>
                 </span>
               </div>
-              <div className="flex-1 min-w-0">
-                <p>
-                  This is not a future overtime request. These hours have
-                  already been worked.
-                </p>
-              </div>
+              <p className="text-xs text-amber-600 mt-3">
+                These hours have already been worked, not requested in advance.
+              </p>
             </div>
           </div>
         </div>
