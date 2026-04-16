@@ -1072,7 +1072,7 @@ const Approvals = () => {
                     <option value="Client approved via email">
                       Client approved via email
                     </option>
-                    <option value="custom">Custom...</option>
+                    <option value="custom">Custom</option>
                   </select>
                   <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
