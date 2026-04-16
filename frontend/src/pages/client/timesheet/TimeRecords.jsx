@@ -91,8 +91,14 @@ const TimeRecords = () => {
   const [customStart, setCustomStart] = useState(todayStr);
   const [customEnd, setCustomEnd] = useState(todayStr);
 
-  const rangeStart = useMemo(() => new Date(customStart || todayStr), [customStart, todayStr]);
-  const rangeEnd = useMemo(() => new Date(customEnd || todayStr), [customEnd, todayStr]);
+  const rangeStart = useMemo(
+    () => new Date(customStart || todayStr),
+    [customStart, todayStr],
+  );
+  const rangeEnd = useMemo(
+    () => new Date(customEnd || todayStr),
+    [customEnd, todayStr],
+  );
 
   // Flatten all day records for stats
   const allDayRecords = timeRecords.flatMap((emp) => emp.records || []);
@@ -495,15 +501,24 @@ const TimeRecords = () => {
           )
             return false;
           // When a specific status filter is active, hide non-matching records
-          if (statusFilter !== "all" && status === "not_started")
+          if (statusFilter !== "all" && status === "not_started") return false;
+          if (statusFilter === "pending" && status !== "pending") return false;
+          if (
+            statusFilter === "approved" &&
+            status !== "approved" &&
+            status !== "auto_approved"
+          )
             return false;
-          if (statusFilter === "pending" && status !== "pending")
+          if (
+            statusFilter === "rejected" &&
+            status !== "rejected" &&
+            status !== "ot_rejected"
+          )
             return false;
-          if (statusFilter === "approved" && status !== "approved" && status !== "auto_approved")
-            return false;
-          if (statusFilter === "rejected" && status !== "rejected" && status !== "ot_rejected")
-            return false;
-          if (statusFilter === "revision_requested" && status !== "revision_requested")
+          if (
+            statusFilter === "revision_requested" &&
+            status !== "revision_requested"
+          )
             return false;
           return true;
         })
@@ -527,6 +542,13 @@ const TimeRecords = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
           <p className="text-gray-500">View and manage employee time records</p>
+          <p className="text-xs text-gray-500 mt-2">
+            All time worked within the employee's scheduled shift is
+            automatically approved after 24 hours. Time worked outside of the
+            scheduled shift (including overtime worked without prior approval)
+            must be manually approved before the employee can be paid and the
+            client can be billed.
+          </p>
         </div>
         <ExportButton onClick={handleExport} />
       </div>
@@ -729,7 +751,9 @@ const TimeRecords = () => {
             <h3 className="text-lg font-medium text-gray-900 mb-1">
               No time records
             </h3>
-            <p className="text-gray-500">No time records found for selected date range.</p>
+            <p className="text-gray-500">
+              No time records found for selected date range.
+            </p>
           </div>
         </Card>
       ) : (
@@ -758,10 +782,18 @@ const TimeRecords = () => {
                     case "regularHours": {
                       const aM =
                         a.regularMinutes ??
-                        Math.max(0, (a.billingMinutes || a.totalMinutes || 0) - (a.breakMinutes || 0));
+                        Math.max(
+                          0,
+                          (a.billingMinutes || a.totalMinutes || 0) -
+                            (a.breakMinutes || 0),
+                        );
                       const bM =
                         b.regularMinutes ??
-                        Math.max(0, (b.billingMinutes || b.totalMinutes || 0) - (b.breakMinutes || 0));
+                        Math.max(
+                          0,
+                          (b.billingMinutes || b.totalMinutes || 0) -
+                            (b.breakMinutes || 0),
+                        );
                       cmp = aM - bM;
                       break;
                     }
@@ -809,27 +841,84 @@ const TimeRecords = () => {
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200">
                           {[
-                            { key: "employee", label: "Employee", align: "left", px: "px-4" },
-                            { key: "date", label: "Date", align: "left", px: "px-3" },
-                            { key: null, label: "Schedule", align: "center", px: "px-3" },
-                            { key: null, label: "Billing In", align: "center", px: "px-3" },
-                            { key: null, label: "Billing Out", align: "center", px: "px-3" },
-                            { key: null, label: "Break", align: "center", px: "px-3" },
-                            { key: "regularHours", label: "Regular Hours", align: "center", px: "px-3" },
-                            { key: "overtime", label: "Overtime", align: "center", px: "px-3" },
-                            { key: null, label: "Worked OT Without Prior Approval", align: "center", px: "px-3" },
-                            { key: "status", label: "Status", align: "center", px: "px-3" },
-                            { key: null, label: "Actions", align: "right", px: "px-4" },
+                            {
+                              key: "employee",
+                              label: "Employee",
+                              align: "left",
+                              px: "px-4",
+                            },
+                            {
+                              key: "date",
+                              label: "Date",
+                              align: "left",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Schedule",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Billing In",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Billing Out",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Break",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: "regularHours",
+                              label: "Regular Hours",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: "overtime",
+                              label: "Overtime",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Worked OT Without Prior Approval",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: "status",
+                              label: "Status",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Actions",
+                              align: "right",
+                              px: "px-4",
+                            },
                           ].map((col) => (
                             <th
                               key={col.label}
-                              onClick={col.key ? () => handleSort(col.key) : undefined}
+                              onClick={
+                                col.key ? () => handleSort(col.key) : undefined
+                              }
                               className={`text-${col.align} text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 ${col.px} whitespace-nowrap ${col.key ? "cursor-pointer select-none hover:text-gray-600" : ""}`}
                             >
                               <span className="inline-flex items-center gap-1">
                                 {col.label}
-                                {col.key && (
-                                  sortField === col.key ? (
+                                {col.key &&
+                                  (sortField === col.key ? (
                                     sortDirection === "asc" ? (
                                       <ChevronUp className="w-3 h-3" />
                                     ) : (
@@ -837,8 +926,7 @@ const TimeRecords = () => {
                                     )
                                   ) : (
                                     <ArrowUpDown className="w-3 h-3 opacity-40" />
-                                  )
-                                )}
+                                  ))}
                               </span>
                             </th>
                           ))}
@@ -856,18 +944,22 @@ const TimeRecords = () => {
                             (ot) => ot.isAutoGenerated,
                           );
                           const preApprovedOTMins = requestedOTEntries.reduce(
-                            (s, o) => s + (o.requestedMinutes || 0), 0,
+                            (s, o) => s + (o.requestedMinutes || 0),
+                            0,
                           );
                           const regularM = Math.max(
                             0,
-                            (rec.regularMinutes ?? rec.billingMinutes ?? 0) - preApprovedOTMins,
+                            (rec.regularMinutes ?? rec.billingMinutes ?? 0) -
+                              preApprovedOTMins,
                           );
                           const pendingOTs = otEntries.filter(
                             (ot) => ot.status === "PENDING",
                           );
-                          const isActive = rec.status?.toLowerCase() === 'active';
+                          const isActive =
+                            rec.status?.toLowerCase() === "active";
                           const clockIn = rec.clockIn;
-                          const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
+                          const clockOut =
+                            rec.clockOut || (!isActive ? rec.billingEnd : null);
 
                           return (
                             <tr
@@ -991,7 +1083,8 @@ const TimeRecords = () => {
                                         <X className="w-3 h-3" /> Deny
                                       </button>
                                     </>
-                                  ) : rec.timeRecordId && status === "pending" ? (
+                                  ) : rec.timeRecordId &&
+                                    status === "pending" ? (
                                     <button
                                       onClick={() =>
                                         handleApprove(rec.timeRecordId)
@@ -1201,11 +1294,13 @@ const TimeRecords = () => {
                               (ot) => !ot.isAutoGenerated,
                             );
                             const preApprovedOTMins = requestedOTEntries.reduce(
-                              (s, o) => s + (o.requestedMinutes || 0), 0,
+                              (s, o) => s + (o.requestedMinutes || 0),
+                              0,
                             );
                             const regularM = Math.max(
                               0,
-                              (rec.regularMinutes ?? rec.billingMinutes ?? 0) - preApprovedOTMins,
+                              (rec.regularMinutes ?? rec.billingMinutes ?? 0) -
+                                preApprovedOTMins,
                             );
                             // const approvedRequestedOT = requestedOTEntries.filter(
                             //   (ot) =>
@@ -1243,9 +1338,12 @@ const TimeRecords = () => {
                               },
                             );
 
-                            const isActive = rec.status?.toLowerCase() === 'active';
+                            const isActive =
+                              rec.status?.toLowerCase() === "active";
                             const clockIn = rec.clockIn;
-                            const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
+                            const clockOut =
+                              rec.clockOut ||
+                              (!isActive ? rec.billingEnd : null);
 
                             return (
                               <tr
@@ -1508,9 +1606,10 @@ const TimeRecords = () => {
                             _clockOut: rec.billingEnd || rec.clockOut,
                           }));
 
-                        const isActive = rec.status?.toLowerCase() === 'active';
+                        const isActive = rec.status?.toLowerCase() === "active";
                         const clockIn = rec.clockIn;
-                        const clockOut = rec.clockOut || (!isActive ? rec.billingEnd : null);
+                        const clockOut =
+                          rec.clockOut || (!isActive ? rec.billingEnd : null);
                         const dateLabel = rec.dateObj.toLocaleDateString(
                           "en-US",
                           {
@@ -1532,7 +1631,8 @@ const TimeRecords = () => {
                                   </span>
                                 )}
                               </span>
-                              {isLeaveOrHoliday && getStatusBadge(displayStatus)}
+                              {isLeaveOrHoliday &&
+                                getStatusBadge(displayStatus)}
                             </div>
                             {!isLeaveOrHoliday && (
                               <>
@@ -1562,9 +1662,9 @@ const TimeRecords = () => {
                                 </div>
                                 <div className="flex items-center gap-3 mt-1 text-xs flex-wrap">
                                   {!isActive && (
-                                  <span className="text-gray-700 font-medium">
-                                    Reg: {formatHours(regularM / 60)}
-                                  </span>
+                                    <span className="text-gray-700 font-medium">
+                                      Reg: {formatHours(regularM / 60)}
+                                    </span>
                                   )}
                                   {requestedOTEntries.map((ot, i) => (
                                     <span

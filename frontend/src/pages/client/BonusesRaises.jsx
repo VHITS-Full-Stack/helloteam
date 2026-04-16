@@ -103,7 +103,7 @@ const BonusesRaises = () => {
       return;
     }
     if (!raiseForm.effectiveDate) {
-      setRaiseError("Please select an effective date");
+      setRaiseError("Please select an effective start date");
       return;
     }
 
@@ -262,7 +262,7 @@ const BonusesRaises = () => {
             {/* Bill Rate */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Bill Rate
+                Raise Amount ($ per hour)
               </label>
               <input
                 type="number"
@@ -292,10 +292,6 @@ const BonusesRaises = () => {
               />
             </div>
 
-         
-
-            
-
             {/* Error/Success */}
             {raiseError && <p className="text-sm text-red-600">{raiseError}</p>}
 
@@ -319,7 +315,7 @@ const BonusesRaises = () => {
       {/* Success Modal */}
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4 text-center">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 text-left">
             <div className="flex justify-end">
               <button
                 onClick={() => setShowSuccessModal(false)}
@@ -328,25 +324,47 @@ const BonusesRaises = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-5xl mb-4">
-              {successModalType === "bonus" ? "🎉" : "🎉"}
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">
-              {successModalType === "bonus"
-                ? "Bonus Confirmed!"
-                : "Raise Request Submitted!"}
+
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {successModalType === "bonus" ? (
+                <p>
+                  Bonus Confirmed!
+                  {successModalType === "bonus" ? "🎉" : "🎉"}
+                </p>
+              ) : (
+                <p>
+                  Raise Request Submitted!
+                  {successModalType === "bonus" ? "🎉" : "🎉"}
+                </p>
+              )}
             </h3>
+
             <p className="text-sm text-gray-500 mb-6">
-              {successModalType === "bonus"
-                ? "Thank you for the bonus! We'll deliver your bonus to your employee as soon as possible. They will be notified. You're a wonderful employer!"
-                : "Your raise request has been submitted. Our team will review and process it. The employee will be notified once approved."}
+              {successModalType === "bonus" ? (
+                <p className="text-sm text-gray-500 mb-6">
+                  Thank you for giving your employee a bonus! We will notify
+                  your employee of the bonus and deliver it at the earliest
+                  convenience. Please note bonuses may be delivered alongside
+                  regular payroll, but the employee will be notified as soon as
+                  the status shows Approved. You're a great employer!
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500 mb-6">
+                  Your request to give a raise to this employee has been
+                  submitted and is now pending approval. Once approved, the
+                  employee will be notified and the raise will take effect from
+                  the effective start date you selected.
+                </p>
+              )}
             </p>
-            <button
-              onClick={() => setShowSuccessModal(false)}
-              className="px-6 py-2.5 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-lg transition-colors"
-            >
-              Done
-            </button>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="px-6 py-2.5 bg-green-700 hover:bg-green-800 text-white font-semibold rounded-lg transition-colors text-sm"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

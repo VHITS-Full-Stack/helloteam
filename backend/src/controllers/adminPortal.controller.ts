@@ -2,7 +2,7 @@ import { Response } from 'express';
 import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { LeaveStatus, ApprovalStatus } from '@prisma/client';
-import { getPresignedUrl, getKeyFromUrl } from '../services/s3.service';
+import { getPresignedUrl, getKeyFromUrl, uploadToS3 } from '../services/s3.service';
 import { formatDuration } from '../utils/timezone';
 
 // Helper function to refresh presigned URL for profile photos
@@ -2192,7 +2192,32 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
     let raiseId = req.params.raiseId;
     if (Array.isArray(raiseId)) raiseId = raiseId[0];
     const userId = req.user?.userId;
-    const { adminNotes, newPayRate } = req.body;
+    const { adminNotes, newPayRate, approvalNote } = req.body;
+    const proofFile = (req as any).file as Express.Multer.File | undefined;
+
+    // Require either an approval note or a proof file
+    if (!approvalNote?.trim() && !proofFile) {
+      res.status(400).json({
+        success: false,
+        error: 'You must provide either a note confirming the employee was notified, or upload proof.',
+      });
+      return;
+    }
+
+    // Upload proof file if provided
+    let proofUrl: string | null = null;
+    let proofKey: string | null = null;
+    let proofFileName: string | null = null;
+    if (proofFile) {
+      const uploadResult = await uploadToS3(proofFile, 'bonus-proof');
+      if (!uploadResult.success) {
+        res.status(400).json({ success: false, error: uploadResult.error || 'Failed to upload proof file' });
+        return;
+      }
+      proofUrl = uploadResult.url || null;
+      proofKey = uploadResult.key || null;
+      proofFileName = proofFile.originalname;
+    }
 
     const request = await prisma.clientRequest.findUnique({
       where: { id: raiseId },
@@ -2227,6 +2252,12 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
           },
         });
       });
+
+      // Store proof/note via raw SQL (new fields, Prisma client may not be regenerated yet)
+      await prisma.$executeRawUnsafe(
+        `UPDATE client_requests SET "approvalNote" = $1, "approvalProofUrl" = $2, "approvalProofKey" = $3, "approvalProofFileName" = $4 WHERE id = $5`,
+        approvalNote?.trim() || null, proofUrl, proofKey, proofFileName, raiseId
+      );
 
       res.json({ success: true, message: 'Bonus approved and added to payroll' });
     } else {
@@ -2277,11 +2308,17 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
         }
       });
 
+      // Store proof/note via raw SQL (new fields, Prisma client may not be regenerated yet)
+      await prisma.$executeRawUnsafe(
+        `UPDATE client_requests SET "approvalNote" = $1, "approvalProofUrl" = $2, "approvalProofKey" = $3, "approvalProofFileName" = $4 WHERE id = $5`,
+        approvalNote?.trim() || null, proofUrl, proofKey, proofFileName, raiseId
+      );
+
       res.json({ success: true, message: 'Raise approved and rates updated' });
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Approve request error:', error);
-    res.status(500).json({ success: false, error: 'Failed to approve request' });
+    res.status(500).json({ success: false, error: error?.message || 'Failed to approve request' });
   }
 };
 

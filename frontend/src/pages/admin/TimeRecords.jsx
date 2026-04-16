@@ -785,6 +785,13 @@ const TimeRecords = () => {
           <p className="text-sm text-gray-500 mt-1">
             View and manage all employee time records
           </p>
+          <p className="text-xs text-gray-500 mt-2">
+            All time worked within the employee's scheduled shift is
+            automatically approved after 24 hours. Time worked outside of the
+            scheduled shift (including overtime worked without prior approval)
+            must be manually approved before the employee can be paid and the
+            client can be billed.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <ExportButton onClick={handleExport} />

@@ -1062,6 +1062,11 @@ model ClientRequest {
   adminNotes    String?
   reviewedBy    String?
   reviewedAt    DateTime?
+  // Approval proof (required when approving a bonus)
+  approvalNote     String?   // Admin note confirming employee was notified
+  approvalProofUrl String?   // URL to uploaded proof file
+  approvalProofKey String?   // S3 key for deletion
+  approvalProofFileName String? // Original file name for display
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 

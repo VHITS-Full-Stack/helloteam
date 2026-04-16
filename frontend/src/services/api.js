@@ -132,6 +132,38 @@ class ApiService {
     return this.request(endpoint, { method: 'DELETE' });
   }
 
+  // POST FormData (for mixed file + fields requests)
+  async uploadFormData(endpoint, formData) {
+    const url = `${this.baseUrl}${endpoint}`;
+    const token = this.getToken();
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
+        body: formData,
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        if (response.status === 401) {
+          this.removeToken();
+          window.location.href = '/login';
+          return data;
+        }
+        const error = new Error(data.error || data.message || 'An error occurred');
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    } catch (error) {
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        const networkError = new Error('Unable to connect to server. Please check your connection.');
+        networkError.isNetworkError = true;
+        throw networkError;
+      }
+      throw error;
+    }
+  }
+
   // Upload file (FormData)
   async uploadFile(endpoint, file, fieldName = 'photo') {
     const url = `${this.baseUrl}${endpoint}`;

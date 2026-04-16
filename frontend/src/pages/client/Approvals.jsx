@@ -172,10 +172,13 @@ const Approvals = () => {
         const revision_requested = timeOnly.filter(
           (a) => a.status === "revision_requested",
         ).length;
-        const rejected = timeOnly.filter(
-          (a) => a.status === "rejected",
-        ).length;
-        setTimesheetSummary({ pending, approved, revision_requested, rejected });
+        const rejected = timeOnly.filter((a) => a.status === "rejected").length;
+        setTimesheetSummary({
+          pending,
+          approved,
+          revision_requested,
+          rejected,
+        });
         if (response.data.clientTimezone)
           setClientTimezone(response.data.clientTimezone);
       } else {
@@ -251,10 +254,22 @@ const Approvals = () => {
 
       if (requestsResponse.success) {
         const allRequests = requestsResponse.data.requests || [];
-        const pending = allRequests.filter((r) => r.status === "PENDING").length;
-        const approved = allRequests.filter((r) => r.status === "APPROVED").length;
-        const rejected = allRequests.filter((r) => r.status === "REJECTED").length;
-        setAutoOvertimeSummary({ pending, approved, rejected, totalApprovedMinutes: 0, totalPendingMinutes: 0 });
+        const pending = allRequests.filter(
+          (r) => r.status === "PENDING",
+        ).length;
+        const approved = allRequests.filter(
+          (r) => r.status === "APPROVED",
+        ).length;
+        const rejected = allRequests.filter(
+          (r) => r.status === "REJECTED",
+        ).length;
+        setAutoOvertimeSummary({
+          pending,
+          approved,
+          rejected,
+          totalApprovedMinutes: 0,
+          totalPendingMinutes: 0,
+        });
 
         // Filter by active tab for display
         const statusFilter =
@@ -263,7 +278,9 @@ const Approvals = () => {
             : activeTab === "approved"
               ? "APPROVED"
               : "REJECTED";
-        setAutoOvertimeRequests(allRequests.filter((r) => r.status === statusFilter));
+        setAutoOvertimeRequests(
+          allRequests.filter((r) => r.status === statusFilter),
+        );
       }
     } catch (err) {
       console.error("Error fetching auto overtime requests:", err);
@@ -700,25 +717,32 @@ const Approvals = () => {
           <p className="text-gray-500">
             Review leave requests and overtime pre-approvals
           </p>
+          {activeType === "overtime" ||
+            (activeType === "autoOvertime" && (
+              <p className="text-m text-gray-500 mt-2 font-bold">
+                These employees have already worked overtime without submitting
+                a prior approval request. <br />
+                Approve to process payment and billing. Deny to exclude from
+                payroll
+              </p>
+            ))}
         </div>
         <div className="flex items-center gap-3">
           {(activeTab === "pending" || activeType === "timesheet") &&
             selectedItems.length > 0 && (
-            <Button
-              variant="success"
-              icon={CheckCircle}
-              onClick={handleBulkApprove}
-              disabled={actionLoading}
-            >
-              {actionLoading
-                ? "Approving..."
-                : `Approve Selected (${selectedItems.length})`}
-            </Button>
-          )}
+              <Button
+                variant="success"
+                icon={CheckCircle}
+                onClick={handleBulkApprove}
+                disabled={actionLoading}
+              >
+                {actionLoading
+                  ? "Approving..."
+                  : `Approve Selected (${selectedItems.length})`}
+              </Button>
+            )}
         </div>
       </div>
-
-    
 
       {/* Error Message */}
       {error && (
@@ -786,7 +810,7 @@ const Approvals = () => {
           }`}
         >
           <Clock className="w-4 h-4 inline mr-2" />
-         Worked OT Without Prior Approval
+          Worked OT Without Prior Approval
           {autoOvertimeSummary.pending > 0 && (
             <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
               {autoOvertimeSummary.pending}
@@ -954,6 +978,7 @@ const Approvals = () => {
           </div>
         </Card>
       </div>
+
       {/* Tabs - hidden for timesheet type (shows all records) */}
       {activeType !== "timesheet" && (
         <div className="border-b border-gray-200">
@@ -1067,7 +1092,9 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(item.submittedAt, { timeZone: clientTimezone })}
+                        {formatDateTime(item.submittedAt, {
+                          timeZone: clientTimezone,
+                        })}
                       </span>
                     </TableCell>
                     {activeTab === "pending" && (
@@ -1097,7 +1124,9 @@ const Approvals = () => {
                     {activeTab === "approved" && (
                       <TableCell className="!px-3">
                         <span className="text-xs text-green-600">
-                          {formatDateTime(item.approvedAt, { timeZone: clientTimezone })}
+                          {formatDateTime(item.approvedAt, {
+                            timeZone: clientTimezone,
+                          })}
                         </span>
                       </TableCell>
                     )}
@@ -1240,7 +1269,9 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(item.submittedAt, { timeZone: clientTimezone })}
+                        {formatDateTime(item.submittedAt, {
+                          timeZone: clientTimezone,
+                        })}
                       </span>
                     </TableCell>
                     <TableCell className="!px-3">
@@ -1266,9 +1297,12 @@ const Approvals = () => {
                             Revise
                           </Button>
                         </div>
-                      ) : item.status === "approved" || item.status === "auto_approved" ? (
+                      ) : item.status === "approved" ||
+                        item.status === "auto_approved" ? (
                         <span className="text-xs text-green-600">
-                          {formatDateTime(item.approvedAt, { timeZone: clientTimezone })}
+                          {formatDateTime(item.approvedAt, {
+                            timeZone: clientTimezone,
+                          })}
                         </span>
                       ) : item.status === "revision_requested" ? (
                         <span
@@ -1295,18 +1329,17 @@ const Approvals = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-1">
                 No timesheets
               </h3>
-              <p className="text-gray-500">
-                No timesheet records to show.
-              </p>
+              <p className="text-gray-500">No timesheet records to show.</p>
             </div>
           )}
-         
         </Card>
       ) : activeType === "overtime" || activeType === "autoOvertime" ? (
         /* Overtime Requests tab / Auto OT tab — shared table */
         <Card padding="none">
-          {(activeType === "overtime" ? filteredOvertimeRequests : filteredAutoOvertimeRequests)
-            .length > 0 ? (
+          {(activeType === "overtime"
+            ? filteredOvertimeRequests
+            : filteredAutoOvertimeRequests
+          ).length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -1419,7 +1452,9 @@ const Approvals = () => {
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
-                        {formatDateTime(request.createdAt, { timeZone: clientTimezone })}
+                        {formatDateTime(request.createdAt, {
+                          timeZone: clientTimezone,
+                        })}
                       </span>
                     </TableCell>
                     {activeTab === "pending" && (
@@ -1450,7 +1485,9 @@ const Approvals = () => {
                       <TableCell className="!px-3">
                         <div>
                           <span className="text-xs text-green-600">
-                            {formatDateTime(request.approvedAt, { timeZone: clientTimezone })}
+                            {formatDateTime(request.approvedAt, {
+                              timeZone: clientTimezone,
+                            })}
                           </span>
                           {request.approver && (
                             <p className="text-xs text-gray-500">

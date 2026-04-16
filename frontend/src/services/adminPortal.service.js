@@ -92,7 +92,13 @@ const adminPortalService = {
   },
 
   approveRaiseRequest: async (raiseId, data = {}) => {
-    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/approve`, data);
+    // Use FormData so we can attach an optional proof file
+    const formData = new FormData();
+    if (data.approvalNote) formData.append('approvalNote', data.approvalNote);
+    if (data.adminNotes) formData.append('adminNotes', data.adminNotes);
+    if (data.newPayRate != null) formData.append('newPayRate', String(data.newPayRate));
+    if (data.proofFile) formData.append('proofFile', data.proofFile);
+    const response = await api.uploadFormData(`/admin-portal/raise-requests/${raiseId}/approve`, formData);
     return response;
   },
 

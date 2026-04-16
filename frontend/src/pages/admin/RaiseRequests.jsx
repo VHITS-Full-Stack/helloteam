@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { TrendingUp, Gift, Loader2, Check, X, Filter, ChevronDown } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { TrendingUp, Gift, Loader2, Check, X, Filter, ChevronDown, Upload, FileText, AlertCircle } from "lucide-react";
 import { Card, Badge, Avatar } from "../../components/common";
 import adminPortalService from "../../services/adminPortal.service";
 
@@ -19,6 +19,11 @@ const RaiseRequests = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [changePayRate, setChangePayRate] = useState(false);
   const [newPayRate, setNewPayRate] = useState("");
+  const [approvalNote, setApprovalNote] = useState("");
+  const [proofFile, setProofFile] = useState(null);
+  const [approveError, setApproveError] = useState("");
+  const [confirmationType, setConfirmationType] = useState(null); // 'proof' | 'note' | null
+  const proofInputRef = useRef(null);
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -75,14 +80,32 @@ const RaiseRequests = () => {
     setSelectedRequest(request);
     setChangePayRate(false);
     setNewPayRate("");
+    setApprovalNote("");
+    setProofFile(null);
+    setApproveError("");
+    setConfirmationType(null);
     setShowApproveModal(true);
   };
 
   const handleApprove = async () => {
     if (!selectedRequest) return;
+    if (!confirmationType) {
+      setApproveError("Please choose a confirmation method before approving.");
+      return;
+    }
+    if (confirmationType === "note" && !approvalNote.trim()) {
+      setApproveError("Please write a confirmation note before approving.");
+      return;
+    }
+    if (confirmationType === "proof" && !proofFile) {
+      setApproveError("Please upload proof before approving.");
+      return;
+    }
+    setApproveError("");
     try {
       setActionLoading(selectedRequest.id);
-      const payload = {};
+      const payload = { approvalNote: confirmationType === "note" ? approvalNote.trim() : undefined };
+      if (confirmationType === "proof" && proofFile) payload.proofFile = proofFile;
       if (selectedRequest.type === "RAISE" && changePayRate && newPayRate !== "") {
         payload.newPayRate = parseFloat(newPayRate);
       }
@@ -94,10 +117,10 @@ const RaiseRequests = () => {
         setTimeout(() => setSuccessMessage(""), 4000);
         fetchRequests();
       } else {
-        setError(response.error || "Failed to approve");
+        setApproveError(response.error || "Failed to approve");
       }
     } catch (err) {
-      setError(err.message || "Failed to approve");
+      setApproveError(err.message || "Failed to approve");
     } finally {
       setActionLoading(null);
     }
@@ -534,7 +557,99 @@ const RaiseRequests = () => {
                 )}
               </div>
             )}
-            <div className="flex justify-end gap-3">
+            {/* Confirmation — choose one */}
+            <div className="space-y-3 border-t border-gray-100 pt-4">
+              <p className="text-sm font-medium text-gray-700">
+                Choose confirmation method <span className="text-red-500">*</span>
+              </p>
+
+              {/* Option 1: Upload proof */}
+              <div
+                className={`cursor-pointer rounded-lg border-2 p-3 transition-colors ${confirmationType === "proof" ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}
+                onClick={() => { setConfirmationType("proof"); setApproveError(""); }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    type="radio"
+                    name="confirmationType"
+                    checked={confirmationType === "proof"}
+                    onChange={() => { setConfirmationType("proof"); setApproveError(""); }}
+                    className="accent-green-600"
+                  />
+                  <span className="text-sm font-medium text-gray-800">Upload proof of employee notification</span>
+                </div>
+                {confirmationType === "proof" && (
+                  <div className="mt-2 ml-5">
+                    <input
+                      ref={proofInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,application/pdf"
+                      className="hidden"
+                      onChange={(e) => { setProofFile(e.target.files[0] || null); setApproveError(""); }}
+                    />
+                    {proofFile ? (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-white border border-green-200 rounded-lg">
+                        <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <span className="text-sm text-green-700 flex-1 truncate">{proofFile.name}</span>
+                        <button onClick={(e) => { e.stopPropagation(); setProofFile(null); }} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); proofInputRef.current?.click(); }}
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg hover:border-green-400 hover:bg-white transition-colors"
+                      >
+                        <Upload className="w-4 h-4" />
+                        Click to upload screenshot or document
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Option 2: Write note */}
+              <div
+                className={`cursor-pointer rounded-lg border-2 p-3 transition-colors ${confirmationType === "note" ? "border-green-500 bg-green-50" : "border-gray-200 hover:border-gray-300"}`}
+                onClick={() => { setConfirmationType("note"); setApproveError(""); }}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <input
+                    type="radio"
+                    name="confirmationType"
+                    checked={confirmationType === "note"}
+                    onChange={() => { setConfirmationType("note"); setApproveError(""); }}
+                    className="accent-green-600"
+                  />
+                  <span className="text-sm font-medium text-gray-800">Write confirmation note</span>
+                </div>
+                {confirmationType === "note" && (
+                  <div className="mt-2 ml-5" onClick={(e) => e.stopPropagation()}>
+                    <textarea
+                      value={approvalNote}
+                      onChange={(e) => { setApprovalNote(e.target.value); setApproveError(""); }}
+                      placeholder="Confirm that the employee was notified of the bonus and was reminded to thank the client."
+                      rows={3}
+                      maxLength={500}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-white"
+                    />
+                    <p className={`text-xs mt-1 text-right ${approvalNote.length >= 500 ? "text-red-500" : "text-gray-400"}`}>
+                      {approvalNote.length}/500
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {approveError && (
+                <div className="flex items-center gap-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  {approveError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
               <button onClick={() => setShowApproveModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
               <button
                 onClick={handleApprove}

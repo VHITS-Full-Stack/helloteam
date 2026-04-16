@@ -1850,10 +1850,12 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       (sessionEndTime.getTime() - sessionStartTime.getTime()) / 60000
     );
 
-    // Check for overlapping sessions
+    // Check for overlapping sessions — skip orphaned manual sessions (those without a TimeRecord,
+    // left behind by a previously failed manual entry attempt)
     const existingSession = await prisma.workSession.findFirst({
       where: {
         employeeId: employee.id,
+        isManual: false, // only check real clock-in sessions; orphaned manual sessions are cleaned up below
         OR: [
           {
             startTime: { lte: sessionEndTime },
@@ -1874,6 +1876,21 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
+    // Get all active client assignments for the employee
+    const clientAssignments = await prisma.clientEmployee.findMany({
+      where: { employeeId: employee.id, isActive: true },
+    });
+
+    // Clean up any orphaned manual sessions in this time range (from previously failed attempts)
+    await prisma.workSession.deleteMany({
+      where: {
+        employeeId: employee.id,
+        isManual: true,
+        startTime: { gte: sessionStartTime },
+        endTime: { lte: sessionEndTime },
+      },
+    });
+
     // Create the manual work session
     const workSession = await prisma.workSession.create({
       data: {
@@ -1887,26 +1904,15 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       },
     });
 
-    // Get all active client assignments for the employee
-    const clientAssignments = await prisma.clientEmployee.findMany({
-      where: {
-        employeeId: employee.id,
-        isActive: true,
-      },
-    });
-
-    // Create time record for each assigned client
     if (clientAssignments.length > 0) {
-      // Use UTC midnight of the local date to avoid timezone shift in PostgreSQL DATE column
       const d = new Date(entryDate);
       const recordDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
 
       await Promise.all(
-        clientAssignments.map((assignment) => {
-          // For manual entries, billing = actual (no schedule context)
+        clientAssignments.map(async (assignment) => {
           const manualBilling = computeBillingTimes(sessionStartTime, sessionEndTime, null, null);
           const manualBillingMins = Math.max(0, Math.floor((manualBilling.billingEnd.getTime() - manualBilling.billingStart.getTime()) / 60000));
-          return prisma.timeRecord.upsert({
+          const record = await prisma.timeRecord.upsert({
             where: {
               employeeId_clientId_date: {
                 employeeId: employee.id,
@@ -1926,15 +1932,18 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
               isLate: false,
               totalMinutes,
               breakMinutes: 0,
-              isManual: true,
               status: 'PENDING',
             },
             update: {
               actualEnd: sessionEndTime,
               totalMinutes: { increment: totalMinutes },
-              isManual: true,
             },
           });
+          // Set "isManual" via raw SQL — column name is camelCase (quoted) per Prisma migration
+          await prisma.$executeRawUnsafe(
+            `UPDATE time_records SET "isManual" = true WHERE id = $1`,
+            record.id
+          );
         })
       );
     } else {
@@ -1950,9 +1959,9 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
         client: clientAssignments.length > 0 ? { id: clientAssignments[0].clientId } : null,
       },
     });
-  } catch (error) {
-    console.error('Add manual entry error:', error);
-    res.status(500).json({ success: false, message: 'Failed to add manual time entry' });
+  } catch (error: any) {
+    console.error('Add manual entry error:', error?.message || error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to add manual time entry' });
   }
 };
 

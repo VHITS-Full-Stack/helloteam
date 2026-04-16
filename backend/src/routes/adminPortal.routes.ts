@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { authenticate, authorize } from '../middleware/auth.middleware';
 import {
   getAdminDashboardStats,
@@ -23,6 +24,17 @@ import {
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 
 const router = Router();
+
+// Multer for bonus approval proof uploads (images + PDFs, max 10MB)
+const proofUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only images (JPEG, PNG, WebP) and PDFs are allowed'));
+  },
+});
 
 // All routes require authentication and admin roles
 const adminRoles = ['SUPER_ADMIN', 'ADMIN', 'OPERATIONS', 'HR', 'FINANCE'];
@@ -55,7 +67,7 @@ router.post('/approvals/leave/:requestId/reject', authenticate, authorize(...app
 
 // Raise request endpoints
 router.get('/raise-requests', authenticate, authorize(...adminRoles), getRaiseRequests);
-router.post('/raise-requests/:raiseId/approve', authenticate, authorize(...approvalRoles), approveRaiseRequest);
+router.post('/raise-requests/:raiseId/approve', authenticate, authorize(...approvalRoles), proofUpload.single('proofFile'), approveRaiseRequest);
 router.post('/raise-requests/:raiseId/reject', authenticate, authorize(...approvalRoles), rejectRaiseRequest);
 
 export default router;

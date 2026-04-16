@@ -72,6 +72,8 @@ const Approvals = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [revisionReason, setRevisionReason] = useState('');
   const [actionNotes, setActionNotes] = useState('');
+  const [otApprovalOption, setOtApprovalOption] = useState('');
+  const [otCustomNote, setOtCustomNote] = useState('');
   const [processing, setProcessing] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
 
@@ -173,7 +175,7 @@ const Approvals = () => {
   }, [fetchData]);
 
   // Handlers
-  const handleApprove = (item) => { setSelectedItem(item); setActionNotes(''); setShowApprovalModal(true); };
+  const handleApprove = (item) => { setSelectedItem(item); setActionNotes(''); setOtApprovalOption(''); setOtCustomNote(''); setShowApprovalModal(true); };
   const handleReject = (item) => { setSelectedItem(item); setRejectionReason(''); setActionNotes(''); setShowRejectModal(true); };
   const handleRequestRevision = (item) => { setSelectedItem(item); setRevisionReason(''); setShowRevisionModal(true); };
 
@@ -182,7 +184,10 @@ const Approvals = () => {
     setProcessing(true);
     try {
       let response;
-      if (isOTType) {
+      if (activeType === 'autoOvertime') {
+        const finalNote = otApprovalOption === 'custom' ? otCustomNote.trim() : otApprovalOption;
+        response = await overtimeService.approveOvertimeRequest(selectedItem.id, finalNote || undefined);
+      } else if (activeType === 'overtime') {
         response = await overtimeService.approveOvertimeRequest(selectedItem.id, actionNotes.trim() || undefined);
       } else if (selectedItem.type === 'leave') {
         response = await adminPortalService.approveLeaveRequest(selectedItem.id);
@@ -654,7 +659,12 @@ const Approvals = () => {
         footer={
           <>
             <Button variant="ghost" onClick={() => setShowApprovalModal(false)}>Cancel</Button>
-            <Button variant="success" icon={CheckCircle} onClick={confirmApproval} disabled={processing}>
+            <Button
+              variant="success"
+              icon={CheckCircle}
+              onClick={confirmApproval}
+              disabled={processing || (activeType === 'autoOvertime' && (!otApprovalOption || (otApprovalOption === 'custom' && !otCustomNote.trim())))}
+            >
               {processing ? 'Approving...' : 'Approve'}
             </Button>
           </>
@@ -695,7 +705,42 @@ const Approvals = () => {
                 </>
               )}
             </div>
-            {isOTType && (
+            {activeType === 'autoOvertime' && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  How did the client approve this? <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={otApprovalOption}
+                    onChange={(e) => { setOtApprovalOption(e.target.value); setOtCustomNote(''); }}
+                    className="w-full appearance-none border border-gray-300 rounded-lg pl-3 pr-8 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                  >
+                    <option value="">Select an option...</option>
+                    <option value="Spoke to client — client approved">Spoke to client — client approved</option>
+                    <option value="Client approved via email">Client approved via email</option>
+                    <option value="custom">Custom...</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                {otApprovalOption === 'custom' && (
+                  <div>
+                    <textarea
+                      value={otCustomNote}
+                      onChange={(e) => setOtCustomNote(e.target.value)}
+                      maxLength={500}
+                      placeholder="Describe how the client approved this overtime..."
+                      rows={3}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                    />
+                    <p className={`text-xs mt-1 text-right ${otCustomNote.length >= 500 ? 'text-red-500' : 'text-gray-400'}`}>
+                      {otCustomNote.length}/500
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {activeType === 'overtime' && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes <span className="text-gray-400 font-normal">(optional)</span></label>
                 <textarea className="input w-full resize-none" rows={2} value={actionNotes} onChange={(e) => setActionNotes(e.target.value)} placeholder="Additional notes..." />
