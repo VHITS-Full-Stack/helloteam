@@ -336,7 +336,7 @@ const Approvals = () => {
         {[
           { key: 'leave', label: 'Leave Requests', icon: Calendar },
           { key: 'overtime', label: 'Overtime Requests', icon: Timer },
-          { key: 'autoOvertime', label: 'OT Without Prior Approval', icon: AlertCircle },
+          { key: 'autoOvertime', label: 'Worked OT Without Prior Approval', icon: AlertCircle },
           { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
           { key: 'manual', label: 'Manual Entries', icon: FilePen },
         ].map(({ key, label, icon: Icon }) => (

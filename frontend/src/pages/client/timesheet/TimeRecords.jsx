@@ -817,7 +817,7 @@ const TimeRecords = () => {
                             { key: null, label: "Break", align: "center", px: "px-3" },
                             { key: "regularHours", label: "Regular Hours", align: "center", px: "px-3" },
                             { key: "overtime", label: "Overtime", align: "center", px: "px-3" },
-                            { key: null, label: "OT Without Prior Approval", align: "center", px: "px-3" },
+                            { key: null, label: "Worked OT Without Prior Approval", align: "center", px: "px-3" },
                             { key: "status", label: "Status", align: "center", px: "px-3" },
                             { key: null, label: "Actions", align: "right", px: "px-4" },
                           ].map((col) => (
@@ -1180,7 +1180,7 @@ const TimeRecords = () => {
                               Overtime
                             </th>
                             <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              OT Without Prior Approval
+                              Worked OT Without Prior Approval
                             </th>
                             <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
                               Actions

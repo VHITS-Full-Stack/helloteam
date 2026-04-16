@@ -662,7 +662,7 @@ const TimeRecords = () => {
       "Billing Out",
       "Regular Hours",
       "Overtime",
-      "OT Without Prior Approval",
+      "Worked OT Without Prior Approval",
       "Breaks",
       "Status",
     ];
@@ -932,7 +932,7 @@ const TimeRecords = () => {
                     { key: null, label: "Break" },
                     { key: "regular", label: "Regular" },
                     { key: "overtime", label: "Overtime" },
-                    { key: null, label: "OT Without Prior Approval", nowrap: true },
+                    { key: null, label: "Worked OT Without Prior Approval", nowrap: true },
                     { key: "status", label: "Status" },
                   ].map((col) => (
                     <th

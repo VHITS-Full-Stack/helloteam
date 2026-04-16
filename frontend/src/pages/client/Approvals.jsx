@@ -786,7 +786,7 @@ const Approvals = () => {
           }`}
         >
           <Clock className="w-4 h-4 inline mr-2" />
-          OT Without Prior Approval
+         Worked OT Without Prior Approval
           {autoOvertimeSummary.pending > 0 && (
             <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
               {autoOvertimeSummary.pending}
