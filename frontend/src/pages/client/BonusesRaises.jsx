@@ -259,7 +259,7 @@ const BonusesRaises = () => {
               </div>
             </div>
 
-            {/* Bill Rate */}
+            {/* Raise Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Raise Amount ($ per hour)
@@ -275,6 +275,16 @@ const BonusesRaises = () => {
                 placeholder="0.00"
                 className="input w-full"
               />
+              {selectedRaiseEmployee && billRateNum > 0 && (
+                <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+                  Current Rate:{' '}
+                  <span className="font-semibold">${selectedRaiseEmployee.hourlyRate.toFixed(2)}/hr</span>
+                  {' '}+{' '}Raise:{' '}
+                  <span className="font-semibold">${billRateNum.toFixed(2)}/hr</span>
+                  {' '}={' '}New Rate:{' '}
+                  <span className="font-bold text-green-700">${(selectedRaiseEmployee.hourlyRate + billRateNum).toFixed(2)}/hr</span>
+                </div>
+              )}
             </div>
 
             {/* Effective Date */}
