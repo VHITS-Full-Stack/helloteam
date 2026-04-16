@@ -3716,7 +3716,7 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
                 group: {
                   select: {
                     billingRate: true,
-                    clientGroups: {
+                    clients: {
                       where: { clientId: client.id },
                       select: { billingRate: true },
                     },
@@ -3732,7 +3732,7 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
     const employees = clientEmployees.map((ce) => {
       const emp = ce.employee;
       const group = emp.groupAssignments?.[0]?.group;
-      const clientGroupRate = group?.clientGroups?.[0]?.billingRate;
+      const clientGroupRate = group?.clients?.[0]?.billingRate;
       const groupRate = group?.billingRate;
 
       // Rate hierarchy: assignment override > employee rate > client-group rate > group rate
