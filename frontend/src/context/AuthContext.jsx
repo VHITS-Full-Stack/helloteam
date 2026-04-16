@@ -58,9 +58,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, [showTimeoutWarning]);
 
-  // Listen for user activity
+  // Listen for user activity — employees are exempt from inactivity timeout
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role === 'EMPLOYEE') return;
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
 
@@ -75,9 +75,9 @@ export const AuthProvider = ({ children }) => {
     };
   }, [user, updateActivity]);
 
-  // Check for session timeout
+  // Check for session timeout — employees are exempt from inactivity timeout
   useEffect(() => {
-    if (!user) return;
+    if (!user || user.role === 'EMPLOYEE') return;
 
     const checkTimeout = () => {
       const now = Date.now();
