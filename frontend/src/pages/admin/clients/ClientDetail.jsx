@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   FolderOpen,
   Settings,
   Eye,
+  Search,
 } from 'lucide-react';
 import {
   Card,
@@ -77,6 +78,31 @@ const ClientDetail = () => {
   };
 
   const [downloading, setDownloading] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
+
+  const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const fmt12 = (t) => {
+    const [h, m] = t.split(':').map(Number);
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+  };
+  const formatSchedule = (schedules) => {
+    if (!schedules?.length) return null;
+    return schedules
+      .slice()
+      .sort((a, b) => a.dayOfWeek - b.dayOfWeek)
+      .map(s => ({
+        day: DAY_ABBR[s.dayOfWeek],
+        time: `${fmt12(s.startTime)} – ${fmt12(s.endTime)}`,
+      }));
+  };
+
+  const filteredEmployees = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
+    if (!q) return clientEmployees;
+    return clientEmployees.filter(emp =>
+      `${emp.firstName} ${emp.lastName}`.toLowerCase().includes(q)
+    );
+  }, [clientEmployees, employeeSearch]);
 
   const handleDownloadPdf = async () => {
     setDownloading(true);
@@ -193,6 +219,7 @@ const ClientDetail = () => {
         <nav className="flex gap-8">
           {[
             { key: 'overview', label: 'Overview', icon: Building },
+            { key: 'employees', label: 'Employees', icon: Users, count: clientEmployees.length },
             { key: 'policies', label: 'Policies', icon: Settings },
             { key: 'agreement', label: 'Agreement', icon: FileText },
             { key: 'payment', label: 'Payment', icon: CreditCard },
@@ -208,6 +235,11 @@ const ClientDetail = () => {
             >
               <tab.icon className="w-3.5 h-3.5" />
               {tab.label}
+              {tab.count > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary rounded-full leading-none">
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -416,6 +448,99 @@ const ClientDetail = () => {
             <p className="text-sm text-gray-400">No payment information on file</p>
           )}
         </Card>
+      )}
+
+      {activeTab === 'employees' && (
+        <div className="space-y-3">
+          {/* Toolbar */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search employees..."
+                value={employeeSearch}
+                onChange={(e) => setEmployeeSearch(e.target.value)}
+                className="pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary w-56"
+              />
+            </div>
+            <Button variant="outline" size="sm" icon={Users} onClick={() => navigate(`/admin/clients/${id}/employees`)}>
+              Manage
+            </Button>
+          </div>
+
+          <Card padding="none">
+            {clientEmployees.length === 0 ? (
+              <div className="text-center py-12">
+                <Users className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">No employees assigned to this client</p>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => navigate(`/admin/clients/${id}/employees`)}>
+                  Assign Employees
+                </Button>
+              </div>
+            ) : filteredEmployees.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center py-8">No employees match your search</p>
+            ) : (
+              <>
+              <div className="flex items-center gap-4 px-4 py-2.5 bg-gray-50 border-b border-gray-100 rounded-t-xl">
+                <div className="w-1 flex-shrink-0" />
+                <div className="w-8 flex-shrink-0" />
+                <div className="w-44 flex-shrink-0 text-xs font-semibold text-gray-500 uppercase tracking-wide">Employee</div>
+                <div className="w-32 flex-shrink-0 text-xs font-semibold text-gray-500 uppercase tracking-wide">Group</div>
+                <div className="flex-1 text-xs font-semibold text-gray-500 uppercase tracking-wide">Schedule</div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</div>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {filteredEmployees.map((emp) => {
+                  const scheduleGroups = formatSchedule(emp.schedules);
+                  const group = emp.groupAssignments?.[0]?.group;
+                  const isActive = emp.user?.status === 'ACTIVE';
+                  return (
+                    <div key={emp.id} className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors">
+                      {/* Status bar */}
+                      <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${isActive ? 'bg-green-400' : 'bg-gray-300'}`} />
+                      {/* Avatar */}
+                      <Avatar name={`${emp.firstName} ${emp.lastName}`} src={emp.profilePhoto} size="sm" />
+                      {/* Name + email */}
+                      <div className="w-44 flex-shrink-0">
+                        <p className="text-sm font-medium text-gray-900">{emp.firstName} {emp.lastName}</p>
+                        {emp.user?.email && <p className="text-xs text-gray-400 truncate">{emp.user.email}</p>}
+                      </div>
+                      {/* Group */}
+                      <div className="w-32 flex-shrink-0">
+                        {group
+                          ? <span className="px-2 py-0.5 rounded-md text-xs font-medium bg-primary/10 text-primary">{group.name}</span>
+                          : <span className="text-xs text-gray-400">No group</span>}
+                      </div>
+                      {/* Schedule */}
+                      <div className="flex-1">
+                        {scheduleGroups ? (
+                          <div className="grid grid-cols-2 gap-2">
+                            {scheduleGroups.map((sg, i) => (
+                              <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg text-xs text-gray-700">
+                                <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                                <span className="w-7 font-semibold text-gray-800">{sg.day}</span>
+                                <span className="text-gray-300">|</span>
+                                <span>{sg.time}</span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-400">No schedule set</span>
+                        )}
+                      </div>
+                      {/* Status badge */}
+                      <Badge variant={isActive ? 'success' : 'default'} size="sm">
+                        {emp.user?.status || '—'}
+                      </Badge>
+                    </div>
+                  );
+                })}
+              </div>
+              </>
+            )}
+          </Card>
+        </div>
       )}
 
       {/* Delete Modal */}
