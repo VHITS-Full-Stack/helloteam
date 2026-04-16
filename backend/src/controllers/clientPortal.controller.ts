@@ -3712,7 +3712,7 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
             profilePhoto: true,
             billingRate: true,
             groupAssignments: {
-              include: {
+              select: {
                 group: {
                   select: {
                     billingRate: true,
