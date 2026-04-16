@@ -338,8 +338,9 @@ export const getRecentActivity = async (req: AuthenticatedRequest, res: Response
 // Get pending actions
 export const getPendingActions = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const [pendingTimeRecords, pendingLeaveRequests, pendingOvertimeRequests, openTickets] = await Promise.all([
-      prisma.timeRecord.count({ where: { status: 'PENDING' } }),
+    const [pendingTimeRecords, pendingManualEntries, pendingLeaveRequests, pendingOvertimeRequests, openTickets] = await Promise.all([
+      prisma.timeRecord.count({ where: { status: 'PENDING', isManual: false } }),
+      prisma.timeRecord.count({ where: { status: 'PENDING', isManual: true } }),
       prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
       prisma.overtimeRequest.count({ where: { status: 'PENDING' } }),
       prisma.supportTicket.count({ where: { status: { in: ['OPEN', 'IN_PROGRESS'] } } }),
@@ -401,6 +402,7 @@ export const getPendingActions = async (req: AuthenticatedRequest, res: Response
         pendingLeave: pendingLeaveRequests,
         pendingOvertime: pendingOvertimeRequests,
         pendingTimeRecords,
+        pendingManualEntries,
       },
     });
   } catch (error) {
@@ -1468,6 +1470,8 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       timeRecordWhere.adjustmentNotes = { not: null };
     } else if (type === 'overtime') {
       timeRecordWhere.overtimeMinutes = { gt: 0 };
+    } else if (type === 'manual') {
+      timeRecordWhere.isManual = true;
     }
 
     const [timeRecords, leaveRequests, overtimeRequests] = await Promise.all([
@@ -1510,18 +1514,22 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       (timeRecords as any[]).map(async (tr) => {
         const isAdjustment = !!tr.adjustmentNotes;
         const isOvertime = (tr.overtimeMinutes || 0) > 0;
+        const isManualEntry = !!tr.isManual;
         return {
           id: tr.id,
-          type: isAdjustment ? 'time-adjustment' : isOvertime ? 'overtime' : 'timesheet',
+          type: isAdjustment ? 'time-adjustment' : isManualEntry ? 'manual' : isOvertime ? 'overtime' : 'timesheet',
+          isManual: isManualEntry,
           employee: `${tr.employee.firstName} ${tr.employee.lastName}`,
           profilePhoto: await refreshProfilePhotoUrl(tr.employee.profilePhoto),
           client: tr.client?.companyName || 'N/A',
           clientTimezone: tr.client?.timezone || 'UTC',
           description: isAdjustment
             ? 'Clock-out time correction'
-            : isOvertime
-              ? `${formatDuration(tr.overtimeMinutes || 0)} overtime`
-              : `${formatDuration(tr.totalMinutes || 0)} total`,
+            : isManualEntry
+              ? `Manual entry — ${formatDuration(tr.totalMinutes || 0)}`
+              : isOvertime
+                ? `${formatDuration(tr.overtimeMinutes || 0)} overtime`
+                : `${formatDuration(tr.totalMinutes || 0)} total`,
           date: tr.date.toISOString().split('T')[0],
           details: tr.adjustmentNotes || formatDuration(tr.totalMinutes || 0),
           totalMinutes: tr.totalMinutes || 0,

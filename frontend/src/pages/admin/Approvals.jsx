@@ -12,6 +12,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  FilePen,
 } from 'lucide-react';
 import {
   Card,
@@ -75,7 +76,7 @@ const Approvals = () => {
   const [selectedItems, setSelectedItems] = useState([]);
 
   // Pending counts for tab badges
-  const [pendingCounts, setPendingCounts] = useState({ leave: 0, overtime: 0, autoOvertime: 0, timesheet: 0 });
+  const [pendingCounts, setPendingCounts] = useState({ leave: 0, overtime: 0, autoOvertime: 0, timesheet: 0, manual: 0 });
 
   const fetchPendingCounts = useCallback(async () => {
     try {
@@ -89,6 +90,7 @@ const Approvals = () => {
         overtime: otRes?.data?.total || 0,
         autoOvertime: autoOtRes?.data?.total || 0,
         timesheet: pendingActionsRes?.counts?.pendingTimeRecords || 0,
+        manual: pendingActionsRes?.counts?.pendingManualEntries || 0,
       });
     } catch { /* ignore */ }
   }, []);
@@ -134,9 +136,9 @@ const Approvals = () => {
           setTotalItems(res.data.total || requests.length);
         }
       } else {
-        // Leave or timesheet
+        // Leave, timesheet, or manual
         const params = {
-          type: activeType === 'timesheet' ? 'timesheet' : 'leave',
+          type: activeType === 'timesheet' ? 'timesheet' : activeType === 'manual' ? 'manual' : 'leave',
           page,
           limit: pageSize,
           status: statusFilter === 'all' ? 'all' : statusFilter,
@@ -336,6 +338,7 @@ const Approvals = () => {
           { key: 'overtime', label: 'Overtime Requests', icon: Timer },
           { key: 'autoOvertime', label: 'OT Without Prior Approval', icon: AlertCircle },
           { key: 'timesheet', label: 'Timesheet Review', icon: Clock },
+          { key: 'manual', label: 'Manual Entries', icon: FilePen },
         ].map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -393,7 +396,7 @@ const Approvals = () => {
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
-            {activeType === 'timesheet' && <option value="revision_requested">Revision Requested</option>}
+            {(activeType === 'timesheet' || activeType === 'manual') && <option value="revision_requested">Revision Requested</option>}
           </select>
           <ChevronDown className="w-4 h-4 text-gray-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
         </div>
@@ -440,8 +443,8 @@ const Approvals = () => {
                   {isOTType && <TableHeader className="!px-3">Type</TableHeader>}
                   <TableHeader className="!px-3">{isOTType ? 'Reason' : 'Description'}</TableHeader>
                   <TableHeader className="!px-3">Date</TableHeader>
-                  {activeType === 'timesheet' && <TableHeader className="!px-3">Schedule</TableHeader>}
-                  {activeType === 'timesheet' && <TableHeader className="!px-3">Clock In/Out</TableHeader>}
+                  {(activeType === 'timesheet' || activeType === 'manual') && <TableHeader className="!px-3">Schedule</TableHeader>}
+                  {(activeType === 'timesheet' || activeType === 'manual') && <TableHeader className="!px-3">Clock In/Out</TableHeader>}
                   {isOTType && <TableHeader className="!px-3">Hours</TableHeader>}
                   <TableHeader className="!px-3">Status</TableHeader>
                   <TableHeader className="!px-3">Submitted</TableHeader>
@@ -466,7 +469,14 @@ const Approvals = () => {
                       <TableCell className="!px-3">
                         <div className="flex items-center gap-2">
                           <Avatar name={empName} size="sm" src={empPhoto} />
-                          <span className="font-medium text-sm">{empName}</span>
+                          <div>
+                            <span className="font-medium text-sm">{empName}</span>
+                            {item.isManual && (
+                              <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
+                                <FilePen className="w-3 h-3" /> Manual
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
                       <TableCell className="!px-3"><span className="text-gray-600 text-sm">{isOTType ? (item.clientName || 'Unknown') : item.client}</span></TableCell>
@@ -495,7 +505,7 @@ const Approvals = () => {
                           </p>
                         )}
                       </TableCell>
-                      {activeType === 'timesheet' && (
+                      {(activeType === 'timesheet' || activeType === 'manual') && (
                         <TableCell className="!px-3">
                           {item.scheduledStart && item.scheduledEnd ? (
                             <span className="text-sm text-gray-700">
@@ -506,7 +516,7 @@ const Approvals = () => {
                           ) : <span className="text-gray-300">—</span>}
                         </TableCell>
                       )}
-                      {activeType === 'timesheet' && (
+                      {(activeType === 'timesheet' || activeType === 'manual') && (
                         <TableCell className="!px-3">
                           {item.clockIn ? (
                             <span className="text-sm text-gray-700">
@@ -535,7 +545,7 @@ const Approvals = () => {
                               <Button variant="success" size="xs" icon={CheckCircle} onClick={() => handleApprove(item)} disabled={processing}>
                                 Approve
                               </Button>
-                              {activeType === 'timesheet' ? (
+                              {(activeType === 'timesheet' || activeType === 'manual') ? (
                                 <Button variant="ghost" size="xs" icon={RotateCcw} onClick={() => handleRequestRevision(item)} className="text-amber-600 hover:text-amber-700" disabled={processing}>
                                   Revise
                                 </Button>

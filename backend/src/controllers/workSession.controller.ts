@@ -1926,11 +1926,13 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
               isLate: false,
               totalMinutes,
               breakMinutes: 0,
+              isManual: true,
               status: 'PENDING',
             },
             update: {
               actualEnd: sessionEndTime,
               totalMinutes: { increment: totalMinutes },
+              isManual: true,
             },
           });
         })

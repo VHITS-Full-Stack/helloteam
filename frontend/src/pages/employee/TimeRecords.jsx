@@ -501,7 +501,7 @@ const TimeRecords = () => {
 
   const tabs = [
     { id: "timesheets", label: "Timesheets" },
-    // { id: "manual", label: "Manual Entry" },
+    { id: "manual", label: "Manual Entry" },
   ];
 
   return (
@@ -514,14 +514,16 @@ const TimeRecords = () => {
             Track and manage your work sessions
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="sm"
-          icon={Plus}
-          onClick={() => setShowAddTimeModal(true)}
-        >
-          Add Time
-        </Button>
+        {activeTab === "manual" && (
+          <Button
+            variant="primary"
+            size="sm"
+            icon={Plus}
+            onClick={() => setShowAddTimeModal(true)}
+          >
+            Add Time
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -1249,19 +1251,7 @@ const TimeRecords = () => {
         {/* Manual Time Card Tab */}
         {activeTab === "manual" && (
           <>
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-              <p className="text-sm text-gray-500">
-                Manual time entries for days you forgot to clock in.
-              </p>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={Plus}
-                onClick={() => setShowAddTimeModal(true)}
-              >
-                Add Entry
-              </Button>
-            </div>
+           
             {manualEntriesLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
