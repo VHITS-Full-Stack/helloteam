@@ -542,13 +542,16 @@ const TimeRecords = () => {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
           <p className="text-gray-500">View and manage employee time records</p>
-          <p className="text-xs text-gray-500 mt-2">
-            All time worked within the employee's scheduled shift is
-            automatically approved after 24 hours. Time worked outside of the
-            scheduled shift (including overtime worked without prior approval)
-            must be manually approved before the employee can be paid and the
-            client can be billed.
-          </p>
+          <div className="flex flex-wrap items-stretch gap-2 mt-2">
+            <div className="flex items-start gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+              <CheckCircle className="w-3.5 h-3.5 text-green-500 flex-shrink-0 mt-0.5" />
+              <span>All time worked within the employee's scheduled shift is automatically approved after 24 hours.</span>
+            </div>
+            <div className="flex items-start gap-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <span>Time worked outside of the scheduled shift (including overtime worked without prior approval) must be manually approved before the employee can be paid and the client can be billed.</span>
+            </div>
+          </div>
         </div>
         <ExportButton onClick={handleExport} />
       </div>
