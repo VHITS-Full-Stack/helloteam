@@ -216,8 +216,10 @@ const ClientDashboard = () => {
                 Worked OT Without Prior Approval — Action Required
               </h3>
               <p className="text-sm text-amber-800 mt-1">
-                Please approve or deny before your billing cycle closes.
-                Unapproved hours cannot be processed for payment.
+                One or more employees worked overtime without prior approval.
+                These hours have already been worked and will not be paid or
+                billed unless you approve them. Please review and approve or
+                deny the hours below.
               </p>
               {pendingOT.employees && pendingOT.employees.length > 0 && (
                 <div className="mt-3 space-y-2">
