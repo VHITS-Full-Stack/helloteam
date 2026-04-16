@@ -515,7 +515,7 @@ const ClientDetail = () => {
                       {/* Schedule */}
                       <div className="flex-1">
                         {scheduleGroups ? (
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-3 gap-2">
                             {scheduleGroups.map((sg, i) => (
                               <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-lg text-xs text-gray-700">
                                 <Calendar className="w-3 h-3 text-gray-400 flex-shrink-0" />

@@ -21,6 +21,7 @@ const ClientEmployees = () => {
   const navigate = useNavigate();
   const [showAssignSection, setShowAssignSection] = useState(false);
   const [searchFilter, setSearchFilter] = useState("");
+  const [removeModal, setRemoveModal] = useState({ open: false, employee: null });
 
   const {
     client,
@@ -350,7 +351,7 @@ const ClientEmployees = () => {
                       <Calendar className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleRemoveEmployee(employee.id)}
+                      onClick={() => setRemoveModal({ open: true, employee })}
                       className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
                       disabled={submitting}
                       title="Remove from client"
@@ -364,6 +365,50 @@ const ClientEmployees = () => {
           </div>
         )}
       </Card>
+
+      {/* Remove Employee Confirmation Modal */}
+      <Modal
+        isOpen={removeModal.open}
+        onClose={() => setRemoveModal({ open: false, employee: null })}
+        title="Remove Employee"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to remove{' '}
+            <span className="font-semibold text-gray-900">
+              {removeModal.employee?.firstName} {removeModal.employee?.lastName}
+            </span>{' '}
+            from this client?
+          </p>
+          <p className="text-sm text-gray-500">
+            This will unassign the employee from this client. Their account and records will not be deleted.
+          </p>
+          <div className="flex gap-3 pt-1">
+            <Button
+              variant="outline"
+              size="sm"
+              fullWidth
+              onClick={() => setRemoveModal({ open: false, employee: null })}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              fullWidth
+              loading={submitting}
+              onClick={async () => {
+                await handleRemoveEmployee(removeModal.employee.id);
+                setRemoveModal({ open: false, employee: null });
+              }}
+            >
+              Remove
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Employee Rate Modal */}
       <Modal
