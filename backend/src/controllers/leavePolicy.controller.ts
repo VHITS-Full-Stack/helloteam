@@ -273,10 +273,16 @@ export const getEmployeeBalances = async (req: AuthenticatedRequest, res: Respon
     // Build where clause for employees
     const employeeWhere: any = {};
     if (search) {
-      employeeWhere.OR = [
-        { firstName: { contains: search, mode: 'insensitive' } },
-        { lastName: { contains: search, mode: 'insensitive' } },
+      const searchTerm = (search as string).trim();
+      const conds: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' } },
       ];
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+      }
+      employeeWhere.OR = conds;
     }
 
     // Get client assignments with filter
@@ -996,12 +1002,16 @@ export const getAllPendingLeaveRequests = async (req: AuthenticatedRequest, res:
     }
 
     if (search) {
-      where.employee = {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' } },
-          { lastName: { contains: search, mode: 'insensitive' } },
-        ],
-      };
+      const searchTerm = (search as string).trim();
+      const conds: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+      }
+      where.employee = { OR: conds };
     }
 
     // Date range overlap filter:

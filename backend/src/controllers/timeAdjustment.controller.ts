@@ -55,12 +55,16 @@ export const getTimeRecordsForAdjustment = async (req: AuthenticatedRequest, res
 
     // Search by employee name
     if (search) {
-      where.employee = {
-        OR: [
-          { firstName: { contains: search as string, mode: 'insensitive' } },
-          { lastName: { contains: search as string, mode: 'insensitive' } },
-        ],
-      };
+      const searchTerm = (search as string).trim();
+      const conds: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+      }
+      where.employee = { OR: conds };
     }
 
     const [timeRecords, total] = await Promise.all([

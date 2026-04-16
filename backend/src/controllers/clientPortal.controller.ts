@@ -356,14 +356,18 @@ export const getClientWorkforce = async (req: AuthenticatedRequest, res: Respons
       where: {
         clientId,
         isActive: true,
-        ...(search ? {
-          employee: {
-            OR: [
-              { firstName: { contains: search, mode: 'insensitive' } },
-              { lastName: { contains: search, mode: 'insensitive' } },
-            ],
-          },
-        } : {}),
+        ...(search ? (() => {
+          const searchTerm = (search as string).trim();
+          const conds: any[] = [
+            { firstName: { contains: searchTerm, mode: 'insensitive' } },
+            { lastName: { contains: searchTerm, mode: 'insensitive' } },
+          ];
+          const parts = searchTerm.split(/\s+/);
+          if (parts.length >= 2) {
+            conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+          }
+          return { employee: { OR: conds } };
+        })() : {}),
       },
       include: {
         employee: {
@@ -1397,12 +1401,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
       startTime: { gte: start, lte: endOfDay },
     };
     if (search) {
-      sessionWhere.employee = {
-        OR: [
-          { firstName: { contains: search, mode: 'insensitive' as const } },
-          { lastName: { contains: search, mode: 'insensitive' as const } },
-        ],
-      };
+      const searchTerm = (search as string).trim();
+      const conds: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' as const } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' as const } },
+      ];
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+      }
+      sessionWhere.employee = { OR: conds };
     }
 
     const sessions = await prisma.workSession.findMany({
@@ -1427,10 +1435,16 @@ export const getClientTimeRecords = async (req: AuthenticatedRequest, res: Respo
     // Track unique employees — include all assigned employees (not just those with sessions)
     const employeeWhere: any = { id: { in: employeeIds } };
     if (search) {
-      employeeWhere.OR = [
-        { firstName: { contains: search, mode: 'insensitive' as const } },
-        { lastName: { contains: search, mode: 'insensitive' as const } },
+      const searchTerm = (search as string).trim();
+      const conds: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' as const } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' as const } },
       ];
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        conds.push({ AND: [{ firstName: { contains: parts[0], mode: 'insensitive' } }, { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } }] });
+      }
+      employeeWhere.OR = conds;
     }
     const allEmployees = await prisma.employee.findMany({
       where: employeeWhere,

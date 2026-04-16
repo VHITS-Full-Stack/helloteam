@@ -55,11 +55,23 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
     const where: any = {};
 
     if (search) {
-      where.OR = [
-        { firstName: { contains: search as string, mode: 'insensitive' } },
-        { lastName: { contains: search as string, mode: 'insensitive' } },
-        { user: { email: { contains: search as string, mode: 'insensitive' } } },
+      const searchTerm = (search as string).trim();
+      const searchConditions: any[] = [
+        { firstName: { contains: searchTerm, mode: 'insensitive' } },
+        { lastName: { contains: searchTerm, mode: 'insensitive' } },
+        { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
       ];
+      // Full name search: "John Doe" → firstName contains "John" AND lastName contains "Doe"
+      const parts = searchTerm.split(/\s+/);
+      if (parts.length >= 2) {
+        searchConditions.push({
+          AND: [
+            { firstName: { contains: parts[0], mode: 'insensitive' } },
+            { lastName: { contains: parts.slice(1).join(' '), mode: 'insensitive' } },
+          ],
+        });
+      }
+      where.OR = searchConditions;
     }
 
     if (status) {
