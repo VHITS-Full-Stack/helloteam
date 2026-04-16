@@ -446,10 +446,12 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       const otRequiresApproval = firstClient?.clientPolicies?.overtimeRequiresApproval ?? true;
       otRequiresApprovalFlag = otRequiresApproval;
 
-      // Use client timezone to determine "today" date (same approach as clock-in)
-      // This ensures the TimeRecord date matches the employee's local calendar date
-      const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clockOutTz }));
-      const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
+      // Use session START time (in client timezone) to determine "today" date.
+      // Using clock-out time would assign cross-midnight sessions to the wrong day:
+      // e.g. a session starting Apr 15 at 9:05 AM and ending Apr 16 at 2:10 AM
+      // must be stored under Apr 15, not Apr 16.
+      const sessionStartInTz = new Date(activeSession.startTime.toLocaleString('en-US', { timeZone: clockOutTz }));
+      const today = new Date(Date.UTC(sessionStartInTz.getFullYear(), sessionStartInTz.getMonth(), sessionStartInTz.getDate()));
       const { dayOfWeek: clockOutDow } = getTimeInTimezone(clockOutTz, now);
 
       let schedule = await prisma.schedule.findFirst({
@@ -2283,8 +2285,8 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
 
       if (clientAssignments.length > 0) {
         const clientTz = clientAssignments[0].client.timezone || 'UTC';
-        const todayInTz = new Date(now.toLocaleString('en-US', { timeZone: clientTz }));
-        const today = new Date(Date.UTC(todayInTz.getFullYear(), todayInTz.getMonth(), todayInTz.getDate()));
+        const sessionStartInTz2 = new Date(session.startTime.toLocaleString('en-US', { timeZone: clientTz }));
+        const today = new Date(Date.UTC(sessionStartInTz2.getFullYear(), sessionStartInTz2.getMonth(), sessionStartInTz2.getDate()));
 
         // Get schedule for billing calculation
         const { dayOfWeek } = getTimeInTimezone(clientTz, clockOutTime);
