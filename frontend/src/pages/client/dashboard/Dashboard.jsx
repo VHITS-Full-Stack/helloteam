@@ -255,8 +255,8 @@ const ClientDashboard = () => {
                   <strong>{pendingOT.totalHours}</strong>
                 </span>
               </div>
-              <p className="text-xs text-amber-600 mt-3">
-                These hours have already been worked, not requested in advance.
+              <p className="text-xs text-amber-700 mt-3 border-t border-amber-200 pt-3">
+                <strong>Note:</strong> This is not a future overtime request. These hours have already been worked.
               </p>
             </div>
           </div>
