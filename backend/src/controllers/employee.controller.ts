@@ -60,6 +60,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
         { firstName: { contains: searchTerm, mode: 'insensitive' } },
         { lastName: { contains: searchTerm, mode: 'insensitive' } },
         { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
+        { phone: { contains: searchTerm, mode: 'insensitive' } },
       ];
       // Full name search: "John Doe" → firstName contains "John" AND lastName contains "Doe"
       const parts = searchTerm.split(/\s+/);
