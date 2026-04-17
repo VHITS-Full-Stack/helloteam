@@ -171,7 +171,7 @@ const Payslips = () => {
                     Date
                   </th>
                   <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
-                    Billing In/Out
+                    Clock In/Out
                   </th>
                   <th className="text-center px-3 py-2 text-xs font-semibold text-gray-500 uppercase">
                     Break

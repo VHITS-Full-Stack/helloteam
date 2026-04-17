@@ -249,8 +249,8 @@ const AddEmployee = () => {
               <Input
                 label="Overtime Multiplier (x)"
                 type="number"
-                step="0.01"
-                min="0"
+                step="0"
+                min="1"
                 placeholder="e.g. 1"
                 value={formData.overtimeMultiplier}
                 onChange={(e) =>
@@ -263,8 +263,8 @@ const AddEmployee = () => {
               <Input
                 label="Deduction ($)"
                 type="number"
-                step="0.01"
-                min="0"
+                step="0"
+                min="1"
                 placeholder="e.g. 50.00"
                 value={formData.deduction}
                 onChange={(e) => setFormData({ ...formData, deduction: e.target.value })}

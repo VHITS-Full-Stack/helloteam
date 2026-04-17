@@ -528,7 +528,7 @@ const TimesheetDetail = () => {
                           Regular Hours
                         </th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                          Overtime
+                          Overtime Worked with Prior Approval
                         </th>
                         <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                           Worked OT Without Prior Approval

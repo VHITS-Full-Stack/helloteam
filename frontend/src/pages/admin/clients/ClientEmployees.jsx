@@ -513,8 +513,8 @@ const ClientEmployees = () => {
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0"
+                  step="0"
+                  min="1"
                   placeholder="1"
                   value={rateFormData.overtimeMultiplier ?? '1'}
                   onChange={(e) =>

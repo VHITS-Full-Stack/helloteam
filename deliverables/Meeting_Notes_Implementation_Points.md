@@ -441,10 +441,10 @@ Client portal contains **TWO completely separate areas**:
 
 ---
 
-## 1. Grace Period — Removed Entirely
+## 1. Grace Period — Removed Entirely (Done)
 
 - **No grace period** for clock-in or clock-out — confirmed by Zevi
-- System auto-clocks out at scheduled end time; if employee presses "Continue Working" after that, it is immediately **OT Without Prior Approval**
+- System auto-clocks out at scheduled end time; if employee presses "Continue Working" after that, it is immediately **OT Without Prior Approval** (partially done)
 - If employee clocks in **before** their shift (e.g., schedule starts 9 AM, clocked in at 8:45 AM) → those 15 minutes are **OT Without Prior Approval** — no grace period
 - Remove the existing 7-minute (or any) grace period from the system entirely
 
@@ -479,7 +479,7 @@ Employee is given **3 options:**
 
 ---
 
-## 3. Employee Search Bar
+## 3. Employee Search Bar (Done)
 
 - Employee search should work across **name, email, and phone number** in the same single search bar
 - No separate search fields — one unified search
@@ -492,19 +492,19 @@ Employee is given **3 options:**
 - If **approved** by admin → added as a regular timesheet
 - If **denied** → not added
 - UI must make it clear the employee is **requesting** an entry, not adding it directly
-  - Current wording "Add entry" is misleading — should convey "Hello Team will review and approve"
+  - Current wording "Add entry" is misleading — should convey "Hello Team will review and approve" (Done)
 - Admin approval page must display all statuses (not default to "pending" only — currently broken)
 
 ---
 
-## 5. Session Expiry / Inactivity Timeout
+## 5. Session Expiry / Inactivity Timeout (Done)
 
 - Employee portal **must not expire** while an employee is clocked in
 - Confirmed: session should remain active as long as the employee is on the clock
 
 ---
 
-## 6. Internal Team (Admin) OT Approval — Display on Client Side
+## 6. Internal Team (Admin) OT Approval — Display on Client Side  (partially done)
 
 - When Hello Team (admin) approves an OT entry, the client's Time Records page must show:
   - **"Approved by Hello Team"** label
@@ -513,19 +513,19 @@ Employee is given **3 options:**
 
 ---
 
-## 7. OT Column Naming — Timesheet
+## 7. OT Column Naming — Timesheet (Done)
 
 - Rename/clarify OT columns in the timesheet:
   - **"Overtime"** → **"Overtime Worked with Prior Approval"**
   - **"Worked OT Without Prior Approval"** → keep name, add note in red: *(Please approve or deny for employee to get paid)*
 - These two must be visually and logically separated — currently mixed up
 
-### Timesheet Info Banner Wording (confirmed)
+### Timesheet Info Banner Wording (confirmed) (done)
 > *"All time worked within the employee's scheduled shift is automatically approved after 24 hours. Any overtime that was approved in advance is also automatically approved. Time worked outside of the scheduled shift without prior approval is recorded under the status Worked OT Without Prior Approval and must be manually approved before the employee can be paid and the client can be billed for those hours."*
 
 ---
 
-## 8. Timesheet: Hide Rows Where Employee Didn't Work
+## 8. Timesheet: Hide Rows Where Employee Didn't Work (done)
 
 - Confirmed: **do not show rows** where employee has no clock-in and 0 minutes
 - Only show days where actual work occurred (leave/holiday rows still shown)
@@ -540,7 +540,7 @@ Employee is given **3 options:**
 
 ---
 
-## 10. Timesheet Color Legend
+## 10. Timesheet Color Legend (done)
 
 - Add a color explanation/legend at the **top of the timesheet page**:
   - Green = paid / approved (will be billed)
@@ -550,7 +550,7 @@ Employee is given **3 options:**
 
 ## 11. Overtime Multiplier — Default to Zero
 
-- The overtime multiplier field must **default to 0**
+- The overtime multiplier field must **default to 0** (done)
 - Remove/disable for now — only used on rare holidays
 - Do not apply any multiplier unless explicitly set by admin
 

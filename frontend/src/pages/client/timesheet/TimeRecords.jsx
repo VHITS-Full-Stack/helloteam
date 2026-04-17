@@ -555,6 +555,14 @@ const TimeRecords = () => {
           Without Prior Approval and must be manually approved before the
           employee can be paid and the client can be billed for those hours.
         </p>
+        <div className="flex gap-2">
+          <p className="text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+            Green = paid / approved (will be billed)
+          </p>
+          <p className="text-xs font-medium text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-2">
+            Orange = unapproved, pending client action
+          </p>
+        </div>
       </div>
 
       {/* Error Message */}
@@ -889,13 +897,19 @@ const TimeRecords = () => {
                             },
                             {
                               key: "overtime",
-                              label: "Overtime",
+                              label: "Overtime Worked with Prior Approval",
                               align: "center",
                               px: "px-3",
                             },
                             {
                               key: null,
                               label: "Worked OT Without Prior Approval",
+                              align: "center",
+                              px: "px-3",
+                            },
+                            {
+                              key: null,
+                              label: "Approved By",
                               align: "center",
                               px: "px-3",
                             },
@@ -1055,6 +1069,7 @@ const TimeRecords = () => {
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
+                              <td className="py-2.5 px-3 text-center">Admin</td>
                               <td className="py-2.5 px-3 text-center">
                                 {getStatusBadge(displayStatus)}
                               </td>
@@ -1274,11 +1289,14 @@ const TimeRecords = () => {
                                 <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                                   Regular Hours
                                 </th>
-                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                                  Overtime
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
+                                  Overtime Worked with Prior Approval
                                 </th>
                                 <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                                   Worked OT Without Prior Approval
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Approved By
                                 </th>
                                 <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
                                   Actions
@@ -1547,7 +1565,9 @@ const TimeRecords = () => {
                                             </span>
                                           )}
                                         </td>
-
+                                        <td className="py-2.5 px-3 text-center">
+                                          Admin
+                                        </td>
                                         {/* Actions */}
                                         <td className="py-2.5 px-4 text-right">
                                           {[

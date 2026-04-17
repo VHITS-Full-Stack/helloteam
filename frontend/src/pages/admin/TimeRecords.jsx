@@ -841,6 +841,14 @@ const TimeRecords = () => {
           Without Prior Approval and must be manually approved before the
           employee can be paid and the client can be billed for those hours.
         </p>
+        <div className="flex gap-2">
+          <p className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            Green = paid / approved (will be billed)
+          </p>
+          <p className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            Orange = unapproved, pending client action
+          </p>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -959,17 +967,17 @@ const TimeRecords = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
+                <tr className="bg-gray-50 border-b border-gray-200 whitespace-nowrap">
                   {[
                     { key: "name", label: "Name" },
                     { key: "client", label: "Client" },
                     { key: "date", label: "Date" },
                     { key: null, label: "Schedule" },
                     { key: null, label: "Actual In/Out" },
-                    { key: null, label: "Billing In/Out" },
+                    { key: null, label: "Clock In/Out" },
                     { key: null, label: "Break" },
                     { key: "regular", label: "Regular" },
-                    { key: "overtime", label: "Overtime" },
+                    { key: "overtime", label: "Overtime Worked with Prior Approval" },
                     {
                       key: null,
                       label: "Worked OT Without Prior Approval",
