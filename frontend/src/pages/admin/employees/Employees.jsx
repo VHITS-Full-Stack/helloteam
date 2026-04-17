@@ -376,6 +376,11 @@ const Employees = () => {
                         <p className="text-sm text-gray-500">
                           {employee.user?.email}
                         </p>
+                        {employee.phone && (
+                          <p className="text-xs text-gray-400">
+                            {employee.phone}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </TableCell>
