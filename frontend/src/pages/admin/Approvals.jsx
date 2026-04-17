@@ -782,14 +782,10 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.clockIn ? (
                             <span className="text-sm text-gray-700">
-                              {activeType === "manual"
-                                ? new Date(item.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                                : formatTimeInTimeZone(item.clockIn, item.clientTimezone || "UTC")}
+                              {new Date(item.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
                               <span className="text-gray-300 mx-0.5">–</span>
                               {item.clockOut ? (
-                                activeType === "manual"
-                                  ? new Date(item.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                                  : formatTimeInTimeZone(item.clockOut, item.clientTimezone || "UTC")
+                                new Date(item.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
                               ) : (
                                 <span className="text-green-600">Active</span>
                               )}
