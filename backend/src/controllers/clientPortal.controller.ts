@@ -3878,3 +3878,50 @@ export const getClientRateHistory = async (req: AuthenticatedRequest, res: Respo
     res.status(500).json({ success: false, error: 'Failed to fetch rate history' });
   }
 };
+
+/**
+ * Get admin-initiated raise notifications for this client
+ * Only returns FULL/PARTIAL coverage raises (billing rate changes visible to client)
+ * Never exposes employee pay rate or margin
+ */
+export const getAdminRaiseNotifications = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const client = await prisma.client.findFirst({ where: { userId } });
+    if (!client) return res.status(403).json({ success: false, error: 'Client not found' });
+
+    // Fetch admin-initiated RAISE requests that are APPROVED and have FULL or PARTIAL coverage
+    const raises = await prisma.clientRequest.findMany({
+      where: {
+        clientId: client.id,
+        type: 'RAISE',
+        status: 'APPROVED',
+        raisedBy: 'ADMIN',
+        coverageType: { in: ['FULL', 'PARTIAL'] },
+      } as any,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true } },
+      },
+      orderBy: { reviewedAt: 'desc' },
+      take: 50,
+    });
+
+    const data = raises.map((r: any) => ({
+      id: r.id,
+      employeeId: r.employeeId,
+      employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
+      coverageType: r.coverageType,
+      clientCoveredAmount: r.clientCoveredAmount ? Number(r.clientCoveredAmount) : null,
+      // Show new bill rate but not pay rate
+      newBillRate: r.billRate ? Number(r.billRate) : null,
+      effectiveDate: r.effectiveDate,
+      reason: r.reason,
+      appliedAt: r.reviewedAt,
+    }));
+
+    res.json({ success: true, data: { notifications: data } });
+  } catch (error) {
+    console.error('Get admin raise notifications error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch raise notifications' });
+  }
+};

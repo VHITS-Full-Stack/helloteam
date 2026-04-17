@@ -20,6 +20,9 @@ import {
   getRaiseRequests,
   approveRaiseRequest,
   rejectRaiseRequest,
+  giveRaise,
+  confirmAdminRaise,
+  getRaiseCandidates,
 } from '../controllers/adminPortal.controller';
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 
@@ -67,7 +70,10 @@ router.post('/approvals/leave/:requestId/reject', authenticate, authorize(...app
 
 // Raise request endpoints
 router.get('/raise-requests', authenticate, authorize(...adminRoles), getRaiseRequests);
+router.get('/raise-candidates', authenticate, authorize(...approvalRoles), getRaiseCandidates);
+router.post('/give-raise', authenticate, authorize(...approvalRoles), giveRaise);
 router.post('/raise-requests/:raiseId/approve', authenticate, authorize(...approvalRoles), proofUpload.single('proofFile'), approveRaiseRequest);
 router.post('/raise-requests/:raiseId/reject', authenticate, authorize(...approvalRoles), rejectRaiseRequest);
+router.post('/raise-requests/:raiseId/confirm', authenticate, authorize(...approvalRoles), confirmAdminRaise);
 
 export default router;

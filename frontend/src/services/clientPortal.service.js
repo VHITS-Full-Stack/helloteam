@@ -270,6 +270,11 @@ const clientPortalService = {
     return response;
   },
 
+  getAdminRaiseNotifications: async () => {
+    const response = await api.get('/client-portal/raise-notifications');
+    return response;
+  },
+
   getRateHistory: async () => {
     const response = await api.get('/client-portal/rate-history');
     return response;

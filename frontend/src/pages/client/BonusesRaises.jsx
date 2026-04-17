@@ -8,6 +8,7 @@ import {
   Info,
   ChevronDown,
   X,
+  Bell,
 } from "lucide-react";
 import { Card } from "../../components/common";
 import clientPortalService from "../../services/clientPortal.service";
@@ -15,6 +16,7 @@ import clientPortalService from "../../services/clientPortal.service";
 const BonusesRaises = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [raiseNotifications, setRaiseNotifications] = useState([]);
 
   // Bonus form
   const [bonusForm, setBonusForm] = useState({
@@ -37,19 +39,21 @@ const BonusesRaises = () => {
   const [raiseError, setRaiseError] = useState("");
 
   useEffect(() => {
-    const fetchEmployees = async () => {
+    const fetchData = async () => {
       try {
-        const response = await clientPortalService.getEmployeesWithRates();
-        if (response.success) {
-          setEmployees(response.data.employees || []);
-        }
+        const [empRes, notifRes] = await Promise.all([
+          clientPortalService.getEmployeesWithRates(),
+          clientPortalService.getAdminRaiseNotifications(),
+        ]);
+        if (empRes.success) setEmployees(empRes.data.employees || []);
+        if (notifRes.success) setRaiseNotifications(notifRes.data.notifications || []);
       } catch (err) {
-        console.error("Failed to fetch employees:", err);
+        console.error("Failed to fetch data:", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchEmployees();
+    fetchData();
   }, []);
 
   const selectedRaiseEmployee = employees.find(
@@ -331,6 +335,42 @@ const BonusesRaises = () => {
           </form>
         </Card>
       </div>
+
+      {/* Admin Raise Notifications */}
+      {raiseNotifications.length > 0 && (
+        <Card>
+          <div className="flex items-center gap-2 mb-4">
+            <Bell className="w-5 h-5 text-primary-600" />
+            <h3 className="text-base font-bold text-gray-900">Billing Rate Updates</h3>
+            <span className="ml-auto text-xs text-gray-400">{raiseNotifications.length} update{raiseNotifications.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="space-y-3">
+            {raiseNotifications.map((n) => (
+              <div key={n.id} className="flex items-start justify-between gap-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">{n.employeeName}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Billing rate updated
+                    {n.effectiveDate && ` effective ${new Date(n.effectiveDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
+                    {n.clientCoveredAmount != null && (
+                      <span className="ml-1 text-blue-700 font-medium">+${n.clientCoveredAmount.toFixed(2)}/hr</span>
+                    )}
+                  </p>
+                  {n.reason && <p className="text-xs text-gray-400 mt-0.5 truncate">{n.reason}</p>}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  {n.newBillRate != null && (
+                    <p className="text-sm font-bold text-primary-700">${n.newBillRate.toFixed(2)}/hr</p>
+                  )}
+                  <p className="text-[10px] text-gray-400 mt-0.5">
+                    {n.appliedAt ? new Date(n.appliedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* Success Modal */}
       {showSuccessModal && (

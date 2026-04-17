@@ -13,8 +13,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const GRACE_MS = 7 * 60 * 1000;
-
 function computeBillingTimes(
   actualStart: Date,
   actualEnd: Date,
@@ -27,7 +25,7 @@ function computeBillingTimes(
 
   let billingStart: Date;
   const lateMs = actualStart.getTime() - scheduledStart.getTime();
-  if (lateMs <= GRACE_MS) {
+  if (lateMs <= 0) {
     billingStart = scheduledStart;
   } else {
     billingStart = actualStart;
@@ -35,7 +33,7 @@ function computeBillingTimes(
 
   let billingEnd: Date;
   const earlyMs = scheduledEnd.getTime() - actualEnd.getTime();
-  if (earlyMs <= GRACE_MS) {
+  if (earlyMs <= 0) {
     billingEnd = scheduledEnd;
   } else {
     billingEnd = actualEnd;

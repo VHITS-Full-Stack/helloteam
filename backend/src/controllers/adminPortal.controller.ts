@@ -2175,6 +2175,10 @@ export const getRaiseRequests = async (req: AuthenticatedRequest, res: Response)
           billRate: rr.billRate ? Number(rr.billRate) : null,
           currentPayRate: rr.employee.payableRate ? Number(rr.employee.payableRate) : null,
           currentBillRate: clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : null,
+          employeeRaiseAmount: (rr as any).employeeRaiseAmount ? Number((rr as any).employeeRaiseAmount) : null,
+          clientCoveredAmount: (rr as any).clientCoveredAmount ? Number((rr as any).clientCoveredAmount) : null,
+          coverageType: (rr as any).coverageType || null,
+          raisedBy: (rr as any).raisedBy || null,
           employee: { ...rr.employee, profilePhoto },
         };
       })
@@ -2264,9 +2268,8 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
 
       res.json({ success: true, message: 'Bonus approved and added to payroll' });
     } else {
-      // Approve raise — update rates (admin can override pay rate)
-      const finalPayRate = newPayRate != null ? Number(newPayRate) : Number(request.payRate);
-      const newBillRate = Number(request.billRate);
+      // Approve raise — client-submitted raises store billRate as the raise AMOUNT, not final rate
+      const raiseAmount = Number(request.billRate);
 
       const clientEmployee = await prisma.clientEmployee.findFirst({
         where: { employeeId: request.employeeId, clientId: request.clientId, isActive: true },
@@ -2274,6 +2277,12 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
 
       const oldBillingRate = request.employee.billingRate ? Number(request.employee.billingRate) : 0;
       const oldPayableRate = request.employee.payableRate ? Number(request.employee.payableRate) : 0;
+      const currentHourlyRate = clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : oldBillingRate;
+
+      // New rates = current + raise amount
+      const newBillRate = currentHourlyRate + raiseAmount;
+      // If admin explicitly sent newPayRate, use it; otherwise auto-calc from raise amount
+      const finalPayRate = newPayRate != null ? Number(newPayRate) : (oldPayableRate + raiseAmount);
 
       await prisma.$transaction(async (tx) => {
         await tx.clientRequest.update({
@@ -2348,5 +2357,270 @@ export const rejectRaiseRequest = async (req: AuthenticatedRequest, res: Respons
   } catch (error) {
     console.error('Reject request error:', error);
     res.status(500).json({ success: false, error: 'Failed to reject request' });
+  }
+};
+
+/**
+ * Get employees with their active client assignments (for Give Raise form)
+ * GET /admin-portal/raise-candidates
+ */
+export const getRaiseCandidates = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const assignments = await prisma.clientEmployee.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        hourlyRate: true,
+        employee: { select: { id: true, firstName: true, lastName: true, payableRate: true, profilePhoto: true } },
+        client: { select: { id: true, companyName: true } },
+      },
+      orderBy: [{ employee: { firstName: 'asc' } }, { client: { companyName: 'asc' } }],
+    });
+
+    const data = await Promise.all(
+      assignments.map(async (a) => ({
+        employeeId: a.employee.id,
+        employeeName: `${a.employee.firstName} ${a.employee.lastName}`,
+        profilePhoto: await refreshProfilePhotoUrl(a.employee.profilePhoto),
+        currentPayRate: a.employee.payableRate ? Number(a.employee.payableRate) : 0,
+        clientId: a.client.id,
+        clientName: a.client.companyName,
+        currentBillRate: a.hourlyRate ? Number(a.hourlyRate) : 0,
+      }))
+    );
+
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('Get raise candidates error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch candidates' });
+  }
+};
+
+/**
+ * Admin-initiated raise — Step 1: Create a pending raise request
+ * POST /admin-portal/give-raise
+ */
+export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const {
+      employeeId,
+      clientId,
+      coverageType,   // FULL | PARTIAL | NONE
+      employeeRaiseAmount,   // how much employee's pay rate increases
+      clientCoveredAmount,   // how much client's billing rate increases
+      effectiveDate,  // ISO date string "YYYY-MM-DD"
+      reason,
+    } = req.body;
+
+    if (!employeeId || !clientId || !coverageType || employeeRaiseAmount == null || !effectiveDate) {
+      res.status(400).json({ success: false, error: 'Missing required fields' });
+      return;
+    }
+
+    const raiseAmount = Number(employeeRaiseAmount);
+    if (isNaN(raiseAmount) || raiseAmount <= 0) {
+      res.status(400).json({ success: false, error: 'employeeRaiseAmount must be a positive number' });
+      return;
+    }
+
+    // Determine client-covered amount based on coverage type
+    let coveredAmount: number;
+    if (coverageType === 'FULL') {
+      coveredAmount = raiseAmount;
+    } else if (coverageType === 'PARTIAL') {
+      coveredAmount = Number(clientCoveredAmount);
+      if (isNaN(coveredAmount) || coveredAmount <= 0 || coveredAmount >= raiseAmount) {
+        res.status(400).json({ success: false, error: 'clientCoveredAmount must be between 0 and employeeRaiseAmount for PARTIAL coverage' });
+        return;
+      }
+    } else if (coverageType === 'NONE') {
+      coveredAmount = 0;
+    } else {
+      res.status(400).json({ success: false, error: 'coverageType must be FULL, PARTIAL, or NONE' });
+      return;
+    }
+
+    // Fetch current rates
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { payableRate: true, billingRate: true, firstName: true, lastName: true },
+    });
+    if (!employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+    const clientEmployee = await prisma.clientEmployee.findFirst({
+      where: { employeeId, clientId, isActive: true },
+      select: { hourlyRate: true },
+    });
+
+    const currentPayRate = employee.payableRate ? Number(employee.payableRate) : 0;
+    const currentBillRate = clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : 0;
+    const newPayRate = currentPayRate + raiseAmount;
+    const newBillRate = currentBillRate + coveredAmount;
+
+    // Parse effective date
+    const effDate = new Date(effectiveDate);
+
+    // Create pending raise request
+    const raiseRequest = await prisma.clientRequest.create({
+      data: {
+        type: 'RAISE',
+        employeeId,
+        clientId,
+        requestedBy: userId!,
+        payRate: newPayRate,
+        billRate: newBillRate,
+        effectiveDate: effDate,
+        reason: reason?.trim() || null,
+        status: 'PENDING',
+        raisedBy: 'ADMIN',
+        coverageType,
+        employeeRaiseAmount: raiseAmount,
+        clientCoveredAmount: coveredAmount,
+      } as any,
+    });
+
+    res.json({ success: true, data: { raiseRequest }, message: 'Raise request created. Please confirm to activate.' });
+  } catch (error: any) {
+    console.error('Give raise error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to create raise request' });
+  }
+};
+
+/**
+ * Admin-initiated raise — Step 2: Confirm and activate
+ * POST /admin-portal/raise-requests/:raiseId/confirm
+ */
+export const confirmAdminRaise = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    let raiseId = req.params.raiseId;
+    if (Array.isArray(raiseId)) raiseId = raiseId[0];
+    const userId = req.user?.userId;
+
+    const request = await prisma.clientRequest.findUnique({
+      where: { id: raiseId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, payableRate: true, billingRate: true, userId: true } },
+        client: { select: { id: true, companyName: true, userId: true } },
+      },
+    });
+
+    if (!request) {
+      res.status(404).json({ success: false, error: 'Raise request not found' });
+      return;
+    }
+    if (request.status !== 'PENDING') {
+      res.status(400).json({ success: false, error: 'Raise request is not pending' });
+      return;
+    }
+    // Only admin-initiated raises can be confirmed via this endpoint
+    const raisedBy = (request as any).raisedBy;
+    if (raisedBy !== 'ADMIN') {
+      res.status(400).json({ success: false, error: 'This endpoint is for admin-initiated raises only' });
+      return;
+    }
+
+    const coverageType = (request as any).coverageType as string;
+    const newPayRate = Number(request.payRate);
+    const newBillRate = Number(request.billRate);
+    const oldPayRate = request.employee.payableRate ? Number(request.employee.payableRate) : 0;
+    const oldBillRate = request.employee.billingRate ? Number(request.employee.billingRate) : 0;
+
+    const clientEmployee = await prisma.clientEmployee.findFirst({
+      where: { employeeId: request.employeeId, clientId: request.clientId, isActive: true },
+    });
+    const oldHourlyRate = clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : 0;
+
+    const changeDate = request.effectiveDate || new Date();
+
+    await prisma.$transaction(async (tx) => {
+      // Mark as approved
+      await tx.clientRequest.update({
+        where: { id: raiseId },
+        data: { status: 'APPROVED', reviewedBy: userId, reviewedAt: new Date() },
+      });
+
+      // Update employee payable rate
+      await tx.employee.update({
+        where: { id: request.employeeId },
+        data: {
+          payableRate: newPayRate,
+          // Update billing rate only if client contributes
+          ...(coverageType !== 'NONE' ? { billingRate: newBillRate } : {}),
+        },
+      });
+
+      // Update client-employee hourly rate only if client contributes
+      if (clientEmployee && coverageType !== 'NONE') {
+        await tx.clientEmployee.update({ where: { id: clientEmployee.id }, data: { hourlyRate: newBillRate } });
+      }
+
+      // Record rate change history for pay rate
+      if (newPayRate !== oldPayRate) {
+        await tx.rateChangeHistory.create({
+          data: {
+            employeeId: request.employeeId,
+            clientId: request.clientId,
+            changedBy: userId!,
+            changeDate,
+            rateType: 'PAYABLE_RATE',
+            oldValue: oldPayRate,
+            newValue: newPayRate,
+            source: 'ADMIN_RAISE',
+            notes: `Admin raise (${coverageType} coverage) — ${request.employee.firstName} ${request.employee.lastName}`,
+          },
+        });
+      }
+
+      // Record billing rate change only if client contributes
+      if (coverageType !== 'NONE' && newBillRate !== oldHourlyRate) {
+        await tx.rateChangeHistory.create({
+          data: {
+            employeeId: request.employeeId,
+            clientId: request.clientId,
+            changedBy: userId!,
+            changeDate,
+            rateType: 'BILLING_RATE',
+            oldValue: oldHourlyRate,
+            newValue: newBillRate,
+            source: 'ADMIN_RAISE',
+            notes: `Admin raise (${coverageType} coverage) — ${request.employee.firstName} ${request.employee.lastName}`,
+          },
+        });
+      }
+    });
+
+    // Notify client only for FULL or PARTIAL coverage (not NONE)
+    if (coverageType !== 'NONE' && request.client.userId) {
+      try {
+        const { createNotification } = await import('./notification.controller');
+        const employeeName = `${request.employee.firstName} ${request.employee.lastName}`;
+        const effDate = changeDate instanceof Date ? changeDate.toISOString().split('T')[0] : String(changeDate);
+        const clientCovered = (request as any).clientCoveredAmount ? Number((request as any).clientCoveredAmount) : 0;
+        await createNotification(
+          request.client.userId,
+          'RAISE_APPLIED',
+          'Rate Update for Employee',
+          `The billing rate for ${employeeName} has been updated by $${clientCovered.toFixed(2)}/hr effective ${effDate}.`,
+          {
+            raiseRequestId: raiseId,
+            employeeId: request.employeeId,
+            employeeName,
+            clientCoveredAmount: clientCovered,
+            effectiveDate: effDate,
+          },
+          '/client/bonuses-raises'
+        );
+      } catch (notifError) {
+        console.error('[Give Raise] Failed to send client notification:', notifError);
+      }
+    }
+
+    res.json({ success: true, message: 'Raise confirmed and rates updated successfully' });
+  } catch (error: any) {
+    console.error('Confirm raise error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to confirm raise' });
   }
 };

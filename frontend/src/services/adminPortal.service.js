@@ -107,6 +107,21 @@ const adminPortalService = {
     return response;
   },
 
+  getRaiseCandidates: async () => {
+    const response = await api.get('/admin-portal/raise-candidates');
+    return response;
+  },
+
+  giveRaise: async (data) => {
+    const response = await api.post('/admin-portal/give-raise', data);
+    return response;
+  },
+
+  confirmAdminRaise: async (raiseId) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/confirm`, {});
+    return response;
+  },
+
   // Download timesheet PDF report (admin)
   downloadTimesheetPdf: async ({
     clientId,

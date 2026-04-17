@@ -887,6 +887,7 @@ enum NotificationType {
   SHIFT_ENDING_OT_APPROVED
   AUTO_CLOCK_OUT
   SUPPORT_TICKET
+  RAISE_APPLIED
 }
 
 enum MessageType {
@@ -1044,6 +1045,17 @@ enum ClientRequestType {
   RAISE
 }
 
+enum RaiseCoverageType {
+  FULL
+  PARTIAL
+  NONE
+}
+
+enum RaiseInitiator {
+  ADMIN
+  CLIENT
+}
+
 model ClientRequest {
   id            String              @id @default(uuid())
   type          ClientRequestType
@@ -1056,6 +1068,11 @@ model ClientRequest {
   payRate       Decimal?            @db.Decimal(10, 2)
   billRate      Decimal?            @db.Decimal(10, 2)
   effectiveDate DateTime?           @db.Date
+  // Admin-initiated raise fields
+  coverageType         RaiseCoverageType?
+  raisedBy             RaiseInitiator?
+  employeeRaiseAmount  Decimal?           @db.Decimal(10, 2)
+  clientCoveredAmount  Decimal?           @db.Decimal(10, 2)
   // Common fields
   reason        String?
   status        ClientRequestStatus @default(PENDING)
