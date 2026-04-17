@@ -214,8 +214,11 @@ const TimeRecords = () => {
     for (const s of sessions) {
       if (s.client?.timezone) return s.client.timezone;
     }
+    for (const e of manualEntries) {
+      if (e.clientTimezone) return e.clientTimezone;
+    }
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
-  }, [sessions]);
+  }, [sessions, manualEntries]);
 
   const formatTime = (dateString) => {
     if (!dateString) return "--:--";
@@ -1522,12 +1525,12 @@ const TimeRecords = () => {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="text-sm font-medium text-gray-900">
-                              {entry.startTime ? new Date(entry.startTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "--:--"}
+                              {formatTime(entry.startTime)}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-center">
                             <span className="text-sm font-medium text-gray-900">
-                              {entry.endTime ? new Date(entry.endTime).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true }) : "--:--"}
+                              {formatTime(entry.endTime)}
                             </span>
                           </td>
                           <td className="py-3 px-3 text-center">

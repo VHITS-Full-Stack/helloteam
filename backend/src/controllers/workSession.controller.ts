@@ -5,7 +5,7 @@ import { WorkSessionStatus } from '@prisma/client';
 import { sendOTWorkedEmail } from '../services/email.service';
 import { sendSMS } from '../services/sms.service';
 import { createNotification } from './notification.controller';
-import { getTimeInTimezone, buildScheduleTimestamp } from '../utils/timezone';
+import { getTimeInTimezone, buildScheduleTimestamp, buildTimestampFromDate } from '../utils/timezone';
 import { computeBillingTimes } from '../utils/helpers';
 
 // Helper function to get client IP address
@@ -1829,20 +1829,23 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       return;
     }
 
-    // Parse the date and times
+    // Get all active client assignments (with timezone) before building timestamps
+    const clientAssignments = await prisma.clientEmployee.findMany({
+      where: { employeeId: employee.id, isActive: true },
+      include: { client: { select: { timezone: true } } },
+    });
+
+    // Use primary client's timezone so entered times are stored correctly in UTC
+    const clientTz = (clientAssignments[0] as any)?.client?.timezone || 'America/New_York';
+
+    // Parse the date and convert start/end from client timezone → UTC
     const entryDate = new Date(date);
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-
-    const sessionStartTime = new Date(entryDate);
-    sessionStartTime.setHours(startHour, startMinute, 0, 0);
-
-    const sessionEndTime = new Date(entryDate);
-    sessionEndTime.setHours(endHour, endMinute, 0, 0);
+    const sessionStartTime = buildTimestampFromDate(entryDate, startTime, clientTz);
+    const sessionEndTime = buildTimestampFromDate(entryDate, endTime, clientTz);
 
     // Handle overnight shifts (end time before start time means next day)
     if (sessionEndTime <= sessionStartTime) {
-      sessionEndTime.setDate(sessionEndTime.getDate() + 1);
+      sessionEndTime.setUTCDate(sessionEndTime.getUTCDate() + 1);
     }
 
     // Calculate duration in minutes
@@ -1875,11 +1878,6 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
       });
       return;
     }
-
-    // Get all active client assignments for the employee
-    const clientAssignments = await prisma.clientEmployee.findMany({
-      where: { employeeId: employee.id, isActive: true },
-    });
 
     // Clean up any orphaned manual sessions in this time range (from previously failed attempts)
     await prisma.workSession.deleteMany({
@@ -1985,6 +1983,13 @@ export const getManualEntries = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
+    // Get client timezone for display
+    const primaryAssignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId: employee.id, isActive: true },
+      include: { client: { select: { timezone: true } } },
+    });
+    const clientTimezone = (primaryAssignment as any)?.client?.timezone || null;
+
     const pageNum = parseInt(page as string, 10);
     const limitNum = parseInt(limit as string, 10);
     const skip = (pageNum - 1) * limitNum;
@@ -2052,6 +2057,7 @@ export const getManualEntries = async (req: AuthenticatedRequest, res: Response)
         totalMinutes,
         workMinutes: totalMinutes,
         status: statusByDate[dateKey] || 'PENDING',
+        clientTimezone,
       };
     });
 

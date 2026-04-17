@@ -1374,8 +1374,9 @@ export const adjustTimeRecord = async (req: AuthenticatedRequest, res: Response)
     };
 
     if (clockIn && clockOut) {
-      const startTime = new Date(`${record.date.toISOString().split('T')[0]}T${clockIn}Z`);
-      const endTime = new Date(`${record.date.toISOString().split('T')[0]}T${clockOut}Z`);
+      const dateStr = record.date.toISOString().split('T')[0];
+      const startTime = toUTCDate(dateStr, clockIn);
+      const endTime = toUTCDate(dateStr, clockOut);
       const totalMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
       const regularMinutes = Math.min(totalMinutes, 480);
       const overtimeMinutes = Math.max(0, totalMinutes - 480);
