@@ -2018,15 +2018,40 @@ export const getManualEntries = async (req: AuthenticatedRequest, res: Response)
       prisma.workSession.count({ where: whereClause }),
     ]);
 
-    // Calculate work minutes for each entry
+    // Fetch TimeRecord status for each manual entry (status is stored on TimeRecord, not WorkSession)
+    const sessionDates = entries.map(entry => {
+      const d = entry.startTime;
+      return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+    });
+
+    const timeRecords = sessionDates.length > 0
+      ? await prisma.timeRecord.findMany({
+          where: {
+            employeeId: employee.id,
+            isManual: true,
+            date: { in: sessionDates },
+          },
+          select: { date: true, status: true },
+        })
+      : [];
+
+    const statusByDate: Record<string, string> = {};
+    timeRecords.forEach(tr => {
+      const dateKey = tr.date.toISOString().split('T')[0];
+      statusByDate[dateKey] = tr.status;
+    });
+
+    // Calculate work minutes and merge status for each entry
     const entriesWithStats = entries.map(entry => {
       const totalMinutes = entry.endTime
         ? Math.round((entry.endTime.getTime() - entry.startTime.getTime()) / 60000)
         : 0;
+      const dateKey = entry.startTime.toISOString().split('T')[0];
       return {
         ...entry,
         totalMinutes,
         workMinutes: totalMinutes,
+        status: statusByDate[dateKey] || 'PENDING',
       };
     });
 

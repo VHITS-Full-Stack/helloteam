@@ -467,39 +467,45 @@ const Approvals = () => {
       </div>
 
       {/* Type Toggle */}
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-lg w-fit flex-wrap">
-        {[
-          { key: "leave", label: "Leave Requests", icon: Calendar },
-          { key: "overtime", label: "Overtime Requests", icon: Timer },
-          {
-            key: "autoOvertime",
-            label: "Worked OT Without Prior Approval",
-            icon: AlertCircle,
-          },
-          { key: "timesheet", label: "Timesheet Review", icon: Clock },
-          { key: "manual", label: "Manual Entries", icon: FilePen },
-        ].map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => {
-              setActiveType(key);
-              setStatusFilter("pending");
-              setEmployeeFilter("all");
-              setClientFilterId("all");
-              setSelectedItems([]);
-              setPage(1);
-            }}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap ${activeType === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
-          >
-            <Icon className="w-4 h-4" />
-            {label}
-            {pendingCounts[key] > 0 && (
-              <span className="ml-1 px-1.5 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white min-w-[20px] text-center">
-                {pendingCounts[key]}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="overflow-x-auto">
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit min-w-full">
+          {[
+            { key: "leave", label: "Leave Requests", icon: Calendar },
+            { key: "overtime", label: "Overtime Requests", icon: Timer },
+            {
+              key: "autoOvertime",
+              label: "Worked OT Without Prior Approval",
+              icon: AlertCircle,
+            },
+            { key: "timesheet", label: "Timesheet Review", icon: Clock },
+            { key: "manual", label: "Manual Entries", icon: FilePen },
+          ].map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => {
+                setActiveType(key);
+                setStatusFilter("pending");
+                setEmployeeFilter("all");
+                setClientFilterId("all");
+                setSelectedItems([]);
+                setPage(1);
+              }}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
+                activeType === key
+                  ? "bg-white text-gray-900 shadow-sm"
+                  : "text-gray-500 hover:text-gray-700 hover:bg-white/50"
+              }`}
+            >
+              <Icon className="w-4 h-4 shrink-0" />
+              {label}
+              {pendingCounts[key] > 0 && (
+                <span className="px-1.5 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white min-w-[20px] text-center leading-none">
+                  {pendingCounts[key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
@@ -685,11 +691,6 @@ const Approvals = () => {
                             <span className="font-medium text-sm">
                               {empName}
                             </span>
-                            {item.isManual && (
-                              <span className="ml-1.5 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-violet-100 text-violet-700">
-                                <FilePen className="w-3 h-3" /> Manual
-                              </span>
-                            )}
                           </div>
                         </div>
                       </TableCell>
@@ -781,16 +782,14 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.clockIn ? (
                             <span className="text-sm text-gray-700">
-                              {formatTimeInTimeZone(
-                                item.clockIn,
-                                item.clientTimezone || "UTC",
-                              )}
+                              {activeType === "manual"
+                                ? new Date(item.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                                : formatTimeInTimeZone(item.clockIn, item.clientTimezone || "UTC")}
                               <span className="text-gray-300 mx-0.5">–</span>
                               {item.clockOut ? (
-                                formatTimeInTimeZone(
-                                  item.clockOut,
-                                  item.clientTimezone || "UTC",
-                                )
+                                activeType === "manual"
+                                  ? new Date(item.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                                  : formatTimeInTimeZone(item.clockOut, item.clientTimezone || "UTC")
                               ) : (
                                 <span className="text-green-600">Active</span>
                               )}
@@ -836,8 +835,7 @@ const Approvals = () => {
                               >
                                 Approve
                               </Button>
-                              {activeType === "timesheet" ||
-                              activeType === "manual" ? (
+                              {activeType === "timesheet" ? (
                                 <Button
                                   variant="ghost"
                                   size="xs"
@@ -1017,6 +1015,20 @@ const Approvals = () => {
                   })}
                 </span>
               </div>
+              {activeType === "manual" && (selectedItem.clockIn || selectedItem.clockOut) && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Hours</span>
+                  <span className="font-medium">
+                    {selectedItem.clockIn
+                      ? new Date(selectedItem.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "--"}
+                    {" – "}
+                    {selectedItem.clockOut
+                      ? new Date(selectedItem.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "--"}
+                  </span>
+                </div>
+              )}
               {selectedItem.timesheetConflict && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2 text-yellow-700 text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1138,13 +1150,40 @@ const Approvals = () => {
       >
         {selectedItem && (
           <div className="space-y-4">
-            <div className="p-4 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-500">Employee</p>
-              <p className="font-medium">
-                {isOTType
-                  ? `${selectedItem.employee?.firstName} ${selectedItem.employee?.lastName}`
-                  : selectedItem.employee}
-              </p>
+            <div className="p-4 bg-gray-50 rounded-lg space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Employee</span>
+                <span className="font-medium">
+                  {isOTType
+                    ? `${selectedItem.employee?.firstName} ${selectedItem.employee?.lastName}`
+                    : selectedItem.employee}
+                </span>
+              </div>
+              {selectedItem.date && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Date</span>
+                  <span className="font-medium">
+                    {formatDate(selectedItem.date, {
+                      timeZone: "UTC",
+                      dateOnlyAsUTC: true,
+                    })}
+                  </span>
+                </div>
+              )}
+              {activeType === "manual" && (selectedItem.clockIn || selectedItem.clockOut) && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Hours</span>
+                  <span className="font-medium">
+                    {selectedItem.clockIn
+                      ? new Date(selectedItem.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "--"}
+                    {" – "}
+                    {selectedItem.clockOut
+                      ? new Date(selectedItem.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+                      : "--"}
+                  </span>
+                </div>
+              )}
             </div>
             <div>
               <label className="label">Rejection Reason *</label>

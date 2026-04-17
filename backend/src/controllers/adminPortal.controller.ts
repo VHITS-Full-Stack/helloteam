@@ -1874,8 +1874,8 @@ export const finalRejectTimeRecord = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    // Guard: Regular timesheets cannot be denied — only overtime can be rejected
-    if ((record.overtimeMinutes || 0) === 0) {
+    // Guard: Regular timesheets cannot be denied — only overtime and manual entries can be rejected
+    if ((record.overtimeMinutes || 0) === 0 && !record.isManual) {
       res.status(400).json({
         success: false,
         error: 'Regular timesheets cannot be denied. Use "Request Revisions" instead.',
