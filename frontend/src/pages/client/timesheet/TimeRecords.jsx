@@ -1193,51 +1193,53 @@ const TimeRecords = () => {
                 return (
                   <Card key={emp.id} padding="none" className="overflow-hidden">
                     {/* Employee Header */}
-                    <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          name={emp.employee}
-                          src={emp.profilePhoto}
-                          size="sm"
-                        />
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">
-                            {emp.employee}
-                          </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span>{formatHours(emp.totalHours)} total</span>
-                            {(emp.approvedOvertimeHours || 0) > 0 && (
-                              <span className="text-orange-600">
-                                {formatHours(emp.approvedOvertimeHours)} OT
-                              </span>
-                            )}
-                            {emp.unapprovedOvertimeHours > 0 && (
-                              <span className="text-red-600">
-                                {formatHours(emp.unapprovedOvertimeHours)}{" "}
-                                Unapproved OT
-                              </span>
-                            )}
+                    {/* Need to add condition if no record then hide whole card */}
+                    {emp.filteredRecords.length > 0 && (
+                      <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            name={emp.employee}
+                            src={emp.profilePhoto}
+                            size="sm"
+                          />
+                          <div>
+                            <p className="font-semibold text-gray-900 text-sm">
+                              {emp.employee}
+                            </p>
+                            <div className="flex items-center gap-3 text-xs text-gray-500">
+                              <span>{formatHours(emp.totalHours)} total</span>
+                              {(emp.approvedOvertimeHours || 0) > 0 && (
+                                <span className="text-orange-600">
+                                  {formatHours(emp.approvedOvertimeHours)} OT
+                                </span>
+                              )}
+                              {emp.unapprovedOvertimeHours > 0 && (
+                                <span className="text-red-600">
+                                  {formatHours(emp.unapprovedOvertimeHours)}{" "}
+                                  Unapproved OT
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(emp.status)}
+                          <button
+                            onClick={() =>
+                              handleViewTimesheet(
+                                emp.id,
+                                emp.employee,
+                                emp.profilePhoto,
+                              )
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(emp.status)}
-                        <button
-                          onClick={() =>
-                            handleViewTimesheet(
-                              emp.id,
-                              emp.employee,
-                              emp.profilePhoto,
-                            )
-                          }
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          View
-                        </button>
-                      </div>
-                    </div>
-
+                    )}
                     {/* Revision reason banner */}
                     {revisionRecord && (
                       <div className="px-5 py-2 bg-amber-50 border-b border-amber-200">
