@@ -431,3 +431,254 @@ Client portal contains **TWO completely separate areas**:
 | 8 | Provide sandbox with time control for testing | Hitendrasinh |
 | 9 | Add CRM / ticket management | Hitendrasinh |
 | 10 | Set up Check Digit account for payment API testing | Zevi / Hitendrasinh |
+
+---
+---
+
+# Meeting Notes — April 16, 2026
+
+**Attendees:** Zevi Rubin (Client), Jigar Patel (Dev Lead), Nikita Karanpuria (Dev)
+
+---
+
+## 1. Grace Period — Removed Entirely
+
+- **No grace period** for clock-in or clock-out — confirmed by Zevi
+- System auto-clocks out at scheduled end time; if employee presses "Continue Working" after that, it is immediately **OT Without Prior Approval**
+- If employee clocks in **before** their shift (e.g., schedule starts 9 AM, clocked in at 8:45 AM) → those 15 minutes are **OT Without Prior Approval** — no grace period
+- Remove the existing 7-minute (or any) grace period from the system entirely
+
+---
+
+## 2. Forgot to Clock Out — Overnight OT Flow
+
+**Scenario:** Employee continues working past shift end (OT without prior approval), then forgets to clock out.
+
+### Threshold Rule
+- System does **not** auto-clock them out
+- Once overtime extends **2 hours past scheduled end time**, the system flags the session as requiring confirmation on clock-out
+- The session stays open but is marked as pending confirmation
+
+### Clock-Out Confirmation Flow
+When employee eventually returns and clocks out, system detects the unusually long overtime and shows:
+
+> *"We noticed that this shift includes an unusually large amount of overtime beyond your scheduled end time. Please confirm how much of this overtime you actually worked."*
+
+Employee is given **3 options:**
+
+| Option | Action | Result |
+|--------|--------|--------|
+| **I worked all of the overtime shown** | No input needed | Full overtime period kept as OT Without Prior Approval |
+| **I worked part of the overtime shown** | Employee enters actual end time (e.g., 6:00 PM) | Overtime kept only up to entered time; everything after is removed |
+| **I did not work any of this overtime** | No input needed | All overtime after scheduled end time removed; shift treated as ending at scheduled time |
+
+### Business Rules
+- System must not assume all unclosed time was actually worked
+- Once overtime exceeds the 2-hour threshold, it **must be explicitly confirmed** before finalizing
+- Prevents accidental forgotten clock-outs from creating false hours of overtime
+
+---
+
+## 3. Employee Search Bar
+
+- Employee search should work across **name, email, and phone number** in the same single search bar
+- No separate search fields — one unified search
+
+---
+
+## 4. Manual Time Entry — Employee Request Flow
+
+- When an employee submits a manual entry (forgot to clock in), it must go to **Admin** for approval — not the client
+- If **approved** by admin → added as a regular timesheet
+- If **denied** → not added
+- UI must make it clear the employee is **requesting** an entry, not adding it directly
+  - Current wording "Add entry" is misleading — should convey "Hello Team will review and approve"
+- Admin approval page must display all statuses (not default to "pending" only — currently broken)
+
+---
+
+## 5. Session Expiry / Inactivity Timeout
+
+- Employee portal **must not expire** while an employee is clocked in
+- Confirmed: session should remain active as long as the employee is on the clock
+
+---
+
+## 6. Internal Team (Admin) OT Approval — Display on Client Side
+
+- When Hello Team (admin) approves an OT entry, the client's Time Records page must show:
+  - **"Approved by Hello Team"** label
+  - The **reason** for approval
+- Currently approved OT is not appearing on the client side at all — bug to fix
+
+---
+
+## 7. OT Column Naming — Timesheet
+
+- Rename/clarify OT columns in the timesheet:
+  - **"Overtime"** → **"Overtime Worked with Prior Approval"**
+  - **"Worked OT Without Prior Approval"** → keep name, add note in red: *(Please approve or deny for employee to get paid)*
+- These two must be visually and logically separated — currently mixed up
+
+### Timesheet Info Banner Wording (confirmed)
+> *"All time worked within the employee's scheduled shift is automatically approved after 24 hours. Any overtime that was approved in advance is also automatically approved. Time worked outside of the scheduled shift without prior approval is recorded under the status Worked OT Without Prior Approval and must be manually approved before the employee can be paid and the client can be billed for those hours."*
+
+---
+
+## 8. Timesheet: Hide Rows Where Employee Didn't Work
+
+- Confirmed: **do not show rows** where employee has no clock-in and 0 minutes
+- Only show days where actual work occurred (leave/holiday rows still shown)
+- *(Implemented during this session)*
+
+---
+
+## 9. Break Column
+
+- **Do not remove** the break column for now — Zevi will discuss with his team
+- Standard lunch break is **30 minutes**; deduction logic to be defined later
+
+---
+
+## 10. Timesheet Color Legend
+
+- Add a color explanation/legend at the **top of the timesheet page**:
+  - Green = paid / approved (will be billed)
+  - Orange = unapproved, pending client action
+
+---
+
+## 11. Overtime Multiplier — Default to Zero
+
+- The overtime multiplier field must **default to 0**
+- Remove/disable for now — only used on rare holidays
+- Do not apply any multiplier unless explicitly set by admin
+
+---
+
+## 12. Employee Status — More Statuses Needed
+
+- Current statuses (Active / Inactive / Suspended) are insufficient
+- New statuses needed to reflect onboarding pipeline:
+  1. KYC Approved
+  2. Fully Onboarded
+  3. Active
+  4. Client Assigned
+
+---
+
+## 13. Raise & Billing Rate Workflow (Admin Side)
+
+### 13.1 Billing Rate — Standalone Editable Field
+- Billing rate should be a **standalone, directly editable field** — separate from the raise workflow
+- Direct edits require: two-step approval, full audit trail (old value, new value, effective date, reason, who submitted, who approved, timestamp)
+
+### 13.2 Give a Raise — Three Options
+When admin gives an employee a raise, three scenarios must be supported:
+
+| Option | Description | Client Notified? |
+|--------|-------------|-----------------|
+| **Full coverage** | Client covers full raise → billing rate goes up by full raise amount | Yes — shows raise amount (per hour), new billing rate, effective date |
+| **Partial coverage** | Client covers part of raise → billing rate goes up by covered portion only | Yes — shows billing rate change only; employee total raise and internal margin never shown |
+| **No coverage** | Admin covers raise internally → billing rate unchanged | No — client never notified; nothing shown in client portal |
+
+- Client notification must **never** show the employee's actual pay rate (old or new) or internal margin
+- Raise requires two-step verification before activation
+- Payroll report must show a **rate change cutoff** when a raise takes effect mid-period
+
+### 13.3 Client-Submitted Raise Approval (Admin Side)
+
+When admin approves a raise requested by a client, the approval screen must show:
+- Current pay rate
+- Current billing rate
+- New billing rate (client's requested amount)
+- Confirm: *"Do you want to approve this raise?"*
+
+**Problem 2 — Popup wording is wrong:**
+- Current (wrong): *"Approve bill rate change to $2.00 for Pravin Patel from SKD"*
+- Correct: *"Approve pay raise of $2.00 per hour for Pravin Patel from SKD"*
+
+**Problem 3 — Calculations must be automatic (no manual entry):**
+The system already knows the current pay rate and raise amount — it should calculate everything automatically. The approval popup must show all four values with no typing required:
+
+| Field | Value |
+|-------|-------|
+| Current employee pay rate | $11.50/hr |
+| Raise amount | $2.00/hr |
+| New employee pay rate | **$13.50/hr** *(auto-calculated)* |
+| Current client billing rate | $15.00/hr |
+| New client billing rate | **$17.00/hr** *(auto-calculated)* |
+
+Admin simply reviews the numbers and clicks **Approve** — no math, no manual entry.
+
+### 13.4 Bonuses
+- Same approval/notification flow as raises: Pending → Admin approves → Employee notified
+
+### 13.5 Client Raise & Bonus Status Tracker (Problem 4)
+- After submitting a raise or bonus, clients currently see a confirmation message and then **nothing** — they have no way to track status
+- The **Bonuses and Raises page on the client side** must include a **history section** below the form showing:
+  - Every raise and bonus ever submitted
+  - Current status of each (Pending / Approved / Rejected)
+  - Effective date once approved
+
+---
+
+## 14. Client Portal — Onboarding Welcome Sequence
+
+When a new client logs in for the **first time**, they go through a sequential onboarding flow:
+
+| Step | Screen | Notes |
+|------|--------|-------|
+| 1 | **Welcome Banner** | Shows assigned employee name(s); warm tone; no payment ask |
+| 2 | **Legal Terms & Conditions** | Pulled from Hello Team website; must accept before proceeding |
+| 3 | **Hello Team Best Practices / Tips Document** | Scroll and press Next at any time |
+| 4 | **Contract + Payment Info** | Fill in required details and sign contract |
+| 5 | **Hello Team Practical Tips** | Can be skipped with Next |
+| 6 | **Client Access & Offboarding Policy** | Must scroll through entire document; "Complete and Agreed" button disabled until bottom is reached; cannot skip |
+| 7 | **Main Portal** | Full dashboard access |
+
+---
+
+## 15. Employee Portal — Onboarding Policy Gate
+
+- Before first portal access, employee must scroll through the **Employee Access and Operating Policy**
+- "Complete and Agreed" button is **disabled** until they reach the bottom
+- After accepting → redirected to opening portal/dashboard
+- Zevi to send opening portal design for client side
+
+---
+
+## Next Meeting
+
+- **Tuesday** (Monday skipped — office anniversary celebration)
+- Nikita to send screenshots per action item to group chat for Zevi to verify before the call
+
+---
+
+## Action Items — April 16, 2026
+
+| # | Action | Owner |
+|---|--------|-------|
+| 1 | Remove grace period entirely (clock-in and clock-out) | Nikita |
+| 2 | Forgot-to-clock-out flow: prompt for actual end time, delete hours after it; option to remove entire OT | Nikita |
+| 3 | Employee search: add email + phone number to unified search bar | Nikita |
+| 4 | Manual entry: reword to "requesting" not "adding"; route to admin for approval/denial | Nikita |
+| 5 | Fix admin manual entry approval page — show all statuses, not default pending only | Nikita |
+| 6 | Session expiry: do not expire employee session while clocked in | Nikita |
+| 7 | Admin OT approval: show "Approved by Hello Team" + reason on client timesheet | Nikita |
+| 8 | Fix bug: approved OT not showing on client time records after admin approves | Nikita |
+| 9 | Rename OT columns in timesheet (with prior approval / without prior approval + red note) | Nikita |
+| 10 | Add color legend at top of timesheet page | Nikita |
+| 11 | Set overtime multiplier default to 0 | Nikita |
+| 12 | Add employee statuses: KYC Approved, Fully Onboarded, Active, Client Assigned | Nikita |
+| 13 | Billing rate: standalone editable field with full audit trail | Nikita |
+| 14 | Implement three-option raise flow (full / partial / no client coverage) with correct notification rules | Nikita |
+| 15 | Fix client raise approval screen: show current pay rate, current billing rate, new billing rate | Nikita |
+| 16 | Payroll report: show rate change cutoff when raise takes effect mid-period | Nikita |
+| 17 | Build client portal onboarding welcome sequence (6 steps) | Nikita |
+| 18 | Build employee portal policy acceptance gate (scroll-to-unlock) | Nikita |
+| 19 | Send screenshot per action item to group for Zevi's verification before next call | Nikita |
+| 20 | Send opening portal design for client side | Zevi |
+| 21 | Forgot-to-clock-out: implement 2-hour threshold flag + 3-option confirmation screen (all / part / none) | Nikita |
+| 22 | Fix raise approval popup wording to "Approve pay raise of $X/hr for [Employee] from [Client]"; auto-calculate all 4 values (no manual entry) | Nikita |
+| 23 | Client Bonuses & Raises page: add history section showing all submitted raises/bonuses with status and effective date | Nikita |
