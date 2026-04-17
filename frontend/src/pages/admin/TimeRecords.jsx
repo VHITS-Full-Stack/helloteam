@@ -833,8 +833,13 @@ const TimeRecords = () => {
             </Button>
           </div>
         </div>
-        <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          All time worked within the employee's scheduled shift is automatically approved after 24 hours. Time worked outside of the scheduled shift (including overtime worked without prior approval) must be manually approved before the employee can be paid and the client can be billed.
+        <p className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          All time worked within the employee’s scheduled shift is automatically
+          approved after 24 hours. Any overtime that was approved in advance is
+          also automatically approved. Time worked outside of the scheduled
+          shift without prior approval is recorded under the status Worked OT
+          Without Prior Approval and must be manually approved before the
+          employee can be paid and the client can be billed for those hours.
         </p>
       </div>
 

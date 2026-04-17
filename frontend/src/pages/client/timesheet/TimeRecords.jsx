@@ -497,11 +497,7 @@ const TimeRecords = () => {
             status === "paid_leave" ||
             status === "unpaid_leave" ||
             status === "holiday";
-          if (
-            !isLeaveOrHoliday &&
-            !r.clockIn &&
-            (r.totalMinutes || 0) === 0
-          )
+          if (!isLeaveOrHoliday && !r.clockIn && (r.totalMinutes || 0) === 0)
             return false;
           // When a specific status filter is active, hide non-matching records
           if (statusFilter !== "all" && status === "not_started") return false;
@@ -545,12 +541,19 @@ const TimeRecords = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Time Records</h2>
-            <p className="text-gray-500">View and manage employee time records</p>
+            <p className="text-gray-500">
+              View and manage employee time records
+            </p>
           </div>
           <ExportButton onClick={handleExport} />
         </div>
-        <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-          All time worked within the employee's scheduled shift is automatically approved after 24 hours. Time worked outside of the scheduled shift (including overtime worked without prior approval) must be manually approved before the employee can be paid and the client can be billed.
+        <p className="text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+          All time worked within the employee’s scheduled shift is automatically
+          approved after 24 hours. Any overtime that was approved in advance is
+          also automatically approved. Time worked outside of the scheduled
+          shift without prior approval is recorded under the status Worked OT
+          Without Prior Approval and must be manually approved before the
+          employee can be paid and the client can be billed for those hours.
         </p>
       </div>
 
