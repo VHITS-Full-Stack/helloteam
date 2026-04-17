@@ -34,8 +34,7 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
       // Find PENDING time records that:
       // 1. Employee has clocked in (actualStart exists)
       // 2. Were created before the cutoff time (delay has passed)
-      // 3. Have no significant overtime (when OT requires approval) — allow ≤7 min (grace period)
-      const OT_GRACE_MINUTES = 7;
+      // 3. Have no overtime (when OT requires approval)
       const pendingRecords = await prisma.timeRecord.findMany({
         where: {
           clientId: policy.clientId,
@@ -43,9 +42,9 @@ export const runAutoApproval = async (io?: Server): Promise<void> => {
           actualStart: { not: null },
           createdAt: { lte: cutoffTime },
           ...(policy.overtimeRequiresApproval !== false ? {
-            overtimeMinutes: { lte: OT_GRACE_MINUTES },
-            extraTimeMinutes: { lte: OT_GRACE_MINUTES },
-            shiftExtensionMinutes: { lte: OT_GRACE_MINUTES },
+            overtimeMinutes: { lte: 0 },
+            extraTimeMinutes: { lte: 0 },
+            shiftExtensionMinutes: { lte: 0 },
           } : {}),
         },
         include: {

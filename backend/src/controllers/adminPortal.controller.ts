@@ -1473,6 +1473,8 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       timeRecordWhere.overtimeMinutes = { gt: 0 };
     } else if (type === 'manual') {
       timeRecordWhere.isManual = true;
+    } else if (type === 'timesheet') {
+      timeRecordWhere.isManual = { not: true };
     }
 
     const [timeRecords, leaveRequests, overtimeRequests] = await Promise.all([

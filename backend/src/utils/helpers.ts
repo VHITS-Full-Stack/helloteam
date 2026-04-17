@@ -48,16 +48,16 @@ export const calculateDurationMinutes = (start: Date, end: Date): number => {
 };
 
 /**
- * Compute billing start/end times using the 7-minute grace rule.
+ * Compute billing start/end times.
  *
  * Clock In:
- *   - Early or ≤7 min late  → billing starts at scheduled start
- *   - >7 min late           → billing starts at actual clock-in (marked late)
+ *   - Early or on time → billing starts at scheduled start
+ *   - Late (any amount) → billing starts at actual clock-in (marked late)
  *
  * Clock Out:
- *   - On time, ≤7 min early → billing ends at scheduled end
- *   - >7 min early          → billing ends at actual clock-out
- *   - Past schedule         → billing ends at scheduled end (OT tracked separately)
+ *   - On time or past schedule → billing ends at scheduled end
+ *   - Early (any amount)       → billing ends at actual clock-out
+ *   - Past schedule            → billing ends at scheduled end (OT tracked separately)
  */
 export const computeBillingTimes = (
   actualStart: Date,
@@ -70,18 +70,16 @@ export const computeBillingTimes = (
     return { billingStart: actualStart, billingEnd: actualEnd, isLate: false };
   }
 
-  const GRACE_MS = 7 * 60 * 1000; // 7 minutes in ms
-
   // --- Billing Start ---
   let billingStart: Date;
   let isLate = false;
   const lateMs = actualStart.getTime() - scheduledStart.getTime();
 
-  if (lateMs <= GRACE_MS) {
-    // Early, on time, or ≤7 min late → bill from schedule start
+  if (lateMs <= 0) {
+    // Early or on time → bill from schedule start
     billingStart = scheduledStart;
   } else {
-    // >7 min late → bill from actual (late)
+    // Late → bill from actual
     billingStart = actualStart;
     isLate = true;
   }
@@ -90,11 +88,11 @@ export const computeBillingTimes = (
   let billingEnd: Date;
   const earlyMs = scheduledEnd.getTime() - actualEnd.getTime();
 
-  if (earlyMs <= GRACE_MS) {
-    // On time, ≤7 min early, or past schedule → bill to schedule end
+  if (earlyMs <= 0) {
+    // On time or past schedule → bill to schedule end
     billingEnd = scheduledEnd;
   } else {
-    // >7 min early → bill to actual clock-out
+    // Early → bill to actual clock-out
     billingEnd = actualEnd;
   }
 

@@ -521,17 +521,14 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       // Detect Extra Time: session started AFTER scheduled end, or no schedule exists for the day
       const isExtraTime = !schedule || (scheduledEnd && activeSession.startTime > scheduledEnd);
 
-      const OT_GRACE_MINUTES = 7; // Minutes of early/late allowed before counting as OT
-
       // Overtime = early pre-schedule minutes + any hours beyond scheduled duration
-      // Only count as OT if beyond the grace period
       const scheduledDurationMinutes = scheduledEnd && scheduledStart
         ? Math.round((scheduledEnd.getTime() - scheduledStart.getTime()) / 60000)
         : 480; // fallback to 8h if no schedule
-      const effectiveEarlyOT = earlyOvertimeMinutes > OT_GRACE_MINUTES ? earlyOvertimeMinutes : 0;
+      const effectiveEarlyOT = earlyOvertimeMinutes;
       const regularWorkMinutes = totalWorkMinutes - effectiveEarlyOT;
       const lateOvertimeMinutes = Math.max(0, regularWorkMinutes - scheduledDurationMinutes);
-      const effectiveLateOT = lateOvertimeMinutes > OT_GRACE_MINUTES ? lateOvertimeMinutes : 0;
+      const effectiveLateOT = lateOvertimeMinutes;
       let overtimeMinutes = effectiveEarlyOT + effectiveLateOT;
 
       // Calculate shift extension (minutes worked past scheduled end)
@@ -550,9 +547,10 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
 
       console.log(`[ClockOut-Debug] shiftExtensionMinutes=${shiftExtensionMinutes}, overtimeMinutes=${overtimeMinutes}, totalWorkMinutes=${totalWorkMinutes}, earlyOT=${earlyOvertimeMinutes}`);
 
-      // When "Overtime Requires Approval" is UNCHECKED: treat ALL hours as regular approved time
+      // When "Overtime Requires Approval" is UNCHECKED: treat shift extension/late OT as regular time
+      // Early clock-in OT is always tracked regardless of this setting
       if (!otRequiresApproval) {
-        overtimeMinutes = 0;
+        overtimeMinutes = effectiveEarlyOT; // preserve early OT
         shiftExtensionMinutes = 0;
       }
 
@@ -580,8 +578,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             }
           }
 
-          // Determine shift extension approval status (only if beyond grace period)
-          if (shiftExtensionMinutes > OT_GRACE_MINUTES) {
+          // Determine shift extension approval status
+          if (shiftExtensionMinutes > 0) {
             const otRequest = await prisma.overtimeRequest.findFirst({
               where: {
                 employeeId: employee.id,
@@ -610,8 +608,8 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
 
           // Determine extra time approval status (early clock-in or post-shift session)
           // Skip when OT doesn't require approval — all hours are regular approved time
-          // Only count early clock-in as extra time if it exceeds the grace period
-          const hasExtraTime = otRequiresApproval && (isExtraTime || earlyOvertimeMinutes > OT_GRACE_MINUTES);
+          // Early clock-in is always tracked as OT; post-shift sessions only when OT requires approval
+          const hasExtraTime = isExtraTime ? otRequiresApproval : earlyOvertimeMinutes > 0;
           if (hasExtraTime) {
             extraTimeMinutes = isExtraTime ? totalWorkMinutes : earlyOvertimeMinutes;
             const otRequest = await prisma.overtimeRequest.findFirst({
@@ -724,17 +722,13 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
           }
 
           // --- Auto-create OvertimeRequest(s) if overtime was worked without a prior request ---
-          // Skip entirely when OT doesn't require approval — no OT tracking needed
-          if (!otRequiresApproval) { /* no-op: all hours are regular */ }
-          else {
           const fmtHHMM = (d: Date) => {
             const parts = d.toLocaleString('en-US', { timeZone: clockOutTz, hour: '2-digit', minute: '2-digit', hour12: false }).split(':');
             return `${parts[0].padStart(2, '0')}:${parts[1]}`;
           };
 
-          // Early clock-in overtime → OFF_SHIFT (Extra Time per spec: "early clock-in is Extra Time, not Shift Extension")
-          // Only auto-create if early minutes exceed grace period and no existing request
-          if (earlyOvertimeMinutes > OT_GRACE_MINUTES && !isExtraTime) {
+          // Early clock-in overtime → always auto-create, no prior approval needed
+          if (earlyOvertimeMinutes > 0 && !isExtraTime) {
             try {
               const existingEarlyOT = await prisma.overtimeRequest.findFirst({
                 where: {
@@ -768,10 +762,9 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
             }
           }
 
-          // Shift extension overtime (stayed late) or full extra time session (post-shift clock-in)
-          // Only auto-create if OT is significant (> 7 min grace) and no existing request for this type
+          // Shift extension / extra time session → only when OT requires approval
           const sessionOT = isExtraTime ? totalWorkMinutes : shiftExtensionMinutes;
-          if (sessionOT > OT_GRACE_MINUTES) {
+          if (otRequiresApproval && sessionOT > 0) {
             try {
               const otType = isExtraTime ? 'OFF_SHIFT' : 'SHIFT_EXTENSION';
               // Check for existing OT request (manual or auto-generated) to avoid duplicates
@@ -811,7 +804,6 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
               console.error(`[OT-Auto] Failed to auto-create OvertimeRequest:`, e);
             }
           }
-          } // end else (otRequiresApproval)
         })
       );
 
