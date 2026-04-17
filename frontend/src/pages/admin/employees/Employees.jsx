@@ -334,7 +334,7 @@ const Employees = () => {
               className="mt-4"
               onClick={() => navigate("/admin/employees/add")}
             >
-              Add First Employee
+              Add Employee
             </Button>
           </div>
         ) : (
