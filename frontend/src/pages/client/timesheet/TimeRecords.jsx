@@ -1195,388 +1195,415 @@ const TimeRecords = () => {
                     {/* Employee Header */}
                     {/* Need to add condition if no record then hide whole card */}
                     {emp.filteredRecords.length > 0 && (
-                      <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
-                        <div className="flex items-center gap-3">
-                          <Avatar
-                            name={emp.employee}
-                            src={emp.profilePhoto}
-                            size="sm"
-                          />
-                          <div>
-                            <p className="font-semibold text-gray-900 text-sm">
-                              {emp.employee}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                              <span>{formatHours(emp.totalHours)} total</span>
-                              {(emp.approvedOvertimeHours || 0) > 0 && (
-                                <span className="text-orange-600">
-                                  {formatHours(emp.approvedOvertimeHours)} OT
-                                </span>
-                              )}
-                              {emp.unapprovedOvertimeHours > 0 && (
-                                <span className="text-red-600">
-                                  {formatHours(emp.unapprovedOvertimeHours)}{" "}
-                                  Unapproved OT
-                                </span>
-                              )}
+                      <>
+                        <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
+                          <div className="flex items-center gap-3">
+                            <Avatar
+                              name={emp.employee}
+                              src={emp.profilePhoto}
+                              size="sm"
+                            />
+                            <div>
+                              <p className="font-semibold text-gray-900 text-sm">
+                                {emp.employee}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs text-gray-500">
+                                <span>{formatHours(emp.totalHours)} total</span>
+                                {(emp.approvedOvertimeHours || 0) > 0 && (
+                                  <span className="text-orange-600">
+                                    {formatHours(emp.approvedOvertimeHours)} OT
+                                  </span>
+                                )}
+                                {emp.unapprovedOvertimeHours > 0 && (
+                                  <span className="text-red-600">
+                                    {formatHours(emp.unapprovedOvertimeHours)}{" "}
+                                    Unapproved OT
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(emp.status)}
+                            <button
+                              onClick={() =>
+                                handleViewTimesheet(
+                                  emp.id,
+                                  emp.employee,
+                                  emp.profilePhoto,
+                                )
+                              }
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {getStatusBadge(emp.status)}
-                          <button
-                            onClick={() =>
-                              handleViewTimesheet(
-                                emp.id,
-                                emp.employee,
-                                emp.profilePhoto,
-                              )
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                            View
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                    {/* Revision reason banner */}
-                    {revisionRecord && (
-                      <div className="px-5 py-2 bg-amber-50 border-b border-amber-200">
-                        <p className="text-xs text-amber-700">
-                          <span className="font-medium whitespace-nowrap">
-                            Revision requested:
-                          </span>{" "}
-                          {revisionRecord.revisionReason}
-                        </p>
-                      </div>
-                    )}
+                        {/* Revision reason banner */}
+                        {revisionRecord && (
+                          <div className="px-5 py-2 bg-amber-50 border-b border-amber-200">
+                            <p className="text-xs text-amber-700">
+                              <span className="font-medium whitespace-nowrap">
+                                Revision requested:
+                              </span>{" "}
+                              {revisionRecord.revisionReason}
+                            </p>
+                          </div>
+                        )}
+                        {/* Desktop Table */}
+                        <div className="hidden md:block">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4">
+                                  Date
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Schedule
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
+                                  Clock In
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
+                                  Clock Out
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Break
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Regular Hours
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Overtime
+                                </th>
+                                <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
+                                  Worked OT Without Prior Approval
+                                </th>
+                                <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {emp.filteredRecords.map((rec) => {
+                                const status = rec.status?.toLowerCase();
+                                const displayStatus = deriveDisplayStatus(rec);
+                                const isLeaveOrHoliday =
+                                  status === "paid_leave" ||
+                                  status === "unpaid_leave" ||
+                                  status === "holiday";
+                                const otEntries = rec.overtimeEntries || [];
+                                // Pre-requested OT only (manually submitted)
+                                const requestedOTEntries = otEntries.filter(
+                                  (ot) => !ot.isAutoGenerated,
+                                );
+                                const preApprovedOTMins =
+                                  requestedOTEntries.reduce(
+                                    (s, o) => s + (o.requestedMinutes || 0),
+                                    0,
+                                  );
+                                const regularM = Math.max(
+                                  0,
+                                  (rec.regularMinutes ??
+                                    rec.billingMinutes ??
+                                    0) - preApprovedOTMins,
+                                );
+                                // const approvedRequestedOT = requestedOTEntries.filter(
+                                //   (ot) =>
+                                //     ot.status === "APPROVED" ||
+                                //     ot.status === "AUTO_APPROVED",
+                                // );
+                                const pendingRequestedOT = requestedOTEntries
+                                  .filter((ot) => ot.status === "PENDING")
+                                  .map((ot) => ({
+                                    ...ot,
+                                    _date: rec.date,
+                                    _clockIn: rec.billingStart || rec.clockIn,
+                                    _clockOut: rec.billingEnd || rec.clockOut,
+                                  }));
+                                // Auto-generated OT (without prior approval)
+                                const autoOTEntries = otEntries.filter(
+                                  (ot) => ot.isAutoGenerated,
+                                );
+                                const pendingAutoOT = autoOTEntries
+                                  .filter((ot) => ot.status === "PENDING")
+                                  .map((ot) => ({
+                                    ...ot,
+                                    _date: rec.date,
+                                    _clockIn: rec.billingStart || rec.clockIn,
+                                    _clockOut: rec.billingEnd || rec.clockOut,
+                                  }));
 
-                    {/* Desktop Table */}
-                    <div className="hidden md:block">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4">
-                              Date
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Schedule
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
-                              Clock In
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
-                              Clock Out
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Break
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Regular Hours
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Overtime
-                            </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Worked OT Without Prior Approval
-                            </th>
-                            <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {emp.filteredRecords.map((rec) => {
-                            const status = rec.status?.toLowerCase();
-                            const displayStatus = deriveDisplayStatus(rec);
-                            const isLeaveOrHoliday =
-                              status === "paid_leave" ||
-                              status === "unpaid_leave" ||
-                              status === "holiday";
-                            const otEntries = rec.overtimeEntries || [];
-                            // Pre-requested OT only (manually submitted)
-                            const requestedOTEntries = otEntries.filter(
-                              (ot) => !ot.isAutoGenerated,
-                            );
-                            const preApprovedOTMins = requestedOTEntries.reduce(
-                              (s, o) => s + (o.requestedMinutes || 0),
-                              0,
-                            );
-                            const regularM = Math.max(
-                              0,
-                              (rec.regularMinutes ?? rec.billingMinutes ?? 0) -
-                                preApprovedOTMins,
-                            );
-                            // const approvedRequestedOT = requestedOTEntries.filter(
-                            //   (ot) =>
-                            //     ot.status === "APPROVED" ||
-                            //     ot.status === "AUTO_APPROVED",
-                            // );
-                            const pendingRequestedOT = requestedOTEntries
-                              .filter((ot) => ot.status === "PENDING")
-                              .map((ot) => ({
-                                ...ot,
-                                _date: rec.date,
-                                _clockIn: rec.billingStart || rec.clockIn,
-                                _clockOut: rec.billingEnd || rec.clockOut,
-                              }));
-                            // Auto-generated OT (without prior approval)
-                            const autoOTEntries = otEntries.filter(
-                              (ot) => ot.isAutoGenerated,
-                            );
-                            const pendingAutoOT = autoOTEntries
-                              .filter((ot) => ot.status === "PENDING")
-                              .map((ot) => ({
-                                ...ot,
-                                _date: rec.date,
-                                _clockIn: rec.billingStart || rec.clockIn,
-                                _clockOut: rec.billingEnd || rec.clockOut,
-                              }));
+                                const dateLabel =
+                                  rec.dateObj.toLocaleDateString("en-US", {
+                                    weekday: "short",
+                                    month: "short",
+                                    day: "numeric",
+                                    timeZone: "UTC",
+                                  });
 
-                            const dateLabel = rec.dateObj.toLocaleDateString(
-                              "en-US",
-                              {
-                                weekday: "short",
-                                month: "short",
-                                day: "numeric",
-                                timeZone: "UTC",
-                              },
-                            );
+                                const isActive =
+                                  rec.status?.toLowerCase() === "active";
+                                const clockIn = rec.clockIn;
+                                const clockOut =
+                                  rec.clockOut ||
+                                  (!isActive ? rec.billingEnd : null);
 
-                            const isActive =
-                              rec.status?.toLowerCase() === "active";
-                            const clockIn = rec.clockIn;
-                            const clockOut =
-                              rec.clockOut ||
-                              (!isActive ? rec.billingEnd : null);
-
-                            return (
-                              <tr
-                                key={rec.date}
-                                className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50"
-                              >
-                                <td className="py-2.5 px-4 text-sm">
-                                  <span className="text-gray-900 whitespace-nowrap">
-                                    {dateLabel}
-                                  </span>
-                                  {rec.isLate && regularM > 0 && (
-                                    <span className="ml-1.5 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
-                                      LATE
-                                    </span>
-                                  )}
-                                </td>
-
-                                {isLeaveOrHoliday ? (
-                                  <td
-                                    colSpan={8}
-                                    className="py-2.5 px-3 text-center"
+                                return (
+                                  <tr
+                                    key={rec.date}
+                                    className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50"
                                   >
-                                    {getStatusBadge(displayStatus)}
-                                  </td>
-                                ) : (
-                                  <>
-                                    <td className="py-2.5 px-3 text-center text-sm text-gray-700 whitespace-nowrap">
-                                      {getScheduleLabel(rec)}
-                                    </td>
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      {clockIn ? (
-                                        <span className="text-gray-900">
-                                          {formatClockTime(
-                                            clockIn,
-                                            clientTimezone,
-                                          )}
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-300">—</span>
-                                      )}
-                                    </td>
-
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      {clockOut ? (
-                                        <span className="text-gray-900">
-                                          {formatClockTime(
-                                            clockOut,
-                                            clientTimezone,
-                                          )}
-                                        </span>
-                                      ) : isActive && clockIn ? (
-                                        <span className="text-green-600 font-medium text-xs">
-                                          In Progress
-                                        </span>
-                                      ) : (
-                                        <span className="text-gray-300">—</span>
-                                      )}
-                                    </td>
-
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      <span
-                                        className={
-                                          (rec.breakMinutes || 0) > 0
-                                            ? "text-yellow-600 font-medium"
-                                            : "text-gray-300"
-                                        }
-                                      >
-                                        {(rec.breakMinutes || 0) > 0
-                                          ? formatHours(rec.breakMinutes / 60)
-                                          : "—"}
+                                    <td className="py-2.5 px-4 text-sm">
+                                      <span className="text-gray-900 whitespace-nowrap">
+                                        {dateLabel}
                                       </span>
-                                    </td>
-
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      {isActive ? (
-                                        <span className="text-gray-300">—</span>
-                                      ) : (
-                                        <span
-                                          className={
-                                            regularM > 0
-                                              ? "font-semibold text-gray-900"
-                                              : "text-gray-300"
-                                          }
-                                        >
-                                          {formatHours(regularM / 60)}
+                                      {rec.isLate && regularM > 0 && (
+                                        <span className="ml-1.5 text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">
+                                          LATE
                                         </span>
                                       )}
                                     </td>
 
-                                    {/* Overtime (pre-requested) */}
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      {requestedOTEntries.length > 0 ? (
-                                        <div className="flex flex-col items-center gap-0.5">
-                                          {requestedOTEntries.map((ot, i) => (
-                                            <span
-                                              key={ot.id || i}
-                                              className="inline-flex items-center gap-1 whitespace-nowrap"
-                                            >
-                                              <span
-                                                className={
-                                                  ot.status === "APPROVED" ||
-                                                  ot.status === "AUTO_APPROVED"
-                                                    ? "text-green-700 font-medium"
-                                                    : "text-orange-600 font-medium"
-                                                }
-                                              >
-                                                {formatHours(
-                                                  ot.requestedMinutes / 60,
-                                                )}
-                                              </span>
-                                              <span className="text-[10px] text-gray-400">
-                                                {ot.type === "SHIFT_EXTENSION"
-                                                  ? "ext"
-                                                  : "off"}
-                                              </span>
-                                              {(ot.status === "APPROVED" ||
-                                                ot.status ===
-                                                  "AUTO_APPROVED") && (
-                                                <CheckCircle className="w-3 h-3 text-green-500" />
-                                              )}
-                                              {ot.status === "PENDING" && (
-                                                <span className="text-[10px] text-amber-500">
-                                                  pending
-                                                </span>
+                                    {isLeaveOrHoliday ? (
+                                      <td
+                                        colSpan={8}
+                                        className="py-2.5 px-3 text-center"
+                                      >
+                                        {getStatusBadge(displayStatus)}
+                                      </td>
+                                    ) : (
+                                      <>
+                                        <td className="py-2.5 px-3 text-center text-sm text-gray-700 whitespace-nowrap">
+                                          {getScheduleLabel(rec)}
+                                        </td>
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          {clockIn ? (
+                                            <span className="text-gray-900">
+                                              {formatClockTime(
+                                                clockIn,
+                                                clientTimezone,
                                               )}
                                             </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-300">—</span>
-                                      )}
-                                    </td>
+                                          ) : (
+                                            <span className="text-gray-300">
+                                              —
+                                            </span>
+                                          )}
+                                        </td>
 
-                                    {/* OT Without Prior Approval */}
-                                    <td className="py-2.5 px-3 text-center text-sm">
-                                      {autoOTEntries.length > 0 ? (
-                                        <div className="flex flex-col items-center gap-0.5">
-                                          {autoOTEntries.map((ot, i) => (
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          {clockOut ? (
+                                            <span className="text-gray-900">
+                                              {formatClockTime(
+                                                clockOut,
+                                                clientTimezone,
+                                              )}
+                                            </span>
+                                          ) : isActive && clockIn ? (
+                                            <span className="text-green-600 font-medium text-xs">
+                                              In Progress
+                                            </span>
+                                          ) : (
+                                            <span className="text-gray-300">
+                                              —
+                                            </span>
+                                          )}
+                                        </td>
+
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          <span
+                                            className={
+                                              (rec.breakMinutes || 0) > 0
+                                                ? "text-yellow-600 font-medium"
+                                                : "text-gray-300"
+                                            }
+                                          >
+                                            {(rec.breakMinutes || 0) > 0
+                                              ? formatHours(
+                                                  rec.breakMinutes / 60,
+                                                )
+                                              : "—"}
+                                          </span>
+                                        </td>
+
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          {isActive ? (
+                                            <span className="text-gray-300">
+                                              —
+                                            </span>
+                                          ) : (
                                             <span
-                                              key={ot.id || i}
-                                              className="inline-flex items-center gap-1 whitespace-nowrap"
+                                              className={
+                                                regularM > 0
+                                                  ? "font-semibold text-gray-900"
+                                                  : "text-gray-300"
+                                              }
                                             >
-                                              <span
-                                                className={
-                                                  ot.status === "APPROVED" ||
-                                                  ot.status === "AUTO_APPROVED"
-                                                    ? "text-green-700 font-medium"
-                                                    : "text-orange-600 font-medium"
-                                                }
-                                              >
-                                                {formatHours(
-                                                  ot.requestedMinutes / 60,
-                                                )}
-                                              </span>
-                                              <span className="text-[10px] text-gray-400">
-                                                {ot.type === "SHIFT_EXTENSION"
-                                                  ? "ext"
-                                                  : "off"}
-                                              </span>
-                                              {/* {(ot.status === "APPROVED" ||
+                                              {formatHours(regularM / 60)}
+                                            </span>
+                                          )}
+                                        </td>
+
+                                        {/* Overtime (pre-requested) */}
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          {requestedOTEntries.length > 0 ? (
+                                            <div className="flex flex-col items-center gap-0.5">
+                                              {requestedOTEntries.map(
+                                                (ot, i) => (
+                                                  <span
+                                                    key={ot.id || i}
+                                                    className="inline-flex items-center gap-1 whitespace-nowrap"
+                                                  >
+                                                    <span
+                                                      className={
+                                                        ot.status ===
+                                                          "APPROVED" ||
+                                                        ot.status ===
+                                                          "AUTO_APPROVED"
+                                                          ? "text-green-700 font-medium"
+                                                          : "text-orange-600 font-medium"
+                                                      }
+                                                    >
+                                                      {formatHours(
+                                                        ot.requestedMinutes /
+                                                          60,
+                                                      )}
+                                                    </span>
+                                                    <span className="text-[10px] text-gray-400">
+                                                      {ot.type ===
+                                                      "SHIFT_EXTENSION"
+                                                        ? "ext"
+                                                        : "off"}
+                                                    </span>
+                                                    {(ot.status ===
+                                                      "APPROVED" ||
+                                                      ot.status ===
+                                                        "AUTO_APPROVED") && (
+                                                      <CheckCircle className="w-3 h-3 text-green-500" />
+                                                    )}
+                                                    {ot.status ===
+                                                      "PENDING" && (
+                                                      <span className="text-[10px] text-amber-500">
+                                                        pending
+                                                      </span>
+                                                    )}
+                                                  </span>
+                                                ),
+                                              )}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-300">
+                                              —
+                                            </span>
+                                          )}
+                                        </td>
+
+                                        {/* OT Without Prior Approval */}
+                                        <td className="py-2.5 px-3 text-center text-sm">
+                                          {autoOTEntries.length > 0 ? (
+                                            <div className="flex flex-col items-center gap-0.5">
+                                              {autoOTEntries.map((ot, i) => (
+                                                <span
+                                                  key={ot.id || i}
+                                                  className="inline-flex items-center gap-1 whitespace-nowrap"
+                                                >
+                                                  <span
+                                                    className={
+                                                      ot.status ===
+                                                        "APPROVED" ||
+                                                      ot.status ===
+                                                        "AUTO_APPROVED"
+                                                        ? "text-green-700 font-medium"
+                                                        : "text-orange-600 font-medium"
+                                                    }
+                                                  >
+                                                    {formatHours(
+                                                      ot.requestedMinutes / 60,
+                                                    )}
+                                                  </span>
+                                                  <span className="text-[10px] text-gray-400">
+                                                    {ot.type ===
+                                                    "SHIFT_EXTENSION"
+                                                      ? "ext"
+                                                      : "off"}
+                                                  </span>
+                                                  {/* {(ot.status === "APPROVED" ||
                                             ot.status === "AUTO_APPROVED") && (
                                             <CheckCircle className="w-3 h-3 text-green-500" />
                                           )} */}
-                                              {/* {ot.status === "PENDING" && (
+                                                  {/* {ot.status === "PENDING" && (
                                             <span className="text-[10px] text-amber-500">
                                               pending
                                             </span>
                                           )} */}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-300">
+                                              —
                                             </span>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-300">—</span>
-                                      )}
-                                    </td>
+                                          )}
+                                        </td>
 
-                                    {/* Actions */}
-                                    <td className="py-2.5 px-4 text-right">
-                                      {[...pendingRequestedOT, ...pendingAutoOT]
-                                        .length > 0 ? (
-                                        <div className="flex items-center justify-end gap-1.5">
-                                          <button
-                                            onClick={() =>
-                                              openOTSelectionModal(
-                                                [
-                                                  ...pendingRequestedOT,
-                                                  ...pendingAutoOT,
-                                                ],
-                                                "approve",
-                                              )
-                                            }
-                                            disabled={actionLoading}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
-                                          >
-                                            <Check className="w-3 h-3" />
-                                            Approve
-                                          </button>
-                                          <button
-                                            onClick={() =>
-                                              openOTSelectionModal(
-                                                [
-                                                  ...pendingRequestedOT,
-                                                  ...pendingAutoOT,
-                                                ],
-                                                "reject",
-                                              )
-                                            }
-                                            disabled={actionLoading}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
-                                          >
-                                            <X className="w-3 h-3" />
-                                            Deny
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <span className="text-gray-300">—</span>
-                                      )}
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-
+                                        {/* Actions */}
+                                        <td className="py-2.5 px-4 text-right">
+                                          {[
+                                            ...pendingRequestedOT,
+                                            ...pendingAutoOT,
+                                          ].length > 0 ? (
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              <button
+                                                onClick={() =>
+                                                  openOTSelectionModal(
+                                                    [
+                                                      ...pendingRequestedOT,
+                                                      ...pendingAutoOT,
+                                                    ],
+                                                    "approve",
+                                                  )
+                                                }
+                                                disabled={actionLoading}
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded-md hover:bg-green-100 transition-colors disabled:opacity-50"
+                                              >
+                                                <Check className="w-3 h-3" />
+                                                Approve
+                                              </button>
+                                              <button
+                                                onClick={() =>
+                                                  openOTSelectionModal(
+                                                    [
+                                                      ...pendingRequestedOT,
+                                                      ...pendingAutoOT,
+                                                    ],
+                                                    "reject",
+                                                  )
+                                                }
+                                                disabled={actionLoading}
+                                                className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded-md hover:bg-red-100 transition-colors disabled:opacity-50"
+                                              >
+                                                <X className="w-3 h-3" />
+                                                Deny
+                                              </button>
+                                            </div>
+                                          ) : (
+                                            <span className="text-gray-300">
+                                              —
+                                            </span>
+                                          )}
+                                        </td>
+                                      </>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>{" "}
+                      </>
+                    )}
                     {/* Mobile Cards */}
                     <div className="md:hidden divide-y divide-gray-50">
                       {emp.filteredRecords.map((rec) => {
