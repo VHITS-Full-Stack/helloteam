@@ -744,33 +744,21 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.scheduledStart && item.scheduledEnd ? (
                             <span className="text-sm text-gray-700">
-                              {formatTime12(
-                                typeof item.scheduledStart === "string" &&
-                                  /^\d{1,2}:\d{2}$/.test(item.scheduledStart)
-                                  ? item.scheduledStart
-                                  : new Date(
-                                      item.scheduledStart,
-                                    ).toLocaleTimeString("en-US", {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                      hour12: false,
-                                      timeZone: item.clientTimezone || "UTC",
-                                    }),
-                              )}
+                              {typeof item.scheduledStart === "string" &&
+                              /^\d{1,2}:\d{2}$/.test(item.scheduledStart)
+                                ? formatTime12(item.scheduledStart)
+                                : formatTimeInTimeZone(
+                                    item.scheduledStart,
+                                    item.clientTimezone,
+                                  )}
                               <span className="text-gray-300 mx-0.5">–</span>
-                              {formatTime12(
-                                typeof item.scheduledEnd === "string" &&
-                                  /^\d{1,2}:\d{2}$/.test(item.scheduledEnd)
-                                  ? item.scheduledEnd
-                                  : new Date(
-                                      item.scheduledEnd,
-                                    ).toLocaleTimeString("en-US", {
-                                      hour: "numeric",
-                                      minute: "2-digit",
-                                      hour12: false,
-                                      timeZone: item.clientTimezone || "UTC",
-                                    }),
-                              )}
+                              {typeof item.scheduledEnd === "string" &&
+                              /^\d{1,2}:\d{2}$/.test(item.scheduledEnd)
+                                ? formatTime12(item.scheduledEnd)
+                                : formatTimeInTimeZone(
+                                    item.scheduledEnd,
+                                    item.clientTimezone,
+                                  )}
                             </span>
                           ) : (
                             <span className="text-gray-300">—</span>
@@ -782,13 +770,22 @@ const Approvals = () => {
                         <TableCell className="!px-3">
                           {item.clockIn ? (
                             <span className="text-sm text-gray-700">
-                              {new Date(item.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}
+                              {typeof item.clockIn === "string" &&
+                              /^\d{1,2}:\d{2}$/.test(item.clockIn)
+                                ? formatTime12(item.clockIn)
+                                : formatTimeInTimeZone(
+                                    item.clockIn,
+                                    item.clientTimezone,
+                                  )}
                               <span className="text-gray-300 mx-0.5">–</span>
-                              {item.clockOut ? (
-                                new Date(item.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                              ) : (
-                                <span className="text-green-600">Active</span>
-                              )}
+
+                              {typeof item.clockOut === "string" &&
+                              /^\d{1,2}:\d{2}$/.test(item.clockOut)
+                                ? formatTime12(item.clockOut)
+                                : formatTimeInTimeZone(
+                                    item.clockOut,
+                                    item.clientTimezone,
+                                  )}
                             </span>
                           ) : (
                             <span className="text-gray-300">—</span>
@@ -1011,20 +1008,27 @@ const Approvals = () => {
                   })}
                 </span>
               </div>
-              {activeType === "manual" && (selectedItem.clockIn || selectedItem.clockOut) && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Hours</span>
-                  <span className="font-medium">
-                    {selectedItem.clockIn
-                      ? new Date(selectedItem.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "--"}
-                    {" – "}
-                    {selectedItem.clockOut
-                      ? new Date(selectedItem.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "--"}
-                  </span>
-                </div>
-              )}
+              {activeType === "manual" &&
+                (selectedItem.clockIn || selectedItem.clockOut) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Hours</span>
+                    <span className="font-medium">
+                      {selectedItem.clockIn
+                        ? formatTimeInTimeZone(
+                            selectedItem.clockIn,
+                            selectedItem.clientTimezone || "America/New_York",
+                          )
+                        : "--"}
+                      {" – "}
+                      {selectedItem.clockOut
+                        ? formatTimeInTimeZone(
+                            selectedItem.clockOut,
+                            selectedItem.clientTimezone || "America/New_York",
+                          )
+                        : "--"}
+                    </span>
+                  </div>
+                )}
               {selectedItem.timesheetConflict && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-start gap-2 text-yellow-700 text-sm">
                   <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
@@ -1166,20 +1170,27 @@ const Approvals = () => {
                   </span>
                 </div>
               )}
-              {activeType === "manual" && (selectedItem.clockIn || selectedItem.clockOut) && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Hours</span>
-                  <span className="font-medium">
-                    {selectedItem.clockIn
-                      ? new Date(selectedItem.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "--"}
-                    {" – "}
-                    {selectedItem.clockOut
-                      ? new Date(selectedItem.clockOut).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-                      : "--"}
-                  </span>
-                </div>
-              )}
+              {activeType === "manual" &&
+                (selectedItem.clockIn || selectedItem.clockOut) && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Hours</span>
+                    <span className="font-medium">
+                      {selectedItem.clockIn
+                        ? formatTimeInTimeZone(
+                            selectedItem.clockIn,
+                            selectedItem.clientTimezone || "America/New_York",
+                          )
+                        : "--"}
+                      {" – "}
+                      {selectedItem.clockOut
+                        ? formatTimeInTimeZone(
+                            selectedItem.clockOut,
+                            selectedItem.clientTimezone || "America/New_York",
+                          )
+                        : "--"}
+                    </span>
+                  </div>
+                )}
             </div>
             <div>
               <label className="label">Rejection Reason *</label>
