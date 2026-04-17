@@ -865,13 +865,13 @@ const TimeRecords = () => {
                             },
                             {
                               key: null,
-                              label: "Billing In",
+                              label: "Clock In",
                               align: "center",
                               px: "px-3",
                             },
                             {
                               key: null,
-                              label: "Billing Out",
+                              label: "Clock Out",
                               align: "center",
                               px: "px-3",
                             },
@@ -1261,11 +1261,11 @@ const TimeRecords = () => {
                             <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                               Schedule
                             </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Billing In
+                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
+                              Clock In
                             </th>
-                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                              Billing Out
+                            <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3 whitespace-nowrap">
+                              Clock Out
                             </th>
                             <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
                               Break
