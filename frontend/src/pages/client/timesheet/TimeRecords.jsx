@@ -491,13 +491,16 @@ const TimeRecords = () => {
           return { ...r, dateObj: d, dayOfWeek: d.getUTCDay() };
         })
         .filter((r) => {
-          const isWeekend = r.dayOfWeek === 0 || r.dayOfWeek === 6;
           const status = r.status?.toLowerCase();
-          // Hide weekend not_started placeholders
+          // Hide any day where employee didn't work (no clock-in, 0 minutes, not leave/holiday)
+          const isLeaveOrHoliday =
+            status === "paid_leave" ||
+            status === "unpaid_leave" ||
+            status === "holiday";
           if (
-            isWeekend &&
-            (r.totalMinutes || 0) === 0 &&
-            status === "not_started"
+            !isLeaveOrHoliday &&
+            !r.clockIn &&
+            (r.totalMinutes || 0) === 0
           )
             return false;
           // When a specific status filter is active, hide non-matching records

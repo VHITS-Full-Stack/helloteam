@@ -277,12 +277,22 @@ const BonusesRaises = () => {
               />
               {selectedRaiseEmployee && billRateNum > 0 && (
                 <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
-                  Current Rate:{' '}
-                  <span className="font-semibold">${selectedRaiseEmployee.hourlyRate.toFixed(2)}/hr</span>
-                  {' '}+{' '}Raise:{' '}
-                  <span className="font-semibold">${billRateNum.toFixed(2)}/hr</span>
-                  {' '}={' '}New Rate:{' '}
-                  <span className="font-bold text-green-700">${(selectedRaiseEmployee.hourlyRate + billRateNum).toFixed(2)}/hr</span>
+                  Current Rate:{" "}
+                  <span className="font-semibold">
+                    ${selectedRaiseEmployee.hourlyRate.toFixed(2)}/hr
+                  </span>{" "}
+                  + Raise:{" "}
+                  <span className="font-semibold">
+                    ${billRateNum.toFixed(2)}/hr
+                  </span>{" "}
+                  = New Rate:{" "}
+                  <span className="font-bold text-green-700">
+                    $
+                    {(selectedRaiseEmployee.hourlyRate + billRateNum).toFixed(
+                      2,
+                    )}
+                    /hr
+                  </span>
                 </div>
               )}
             </div>
@@ -326,7 +336,20 @@ const BonusesRaises = () => {
       {showSuccessModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4 text-left">
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                {successModalType === "bonus" ? (
+                  <p>
+                    Bonus Confirmed!
+                    {successModalType === "bonus" ? "🎉" : "🎉"}
+                  </p>
+                ) : (
+                  <p>
+                    Raise Request Submitted!
+                    {successModalType === "bonus" ? "🎉" : "🎉"}
+                  </p>
+                )}
+              </h3>{" "}
               <button
                 onClick={() => setShowSuccessModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -334,20 +357,6 @@ const BonusesRaises = () => {
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
-              {successModalType === "bonus" ? (
-                <p>
-                  Bonus Confirmed!
-                  {successModalType === "bonus" ? "🎉" : "🎉"}
-                </p>
-              ) : (
-                <p>
-                  Raise Request Submitted!
-                  {successModalType === "bonus" ? "🎉" : "🎉"}
-                </p>
-              )}
-            </h3>
 
             <p className="text-sm text-gray-500 mb-6">
               {successModalType === "bonus" ? (
