@@ -188,13 +188,13 @@ const BonusesRaises = () => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0"
                 min="0"
                 value={bonusForm.amount}
                 onChange={(e) =>
                   setBonusForm({ ...bonusForm, amount: e.target.value })
                 }
-                placeholder="0.00"
+                placeholder="0"
                 className="input w-full"
               />
             </div>
@@ -270,13 +270,13 @@ const BonusesRaises = () => {
               </label>
               <input
                 type="number"
-                step="0.01"
+                step="0"
                 min="0"
                 value={raiseForm.billRate}
                 onChange={(e) =>
                   setRaiseForm({ ...raiseForm, billRate: e.target.value })
                 }
-                placeholder="0.00"
+                placeholder="0"
                 className="input w-full"
               />
               {selectedRaiseEmployee && billRateNum > 0 && (
@@ -352,7 +352,7 @@ const BonusesRaises = () => {
                   <p className="text-xs text-gray-500 mt-0.5">
                     Billing rate updated
                     {n.effectiveDate && ` effective ${new Date(n.effectiveDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`}
-                    {n.clientCoveredAmount != null && (
+                    {n.clientCoveredAmount !== null && (
                       <span className="ml-1 text-blue-700 font-medium">+${n.clientCoveredAmount.toFixed(2)}/hr</span>
                     )}
                   </p>
