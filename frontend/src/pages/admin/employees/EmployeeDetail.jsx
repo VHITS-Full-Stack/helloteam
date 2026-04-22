@@ -22,6 +22,8 @@ import {
   Sun,
   FileText,
   Minus,
+  TrendingUp,
+  Gift,
 } from 'lucide-react';
 import {
   Card,
@@ -54,17 +56,32 @@ const EmployeeDetail = () => {
   const [impersonating, setImpersonating] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [bonusHistory, setBonusHistory] = useState([]);
+
+  // Edit Pay Rate modal
+  const [showEditPayRate, setShowEditPayRate] = useState(false);
+  const [editPayRateForm, setEditPayRateForm] = useState({ newPayRate: '', effectiveDate: '', reason: '' });
+  const [editPayRateLoading, setEditPayRateLoading] = useState(false);
+  const [editPayRateError, setEditPayRateError] = useState('');
+
+  // Edit Billing Rate modal
+  const [showEditBillRate, setShowEditBillRate] = useState(false);
+  const [editBillRateForm, setEditBillRateForm] = useState({ newBillRate: '', effectiveDate: '', reason: '' });
+  const [editBillRateLoading, setEditBillRateLoading] = useState(false);
+  const [editBillRateError, setEditBillRateError] = useState('');
 
   useEffect(() => {
-    const fetchPendingRequests = async () => {
+    const fetchEmployeeRequests = async () => {
       try {
-        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING' });
-        if (res.success) {
-          setPendingRequests((res.data?.requests || []).filter((r) => r.employeeId === id));
-        }
+        const [pendingRes, bonusRes] = await Promise.all([
+          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
+          adminPortalService.getRaiseRequests({ type: 'BONUS', status: 'APPROVED', employeeId: id }),
+        ]);
+        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (bonusRes.success) setBonusHistory(bonusRes.data?.requests || []);
       } catch (e) { /* ignore */ }
     };
-    if (id) fetchPendingRequests();
+    if (id) fetchEmployeeRequests();
   }, [id]);
 
   const handleImpersonate = async () => {
@@ -121,6 +138,82 @@ const EmployeeDetail = () => {
     refresh,
     rateHistory,
   } = useEmployeeDetail(id);
+
+  const openEditPayRate = () => {
+    setEditPayRateForm({
+      newPayRate: employee?.payableRate ? Number(employee.payableRate).toFixed(2) : '',
+      effectiveDate: new Date().toISOString().split('T')[0],
+      reason: '',
+    });
+    setEditPayRateError('');
+    setShowEditPayRate(true);
+  };
+
+  const handleEditPayRateSubmit = async () => {
+    if (!editPayRateForm.reason?.trim()) {
+      setEditPayRateError('Reason is required');
+      return;
+    }
+    setEditPayRateLoading(true);
+    setEditPayRateError('');
+    try {
+      const response = await adminPortalService.editPayRate(id, {
+        ...editPayRateForm,
+        clientId: activeClient?.client?.id,
+      });
+      if (response.success) {
+        setShowEditPayRate(false);
+        // Re-fetch pending requests to show the new pending edit
+        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id });
+        if (res.success) setPendingRequests(res.data?.requests || []);
+      } else {
+        setEditPayRateError(response.error || 'Failed to submit pay rate edit');
+      }
+    } catch (err) {
+      setEditPayRateError(err.error || err.message || 'Failed to submit pay rate edit');
+    } finally {
+      setEditPayRateLoading(false);
+    }
+  };
+
+  const openEditBillRate = () => {
+    const currentBillRate = activeClient
+      ? (employee.billingRate ? Number(employee.billingRate).toFixed(2) : '')
+      : '';
+    setEditBillRateForm({
+      newBillRate: currentBillRate,
+      effectiveDate: new Date().toISOString().split('T')[0],
+      reason: '',
+    });
+    setEditBillRateError('');
+    setShowEditBillRate(true);
+  };
+
+  const handleEditBillRateSubmit = async () => {
+    if (!editBillRateForm.reason?.trim()) {
+      setEditBillRateError('Reason is required');
+      return;
+    }
+    setEditBillRateLoading(true);
+    setEditBillRateError('');
+    try {
+      const response = await adminPortalService.editBillingRate(id, {
+        clientId: activeClient?.client?.id,
+        ...editBillRateForm,
+      });
+      if (response.success) {
+        setShowEditBillRate(false);
+        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id });
+        if (res.success) setPendingRequests(res.data?.requests || []);
+      } else {
+        setEditBillRateError(response.error || 'Failed to submit billing rate edit');
+      }
+    } catch (err) {
+      setEditBillRateError(err.error || err.message || 'Failed to submit billing rate edit');
+    } finally {
+      setEditBillRateLoading(false);
+    }
+  };
 
   const getStatusBadge = () => {
     if (employee?.terminationDate) {
@@ -339,6 +432,10 @@ const EmployeeDetail = () => {
               <div key={r.id} className="flex items-center gap-2 text-sm">
                 {r.type === 'BONUS' ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bonus</span>
+                ) : r.type === 'PAY_EDIT' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Pay Edit</span>
+                ) : r.type === 'BILLING_EDIT' ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">Bill Edit</span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Raise</span>
                 )}
@@ -361,6 +458,7 @@ const EmployeeDetail = () => {
           {[
             { key: 'overview', label: 'Overview', icon: Mail },
             { key: 'schedule', label: 'Schedule & Rates', icon: Calendar },
+            { key: 'compensation', label: 'Compensation', icon: DollarSign },
             { key: 'time', label: 'Time & Stats', icon: Clock },
             { key: 'billing', label: 'Billing History', icon: DollarSign },
           ].map((tab) => (
@@ -542,6 +640,177 @@ const EmployeeDetail = () => {
         </div>
       )}
 
+      {/* Compensation Tab */}
+      {activeTab === 'compensation' && (() => {
+        const payRateHistory = rateHistory.filter(r => r.rateType === 'PAYABLE_RATE');
+        const billRateHistory = rateHistory.filter(r => r.rateType === 'BILLING_RATE' || r.rateType === 'HOURLY_RATE');
+        const latestPayChange = payRateHistory[0];
+        const latestBillChange = billRateHistory[0];
+
+        return (
+          <div className="space-y-4">
+            {/* Employee Pay section */}
+            <Card padding="md">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Employee Pay</h3>
+                <div className="flex items-center gap-2">
+                  <Link to="/admin/raise-requests?tab=raise">
+                    <Button variant="outline" size="sm" icon={TrendingUp} className="text-blue-600 border-blue-300 hover:bg-blue-50">
+                      Give Raise
+                    </Button>
+                  </Link>
+                  <Link to="/admin/raise-requests?tab=bonus">
+                    <Button variant="outline" size="sm" icon={Gift} className="text-amber-600 border-amber-300 hover:bg-amber-50">
+                      Give Bonus
+                    </Button>
+                  </Link>
+                  <Button variant="outline" size="sm" icon={Edit} onClick={openEditPayRate}>
+                    Edit Pay Rate
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Current Pay Rate</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}/hr` : '—'}
+                  </p>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg">
+                  <p className="text-xs text-gray-500 mb-1">Effective Since</p>
+                  <p className="text-sm font-medium text-gray-700">
+                    {latestPayChange ? formatDate(latestPayChange.changeDate) : (employee.hireDate ? formatDate(employee.hireDate) : '—')}
+                  </p>
+                </div>
+              </div>
+              {bonusHistory.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Bonus History</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-amber-50/60 border-b border-gray-200">
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
+                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Amount</th>
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Coverage</th>
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Reason</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {bonusHistory.map((b) => (
+                          <tr key={b.id} className="hover:bg-gray-50/50">
+                            <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
+                              {new Date(b.effectiveDate || b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </td>
+                            <td className="py-2 px-3 text-center font-semibold text-amber-700">${Number(b.amount).toFixed(2)}</td>
+                            <td className="py-2 px-3 text-xs">
+                              {b.coverageType ? (
+                                <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                                  b.coverageType === 'FULL' ? 'bg-green-100 text-green-700' :
+                                  b.coverageType === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-600'
+                                }`}>{b.coverageType}</span>
+                              ) : '—'}
+                            </td>
+                            <td className="py-2 px-3 text-gray-400 text-xs truncate max-w-[160px]">{b.reason || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {payRateHistory.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Pay Rate History</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50/50 border-b border-gray-200">
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
+                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Old Rate</th>
+                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">New Rate</th>
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Changed By</th>
+                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Notes</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {payRateHistory.map((r) => (
+                          <tr key={r.id} className="hover:bg-gray-50/50">
+                            <td className="py-2 px-3 text-gray-900 whitespace-nowrap">{formatDate(r.changeDate)}</td>
+                            <td className="py-2 px-3 text-center text-gray-500">{r.oldValue != null ? `$${Number(r.oldValue).toFixed(2)}` : '—'}</td>
+                            <td className="py-2 px-3 text-center font-semibold text-gray-900">{r.newValue != null ? `$${Number(r.newValue).toFixed(2)}` : '—'}</td>
+                            <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{r.changedByName || '—'}</td>
+                            <td className="py-2 px-3 text-gray-400 text-xs">{r.notes || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </Card>
+
+            {/* Billing Rate section */}
+            {activeClient && (
+              <Card padding="md">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold text-gray-900">Billing Rate</h3>
+                  <Button variant="outline" size="sm" icon={Edit} onClick={openEditBillRate}>
+                    Edit Billing Rate
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 mb-1">Current Billing Rate</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {employee.billingRate ? `$${Number(employee.billingRate).toFixed(2)}/hr` : '—'}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">{activeClient.client?.companyName}</p>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-500 mb-1">Effective Since</p>
+                    <p className="text-sm font-medium text-gray-700">
+                      {latestBillChange ? formatDate(latestBillChange.changeDate) : (employee.hireDate ? formatDate(employee.hireDate) : '—')}
+                    </p>
+                  </div>
+                </div>
+                {billRateHistory.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Billing Rate History</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50/50 border-b border-gray-200">
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
+                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Old Rate</th>
+                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">New Rate</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Changed By</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {billRateHistory.map((r) => (
+                            <tr key={r.id} className="hover:bg-gray-50/50">
+                              <td className="py-2 px-3 text-gray-900 whitespace-nowrap">{formatDate(r.changeDate)}</td>
+                              <td className="py-2 px-3 text-center text-gray-500">{r.oldValue != null ? `$${Number(r.oldValue).toFixed(2)}` : '—'}</td>
+                              <td className="py-2 px-3 text-center font-semibold text-gray-900">{r.newValue != null ? `$${Number(r.newValue).toFixed(2)}` : '—'}</td>
+                              <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{r.changedByName || '—'}</td>
+                              <td className="py-2 px-3 text-gray-400 text-xs">{r.notes || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </Card>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Time & Stats Tab */}
       {activeTab === 'time' && (
         <div className="space-y-4">
@@ -680,6 +949,122 @@ const EmployeeDetail = () => {
           )}
         </div>
       )}
+
+      {/* ── Edit Pay Rate Modal ── */}
+      <Modal
+        isOpen={showEditPayRate}
+        onClose={() => setShowEditPayRate(false)}
+        title="Edit Employee Pay Rate"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Pay Rate ($/hr)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="e.g. 22.50"
+              value={editPayRateForm.newPayRate}
+              onChange={(e) => setEditPayRateForm(f => ({ ...f, newPayRate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+            <input
+              type="date"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={editPayRateForm.effectiveDate}
+              onChange={(e) => setEditPayRateForm(f => ({ ...f, effectiveDate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+            <textarea
+              rows={2}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+              placeholder="Reason for rate change..."
+              value={editPayRateForm.reason}
+              onChange={(e) => setEditPayRateForm(f => ({ ...f, reason: e.target.value }))}
+            />
+          </div>
+          {editPayRateError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{editPayRateError}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setShowEditPayRate(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={handleEditPayRateSubmit}
+              loading={editPayRateLoading}
+              disabled={!editPayRateForm.newPayRate || !editPayRateForm.effectiveDate || !editPayRateForm.reason?.trim()}
+            >
+              Submit for Approval
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Edit Billing Rate Modal ── */}
+      <Modal
+        isOpen={showEditBillRate}
+        onClose={() => setShowEditBillRate(false)}
+        title="Edit Billing Rate"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">New Billing Rate ($/hr)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              placeholder="e.g. 35.00"
+              value={editBillRateForm.newBillRate}
+              onChange={(e) => setEditBillRateForm(f => ({ ...f, newBillRate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+            <input
+              type="date"
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+              value={editBillRateForm.effectiveDate}
+              onChange={(e) => setEditBillRateForm(f => ({ ...f, effectiveDate: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+            <textarea
+              rows={2}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+              placeholder="Reason for rate change..."
+              value={editBillRateForm.reason}
+              onChange={(e) => setEditBillRateForm(f => ({ ...f, reason: e.target.value }))}
+            />
+          </div>
+          {editBillRateError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{editBillRateError}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={() => setShowEditBillRate(false)}>Cancel</Button>
+            <Button
+              variant="primary"
+              onClick={handleEditBillRateSubmit}
+              loading={editBillRateLoading}
+              disabled={!editBillRateForm.newBillRate || !editBillRateForm.effectiveDate || !editBillRateForm.reason?.trim()}
+            >
+              Submit for Approval
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       {/* ── Terminate Modal ── */}
       <Modal

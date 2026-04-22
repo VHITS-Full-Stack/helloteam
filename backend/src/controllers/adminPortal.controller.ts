@@ -2143,13 +2143,16 @@ export const rejectLeaveRequest = async (req: AuthenticatedRequest, res: Respons
  */
 export const getRaiseRequests = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { status, type } = req.query;
+    const { status, type, employeeId } = req.query;
     const where: any = {};
     if (status && status !== 'all') {
       where.status = (status as string).toUpperCase();
     }
     if (type && type !== 'all') {
       where.type = (type as string).toUpperCase();
+    }
+    if (employeeId) {
+      where.employeeId = employeeId as string;
     }
 
     const requests = await prisma.clientRequest.findMany({
@@ -2265,6 +2268,40 @@ export const approveRaiseRequest = async (req: AuthenticatedRequest, res: Respon
         `UPDATE client_requests SET "approvalNote" = $1, "approvalProofUrl" = $2, "approvalProofKey" = $3, "approvalProofFileName" = $4 WHERE id = $5`,
         approvalNote?.trim() || null, proofUrl, proofKey, proofFileName, raiseId
       );
+
+      // Notify client for FULL or PARTIAL coverage bonuses
+      const coverageType = (request as any).coverageType as string | null;
+      const clientUserId = (request as any).client?.userId
+        ?? (await prisma.client.findUnique({ where: { id: request.clientId }, select: { userId: true } }))?.userId;
+      if (coverageType !== 'NONE' && clientUserId) {
+        try {
+          const { createNotification } = await import('./notification.controller');
+          const employeeName = `${request.employee.firstName} ${request.employee.lastName}`;
+          const bonusAmt = Number(request.amount);
+          const clientCovered = (request as any).clientCoveredAmount ? Number((request as any).clientCoveredAmount) : bonusAmt;
+          const effDate = request.effectiveDate ? new Date(request.effectiveDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          const isFullCoverage = coverageType === 'FULL';
+          await createNotification(
+            clientUserId,
+            'RAISE_APPLIED',
+            isFullCoverage ? 'Bonus Approved for Employee' : 'Billing Update for Employee',
+            isFullCoverage
+              ? `A bonus of $${bonusAmt.toFixed(2)} has been approved for ${employeeName}, effective ${effDate}.`
+              : `A billing adjustment of $${clientCovered.toFixed(2)} has been applied for ${employeeName}, effective ${effDate}.`,
+            {
+              bonusRequestId: raiseId,
+              employeeId: request.employeeId,
+              employeeName,
+              ...(isFullCoverage ? { bonusAmount: bonusAmt } : {}),
+              clientCoveredAmount: clientCovered,
+              effectiveDate: effDate,
+            },
+            '/client/bonuses-raises'
+          );
+        } catch (notifError) {
+          console.error('[Approve Bonus] Failed to send client notification:', notifError);
+        }
+      }
 
       res.json({ success: true, message: 'Bonus approved and added to payroll' });
     } else {
@@ -2411,6 +2448,7 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
       clientCoveredAmount,   // how much client's billing rate increases
       effectiveDate,  // ISO date string "YYYY-MM-DD"
       reason,
+      internalNotes,
     } = req.body;
 
     if (!employeeId || !clientId || !coverageType || employeeRaiseAmount == null || !effectiveDate) {
@@ -2474,6 +2512,7 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
         billRate: newBillRate,
         effectiveDate: effDate,
         reason: reason?.trim() || null,
+        adminNotes: internalNotes?.trim() || null,
         status: 'PENDING',
         raisedBy: 'ADMIN',
         coverageType,
@@ -2486,6 +2525,80 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
   } catch (error: any) {
     console.error('Give raise error:', error);
     res.status(500).json({ success: false, error: error?.message || 'Failed to create raise request' });
+  }
+};
+
+/**
+ * Admin-initiated Give Bonus — creates a PENDING bonus request
+ * POST /admin-portal/give-bonus
+ */
+export const giveBonus = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const {
+      employeeId,
+      clientId,
+      amount,
+      reason,
+      effectiveDate,
+      coverageType,   // FULL | PARTIAL | NONE
+      clientCoveredAmount,
+      internalNotes,
+    } = req.body;
+
+    if (!employeeId || !clientId || !amount || !effectiveDate || !coverageType) {
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
+    }
+
+    const bonusAmount = Number(amount);
+    if (isNaN(bonusAmount) || bonusAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Amount must be a positive number' });
+    }
+
+    if (!['FULL', 'PARTIAL', 'NONE'].includes(coverageType)) {
+      return res.status(400).json({ success: false, error: 'coverageType must be FULL, PARTIAL, or NONE' });
+    }
+
+    let coveredAmount: number;
+    if (coverageType === 'FULL') {
+      coveredAmount = bonusAmount;
+    } else if (coverageType === 'PARTIAL') {
+      coveredAmount = Number(clientCoveredAmount);
+      if (isNaN(coveredAmount) || coveredAmount <= 0 || coveredAmount >= bonusAmount) {
+        return res.status(400).json({ success: false, error: 'clientCoveredAmount must be between 0 and the bonus amount for PARTIAL coverage' });
+      }
+    } else {
+      coveredAmount = 0;
+    }
+
+    const assignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId, clientId, isActive: true },
+    });
+    if (!assignment) {
+      return res.status(404).json({ success: false, error: 'Employee not assigned to this client' });
+    }
+
+    const bonusRequest = await prisma.clientRequest.create({
+      data: {
+        type: 'BONUS',
+        employeeId,
+        clientId,
+        requestedBy: userId!,
+        amount: bonusAmount,
+        effectiveDate: new Date(effectiveDate),
+        reason: reason?.trim() || null,
+        adminNotes: internalNotes?.trim() || null,
+        status: 'PENDING',
+        raisedBy: 'ADMIN',
+        coverageType,
+        clientCoveredAmount: coveredAmount,
+      } as any,
+    });
+
+    res.json({ success: true, data: { bonusRequest }, message: 'Bonus request created and pending approval.' });
+  } catch (error: any) {
+    console.error('Give bonus error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to create bonus request' });
   }
 };
 
@@ -2622,5 +2735,207 @@ export const confirmAdminRaise = async (req: AuthenticatedRequest, res: Response
   } catch (error: any) {
     console.error('Confirm raise error:', error);
     res.status(500).json({ success: false, error: error?.message || 'Failed to confirm raise' });
+  }
+};
+
+/**
+ * Submit a direct pay rate edit — creates a PENDING PAY_EDIT record for approval
+ * POST /admin-portal/employees/:id/edit-pay-rate
+ */
+export const editPayRate = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id: employeeId } = req.params;
+    const { newPayRate, effectiveDate, reason, clientId } = req.body;
+    const userId = req.user?.userId;
+
+    if (!newPayRate || !effectiveDate || !reason?.trim()) {
+      return res.status(400).json({ success: false, error: 'New pay rate, effective date, and reason are required' });
+    }
+
+    const rate = Number(newPayRate);
+    if (isNaN(rate) || rate <= 0) {
+      return res.status(400).json({ success: false, error: 'Pay rate must be a positive number' });
+    }
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, payableRate: true },
+    });
+    if (!employee) {
+      return res.status(404).json({ success: false, error: 'Employee not found' });
+    }
+
+    // Resolve clientId — required for ClientRequest FK; use active assignment if not provided
+    let resolvedClientId = clientId;
+    if (!resolvedClientId) {
+      const assignment = await prisma.clientEmployee.findFirst({
+        where: { employeeId, isActive: true },
+        select: { clientId: true },
+      });
+      resolvedClientId = assignment?.clientId;
+    }
+    if (!resolvedClientId) {
+      return res.status(400).json({ success: false, error: 'Employee has no active client assignment' });
+    }
+
+    const pending = await prisma.clientRequest.create({
+      data: {
+        type: 'PAY_EDIT' as any,
+        employeeId,
+        clientId: resolvedClientId,
+        requestedBy: userId!,
+        payRate: rate,
+        effectiveDate: new Date(effectiveDate),
+        reason: reason.trim(),
+        status: 'PENDING',
+        raisedBy: 'ADMIN' as any,
+      },
+    });
+
+    res.json({ success: true, data: { request: pending }, message: 'Pay rate edit submitted for approval' });
+  } catch (error: any) {
+    console.error('Edit pay rate error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to submit pay rate edit' });
+  }
+};
+
+/**
+ * Submit a direct billing rate edit — creates a PENDING BILLING_EDIT record for approval
+ * POST /admin-portal/employees/:id/edit-billing-rate
+ */
+export const editBillingRate = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { id: employeeId } = req.params;
+    const { clientId, newBillRate, effectiveDate, reason } = req.body;
+    const userId = req.user?.userId;
+
+    if (!clientId || !newBillRate || !effectiveDate || !reason?.trim()) {
+      return res.status(400).json({ success: false, error: 'Client, new billing rate, effective date, and reason are required' });
+    }
+
+    const rate = Number(newBillRate);
+    if (isNaN(rate) || rate <= 0) {
+      return res.status(400).json({ success: false, error: 'Billing rate must be a positive number' });
+    }
+
+    const clientEmployee = await prisma.clientEmployee.findFirst({
+      where: { employeeId, clientId, isActive: true },
+      select: { id: true, hourlyRate: true },
+    });
+    if (!clientEmployee) {
+      return res.status(404).json({ success: false, error: 'Active client assignment not found' });
+    }
+
+    const pending = await prisma.clientRequest.create({
+      data: {
+        type: 'BILLING_EDIT' as any,
+        employeeId,
+        clientId,
+        requestedBy: userId!,
+        billRate: rate,
+        effectiveDate: new Date(effectiveDate),
+        reason: reason.trim(),
+        status: 'PENDING',
+        raisedBy: 'ADMIN' as any,
+      },
+    });
+
+    res.json({ success: true, data: { request: pending }, message: 'Billing rate edit submitted for approval' });
+  } catch (error: any) {
+    console.error('Edit billing rate error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to submit billing rate edit' });
+  }
+};
+
+/**
+ * Confirm and apply a pending direct pay/billing rate edit
+ * POST /admin-portal/raise-requests/:raiseId/confirm-edit
+ */
+export const confirmDirectEdit = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    let raiseId = req.params.raiseId;
+    if (Array.isArray(raiseId)) raiseId = raiseId[0];
+    const userId = req.user?.userId;
+
+    const request = await prisma.clientRequest.findUnique({
+      where: { id: raiseId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, payableRate: true, billingRate: true } },
+      },
+    });
+
+    if (!request) {
+      return res.status(404).json({ success: false, error: 'Request not found' });
+    }
+    if (request.status !== 'PENDING') {
+      return res.status(400).json({ success: false, error: 'Request is not pending' });
+    }
+    const reqType = (request as any).type as string;
+    if (reqType !== 'PAY_EDIT' && reqType !== 'BILLING_EDIT') {
+      return res.status(400).json({ success: false, error: 'This endpoint is for direct rate edits only' });
+    }
+
+    const changedByName = await prisma.admin.findFirst({
+      where: { userId },
+      select: { firstName: true, lastName: true },
+    });
+    const nameStr = changedByName ? `${changedByName.firstName} ${changedByName.lastName}` : undefined;
+    const changeDate = request.effectiveDate || new Date();
+
+    await prisma.$transaction(async (tx) => {
+      await tx.clientRequest.update({
+        where: { id: raiseId },
+        data: { status: 'APPROVED', reviewedBy: userId, reviewedAt: new Date() },
+      });
+
+      if (reqType === 'PAY_EDIT') {
+        const newRate = Number(request.payRate);
+        const oldRate = request.employee.payableRate ? Number(request.employee.payableRate) : null;
+        await tx.employee.update({ where: { id: request.employeeId }, data: { payableRate: newRate } });
+        await tx.rateChangeHistory.create({
+          data: {
+            employeeId: request.employeeId,
+            clientId: request.clientId,
+            changedBy: userId!,
+            changedByName: nameStr,
+            changeDate,
+            rateType: 'PAYABLE_RATE',
+            oldValue: oldRate,
+            newValue: newRate,
+            source: 'EMPLOYEE_PROFILE',
+            notes: request.reason || null,
+          },
+        });
+      } else {
+        const newRate = Number(request.billRate);
+        const oldBilling = request.employee.billingRate ? Number(request.employee.billingRate) : null;
+        const ce = await prisma.clientEmployee.findFirst({
+          where: { employeeId: request.employeeId, clientId: request.clientId, isActive: true },
+        });
+        if (ce) {
+          await tx.clientEmployee.update({ where: { id: ce.id }, data: { hourlyRate: newRate } });
+        }
+        await tx.employee.update({ where: { id: request.employeeId }, data: { billingRate: newRate } });
+        await tx.rateChangeHistory.create({
+          data: {
+            employeeId: request.employeeId,
+            clientId: request.clientId,
+            changedBy: userId!,
+            changedByName: nameStr,
+            changeDate,
+            rateType: 'BILLING_RATE',
+            oldValue: oldBilling,
+            newValue: newRate,
+            source: 'EMPLOYEE_PROFILE',
+            notes: request.reason || null,
+          },
+        });
+      }
+    });
+
+    res.json({ success: true, message: `${reqType === 'PAY_EDIT' ? 'Pay' : 'Billing'} rate updated successfully` });
+  } catch (error: any) {
+    console.error('Confirm direct edit error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to confirm rate edit' });
   }
 };

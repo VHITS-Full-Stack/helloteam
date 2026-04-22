@@ -292,18 +292,24 @@ export const getPendingOvertimeSummary = async (req: AuthenticatedRequest, res: 
     const totalHours = mins > 0 ? `${hrs}h ${mins}m` : `${hrs}h`;
 
     // Per-employee breakdown
-    const empMap: Record<string, { name: string; minutes: number; count: number }> = {};
+    const empMap: Record<string, { name: string; minutes: number; count: number; dates: Date[] }> = {};
     for (const r of unapprovedOT) {
       const name = empNameMap[r.employeeId] || 'Unknown';
-      if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0 };
+      if (!empMap[name]) empMap[name] = { name, minutes: 0, count: 0, dates: [] };
       empMap[name].minutes += r.requestedMinutes || 0;
       empMap[name].count += 1;
+      empMap[name].dates.push(r.date ?? r.createdAt);
     }
-    const employees = Object.values(empMap).map(e => ({
-      name: e.name,
-      hours: `${Math.floor(e.minutes / 60)}h ${e.minutes % 60 > 0 ? `${e.minutes % 60}m` : ''}`.trim(),
-      entries: e.count,
-    }));
+    const employees = Object.values(empMap).map(e => {
+      const sortedDates = e.dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+      return {
+        name: e.name,
+        hours: `${Math.floor(e.minutes / 60)}h ${e.minutes % 60 > 0 ? `${e.minutes % 60}m` : ''}`.trim(),
+        entries: e.count,
+        date: sortedDates[0] ?? null,
+        dates: sortedDates,
+      };
+    });
 
     const oldestDate = unapprovedOT[0].createdAt;
 
@@ -3880,6 +3886,53 @@ export const getClientRateHistory = async (req: AuthenticatedRequest, res: Respo
 };
 
 /**
+ * Get client-submitted bonus and raise requests
+ */
+export const getClientRequests = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+    const client = await prisma.client.findFirst({ where: { userId } });
+    if (!client) return res.status(403).json({ success: false, error: 'Client not found' });
+
+    const requests = await prisma.clientRequest.findMany({
+      where: {
+        clientId: client.id,
+        OR: [
+          { type: 'BONUS' },
+          { type: 'RAISE', raisedBy: null } as any,
+          { type: 'RAISE', raisedBy: 'CLIENT' } as any,
+        ],
+      } as any,
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    const data = requests.map((r: any) => ({
+      id: r.id,
+      type: r.type,
+      employeeId: r.employeeId,
+      employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
+      amount: r.amount ? Number(r.amount) : null,
+      billRate: r.billRate ? Number(r.billRate) : null,
+      effectiveDate: r.effectiveDate,
+      reason: r.reason,
+      status: r.status,
+      adminNotes: r.adminNotes,
+      createdAt: r.createdAt,
+      reviewedAt: r.reviewedAt,
+    }));
+
+    res.json({ success: true, data: { requests: data } });
+  } catch (error) {
+    console.error('Get client requests error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch requests' });
+  }
+};
+
+/**
  * Get admin-initiated raise notifications for this client
  * Only returns FULL/PARTIAL coverage raises (billing rate changes visible to client)
  * Never exposes employee pay rate or margin
@@ -3911,8 +3964,8 @@ export const getAdminRaiseNotifications = async (req: AuthenticatedRequest, res:
       employeeId: r.employeeId,
       employeeName: `${r.employee.firstName} ${r.employee.lastName}`,
       coverageType: r.coverageType,
-      clientCoveredAmount: r.clientCoveredAmount ? Number(r.clientCoveredAmount) : null,
-      // Show new bill rate but not pay rate
+      // FULL: show raise amount (client paid all of it). PARTIAL: show nothing (doc rule).
+      clientCoveredAmount: r.coverageType === 'FULL' && r.clientCoveredAmount ? Number(r.clientCoveredAmount) : null,
       newBillRate: r.billRate ? Number(r.billRate) : null,
       effectiveDate: r.effectiveDate,
       reason: r.reason,

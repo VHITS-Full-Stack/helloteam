@@ -32,6 +32,7 @@ import {
   submitRaiseRequest,
   getClientRateHistory,
   getAdminRaiseNotifications,
+  getClientRequests,
 } from '../controllers/clientPortal.controller';
 import {
   getClientInvoices,
@@ -205,6 +206,7 @@ router.post('/bonuses', sendBonus);
 router.post('/raises', submitRaiseRequest);
 router.get('/rate-history', getClientRateHistory);
 router.get('/raise-notifications', getAdminRaiseNotifications);
+router.get('/requests', getClientRequests);
 
 // Get employees assigned to this client (for group management)
 router.get('/employees', getClientEmployeesList);

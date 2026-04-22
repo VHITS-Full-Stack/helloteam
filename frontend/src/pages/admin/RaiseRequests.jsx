@@ -23,6 +23,25 @@ const RaiseRequests = () => {
   const [confirmationType, setConfirmationType] = useState(null); // 'proof' | 'note' | null
   const proofInputRef = useRef(null);
 
+  // Direct edit confirmation modal
+  const [showConfirmDirectEdit, setShowConfirmDirectEdit] = useState(false);
+  const [pendingDirectEdit, setPendingDirectEdit] = useState(null);
+
+  // Give Bonus modal state
+  const [showGiveBonusModal, setShowGiveBonusModal] = useState(false);
+  const [giveBonusForm, setGiveBonusForm] = useState({
+    employeeId: "",
+    clientId: "",
+    amount: "",
+    reason: "",
+    effectiveDate: new Date().toISOString().split("T")[0],
+    coverageType: "FULL",
+    clientCoveredAmount: "",
+    internalNotes: "",
+  });
+  const [giveBonusLoading, setGiveBonusLoading] = useState(false);
+  const [giveBonusError, setGiveBonusError] = useState("");
+
   // Give Raise modal state
   const [showGiveRaiseModal, setShowGiveRaiseModal] = useState(false);
   const [giveRaiseStep, setGiveRaiseStep] = useState(1); // 1 = form, 2 = confirm
@@ -36,6 +55,7 @@ const RaiseRequests = () => {
     clientCoveredAmount: "",
     effectiveDate: new Date().toISOString().split("T")[0],
     reason: "",
+    internalNotes: "",
   });
   const [pendingRaiseId, setPendingRaiseId] = useState(null);
   const [giveRaiseLoading, setGiveRaiseLoading] = useState(false);
@@ -79,6 +99,8 @@ const RaiseRequests = () => {
   const typeCounts = {
     BONUS: baseFiltered.filter((r) => r.type === "BONUS" && r.status === "PENDING").length,
     RAISE: baseFiltered.filter((r) => r.type === "RAISE" && r.status === "PENDING").length,
+    PAY_EDIT: baseFiltered.filter((r) => r.type === "PAY_EDIT" && r.status === "PENDING").length,
+    BILLING_EDIT: baseFiltered.filter((r) => r.type === "BILLING_EDIT" && r.status === "PENDING").length,
   };
 
   const typeFiltered = baseFiltered.filter((r) => typeFilter === "all" || r.type === typeFilter);
@@ -166,6 +188,72 @@ const RaiseRequests = () => {
     }
   };
 
+  // ── Give Bonus helpers ──────────────────────────────────────────────────
+
+  const openGiveBonusModal = async () => {
+    setGiveBonusError("");
+    setGiveBonusForm({
+      employeeId: "",
+      clientId: "",
+      amount: "",
+      reason: "",
+      effectiveDate: new Date().toISOString().split("T")[0],
+      coverageType: "FULL",
+      clientCoveredAmount: "",
+      internalNotes: "",
+    });
+    setShowGiveBonusModal(true);
+    setCandidatesLoading(true);
+    try {
+      const res = await adminPortalService.getRaiseCandidates();
+      if (res.success) setRaiseCandidates(res.data || []);
+    } catch (e) {
+      setGiveBonusError("Failed to load employee list.");
+    } finally {
+      setCandidatesLoading(false);
+    }
+  };
+
+  const handleGiveBonusSubmit = async () => {
+    setGiveBonusError("");
+    const { employeeId, clientId, amount, effectiveDate, coverageType, clientCoveredAmount } = giveBonusForm;
+    if (!employeeId) return setGiveBonusError("Please select an employee.");
+    if (!clientId) return setGiveBonusError("Please select a client.");
+    if (!amount || parseFloat(amount) <= 0) return setGiveBonusError("Please enter a valid bonus amount.");
+    if (!effectiveDate) return setGiveBonusError("Please select an effective payroll date.");
+    if (coverageType === "PARTIAL") {
+      const covered = parseFloat(clientCoveredAmount);
+      if (!clientCoveredAmount || isNaN(covered) || covered <= 0 || covered >= parseFloat(amount)) {
+        return setGiveBonusError("Client-covered amount must be between 0 and the total bonus amount.");
+      }
+    }
+    try {
+      setGiveBonusLoading(true);
+      const res = await adminPortalService.giveBonus({
+        employeeId,
+        clientId,
+        amount: parseFloat(amount),
+        reason: giveBonusForm.reason?.trim() || undefined,
+        effectiveDate,
+        coverageType,
+        clientCoveredAmount: coverageType === "FULL" ? parseFloat(amount) : coverageType === "NONE" ? 0 : parseFloat(clientCoveredAmount),
+        internalNotes: giveBonusForm.internalNotes?.trim() || undefined,
+      });
+      if (res.success) {
+        setShowGiveBonusModal(false);
+        setSuccessMessage("Bonus request created successfully.");
+        setTimeout(() => setSuccessMessage(""), 4000);
+        fetchRequests();
+      } else {
+        setGiveBonusError(res.error || "Failed to create bonus request.");
+      }
+    } catch (e) {
+      setGiveBonusError(e.message || "Failed to create bonus request.");
+    } finally {
+      setGiveBonusLoading(false);
+    }
+  };
+
   // ── Give Raise helpers ──────────────────────────────────────────────────
 
   const openGiveRaiseModal = async () => {
@@ -180,6 +268,7 @@ const RaiseRequests = () => {
       clientCoveredAmount: "",
       effectiveDate: new Date().toISOString().split("T")[0],
       reason: "",
+      internalNotes: "",
     });
     setShowGiveRaiseModal(true);
     setCandidatesLoading(true);
@@ -256,6 +345,7 @@ const RaiseRequests = () => {
             : parseFloat(clientCoveredAmount),
         effectiveDate,
         reason: giveRaiseForm.reason?.trim() || undefined,
+        internalNotes: giveRaiseForm.internalNotes?.trim() || undefined,
       });
       if (res.success) {
         setPendingRaiseId(res.data.raiseRequest.id);
@@ -316,9 +406,13 @@ const RaiseRequests = () => {
   };
 
   const getTypeBadge = (type) => {
-    return type === "BONUS"
-      ? <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><Gift className="w-3 h-3" />Bonus</span>
-      : <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><TrendingUp className="w-3 h-3" />Raise</span>;
+    const map = {
+      BONUS: <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-700"><Gift className="w-3 h-3" />Bonus</span>,
+      RAISE: <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"><TrendingUp className="w-3 h-3" />Raise</span>,
+      PAY_EDIT: <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700"><TrendingUp className="w-3 h-3" />Pay Edit</span>,
+      BILLING_EDIT: <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-700"><TrendingUp className="w-3 h-3" />Bill Edit</span>,
+    };
+    return map[type] || <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">{type}</span>;
   };
 
   const getCoverageBadge = (coverageType) => {
@@ -418,6 +512,50 @@ const RaiseRequests = () => {
     </table>
   );
 
+  const DirectEditTable = () => (
+    <table className="w-full">
+      <thead>
+        <tr className="bg-slate-50/50 border-b border-gray-200">
+          <th className={`text-left ${th} px-4`}>Employee</th>
+          <th className={`text-left ${th}`}>Client</th>
+          <th className={`text-center ${th}`}>Type</th>
+          <th className={`text-center ${th}`}>New Rate ($)</th>
+          <th className={`text-left ${th}`}>Reason</th>
+          <th className={`text-center ${th}`}>Effective</th>
+          <th className={`text-center ${th}`}>Submitted</th>
+          <th className={`text-center ${th}`}>Status</th>
+          <th className={`text-right ${th} px-4`}>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filtered.map((rr) => (
+          <tr key={rr.id} className="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50">
+            <td className="py-3 px-4">
+              <div className="flex items-center gap-2.5">
+                <Avatar name={`${rr.employee.firstName} ${rr.employee.lastName}`} src={rr.employee.profilePhoto} size="sm" />
+                <p className="text-sm font-medium text-gray-900 whitespace-nowrap">{rr.employee.firstName} {rr.employee.lastName}</p>
+              </div>
+            </td>
+            <td className="py-3 px-3 text-sm text-gray-700 whitespace-nowrap">{rr.client.companyName}</td>
+            <td className="py-3 px-3 text-center">{getTypeBadge(rr.type)}</td>
+            <td className="py-3 px-3 text-center text-sm font-semibold text-gray-900">
+              {rr.type === "PAY_EDIT" ? rr.payRate?.toFixed(2) : rr.billRate?.toFixed(2)}
+            </td>
+            <td className="py-3 px-3 text-sm text-gray-500 max-w-[200px] truncate">{rr.reason || "—"}</td>
+            <td className="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
+              {rr.effectiveDate ? new Date(rr.effectiveDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+            </td>
+            <td className="py-3 px-3 text-center text-xs text-gray-600 whitespace-nowrap">
+              {new Date(rr.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </td>
+            <td className="py-3 px-3 text-center">{getStatusBadge(rr.status)}</td>
+            <td className="py-3 px-4 text-right">{renderActions(rr)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+
   const AllTable = () => (
     <table className="w-full">
       <thead>
@@ -462,8 +600,58 @@ const RaiseRequests = () => {
     </table>
   );
 
+  const openConfirmDirectEditModal = (rr) => {
+    setPendingDirectEdit(rr);
+    setShowConfirmDirectEdit(true);
+  };
+
+  const handleConfirmDirectEdit = async () => {
+    if (!pendingDirectEdit) return;
+    setActionLoading(pendingDirectEdit.id);
+    setShowConfirmDirectEdit(false);
+    try {
+      const res = await adminPortalService.confirmDirectEdit(pendingDirectEdit.id);
+      if (res.success) {
+        setSuccessMessage(res.message || "Rate updated successfully");
+        setTimeout(() => setSuccessMessage(""), 4000);
+        fetchRequests();
+      } else {
+        setError(res.error || "Failed to confirm");
+      }
+    } catch (e) {
+      setError(e.message || "Failed to confirm");
+    } finally {
+      setActionLoading(null);
+      setPendingDirectEdit(null);
+    }
+  };
+
   const renderActions = (rr) => {
     if (rr.status !== "PENDING") return <span className="text-gray-300 text-sm">—</span>;
+
+    // Direct rate edits: simple Confirm/Cancel
+    if (rr.type === "PAY_EDIT" || rr.type === "BILLING_EDIT") {
+      return (
+        <div className="flex items-center justify-end gap-1.5">
+          <button
+            onClick={() => openConfirmDirectEditModal(rr)}
+            disabled={actionLoading === rr.id}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors disabled:opacity-50"
+          >
+            {actionLoading === rr.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+            Apply
+          </button>
+          <button
+            onClick={() => openRejectModal(rr)}
+            disabled={actionLoading === rr.id}
+            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-md bg-red-50 text-red-700 hover:bg-red-100 transition-colors disabled:opacity-50"
+          >
+            <X className="w-3 h-3" />
+            Cancel
+          </button>
+        </div>
+      );
+    }
 
     // Admin-initiated raise: show Confirm button
     if (rr.raisedBy === "ADMIN") {
@@ -565,15 +753,26 @@ const RaiseRequests = () => {
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-gray-900">Bonuses & Raises</h2>
-        {typeFilter === "RAISE" && (
-          <button
-            onClick={openGiveRaiseModal}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Give a Raise
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {typeFilter === "BONUS" && (
+            <button
+              onClick={openGiveBonusModal}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Give a Bonus
+            </button>
+          )}
+          {typeFilter === "RAISE" && (
+            <button
+              onClick={openGiveRaiseModal}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Give a Raise
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -594,6 +793,8 @@ const RaiseRequests = () => {
           {[
             { key: "BONUS", label: "Bonuses", icon: Gift, count: typeCounts.BONUS },
             { key: "RAISE", label: "Raises", icon: TrendingUp, count: typeCounts.RAISE },
+            { key: "PAY_EDIT", label: "Pay Edits", icon: TrendingUp, count: typeCounts.PAY_EDIT },
+            { key: "BILLING_EDIT", label: "Bill Edits", icon: TrendingUp, count: typeCounts.BILLING_EDIT },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -701,7 +902,7 @@ const RaiseRequests = () => {
       ) : (
         <Card padding="none" className="overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
-            {typeFilter === "BONUS" ? <BonusTable /> : typeFilter === "RAISE" ? <RaiseTable /> : <AllTable />}
+            {typeFilter === "BONUS" ? <BonusTable /> : typeFilter === "RAISE" ? <RaiseTable /> : (typeFilter === "PAY_EDIT" || typeFilter === "BILLING_EDIT") ? <DirectEditTable /> : <AllTable />}
           </div>
 
           {/* Mobile Cards */}
@@ -737,6 +938,222 @@ const RaiseRequests = () => {
             ))}
           </div>
         </Card>
+      )}
+
+      {/* ── Confirm Direct Edit Modal ───────────────────────────────────── */}
+      {showConfirmDirectEdit && pendingDirectEdit && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowConfirmDirectEdit(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Rate Change</h3>
+            <p className="text-sm text-gray-500 mb-4">This will immediately update the employee's rate.</p>
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-4 space-y-2 mb-5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Employee</span>
+                <span className="font-medium text-gray-900">{pendingDirectEdit.employee.firstName} {pendingDirectEdit.employee.lastName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Client</span>
+                <span className="font-medium text-gray-900">{pendingDirectEdit.client.companyName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Type</span>
+                <span>{pendingDirectEdit.type === "PAY_EDIT" ? "Pay Rate" : "Billing Rate"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">New Rate</span>
+                <span className="font-semibold text-gray-900">
+                  ${(pendingDirectEdit.type === "PAY_EDIT" ? pendingDirectEdit.payRate : pendingDirectEdit.billRate)?.toFixed(2)}/hr
+                </span>
+              </div>
+              {pendingDirectEdit.effectiveDate && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Effective</span>
+                  <span className="text-gray-900">{new Date(pendingDirectEdit.effectiveDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+                </div>
+              )}
+              {pendingDirectEdit.reason && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 shrink-0">Reason</span>
+                  <span className="text-gray-700 text-right">{pendingDirectEdit.reason}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowConfirmDirectEdit(false)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDirectEdit}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-primary-dark rounded-lg transition-colors"
+              >
+                Confirm &amp; Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Give a Bonus Modal ───────────────────────────────────────────── */}
+      {showGiveBonusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => setShowGiveBonusModal(false)}>
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Give a Bonus</h3>
+
+            {candidatesLoading ? (
+              <div className="flex items-center justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+            ) : (
+              <div className="space-y-4">
+                {/* Employee */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Employee</label>
+                  <div className="relative">
+                    <select
+                      className="input w-full appearance-none"
+                      value={giveBonusForm.employeeId}
+                      onChange={(e) => setGiveBonusForm({ ...giveBonusForm, employeeId: e.target.value, clientId: "" })}
+                    >
+                      <option value="">Select employee...</option>
+                      {[...new Map(raiseCandidates.map((c) => [c.employeeId, c.employeeName])).entries()].map(([id, name]) => (
+                        <option key={id} value={id}>{name}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Client */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Client</label>
+                  <div className="relative">
+                    <select
+                      className="input w-full appearance-none"
+                      value={giveBonusForm.clientId}
+                      onChange={(e) => setGiveBonusForm({ ...giveBonusForm, clientId: e.target.value })}
+                      disabled={!giveBonusForm.employeeId}
+                    >
+                      <option value="">Select client...</option>
+                      {raiseCandidates.filter((c) => c.employeeId === giveBonusForm.employeeId).map((c) => (
+                        <option key={c.clientId} value={c.clientId}>{c.clientName}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                {/* Bonus Amount */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Bonus Amount ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={giveBonusForm.amount}
+                    onChange={(e) => setGiveBonusForm({ ...giveBonusForm, amount: e.target.value })}
+                    placeholder="e.g. 500.00"
+                    className="input w-full"
+                  />
+                </div>
+
+                {/* Coverage Type */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">Who covers the bonus?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: "FULL", label: "Full", desc: "Client pays all" },
+                      { key: "PARTIAL", label: "Partial", desc: "Client pays part" },
+                      { key: "NONE", label: "None", desc: "Admin absorbs" },
+                    ].map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => setGiveBonusForm({ ...giveBonusForm, coverageType: opt.key })}
+                        className={`p-2.5 rounded-lg border-2 text-left transition-colors ${
+                          giveBonusForm.coverageType === opt.key ? "border-primary bg-primary-50" : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <p className={`text-sm font-semibold ${giveBonusForm.coverageType === opt.key ? "text-primary-700" : "text-gray-700"}`}>{opt.label}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Partial: client covered amount */}
+                {giveBonusForm.coverageType === "PARTIAL" && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Client covers ($)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={giveBonusForm.clientCoveredAmount}
+                      onChange={(e) => setGiveBonusForm({ ...giveBonusForm, clientCoveredAmount: e.target.value })}
+                      placeholder="e.g. 250.00"
+                      className="input w-full"
+                    />
+                  </div>
+                )}
+
+                {/* Effective Payroll Date */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Effective Payroll Date</label>
+                  <input
+                    type="date"
+                    value={giveBonusForm.effectiveDate}
+                    onChange={(e) => setGiveBonusForm({ ...giveBonusForm, effectiveDate: e.target.value })}
+                    className="input w-full"
+                  />
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Reason <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <textarea
+                    value={giveBonusForm.reason}
+                    onChange={(e) => setGiveBonusForm({ ...giveBonusForm, reason: e.target.value })}
+                    placeholder="Performance, milestone, appreciation..."
+                    rows={2}
+                    className="input w-full resize-none"
+                  />
+                </div>
+
+                {/* Internal Notes */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Internal Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+                  <textarea
+                    value={giveBonusForm.internalNotes}
+                    onChange={(e) => setGiveBonusForm({ ...giveBonusForm, internalNotes: e.target.value })}
+                    placeholder="Internal context, not visible to the client..."
+                    rows={2}
+                    className="input w-full resize-none"
+                  />
+                </div>
+
+                {giveBonusError && (
+                  <div className="flex items-center gap-2 text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    {giveBonusError}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-5">
+              <button onClick={() => setShowGiveBonusModal(false)} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">Cancel</button>
+              <button
+                onClick={handleGiveBonusSubmit}
+                disabled={giveBonusLoading || candidatesLoading}
+                className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center gap-2"
+              >
+                {giveBonusLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Gift className="w-4 h-4" />}
+                Submit Bonus
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Give a Raise Modal ───────────────────────────────────────────── */}
@@ -886,6 +1303,18 @@ const RaiseRequests = () => {
                         value={giveRaiseForm.reason}
                         onChange={(e) => handleGiveRaiseFormChange("reason", e.target.value)}
                         placeholder="Performance review, market adjustment..."
+                        rows={2}
+                        className="input w-full resize-none"
+                      />
+                    </div>
+
+                    {/* Internal Notes */}
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">Internal Notes <span className="text-gray-400 font-normal">(optional)</span></label>
+                      <textarea
+                        value={giveRaiseForm.internalNotes}
+                        onChange={(e) => handleGiveRaiseFormChange("internalNotes", e.target.value)}
+                        placeholder="Internal context, not visible to the client..."
                         rows={2}
                         className="input w-full resize-none"
                       />

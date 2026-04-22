@@ -1043,6 +1043,8 @@ enum ClientRequestStatus {
 enum ClientRequestType {
   BONUS
   RAISE
+  PAY_EDIT
+  BILLING_EDIT
 }
 
 enum RaiseCoverageType {

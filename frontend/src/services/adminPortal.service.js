@@ -117,8 +117,28 @@ const adminPortalService = {
     return response;
   },
 
+  giveBonus: async (data) => {
+    const response = await api.post('/admin-portal/give-bonus', data);
+    return response;
+  },
+
   confirmAdminRaise: async (raiseId) => {
     const response = await api.post(`/admin-portal/raise-requests/${raiseId}/confirm`, {});
+    return response;
+  },
+
+  editPayRate: async (employeeId, data) => {
+    const response = await api.post(`/admin-portal/employees/${employeeId}/edit-pay-rate`, data);
+    return response;
+  },
+
+  editBillingRate: async (employeeId, data) => {
+    const response = await api.post(`/admin-portal/employees/${employeeId}/edit-billing-rate`, data);
+    return response;
+  },
+
+  confirmDirectEdit: async (raiseId) => {
+    const response = await api.post(`/admin-portal/raise-requests/${raiseId}/confirm-edit`, {});
     return response;
   },
 
