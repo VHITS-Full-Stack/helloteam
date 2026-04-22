@@ -33,6 +33,7 @@ async function main() {
     where: {
       type: 'SHIFT_EXTENSION',
       estimatedEndTime: { not: null },
+      status: 'PENDING',
     },
     select: {
       id: true,
