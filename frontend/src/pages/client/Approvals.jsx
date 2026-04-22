@@ -1041,10 +1041,16 @@ const Approvals = () => {
                   {activeTab === "approved" && (
                     <TableHeader className="!px-3">Approved On</TableHeader>
                   )}
+                  {activeTab === "approved" && (
+                    <TableHeader className="!px-3">Approved By</TableHeader>
+                  )}
                   {activeTab === "rejected" && (
                     <TableHeader className="!px-3">
                       Rejection Reason
                     </TableHeader>
+                  )}
+                  {activeTab === "rejected" && (
+                    <TableHeader className="!px-3">Rejected By</TableHeader>
                   )}
                 </TableRow>
               </TableHead>
@@ -1186,6 +1192,7 @@ const Approvals = () => {
                   <TableHeader className="!px-3">Status</TableHeader>
                   <TableHeader className="!px-3">Submitted</TableHeader>
                   <TableHeader className="!px-3">Actions</TableHeader>
+                  <TableHeader className="!px-3">Reviewed By</TableHeader>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -1317,6 +1324,11 @@ const Approvals = () => {
                         <span className="text-gray-300">—</span>
                       )}
                     </TableCell>
+                    <TableCell className="!px-3">
+                      <span className="text-sm text-gray-700">
+                        {item.approver?.name || item.approvedByName || <span className="text-gray-300">—</span>}
+                      </span>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -1368,10 +1380,16 @@ const Approvals = () => {
                   {activeTab === "approved" && (
                     <TableHeader className="!px-3">Approved On</TableHeader>
                   )}
+                  {activeTab === "approved" && (
+                    <TableHeader className="!px-3">Approved By</TableHeader>
+                  )}
                   {activeTab === "rejected" && (
                     <TableHeader className="!px-3">
                       Rejection Reason
                     </TableHeader>
+                  )}
+                  {activeTab === "rejected" && (
+                    <TableHeader className="!px-3">Rejected By</TableHeader>
                   )}
                 </TableRow>
               </TableHead>
@@ -1483,35 +1501,26 @@ const Approvals = () => {
                     )}
                     {activeTab === "approved" && (
                       <TableCell className="!px-3">
-                        <div>
-                          <span className="text-xs text-green-600">
-                            {formatDateTime(request.approvedAt, {
-                              timeZone: clientTimezone,
-                            })}
-                          </span>
-                          {request.approver && (
-                            <p className="text-xs text-gray-500">
-                              by {request.approver.name}
-                            </p>
-                          )}
-                        </div>
+                        <span className="text-xs text-green-600">
+                          {formatDateTime(request.approvedAt, { timeZone: clientTimezone })}
+                        </span>
+                      </TableCell>
+                    )}
+                    {activeTab === "approved" && (
+                      <TableCell className="!px-3">
+                        <span className="text-sm text-gray-700">{request.approver?.name || <span className="text-gray-300">—</span>}</span>
                       </TableCell>
                     )}
                     {activeTab === "rejected" && (
                       <TableCell className="!whitespace-normal !px-3">
-                        <div>
-                          <span
-                            className="text-sm text-red-600 line-clamp-2"
-                            title={request.rejectionReason}
-                          >
-                            {request.rejectionReason || "-"}
-                          </span>
-                          {request.rejecter && (
-                            <p className="text-xs text-gray-500">
-                              by {request.rejecter.name}
-                            </p>
-                          )}
-                        </div>
+                        <span className="text-sm text-red-600 line-clamp-2" title={request.rejectionReason}>
+                          {request.rejectionReason || "—"}
+                        </span>
+                      </TableCell>
+                    )}
+                    {activeTab === "rejected" && (
+                      <TableCell className="!px-3">
+                        <span className="text-sm text-gray-700">{request.rejecter?.name || <span className="text-gray-300">—</span>}</span>
                       </TableCell>
                     )}
                   </TableRow>
