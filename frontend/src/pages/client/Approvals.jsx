@@ -416,11 +416,8 @@ const Approvals = () => {
       ? [
           { id: "pending", label: "Pending", count: getTabCount("pending") },
           { id: "approved", label: "Approved", count: getTabCount("approved") },
-          {
-            id: "revision_requested",
-            label: "Revision Requested",
-            count: getTabCount("revision_requested"),
-          },
+          // { id: "revision_requested", label: "Revision Requested", count: getTabCount("revision_requested") },
+          { id: "rejected", label: "Rejected", count: getTabCount("rejected") },
         ]
       : [
           { id: "pending", label: "Pending", count: getTabCount("pending") },
@@ -821,6 +818,7 @@ const Approvals = () => {
         <button
           onClick={() => {
             setActiveType("timesheet");
+            setActiveTab("pending");
             setSelectedItems([]);
           }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -980,8 +978,8 @@ const Approvals = () => {
         </Card>
       </div>
 
-      {/* Tabs - hidden for timesheet type (shows all records) */}
-      {activeType !== "timesheet" && (
+      {/* Status filter tabs */}
+      {(
         <div className="border-b border-gray-200">
           <nav className="flex gap-8">
             {tabs.map((tab) => (
@@ -1168,9 +1166,12 @@ const Approvals = () => {
           )}
         </Card>
       ) : activeType === "timesheet" ? (
-        /* Timesheet Review - All records shown together */
+        /* Timesheet Review */
         <Card padding="none">
-          {filteredTimesheetApprovals.length > 0 ? (
+          {(() => {
+            const tsStatusFilter = activeTab === "approved" ? ["approved", "auto_approved"] : [activeTab];
+            const visibleTimesheets = filteredTimesheetApprovals.filter((a) => tsStatusFilter.includes(a.status));
+            return visibleTimesheets.length > 0 ? (
             <Table>
               <TableHead>
                 <TableRow>
@@ -1197,7 +1198,7 @@ const Approvals = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {filteredTimesheetApprovals.map((item) => (
+                {visibleTimesheets.map((item) => (
                   <TableRow key={`timesheet-${item.id}`}>
                     <TableCell className="!px-3">
                       {item.status === "pending" ? (
@@ -1342,9 +1343,10 @@ const Approvals = () => {
               <h3 className="text-lg font-medium text-gray-900 mb-1">
                 No timesheets
               </h3>
-              <p className="text-gray-500">No timesheet records to show.</p>
+              <p className="text-gray-500">No {activeTab.replace("_", " ")} timesheets to show.</p>
             </div>
-          )}
+          );
+          })()}
         </Card>
       ) : activeType === "overtime" || activeType === "autoOvertime" ? (
         /* Overtime Requests tab / Auto OT tab — shared table */
