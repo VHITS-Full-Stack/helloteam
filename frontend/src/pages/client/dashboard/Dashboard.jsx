@@ -231,9 +231,14 @@ const ClientDashboard = () => {
                       <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0" />
                       <span className="text-sm text-amber-900">
                         <strong>{emp.name}</strong> worked{" "}
-                        <strong>{emp.hours}</strong> of unapproved overtime
-                        {emp.entries > 1 && ` across ${emp.entries} entries`}.
-                        Approve or deny to process payment.
+                        <strong>{emp.hours}</strong> of unapproved overtime on{" "}
+                        <strong>
+                          {emp.entries > 1
+                            ? `${emp.entries} dates`
+                            : emp.date
+                              ? new Date(emp.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+                              : "unknown date"}
+                        </strong>. Approve or deny to process payment.
                       </span>
                     </div>
                   ))}
