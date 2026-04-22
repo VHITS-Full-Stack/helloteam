@@ -1,0 +1,66 @@
+Here is a cleaner developer-facing version:
+We need logic for situations where an employee continues working past the end of their scheduled shift without prior overtime approval, and then forgets to clock out.
+Example scenario
+The employee is scheduled until 5:00 PM.
+At 5:00 PM, the system shows the end-of-shift popup asking whether they want to continue working.
+The employee chooses to continue working.
+The system gives a clear warning that any time worked beyond the scheduled shift will be treated as overtime without prior approval.
+The employee accepts that warning and continues working.
+They actually work until 6:00 PM, so they truly worked 1 hour of overtime without approval.
+At 6:00 PM, they walk away from the computer and forget to clock out.
+Because they never clocked out, the system continues to show them as clocked in, and the time keeps running.
+Required system behavior
+The system should have a threshold for excessive unconfirmed overtime. I would suggest 2 hours after the scheduled shift ends.
+Using the example above, once the employee has remained clocked in for 2 hours beyond their scheduled end time, the system should recognize that there is a strong possibility they are no longer actually working, even though they are still technically clocked in.
+Important: The system should not automatically clock them out. It should keep the open clock session active, but it should flag that the overtime period now requires confirmation before being finalized.
+Clock out confirmation flow
+When the employee eventually returns and tries to clock out, the system should detect that there is an unusually long amount of overtime on the open session and require the employee to confirm what portion of that overtime was actually worked.
+The clock out screen should show a message along these lines:
+We noticed that this shift includes an unusually large amount of overtime beyond your scheduled end time. Please confirm how much of this overtime you actually worked.
+The employee should then have 3 options:
+I worked all of the overtime shown If selected, the full overtime period remains on the timesheet as overtime without prior approval.
+I worked part of the overtime shown If selected, the employee must enter the exact time up to which they actually worked.
+Example: Scheduled end time: 5:00 PM Clock out happens the next morning at 9:00 AM Employee says they actually worked until 6:00 PM or 7:00 PM
+The system should then keep only the overtime from 5:00 PM until the time entered by the employee, and remove all time after that.
+I did not work any of this overtime If selected, the system should remove all overtime beyond the scheduled end time.
+In that case, the shift should be treated as ending at 5:00 PM, as if no overtime was worked at all.
+Expected result by option
+Option 1: Worked all overtime shown The entire period after the scheduled shift becomes overtime without prior approval.
+Option 2: Worked part of the overtime shown The system keeps overtime only up to the confirmed time entered by the employee. Everything after that time is removed as unworked time.
+Option 3: Did not work any overtime All overtime after the scheduled shift is removed. The shift ends at the original scheduled end time.
+Business rule summary
+The system should not assume that all unclosed time after a shift was actually worked.
+Once overtime extends past the excessive overtime threshold, currently suggested as 2 hours, the overtime must be explicitly confirmed by the employee before the system finalizes it.
+This allows legitimate unapproved overtime to be captured, while preventing accidental forgotten clock-outs from turning into many hours of false overtime.
+Suggested logic summary for implementation
+Scheduled shift ends
+Employee chooses to continue working after warning about unapproved overtime
+System records overtime without prior approval starting from scheduled end time
+If open overtime exceeds 2 hours, mark the session as requiring overtime confirmation on clock out
+When employee finally clocks out, present 3 choices: worked all, worked part, worked none
+Based on the employee’s selection, adjust the end time and overtime record accordingly before finalizing the timesheet
+
+
+
+
+
+All time worked within the employee’s scheduled shift is automatically approved after 24 hours. Any overtime that was approved in advance is also automatically approved. Time worked outside of the scheduled shift without prior approval is recorded under the status Worked OT Without Prior Approval and must be manually approved before the employee can be paid and the client can be billed for those hours.
+ 
+ 
+Problem 2 — The wording in the approval popup is wrong
+Right now when you open the approve raise popup it says "Approve bill rate change to $2.00 for Pravin Patel from SKD." That is completely wrong. The client did not submit a bill rate. The client submitted a $2.00 per hour raise for their employee. The popup needs to say "Approve pay raise of $2.00 per hour for Pravin Patel from SKD."
+ 
+Problem 3 — The calculations are manual and should be automatic
+Right now when approving, the system asks "Do you want to change the pay rate?" and if you say yes it shows you the current pay rate and makes you type in the new pay rate yourself. That should never be manual. The system already knows the current pay rate and already knows the raise amount the client submitted. It should automatically do the math and show you everything. The popup should display four numbers automatically with no typing required:
+ 
+Current employee pay rate: $11.50/hr
+Raise amount: $2.00/hr
+New employee pay rate: $13.50/hr (calculated automatically)
+Current client billing rate: $15.00/hr
+New client billing rate: $17.00/hr (calculated automatically)
+ 
+The raise amount gets added to both the pay rate and the billing rate. The admin just reviews the numbers and clicks Approve. No math, no manual entry, nothing.
+ 
+ 
+Problem 4 — The client has no status tracker after submitting
+After a client submits a raise request they see a confirmation message and then nothing. There is nowhere on the client side to go back and see their pending raises, whether they were approved or rejected, or what the effective date ended up being. They are completely in the dark after they hit submit. The Bonuses and Raises page on the client side needs a history section below the form showing every raise and bonus they submitted with the current status.
