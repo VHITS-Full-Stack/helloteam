@@ -7,7 +7,7 @@ import { useSocket } from '../../context/SocketContext';
 import workSessionService from '../../services/workSession.service';
 import overtimeService from '../../services/overtime.service';
 import notificationService from '../../services/notification.service';
-import { formatTime12 } from '../../utils/formatDateTime';
+import { formatTime12, formatTimeInTimeZone } from '../../utils/formatDateTime';
 
 /**
  * Global shift-related modals for employee portal.
@@ -184,7 +184,8 @@ const ShiftModals = () => {
     }
 
     const endTime = new Date(Date.now() + minutes * 60000);
-    const estimatedEndTime = `${String(endTime.getHours()).padStart(2, '0')}:${String(endTime.getMinutes()).padStart(2, '0')}`;
+    const clientTimezone = shiftEndData?.clientTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const estimatedEndTime = formatTimeInTimeZone(endTime, clientTimezone, { hour12: false });
 
     try {
       setShiftEndLoading(true);

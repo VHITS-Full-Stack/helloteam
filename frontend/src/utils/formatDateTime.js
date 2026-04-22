@@ -143,10 +143,21 @@ export const formatTime12 = (timeStr) => {
 export const formatTimeInTimeZone = (
   dateString,
   timeZone = "America/New_York",
+  { hour12 = true } = {},
 ) => {
   if (!dateString) return "--:--";
+  // Plain HH:MM string — no timezone conversion needed, just reformat
+  if (typeof dateString === "string" && /^\d{1,2}:\d{2}$/.test(dateString)) {
+    return formatTime12(dateString);
+  }
   const date = new Date(dateString);
   if (Number.isNaN(date.getTime())) return "--:--";
+  if (!hour12) {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone, hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(date);
+    const hh = (parts.find(p => p.type === "hour")?.value || "00").replace(/^24/, "00");
+    const mm = parts.find(p => p.type === "minute")?.value || "00";
+    return `${hh}:${mm}`;
+  }
   return date.toLocaleTimeString("en-US", {
     hour: "numeric",
     minute: "2-digit",

@@ -736,11 +736,11 @@ const Approvals = () => {
                         {isOTType &&
                           (item.requestedStartTime ||
                             item.estimatedEndTime) && (
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-gray-400 mt-0.5">
                               {item.requestedStartTime && item.requestedEndTime
-                                ? `${formatTime12(item.requestedStartTime)} - ${formatTime12(item.requestedEndTime)}`
+                                ? `${formatTimeInTimeZone(item.requestedStartTime, item.clientTimezone)} – ${formatTimeInTimeZone(item.requestedEndTime, item.clientTimezone)}`
                                 : item.estimatedEndTime
-                                  ? `until ${formatTime12(item.estimatedEndTime)}`
+                                  ? `until ${formatTimeInTimeZone(item.estimatedEndTime, item.clientTimezone)}`
                                   : ""}
                             </p>
                           )}

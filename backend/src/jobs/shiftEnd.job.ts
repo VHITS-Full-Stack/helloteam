@@ -180,6 +180,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
             sessionId: session.id,
             shiftEnd: schedule.endTime,
             clientId: assignment.clientId,
+            clientTimezone: assignment.client.timezone || 'UTC',
             hasApprovedOT: false,
           },
           '/employee/dashboard'
@@ -200,6 +201,7 @@ export const runShiftEndJob = async (io?: Server): Promise<void> => {
               sessionId: session.id,
               shiftEnd: schedule.endTime,
               clientId: assignment.clientId,
+              clientTimezone: assignment.client.timezone || 'UTC',
               hasApprovedOT: false,
             },
           });
