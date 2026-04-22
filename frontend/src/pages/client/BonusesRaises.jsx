@@ -332,7 +332,7 @@ const BonusesRaises = () => {
               </div>
               <p className="text-sm text-gray-500 mb-6">
                 {successModalType === "bonus"
-                  ? "Thank you for giving your employee a bonus! We will notify your employee of the bonus and deliver it at the earliest convenience. Please note bonuses may be delivered alongside regular payroll, but the employee will be notified as soon as the status shows Approved."
+                  ? "Thank you for giving your employee a bonus! We will notify your employee of the bonus and deliver it at the earliest convenience. Please note bonuses may be delivered alongside regular payroll, but the employee will be notified as soon as the status shows Approved. You're a great employer!"
                   : "Your request to give a raise to this employee has been submitted and is now pending approval. Once approved, the employee will be notified and the raise will take effect from the effective start date you selected."}
               </p>
               <div className="flex justify-end">

@@ -1717,7 +1717,7 @@ const RaiseRequests = () => {
                       <textarea
                         value={approvalNote}
                         onChange={(e) => { setApprovalNote(e.target.value); setApproveError(""); }}
-                        placeholder="Confirm that the employee was notified of the raise."
+                        placeholder="Confirm that the employee was notified of the bonus and reminded to thank the client."
                         rows={3}
                         maxLength={500}
                         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-none bg-white"
