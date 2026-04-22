@@ -648,6 +648,12 @@ const Approvals = () => {
                   )}
                   <TableHeader className="!px-3">Status</TableHeader>
                   <TableHeader className="!px-3">Submitted</TableHeader>
+                  {isOTType && statusFilter !== "pending" && (
+                    <TableHeader className="!px-3">Reviewed By</TableHeader>
+                  )}
+                  {isOTType && statusFilter !== "pending" && (
+                    <TableHeader className="!px-3">Note</TableHeader>
+                  )}
                   {(statusFilter === "pending" || statusFilter === "all") && (
                     <TableHeader className="!px-3">Actions</TableHeader>
                   )}
@@ -810,6 +816,28 @@ const Approvals = () => {
                           )}
                         </span>
                       </TableCell>
+                      {isOTType && statusFilter !== "pending" && (
+                        <TableCell className="!px-3">
+                          {item.status === "APPROVED" && item.approver ? (
+                            <span className="text-xs font-medium text-gray-800">{item.approver.name}</span>
+                          ) : item.status === "REJECTED" && item.rejecter ? (
+                            <span className="text-xs font-medium text-gray-800">{item.rejecter.name}</span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                        </TableCell>
+                      )}
+                      {isOTType && statusFilter !== "pending" && (
+                        <TableCell className="!px-3 max-w-[160px]">
+                          {item.status === "APPROVED" && item.approvalNotes ? (
+                            <span className="text-xs text-gray-600 line-clamp-2">{item.approvalNotes}</span>
+                          ) : item.status === "REJECTED" && item.rejectionReason ? (
+                            <span className="text-xs text-red-600 line-clamp-2">{item.rejectionReason}</span>
+                          ) : (
+                            <span className="text-gray-300 text-xs">—</span>
+                          )}
+                        </TableCell>
+                      )}
                       {(statusFilter === "pending" ||
                         statusFilter === "all") && (
                         <TableCell className="!px-3">

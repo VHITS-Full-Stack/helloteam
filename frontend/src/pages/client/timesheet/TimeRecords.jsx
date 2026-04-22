@@ -1069,7 +1069,9 @@ const TimeRecords = () => {
                                   <span className="text-gray-300">—</span>
                                 )}
                               </td>
-                              <td className="py-2.5 px-3 text-center">Admin</td>
+                              <td className="py-2.5 px-3 text-center text-sm text-gray-700">
+                                {rec.approvedByName || <span className="text-gray-300">—</span>}
+                              </td>
                               <td className="py-2.5 px-3 text-center">
                                 {getStatusBadge(displayStatus)}
                               </td>
@@ -1565,8 +1567,8 @@ const TimeRecords = () => {
                                             </span>
                                           )}
                                         </td>
-                                        <td className="py-2.5 px-3 text-center">
-                                          Admin
+                                        <td className="py-2.5 px-3 text-center text-sm text-gray-700">
+                                          {rec.approvedByName || <span className="text-gray-300">—</span>}
                                         </td>
                                         {/* Actions */}
                                         <td className="py-2.5 px-4 text-right">
