@@ -2744,7 +2744,7 @@ export const confirmAdminRaise = async (req: AuthenticatedRequest, res: Response
  */
 export const editPayRate = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id: employeeId } = req.params;
+    const employeeId = req.params.id as string;
     const { newPayRate, effectiveDate, reason, clientId } = req.body;
     const userId = req.user?.userId;
 
@@ -2805,7 +2805,7 @@ export const editPayRate = async (req: AuthenticatedRequest, res: Response) => {
  */
 export const editBillingRate = async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id: employeeId } = req.params;
+    const employeeId = req.params.id as string;
     const { clientId, newBillRate, effectiveDate, reason } = req.body;
     const userId = req.user?.userId;
 
