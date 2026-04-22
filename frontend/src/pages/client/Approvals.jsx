@@ -716,11 +716,10 @@ const Approvals = () => {
           </p>
           {activeType === "overtime" ||
             (activeType === "autoOvertime" && (
-              <p className="text-m text-gray-500 mt-2 font-bold">
+              <p className="text-m bg-blue-100 text-gray-700 mt-2 font-bold">
                 These employees have already worked overtime without submitting
-                a prior approval request. <br />
-                Approve to process payment and billing. Deny to exclude from
-                payroll
+                a prior approval request. Approve to process payment and
+                billing. Deny to exclude from payroll
               </p>
             ))}
         </div>
@@ -979,7 +978,7 @@ const Approvals = () => {
       </div>
 
       {/* Status filter tabs */}
-      {(
+      {
         <div className="border-b border-gray-200">
           <nav className="flex gap-8">
             {tabs.map((tab) => (
@@ -1012,7 +1011,7 @@ const Approvals = () => {
             ))}
           </nav>
         </div>
-      )}
+      }
 
       {/* Approval Items */}
       {loading ? (
@@ -1169,183 +1168,195 @@ const Approvals = () => {
         /* Timesheet Review */
         <Card padding="none">
           {(() => {
-            const tsStatusFilter = activeTab === "approved" ? ["approved", "auto_approved"] : [activeTab];
-            const visibleTimesheets = filteredTimesheetApprovals.filter((a) => tsStatusFilter.includes(a.status));
+            const tsStatusFilter =
+              activeTab === "approved"
+                ? ["approved", "auto_approved"]
+                : [activeTab];
+            const visibleTimesheets = filteredTimesheetApprovals.filter((a) =>
+              tsStatusFilter.includes(a.status),
+            );
             return visibleTimesheets.length > 0 ? (
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableHeader className="!px-3 !w-10">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedItems.length === selectableItems.length &&
-                        selectableItems.length > 0
-                      }
-                      onChange={handleSelectAll}
-                      className="rounded border-gray-300"
-                    />
-                  </TableHeader>
-                  <TableHeader className="!px-3">Employee</TableHeader>
-                  <TableHeader className="!px-3">Description</TableHeader>
-                  <TableHeader className="!px-3">Date</TableHeader>
-                  <TableHeader className="!px-3">Schedule</TableHeader>
-                  <TableHeader className="!px-3">Clock In/Out</TableHeader>
-                  <TableHeader className="!px-3">Status</TableHeader>
-                  <TableHeader className="!px-3">Submitted</TableHeader>
-                  <TableHeader className="!px-3">Actions</TableHeader>
-                  <TableHeader className="!px-3">Reviewed By</TableHeader>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {visibleTimesheets.map((item) => (
-                  <TableRow key={`timesheet-${item.id}`}>
-                    <TableCell className="!px-3">
-                      {item.status === "pending" ? (
-                        <input
-                          type="checkbox"
-                          checked={selectedItems.includes(item.id)}
-                          onChange={() => handleSelectItem(item.id)}
-                          className="rounded border-gray-300"
-                        />
-                      ) : null}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      <div className="flex items-center gap-2">
-                        <Avatar
-                          name={item.employee}
-                          src={item.profilePhoto}
-                          size="sm"
-                        />
-                        <span className="font-medium text-sm truncate">
-                          {item.employee}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="!px-3 !whitespace-normal">
-                      <p className="text-gray-900 text-sm whitespace-nowrap">
-                        {formatTimesheetDescription(item)}
-                      </p>
-                      {item.details && (
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {item.details}
-                        </p>
-                      )}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      {formatDate(item.date)}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      {item.scheduledStart && item.scheduledEnd ? (
-                        <span className="text-sm text-gray-700">
-                          {typeof item.scheduledStart === "string" &&
-                          /^\d{1,2}:\d{2}$/.test(item.scheduledStart)
-                            ? formatTime12(item.scheduledStart)
-                            : formatTimeInTimeZone(
-                                item.scheduledStart,
-                                clientTimezone,
-                              )}
-                          <span className="text-gray-300 mx-0.5">–</span>
-                          {typeof item.scheduledEnd === "string" &&
-                          /^\d{1,2}:\d{2}$/.test(item.scheduledEnd)
-                            ? formatTime12(item.scheduledEnd)
-                            : formatTimeInTimeZone(
-                                item.scheduledEnd,
-                                clientTimezone,
-                              )}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      {item.clockIn ? (
-                        <span className="text-sm text-gray-700">
-                          {formatTimeInTimeZone(item.clockIn, clientTimezone)}
-                          <span className="text-gray-300 mx-0.5">–</span>
-                          {item.clockOut ? (
-                            formatTimeInTimeZone(item.clockOut, clientTimezone)
-                          ) : (
-                            <span className="text-green-600">Active</span>
-                          )}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      {getStatusBadge(item.status)}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      <span className="text-xs text-gray-500">
-                        {formatDateTime(item.submittedAt, {
-                          timeZone: clientTimezone,
-                        })}
-                      </span>
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      {item.status === "pending" ? (
-                        <div className="flex gap-1.5">
-                          <Button
-                            variant="success"
-                            size="xs"
-                            icon={CheckCircle}
-                            onClick={() => handleApprove(item)}
-                            disabled={actionLoading}
-                          >
-                            Approve
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="xs"
-                            icon={RotateCcw}
-                            onClick={() => handleRequestRevision(item)}
-                            disabled={actionLoading}
-                            className="text-amber-600 hover:text-amber-700"
-                          >
-                            Revise
-                          </Button>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableHeader className="!px-3 !w-10">
+                      <input
+                        type="checkbox"
+                        checked={
+                          selectedItems.length === selectableItems.length &&
+                          selectableItems.length > 0
+                        }
+                        onChange={handleSelectAll}
+                        className="rounded border-gray-300"
+                      />
+                    </TableHeader>
+                    <TableHeader className="!px-3">Employee</TableHeader>
+                    <TableHeader className="!px-3">Description</TableHeader>
+                    <TableHeader className="!px-3">Date</TableHeader>
+                    <TableHeader className="!px-3">Schedule</TableHeader>
+                    <TableHeader className="!px-3">Clock In/Out</TableHeader>
+                    <TableHeader className="!px-3">Status</TableHeader>
+                    <TableHeader className="!px-3">Submitted</TableHeader>
+                    <TableHeader className="!px-3">Actions</TableHeader>
+                    <TableHeader className="!px-3">Reviewed By</TableHeader>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {visibleTimesheets.map((item) => (
+                    <TableRow key={`timesheet-${item.id}`}>
+                      <TableCell className="!px-3">
+                        {item.status === "pending" ? (
+                          <input
+                            type="checkbox"
+                            checked={selectedItems.includes(item.id)}
+                            onChange={() => handleSelectItem(item.id)}
+                            className="rounded border-gray-300"
+                          />
+                        ) : null}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        <div className="flex items-center gap-2">
+                          <Avatar
+                            name={item.employee}
+                            src={item.profilePhoto}
+                            size="sm"
+                          />
+                          <span className="font-medium text-sm truncate">
+                            {item.employee}
+                          </span>
                         </div>
-                      ) : item.status === "approved" ||
-                        item.status === "auto_approved" ? (
-                        <span className="text-xs text-green-600">
-                          {formatDateTime(item.approvedAt, {
+                      </TableCell>
+                      <TableCell className="!px-3 !whitespace-normal">
+                        <p className="text-gray-900 text-sm whitespace-nowrap">
+                          {formatTimesheetDescription(item)}
+                        </p>
+                        {item.details && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {item.details}
+                          </p>
+                        )}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        {formatDate(item.date)}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        {item.scheduledStart && item.scheduledEnd ? (
+                          <span className="text-sm text-gray-700">
+                            {typeof item.scheduledStart === "string" &&
+                            /^\d{1,2}:\d{2}$/.test(item.scheduledStart)
+                              ? formatTime12(item.scheduledStart)
+                              : formatTimeInTimeZone(
+                                  item.scheduledStart,
+                                  clientTimezone,
+                                )}
+                            <span className="text-gray-300 mx-0.5">–</span>
+                            {typeof item.scheduledEnd === "string" &&
+                            /^\d{1,2}:\d{2}$/.test(item.scheduledEnd)
+                              ? formatTime12(item.scheduledEnd)
+                              : formatTimeInTimeZone(
+                                  item.scheduledEnd,
+                                  clientTimezone,
+                                )}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        {item.clockIn ? (
+                          <span className="text-sm text-gray-700">
+                            {formatTimeInTimeZone(item.clockIn, clientTimezone)}
+                            <span className="text-gray-300 mx-0.5">–</span>
+                            {item.clockOut ? (
+                              formatTimeInTimeZone(
+                                item.clockOut,
+                                clientTimezone,
+                              )
+                            ) : (
+                              <span className="text-green-600">Active</span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        {getStatusBadge(item.status)}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        <span className="text-xs text-gray-500">
+                          {formatDateTime(item.submittedAt, {
                             timeZone: clientTimezone,
                           })}
                         </span>
-                      ) : item.status === "revision_requested" ? (
-                        <span
-                          className="text-sm text-amber-700 line-clamp-2"
-                          title={item.revisionReason}
-                        >
-                          {item.revisionReason || "-"}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        {item.status === "pending" ? (
+                          <div className="flex gap-1.5">
+                            <Button
+                              variant="success"
+                              size="xs"
+                              icon={CheckCircle}
+                              onClick={() => handleApprove(item)}
+                              disabled={actionLoading}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="xs"
+                              icon={RotateCcw}
+                              onClick={() => handleRequestRevision(item)}
+                              disabled={actionLoading}
+                              className="text-amber-600 hover:text-amber-700"
+                            >
+                              Revise
+                            </Button>
+                          </div>
+                        ) : item.status === "approved" ||
+                          item.status === "auto_approved" ? (
+                          <span className="text-xs text-green-600">
+                            {formatDateTime(item.approvedAt, {
+                              timeZone: clientTimezone,
+                            })}
+                          </span>
+                        ) : item.status === "revision_requested" ? (
+                          <span
+                            className="text-sm text-amber-700 line-clamp-2"
+                            title={item.revisionReason}
+                          >
+                            {item.revisionReason || "-"}
+                          </span>
+                        ) : item.status === "rejected" ? (
+                          <span className="text-xs text-red-600">Rejected</span>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="!px-3">
+                        <span className="text-sm text-gray-700">
+                          {item.approver?.name || item.approvedByName || (
+                            <span className="text-gray-300">—</span>
+                          )}
                         </span>
-                      ) : item.status === "rejected" ? (
-                        <span className="text-xs text-red-600">Rejected</span>
-                      ) : (
-                        <span className="text-gray-300">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="!px-3">
-                      <span className="text-sm text-gray-700">
-                        {item.approver?.name || item.approvedByName || <span className="text-gray-300">—</span>}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-gray-400" />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-1">
+                  No timesheets
+                </h3>
+                <p className="text-gray-500">
+                  No {activeTab.replace("_", " ")} timesheets to show.
+                </p>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">
-                No timesheets
-              </h3>
-              <p className="text-gray-500">No {activeTab.replace("_", " ")} timesheets to show.</p>
-            </div>
-          );
+            );
           })()}
         </Card>
       ) : activeType === "overtime" || activeType === "autoOvertime" ? (
@@ -1505,25 +1516,38 @@ const Approvals = () => {
                     {activeTab === "approved" && (
                       <TableCell className="!px-3">
                         <span className="text-xs text-green-600">
-                          {formatDateTime(request.approvedAt, { timeZone: clientTimezone })}
+                          {formatDateTime(request.approvedAt, {
+                            timeZone: clientTimezone,
+                          })}
                         </span>
                       </TableCell>
                     )}
                     {activeTab === "approved" && (
                       <TableCell className="!px-3">
-                        <span className="text-sm text-gray-700">{request.approver?.name || <span className="text-gray-300">—</span>}</span>
+                        <span className="text-sm text-gray-700">
+                          {request.approver?.name || (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </span>
                       </TableCell>
                     )}
                     {activeTab === "rejected" && (
                       <TableCell className="!whitespace-normal !px-3">
-                        <span className="text-sm text-red-600 line-clamp-2" title={request.rejectionReason}>
+                        <span
+                          className="text-sm text-red-600 line-clamp-2"
+                          title={request.rejectionReason}
+                        >
                           {request.rejectionReason || "—"}
                         </span>
                       </TableCell>
                     )}
                     {activeTab === "rejected" && (
                       <TableCell className="!px-3">
-                        <span className="text-sm text-gray-700">{request.rejecter?.name || <span className="text-gray-300">—</span>}</span>
+                        <span className="text-sm text-gray-700">
+                          {request.rejecter?.name || (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </span>
                       </TableCell>
                     )}
                   </TableRow>
