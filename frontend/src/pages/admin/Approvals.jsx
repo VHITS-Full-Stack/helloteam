@@ -648,10 +648,10 @@ const Approvals = () => {
                   )}
                   <TableHeader className="!px-3">Status</TableHeader>
                   <TableHeader className="!px-3">Submitted</TableHeader>
-                  {isOTType && statusFilter !== "pending" && (
+                  {activeType === "autoOvertime" && (
                     <TableHeader className="!px-3">Reviewed By</TableHeader>
                   )}
-                  {isOTType && statusFilter !== "pending" && (
+                  {activeType === "autoOvertime" && (
                     <TableHeader className="!px-3">Note</TableHeader>
                   )}
                   {(statusFilter === "pending" || statusFilter === "all") && (
@@ -816,7 +816,7 @@ const Approvals = () => {
                           )}
                         </span>
                       </TableCell>
-                      {isOTType && statusFilter !== "pending" && (
+                      {activeType === "autoOvertime" && (
                         <TableCell className="!px-3">
                           {item.status === "APPROVED" && item.approver ? (
                             <span className="text-xs font-medium text-gray-800">{item.approver.name}</span>
@@ -827,12 +827,12 @@ const Approvals = () => {
                           )}
                         </TableCell>
                       )}
-                      {isOTType && statusFilter !== "pending" && (
-                        <TableCell className="!px-3 max-w-[160px]">
+                      {activeType === "autoOvertime" && (
+                        <TableCell className="!px-3 max-w-[180px]">
                           {item.status === "APPROVED" && item.approvalNotes ? (
-                            <span className="text-xs text-gray-600 line-clamp-2">{item.approvalNotes}</span>
+                            <span className="text-xs text-gray-700 line-clamp-2" title={item.approvalNotes}>{item.approvalNotes}</span>
                           ) : item.status === "REJECTED" && item.rejectionReason ? (
-                            <span className="text-xs text-red-600 line-clamp-2">{item.rejectionReason}</span>
+                            <span className="text-xs text-red-600 line-clamp-2" title={item.rejectionReason}>{item.rejectionReason}</span>
                           ) : (
                             <span className="text-gray-300 text-xs">—</span>
                           )}
