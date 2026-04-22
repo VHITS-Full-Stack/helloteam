@@ -2603,6 +2603,80 @@ export const giveBonus = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 /**
+ * Admin-initiated bonus — Step 2: Confirm and activate
+ * POST /admin-portal/bonus-requests/:bonusId/confirm
+ */
+export const confirmAdminBonus = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    let bonusId = req.params.bonusId;
+    if (Array.isArray(bonusId)) bonusId = bonusId[0];
+    const userId = req.user?.userId;
+
+    const request = await prisma.clientRequest.findUnique({
+      where: { id: bonusId },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true } },
+        client: { select: { id: true, companyName: true, userId: true } },
+      },
+    });
+
+    if (!request) return res.status(404).json({ success: false, error: 'Bonus request not found' });
+    if (request.status !== 'PENDING') return res.status(400).json({ success: false, error: 'Bonus request is not pending' });
+    if ((request as any).raisedBy !== 'ADMIN') return res.status(400).json({ success: false, error: 'This endpoint is for admin-initiated bonuses only' });
+    if (request.type !== 'BONUS') return res.status(400).json({ success: false, error: 'Request is not a bonus' });
+
+    const bonusAmount = Number(request.amount);
+    const coverageType = (request as any).coverageType as string;
+    const effDate = request.effectiveDate ? new Date(request.effectiveDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+    await prisma.$transaction(async (tx) => {
+      await tx.clientRequest.update({
+        where: { id: bonusId },
+        data: { status: 'APPROVED', reviewedBy: userId, reviewedAt: new Date() },
+      });
+
+      await tx.payrollAdjustment.create({
+        data: {
+          employeeId: request.employeeId,
+          type: 'BONUS',
+          amount: bonusAmount,
+          reason: request.reason || `Admin bonus — ${request.employee.firstName} ${request.employee.lastName}`,
+          periodStart: new Date(effDate),
+          periodEnd: new Date(effDate),
+          createdBy: userId!,
+        },
+      });
+    });
+
+    if (coverageType !== 'NONE' && request.client.userId) {
+      try {
+        const { createNotification } = await import('./notification.controller');
+        const employeeName = `${request.employee.firstName} ${request.employee.lastName}`;
+        const clientCovered = (request as any).clientCoveredAmount ? Number((request as any).clientCoveredAmount) : bonusAmount;
+        const isFullCoverage = coverageType === 'FULL';
+        await createNotification(
+          request.client.userId,
+          'RAISE_APPLIED',
+          isFullCoverage ? 'Bonus Approved for Employee' : 'Billing Update for Employee',
+          isFullCoverage
+            ? `A bonus of $${bonusAmount.toFixed(2)} has been approved for ${employeeName}, effective ${effDate}.`
+            : `A billing adjustment of $${clientCovered.toFixed(2)} has been applied for ${employeeName}, effective ${effDate}.`,
+          { bonusRequestId: bonusId, employeeId: request.employeeId, employeeName, clientCoveredAmount: clientCovered, effectiveDate: effDate },
+          '/client/bonuses-raises'
+        );
+      } catch (notifError) {
+        console.error('[Confirm Bonus] Failed to send client notification:', notifError);
+      }
+    }
+
+    res.json({ success: true, message: 'Bonus confirmed and added to payroll' });
+  } catch (error: any) {
+    console.error('Confirm bonus error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to confirm bonus' });
+  }
+};
+
+/**
  * Admin-initiated raise — Step 2: Confirm and activate
  * POST /admin-portal/raise-requests/:raiseId/confirm
  */

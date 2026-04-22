@@ -23,6 +23,7 @@ import {
   giveRaise,
   giveBonus,
   confirmAdminRaise,
+  confirmAdminBonus,
   getRaiseCandidates,
   editPayRate,
   editBillingRate,
@@ -80,6 +81,7 @@ router.post('/give-bonus', authenticate, authorize(...approvalRoles), giveBonus)
 router.post('/raise-requests/:raiseId/approve', authenticate, authorize(...approvalRoles), proofUpload.single('proofFile'), approveRaiseRequest);
 router.post('/raise-requests/:raiseId/reject', authenticate, authorize(...approvalRoles), rejectRaiseRequest);
 router.post('/raise-requests/:raiseId/confirm', authenticate, authorize(...approvalRoles), confirmAdminRaise);
+router.post('/bonus-requests/:bonusId/confirm', authenticate, authorize(...approvalRoles), confirmAdminBonus);
 
 // Direct rate edit endpoints
 router.post('/employees/:id/edit-pay-rate', authenticate, authorize(...adjustmentRoles), editPayRate);

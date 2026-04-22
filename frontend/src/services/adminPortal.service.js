@@ -127,6 +127,11 @@ const adminPortalService = {
     return response;
   },
 
+  confirmAdminBonus: async (bonusId) => {
+    const response = await api.post(`/admin-portal/bonus-requests/${bonusId}/confirm`, {});
+    return response;
+  },
+
   editPayRate: async (employeeId, data) => {
     const response = await api.post(`/admin-portal/employees/${employeeId}/edit-pay-rate`, data);
     return response;
