@@ -28,6 +28,10 @@ import {
   editPayRate,
   editBillingRate,
   confirmDirectEdit,
+  getPunctualityAnalytics,
+  getEmployeePunctualityDetails,
+  getRealTimeAttendanceMonitoring,
+  getAdminAnalytics,
 } from '../controllers/adminPortal.controller';
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 
@@ -87,5 +91,11 @@ router.post('/bonus-requests/:bonusId/confirm', authenticate, authorize(...appro
 router.post('/employees/:id/edit-pay-rate', authenticate, authorize(...adjustmentRoles), editPayRate);
 router.post('/employees/:id/edit-billing-rate', authenticate, authorize(...adjustmentRoles), editBillingRate);
 router.post('/raise-requests/:raiseId/confirm-edit', authenticate, authorize(...adjustmentRoles), confirmDirectEdit);
+
+// Analytics endpoints
+router.get('/analytics/punctuality', authenticate, authorize(...adminRoles), getPunctualityAnalytics);
+router.get('/analytics/punctuality/employee/:employeeId', authenticate, authorize(...adminRoles), getEmployeePunctualityDetails);
+router.get('/attendance/monitoring', authenticate, authorize(...adminRoles), getRealTimeAttendanceMonitoring);
+router.get('/analytics', authenticate, authorize(...adminRoles), getAdminAnalytics);
 
 export default router;

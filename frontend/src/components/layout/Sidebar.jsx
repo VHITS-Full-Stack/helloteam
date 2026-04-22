@@ -27,6 +27,7 @@ import {
   Timer,
   Gift,
   ClipboardCheck,
+  Activity,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -230,6 +231,25 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       label: "Bonuses & Raises",
       permission: PERMISSIONS.APPROVALS.VIEW,
       badge: pendingBonusRaiseCount,
+    },
+    {
+      to: "/admin/analytics",
+      icon: BarChart3,
+      label: "Analytics",
+      permission: PERMISSIONS.DASHBOARD.VIEW,
+      end: true,
+    },
+    {
+      to: "/admin/analytics/punctuality",
+      icon: TrendingUp,
+      label: "Punctuality Analytics",
+      permission: PERMISSIONS.DASHBOARD.VIEW,
+    },
+    {
+      to: "/admin/attendance-monitoring",
+      icon: Activity,
+      label: "Live Monitoring",
+      permission: PERMISSIONS.DASHBOARD.VIEW,
     },
     {
       to: "/admin/tasks",

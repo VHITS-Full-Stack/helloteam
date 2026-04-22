@@ -1897,10 +1897,36 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
     if (clientAssignments.length > 0) {
       const d = new Date(entryDate);
       const recordDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+      const dayOfWeek = recordDate.getUTCDay();
+
+      const schedule = await prisma.schedule.findFirst({
+        where: {
+          employeeId: employee.id,
+          dayOfWeek,
+          isActive: true,
+          effectiveFrom: { lte: sessionStartTime },
+          OR: [
+            { effectiveTo: null },
+            { effectiveTo: { gte: sessionStartTime } },
+          ],
+        },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+
+      let scheduledStart: Date | null = null;
+      let scheduledEnd: Date | null = null;
+      if (schedule) {
+        if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+          scheduledStart = buildScheduleTimestamp(clientTz, schedule.startTime, sessionStartTime);
+        }
+        if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+          scheduledEnd = buildScheduleTimestamp(clientTz, schedule.endTime, sessionStartTime);
+        }
+      }
 
       await Promise.all(
         clientAssignments.map(async (assignment) => {
-          const manualBilling = computeBillingTimes(sessionStartTime, sessionEndTime, null, null);
+          const manualBilling = computeBillingTimes(sessionStartTime, sessionEndTime, scheduledStart, scheduledEnd);
           const manualBillingMins = Math.max(0, Math.floor((manualBilling.billingEnd.getTime() - manualBilling.billingStart.getTime()) / 60000));
           const record = await prisma.timeRecord.upsert({
             where: {
@@ -1914,19 +1940,27 @@ export const addManualEntry = async (req: AuthenticatedRequest, res: Response): 
               employeeId: employee.id,
               clientId: assignment.clientId,
               date: recordDate,
+              scheduledStart,
+              scheduledEnd,
               actualStart: sessionStartTime,
               actualEnd: sessionEndTime,
               billingStart: manualBilling.billingStart,
               billingEnd: manualBilling.billingEnd,
               billingMinutes: manualBillingMins,
-              isLate: false,
+              isLate: manualBilling.isLate,
               totalMinutes,
               breakMinutes: 0,
               status: 'PENDING',
             },
             update: {
+              scheduledStart: scheduledStart || undefined,
+              scheduledEnd: scheduledEnd || undefined,
               actualEnd: sessionEndTime,
               totalMinutes: { increment: totalMinutes },
+              billingMinutes: { increment: manualBillingMins },
+              status: 'PENDING',
+              approvedAt: null,
+              approvedBy: null,
             },
           });
           // Set "isManual" via raw SQL — column name is camelCase (quoted) per Prisma migration

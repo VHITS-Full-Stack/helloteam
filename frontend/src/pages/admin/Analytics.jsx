@@ -1,118 +1,65 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   TrendingUp,
-  TrendingDown,
   Users,
   Building2,
   Clock,
   DollarSign,
-  Calendar,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   ArrowUpRight,
   ArrowDownRight,
   BarChart3,
+  RefreshCw,
   PieChart,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
   Activity,
   Target,
   Briefcase,
   UserCheck
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button } from '../../components/common';
+import adminPortalService from '../../services/adminPortal.service';
 
 const Analytics = () => {
-  const [timeRange, setTimeRange] = useState('month');
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState(null);
 
-  // Stats Overview
-  const stats = [
-    {
-      title: 'Total Employees',
-      value: '1,247',
-      change: '+12.5%',
-      trend: 'up',
-      icon: Users,
-      color: 'primary'
-    },
-    {
-      title: 'Active Clients',
-      value: '89',
-      change: '+8.2%',
-      trend: 'up',
-      icon: Building2,
-      color: 'secondary'
-    },
-    {
-      title: 'Hours Logged',
-      value: '45,832',
-      change: '+15.3%',
-      trend: 'up',
-      icon: Clock,
-      color: 'accent'
-    },
-    {
-      title: 'Payroll Total',
-      value: '$892,450',
-      change: '+5.8%',
-      trend: 'up',
-      icon: DollarSign,
-      color: 'success'
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const response = await adminPortalService.getAdminAnalytics();
+      if (response.success) {
+        setData(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch analytics', err);
+    } finally {
+      setLoading(false);
     }
-  ];
-
-  // Monthly data for chart
-  const monthlyData = [
-    { month: 'Jan', hours: 3200, employees: 980, revenue: 68000 },
-    { month: 'Feb', hours: 3450, employees: 1020, revenue: 72000 },
-    { month: 'Mar', hours: 3800, employees: 1080, revenue: 78000 },
-    { month: 'Apr', hours: 3600, employees: 1120, revenue: 75000 },
-    { month: 'May', hours: 4100, employees: 1180, revenue: 85000 },
-    { month: 'Jun', hours: 4350, employees: 1200, revenue: 89000 },
-    { month: 'Jul', hours: 4200, employees: 1220, revenue: 87000 },
-    { month: 'Aug', hours: 4500, employees: 1240, revenue: 92000 },
-    { month: 'Sep', hours: 4300, employees: 1230, revenue: 88000 },
-    { month: 'Oct', hours: 4600, employees: 1245, revenue: 94000 },
-    { month: 'Nov', hours: 4450, employees: 1247, revenue: 91000 },
-    { month: 'Dec', hours: 4700, employees: 1250, revenue: 96000 }
-  ];
-
-  const maxHours = Math.max(...monthlyData.map(d => d.hours));
-
-  // Department breakdown
-  const departments = [
-    { name: 'Engineering', employees: 320, hours: 12800, percentage: 28 },
-    { name: 'Sales', employees: 180, hours: 7200, percentage: 16 },
-    { name: 'Marketing', employees: 120, hours: 4800, percentage: 10 },
-    { name: 'Operations', employees: 280, hours: 11200, percentage: 24 },
-    { name: 'Support', employees: 200, hours: 8000, percentage: 17 },
-    { name: 'HR & Admin', employees: 60, hours: 2400, percentage: 5 }
-  ];
-
-  // Client performance
-  const topClients = [
-    { name: 'ABC Corporation', employees: 145, hours: 5800, revenue: '$125,000', trend: 'up' },
-    { name: 'Tech Solutions Inc', employees: 98, hours: 3920, revenue: '$89,000', trend: 'up' },
-    { name: 'Global Services Ltd', employees: 76, hours: 3040, revenue: '$72,000', trend: 'down' },
-    { name: 'Innovation Labs', employees: 65, hours: 2600, revenue: '$58,000', trend: 'up' },
-    { name: 'Digital Dynamics', employees: 52, hours: 2080, revenue: '$48,000', trend: 'up' }
-  ];
-
-  // Approval metrics
-  const approvalMetrics = {
-    pending: 45,
-    approved: 892,
-    rejected: 23,
-    avgTime: '4.2 hrs'
   };
 
-  // Attendance overview
-  const attendanceData = [
-    { day: 'Mon', present: 1180, absent: 45, late: 22 },
-    { day: 'Tue', present: 1195, absent: 32, late: 20 },
-    { day: 'Wed', present: 1200, absent: 28, late: 19 },
-    { day: 'Thu', present: 1175, absent: 52, late: 20 },
-    { day: 'Fri', present: 1150, absent: 72, late: 25 }
-  ];
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  if (loading || !data) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const { stats, monthlyData, topClients, approvalMetrics, departments, attendanceData } = data;
+  const maxHours = Math.max(...monthlyData.map(d => d.hours), 1);
+
+  const statIcons = {
+    'Total Employees': Users,
+    'Active Clients': Building2,
+    'Active Now': Clock,
+    'Monthly Revenue': DollarSign
+  };
 
   const getColorClass = (color) => {
     const colors = {
@@ -143,26 +90,22 @@ const Analytics = () => {
           <p className="text-gray-500 mt-1">Comprehensive overview of your workforce metrics</p>
         </div>
         <div className="flex items-center gap-2">
-          {['week', 'month', 'quarter', 'year'].map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                timeRange === range
-                  ? 'bg-primary text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {range.charAt(0).toUpperCase() + range.slice(1)}
-            </button>
-          ))}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            icon={RefreshCw} 
+            onClick={fetchAnalytics}
+            loading={loading}
+          >
+            Refresh Data
+          </Button>
         </div>
       </div>
 
       {/* Stats Overview */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat) => {
-          const Icon = stat.icon;
+          const Icon = statIcons[stat.title] || TrendingUp;
           return (
             <Card key={stat.title} className="relative overflow-hidden">
               <div className="flex items-start justify-between">
@@ -178,7 +121,6 @@ const Analytics = () => {
                       <ArrowDownRight className="w-4 h-4" />
                     )}
                     <span>{stat.change}</span>
-                    <span className="text-gray-400">vs last {timeRange}</span>
                   </div>
                 </div>
                 <div className={`p-3 rounded-xl ${getBgLight(stat.color)}`}>
@@ -203,39 +145,41 @@ const Analytics = () => {
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-primary" />
-                Hours Logged Trend
+                Workforce Productivity Trend
               </CardTitle>
-              <Badge variant="primary">+15.3% growth</Badge>
+              <Badge variant="primary">Last 12 Months</Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="flex items-end gap-2 h-64">
               {monthlyData.map((data) => (
-                <div key={data.month} className="flex-1 flex flex-col items-center gap-2">
+                <div key={`${data.month}-${data.year}`} className="flex-1 flex flex-col items-center gap-2">
                   <div className="w-full flex flex-col items-center">
-                    <span className="text-xs text-gray-500 mb-1">{(data.hours / 1000).toFixed(1)}k</span>
+                    <span className="text-[10px] text-gray-400 mb-1">{data.hours > 1000 ? `${(data.hours/1000).toFixed(1)}k` : data.hours}</span>
                     <div
                       className="w-full bg-gradient-to-t from-primary to-primary-light rounded-t-lg transition-all hover:from-primary-dark hover:to-primary cursor-pointer relative group"
-                      style={{ height: `${(data.hours / maxHours) * 180}px` }}
+                      style={{ height: `${(data.hours / maxHours) * 180}px`, minHeight: '2px' }}
                     >
-                      <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                        {data.hours.toLocaleString()} hrs
+                      <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 shadow-xl">
+                        <div className="font-bold">{data.month} {data.year}</div>
+                        <div>Hours: {data.hours.toLocaleString()}</div>
+                        <div>Revenue: ${data.revenue.toLocaleString()}</div>
                       </div>
                     </div>
                   </div>
-                  <span className="text-xs text-gray-500">{data.month}</span>
+                  <span className="text-[10px] text-gray-500 font-medium">{data.month}</span>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Department Breakdown */}
+        {/* Department Distribution */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PieChart className="w-5 h-5 text-secondary" />
-              Department Distribution
+              Group Distribution
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -248,16 +192,20 @@ const Analytics = () => {
                       <span className="text-sm font-medium text-gray-700">{dept.name}</span>
                       <span className="text-sm text-gray-500">{dept.percentage}%</span>
                     </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
                       <div
-                        className={`h-full ${colors[index]} rounded-full transition-all`}
+                        className={`${colors[index % colors.length]} h-full rounded-full transition-all duration-1000`}
                         style={{ width: `${dept.percentage}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">{dept.employees} employees</p>
                   </div>
                 );
               })}
+              {departments.length === 0 && (
+                <div className="py-12 text-center text-gray-500 text-sm italic">
+                  No groups defined.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -268,36 +216,30 @@ const Analytics = () => {
         {/* Top Clients */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="w-5 h-5 text-accent" />
-                Top Performing Clients
-              </CardTitle>
-              <Button variant="ghost" size="sm">View All</Button>
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-success" />
+              Top Clients (This Month)
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {topClients.map((client, index) => (
-                <div key={client.name} className="flex items-center gap-4 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                  <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center font-bold text-primary">
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 truncate">{client.name}</p>
-                    <p className="text-sm text-gray-500">{client.employees} employees • {client.hours.toLocaleString()} hrs</p>
+          <CardContent padding="none">
+            <div className="divide-y divide-gray-100">
+              {topClients.map((client) => (
+                <div key={client.name} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <p className="text-sm font-bold text-gray-900 truncate">{client.name}</p>
+                    <p className="text-xs text-gray-500">{client.employees} active employees</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-gray-900">{client.revenue}</p>
-                    <div className={`flex items-center justify-end gap-1 text-xs ${
-                      client.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {client.trend === 'up' ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                      {client.trend === 'up' ? '+5.2%' : '-2.1%'}
-                    </div>
+                    <p className="text-sm font-bold text-primary">${client.revenue.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-400 uppercase font-bold">{client.hours} Hours</p>
                   </div>
                 </div>
               ))}
+              {topClients.length === 0 && (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  No client activity recorded this month.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -306,68 +248,43 @@ const Analytics = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-success" />
-              Approval Metrics
+              <CheckCircle className="w-5 h-5 text-primary" />
+              Approval Efficiency
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div className="p-4 bg-green-50 rounded-xl border border-green-100">
-                <div className="flex items-center gap-2 text-green-600 mb-2">
-                  <CheckCircle className="w-5 h-5" />
-                  <span className="text-sm font-medium">Approved</span>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                <div className="flex items-center gap-2 text-orange-600 mb-1">
+                  <AlertCircle className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase">Pending</p>
                 </div>
-                <p className="text-3xl font-bold text-green-700">{approvalMetrics.approved}</p>
-                <p className="text-sm text-green-600 mt-1">93% approval rate</p>
+                <p className="text-2xl font-bold text-gray-900">{approvalMetrics.pending}</p>
+                <p className="text-[10px] text-gray-500 mt-1">Awaiting review</p>
               </div>
-              <div className="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
-                <div className="flex items-center gap-2 text-yellow-600 mb-2">
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="text-sm font-medium">Pending</span>
+              <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
+                <div className="flex items-center gap-2 text-green-600 mb-1">
+                  <CheckCircle className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase">Approved</p>
                 </div>
-                <p className="text-3xl font-bold text-yellow-700">{approvalMetrics.pending}</p>
-                <p className="text-sm text-yellow-600 mt-1">Needs attention</p>
+                <p className="text-2xl font-bold text-gray-900">{approvalMetrics.approved}</p>
+                <p className="text-[10px] text-gray-500 mt-1">Total processed</p>
               </div>
-              <div className="p-4 bg-red-50 rounded-xl border border-red-100">
-                <div className="flex items-center gap-2 text-red-600 mb-2">
-                  <XCircle className="w-5 h-5" />
-                  <span className="text-sm font-medium">Rejected</span>
+              <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
+                <div className="flex items-center gap-2 text-blue-600 mb-1">
+                  <Clock className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase">Avg Time</p>
                 </div>
-                <p className="text-3xl font-bold text-red-700">{approvalMetrics.rejected}</p>
-                <p className="text-sm text-red-600 mt-1">2.4% rejection rate</p>
+                <p className="text-2xl font-bold text-gray-900">{approvalMetrics.avgTime}</p>
+                <p className="text-[10px] text-gray-500 mt-1">Response time</p>
               </div>
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-100">
-                <div className="flex items-center gap-2 text-blue-600 mb-2">
-                  <Clock className="w-5 h-5" />
-                  <span className="text-sm font-medium">Avg. Time</span>
+              <div className="p-4 bg-red-50 rounded-2xl border border-red-100">
+                <div className="flex items-center gap-2 text-red-600 mb-1">
+                  <XCircle className="w-4 h-4" />
+                  <p className="text-xs font-bold uppercase">Rejected</p>
                 </div>
-                <p className="text-3xl font-bold text-blue-700">{approvalMetrics.avgTime}</p>
-                <p className="text-sm text-blue-600 mt-1">Response time</p>
-              </div>
-            </div>
-
-            {/* Approval Trend */}
-            <div className="pt-4 border-t border-gray-100">
-              <p className="text-sm font-medium text-gray-700 mb-3">Weekly Trend</p>
-              <div className="flex items-end gap-1 h-20">
-                {[65, 78, 82, 70, 88, 92, 85].map((value, i) => (
-                  // eslint-disable-next-line react/no-array-index-key
-                  <div key={i} className="flex-1 flex flex-col items-center">
-                    <div
-                      className="w-full bg-gradient-to-t from-green-500 to-green-400 rounded-t transition-all hover:from-green-600 hover:to-green-500"
-                      style={{ height: `${value}%` }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-gray-400">
-                <span>Mon</span>
-                <span>Tue</span>
-                <span>Wed</span>
-                <span>Thu</span>
-                <span>Fri</span>
-                <span>Sat</span>
-                <span>Sun</span>
+                <p className="text-2xl font-bold text-gray-900">{approvalMetrics.rejected}</p>
+                <p className="text-[10px] text-gray-500 mt-1">Quality metric</p>
               </div>
             </div>
           </CardContent>
@@ -376,12 +293,12 @@ const Analytics = () => {
 
       {/* Attendance & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Weekly Attendance */}
+        {/* Weekly Attendance Overview */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <UserCheck className="w-5 h-5 text-primary" />
-              Weekly Attendance Overview
+              Weekly Attendance Pattern
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -391,37 +308,29 @@ const Analytics = () => {
                   <tr className="border-b border-gray-100">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Day</th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Present</th>
-                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Absent</th>
                     <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Late</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-600">Attendance Rate</th>
+                    <th className="text-center py-3 px-4 text-sm font-semibold text-gray-600">Absent</th>
+                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-600">Rate</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-gray-50">
                   {attendanceData.map((day) => {
-                    const total = day.present + day.absent + day.late;
-                    const rate = ((day.present / total) * 100).toFixed(1);
+                    const total = day.present + day.absent;
+                    const rate = total > 0 ? ((day.present / total) * 100).toFixed(1) : '0.0';
                     return (
-                      <tr key={day.day} className="border-b border-gray-50 hover:bg-gray-50">
+                      <tr key={day.day} className="hover:bg-gray-50 transition-colors">
                         <td className="py-3 px-4 font-medium text-gray-900">{day.day}</td>
                         <td className="py-3 px-4 text-center">
                           <Badge variant="success">{day.present}</Badge>
                         </td>
                         <td className="py-3 px-4 text-center">
-                          <Badge variant="danger">{day.absent}</Badge>
-                        </td>
-                        <td className="py-3 px-4 text-center">
                           <Badge variant="warning">{day.late}</Badge>
                         </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                              <div
-                                className="h-full bg-gradient-to-r from-green-500 to-green-400 rounded-full"
-                                style={{ width: `${rate}%` }}
-                              />
-                            </div>
-                            <span className="text-sm font-medium text-gray-700 w-12">{rate}%</span>
-                          </div>
+                        <td className="py-3 px-4 text-center">
+                          <Badge variant="danger">{day.absent}</Badge>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className={`text-sm font-bold ${Number(rate) > 90 ? 'text-green-600' : 'text-orange-600'}`}>{rate}%</span>
                         </td>
                       </tr>
                     );
@@ -437,7 +346,7 @@ const Analytics = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="w-5 h-5 text-secondary" />
-              Quick Stats
+              Performance Scoring
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -445,37 +354,28 @@ const Analytics = () => {
               <div className="p-4 bg-gradient-to-r from-primary-50 to-primary-100 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-primary-600">Avg. Hours/Employee</p>
-                    <p className="text-2xl font-bold text-primary-700">36.8 hrs</p>
+                    <p className="text-sm text-primary-600">Utilization Rate</p>
+                    <p className="text-2xl font-bold text-primary-700">92.4%</p>
                   </div>
-                  <Target className="w-8 h-8 text-primary" />
+                  <Target className="w-8 h-8 text-primary/40" />
                 </div>
               </div>
               <div className="p-4 bg-gradient-to-r from-secondary-50 to-secondary-100 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-secondary-600">Overtime Hours</p>
-                    <p className="text-2xl font-bold text-secondary-700">2,450 hrs</p>
+                    <p className="text-sm text-secondary-600">Punctuality Score</p>
+                    <p className="text-2xl font-bold text-secondary-700">88.5%</p>
                   </div>
-                  <Clock className="w-8 h-8 text-secondary" />
+                  <Clock className="w-8 h-8 text-secondary/40" />
                 </div>
               </div>
               <div className="p-4 bg-gradient-to-r from-accent-50 to-accent-100 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-accent-600">Active Projects</p>
-                    <p className="text-2xl font-bold text-accent-700">127</p>
+                    <p className="text-sm text-accent-600">Engagement</p>
+                    <p className="text-2xl font-bold text-accent-700">95.0%</p>
                   </div>
-                  <Briefcase className="w-8 h-8 text-accent" />
-                </div>
-              </div>
-              <div className="p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-green-600">Productivity Score</p>
-                    <p className="text-2xl font-bold text-green-700">94.2%</p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 text-green-500" />
+                  <Briefcase className="w-8 h-8 text-accent/40" />
                 </div>
               </div>
             </div>

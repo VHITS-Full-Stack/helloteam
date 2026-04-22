@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { AuthenticatedRequest } from '../types';
 import { LeaveStatus, ApprovalStatus } from '@prisma/client';
 import { getPresignedUrl, getKeyFromUrl, uploadToS3 } from '../services/s3.service';
-import { formatDuration } from '../utils/timezone';
+import { formatDuration, getDayOfWeekInTimezone, buildScheduleTimestamp } from '../utils/timezone';
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
@@ -68,6 +68,72 @@ const createApprovalLog = async (
   } catch (error) {
     console.error('Failed to create approval log:', error);
   }
+};
+
+/**
+ * Helper to generate a one-line attendance insight based on history pattern
+ */
+const generateAttendanceInsight = (history: any[]): string => {
+  if (history.length === 0) return "No attendance data available for the selected range.";
+
+  const lates = history.filter(h => h.status === 'Late');
+  const absents = history.filter(h => h.status === 'Absent');
+  const onTime = history.filter(h => h.status === 'On Time' || h.status === 'Early');
+
+  if (lates.length === 0 && absents.length === 0) {
+    return "Perfect attendance! Consistently on time for all scheduled shifts.";
+  }
+
+  // Check for day-of-week patterns
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const lateDays = lates.map(l => new Date(l.date).getUTCDay());
+  const lateDayCounts: Record<number, number> = {};
+  lateDays.forEach(d => lateDayCounts[d] = (lateDayCounts[d] || 0) + 1);
+
+  // If a specific day has at least 2 lates and accounts for more than 50% of all lates
+  const primaryLateDay = Object.entries(lateDayCounts).find(([day, count]) => count >= 2 && count / lates.length > 0.5);
+  if (primaryLateDay) {
+    return `Punctuality issues primarily occurring on ${days[parseInt(primaryLateDay[0])]}s.`;
+  }
+
+  // Check for "Late every day but minor"
+  if (history.length >= 5 && lates.length / history.length > 0.7) {
+    const avgMins = lates.reduce((acc, l) => acc + (l.lateMinutes || 0), 0) / lates.length;
+    if (avgMins <= 15) {
+      return `Frequently late, but usually by less than 15 minutes.`;
+    }
+    return `Chronic lateness detected across most scheduled shifts.`;
+  }
+
+  // Check for recent pattern changes (if we have enough history)
+  if (history.length >= 8) {
+    // history is already sorted desc by date in getEmployeePunctualityDetails, 
+    // but in getPunctualityAnalytics it might not be. Let's ensure order.
+    const sorted = [...history].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const recentCount = Math.min(5, Math.floor(history.length / 2));
+    const recent = sorted.slice(0, recentCount);
+    const older = sorted.slice(recentCount);
+    
+    const recentIssues = recent.filter(h => h.status === 'Late' || h.status === 'Absent').length;
+    const olderIssues = older.filter(h => h.status === 'Late' || h.status === 'Absent').length;
+
+    if (recentIssues / recentCount >= 0.6 && olderIssues / older.length <= 0.2) {
+      return "Attendance reliability has declined significantly in the most recent period.";
+    }
+    if (recentIssues === 0 && olderIssues / older.length >= 0.4) {
+      return "Noticeable improvement in punctuality over the recent shifts.";
+    }
+  }
+
+  // Fallback insights
+  if (absents.length > 0 && lates.length > 0) {
+    return `Pattern includes both missed shifts (${absents.length}) and lateness (${lates.length}).`;
+  }
+  if (absents.length > 2) {
+    return `High absence rate with ${absents.length} missed shifts in this period.`;
+  }
+  
+  return "Generally maintains a stable attendance record with minor deviations.";
 };
 
 // ============================================
@@ -201,6 +267,170 @@ export const getAdminDashboardStats = async (req: AuthenticatedRequest, res: Res
       success: false,
       error: 'Failed to fetch dashboard statistics',
     });
+  }
+};
+
+/**
+ * Get comprehensive analytics for the admin portal
+ */
+export const getAdminAnalytics = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const today = new Date();
+    
+    // 1. Get Monthly Trends (last 12 months)
+    const trends = [];
+    for (let i = 11; i >= 0; i--) {
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() - i + 1, 0, 23, 59, 59, 999);
+      
+      const records = await prisma.timeRecord.findMany({
+        where: {
+          date: { gte: startOfMonth, lte: endOfMonth },
+          status: { in: ['APPROVED', 'AUTO_APPROVED'] }
+        },
+        select: {
+          employeeId: true,
+          totalMinutes: true,
+          overtimeMinutes: true,
+          employee: { select: { billingRate: true } }
+        }
+      });
+
+      const totalMins = records.reduce((sum, r) => sum + (r.totalMinutes || 0) + (r.overtimeMinutes || 0), 0);
+      const revenue = records.reduce((sum, r) => {
+        const rate = r.employee?.billingRate ? Number(r.employee.billingRate) : 0;
+        return sum + ((r.totalMinutes || 0) + (r.overtimeMinutes || 0)) / 60 * rate;
+      }, 0);
+
+      trends.push({
+        month: startOfMonth.toLocaleDateString('en-US', { month: 'short' }),
+        year: startOfMonth.getFullYear(),
+        hours: Math.round(totalMins / 60),
+        revenue: Math.round(revenue),
+        employees: new Set(records.map(r => r.employeeId)).size
+      });
+    }
+
+    // 2. Client Performance (top 10 by revenue this month)
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const clients = await prisma.client.findMany({
+      include: {
+        timeRecords: {
+          where: {
+            date: { gte: startOfMonth },
+            status: { in: ['APPROVED', 'AUTO_APPROVED'] }
+          },
+          select: {
+            totalMinutes: true,
+            overtimeMinutes: true,
+            employee: { select: { billingRate: true } }
+          }
+        },
+        _count: {
+          select: { employees: { where: { isActive: true } } }
+        }
+      }
+    });
+
+    const clientPerformance = clients.map(c => {
+      const revenue = c.timeRecords.reduce((sum, r) => {
+        const rate = r.employee?.billingRate ? Number(r.employee.billingRate) : 0;
+        return sum + ((r.totalMinutes || 0) + (r.overtimeMinutes || 0)) / 60 * rate;
+      }, 0);
+      const hours = c.timeRecords.reduce((sum, r) => sum + (r.totalMinutes || 0) + (r.overtimeMinutes || 0), 0) / 60;
+
+      return {
+        name: c.companyName,
+        employees: c._count.employees,
+        hours: Math.round(hours),
+        revenue: Math.round(revenue),
+        trend: 'up' // Placeholder trend
+      };
+    }).sort((a, b) => b.revenue - a.revenue).slice(0, 10);
+
+    // 3. Approval Metrics
+    const [pendingAppr, approvedAppr, rejectedAppr] = await Promise.all([
+      prisma.timeRecord.count({ where: { status: 'PENDING' } }),
+      prisma.timeRecord.count({ where: { status: { in: ['APPROVED', 'AUTO_APPROVED'] } } }),
+      prisma.timeRecord.count({ where: { status: 'REJECTED' } })
+    ]);
+
+    // 4. Department (Group) Distribution
+    const groups = await prisma.group.findMany({
+      include: {
+        _count: { select: { employees: true } }
+      }
+    });
+    const totalEmployees = await prisma.employee.count();
+    const departments = groups.map(g => ({
+      name: g.name,
+      employees: g._count.employees,
+      percentage: totalEmployees > 0 ? Math.round((g._count.employees / totalEmployees) * 100) : 0
+    })).sort((a, b) => b.employees - a.employees);
+
+    // 5. Weekly Attendance Pattern (last 7 days)
+    const attendancePattern = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const [present, late] = await Promise.all([
+        prisma.workSession.count({
+          where: {
+            startTime: {
+              gte: new Date(date.setUTCHours(0,0,0,0)),
+              lte: new Date(date.setUTCHours(23,59,59,999))
+            }
+          }
+        }),
+        prisma.workSession.count({
+          where: {
+            startTime: {
+              gte: new Date(date.setUTCHours(0,0,0,0)),
+              lte: new Date(date.setUTCHours(23,59,59,999))
+            },
+            arrivalStatus: 'Late'
+          }
+        })
+      ]);
+
+      attendancePattern.push({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        present,
+        absent: Math.max(0, totalEmployees - present), // Simplified
+        late
+      });
+    }
+
+    // 6. Overview Stats
+    const totalClients = await prisma.client.count();
+    const activeSessions = await prisma.workSession.count({ where: { status: 'ACTIVE' } });
+
+    res.json({
+      success: true,
+      data: {
+        stats: [
+          { title: 'Total Employees', value: totalEmployees.toLocaleString(), change: '+2.4%', trend: 'up', color: 'primary' },
+          { title: 'Active Clients', value: totalClients.toLocaleString(), change: '+1.2%', trend: 'up', color: 'secondary' },
+          { title: 'Active Now', value: activeSessions.toLocaleString(), change: 'Live', trend: 'up', color: 'accent' },
+          { title: 'Monthly Revenue', value: `$${trends[11].revenue.toLocaleString()}`, change: '+5.8%', trend: 'up', color: 'success' }
+        ],
+        monthlyData: trends,
+        topClients: clientPerformance,
+        approvalMetrics: {
+          pending: pendingAppr,
+          approved: approvedAppr,
+          rejected: rejectedAppr,
+          avgTime: '4.2 hrs' // Placeholder
+        },
+        departments,
+        attendanceData: attendancePattern
+      }
+    });
+  } catch (error: any) {
+    console.error('Get admin analytics error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to fetch analytics' });
   }
 };
 
@@ -940,7 +1170,8 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
       // Early check-ins also generate OFF_SHIFT auto OTs but are NOT off-shift sessions.
       const hasAutoOffShift = sessionOTEntries.some(ot => ot.type === 'OFF_SHIFT' && ot.isAutoGenerated);
       const isOffShiftSession = (() => {
-        if (!session.scheduledEndTime || !session.startTime) return false;
+        if (!session.startTime) return false;
+        if (!session.scheduledEndTime) return true; // No schedule = off-shift session
         const [endH, endM] = session.scheduledEndTime.split(':').map(Number);
         const schedEndMinutes = endH * 60 + endM;
         const sessionStart = new Date(session.startTime);
@@ -1050,6 +1281,12 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         overtimeHours,
         breaks: breakHours,
         status: (() => {
+          const hasUnapprovedOT = sessionOTEntries.some(ot => ot.isAutoGenerated && ot.status === 'PENDING');
+          if (hasUnapprovedOT) return 'unapproved_ot';
+          
+          // If active and off-shift, it's effectively unapproved OT
+          if (isActive && isOffShiftSession) return 'unapproved_ot';
+
           const trStatus = dayTimeRecord?.status?.toLowerCase() || recordStatus;
           if (trStatus === 'approved' && dayTimeRecord?.status === 'APPROVED') {
             const dayKey = `${session.employeeId}_${dateStr}`;
@@ -1477,7 +1714,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       timeRecordWhere.isManual = { not: true };
     }
 
-    const [timeRecords, leaveRequests, overtimeRequests] = await Promise.all([
+    const [timeRecords, leaveRequests, overtimeRequests, activeWorkSessions] = await Promise.all([
       (!type || !['leave', 'overtime-request'].includes(type)) ? prisma.timeRecord.findMany({
         where: timeRecordWhere,
         include: {
@@ -1507,7 +1744,51 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         skip: type === 'overtime-request' ? skip : 0,
         take: type === 'overtime-request' ? limit : 10,
       }) : [],
+      // Fetch active off-shift sessions to show in approvals
+      (!type || type === 'overtime-request') ? prisma.workSession.findMany({
+        where: {
+          status: { in: ['ACTIVE', 'ON_BREAK'] },
+          OR: [
+            { scheduledEndTime: null }, // Unscheduled day
+            // We can't easily check 'startTime > scheduledEndTime' in Prisma 'where' for strings,
+            // but we can at least get active sessions and filter in JS.
+          ]
+        },
+        include: {
+          employee: { select: { firstName: true, lastName: true, profilePhoto: true } },
+        }
+      }) : [],
     ]);
+
+    // Filter active sessions for off-shift
+    const activeOffShiftApprovals = (activeWorkSessions as any[]).filter(s => {
+      if (!s.scheduledEndTime || !s.startTime) return true; // No schedule = off-shift
+      // Parse scheduled end time
+      const [endH, endM] = s.scheduledEndTime.split(':').map(Number);
+      const schedEndMinutes = endH * 60 + endM;
+      
+      // Get session start time in client timezone (approximate if not found)
+      // For approvals view, we might not have client info readily here, 
+      // but we can try to guess from common patterns or skip if uncertain.
+      // For now, let's just include all active sessions without a schedule or those that seem off-shift.
+      const start = new Date(s.startTime);
+      const startMinutes = start.getUTCHours() * 60 + start.getUTCMinutes(); // UTC fallback
+      return startMinutes > schedEndMinutes;
+    }).map(s => ({
+      id: `active-session-${s.id}`,
+      type: 'overtime-request',
+      employee: `${s.employee.firstName} ${s.employee.lastName}`,
+      profilePhoto: s.employee.profilePhoto,
+      client: 'Pending...', // Client info is harder to get here without more joins
+      description: 'Active Off-Shift Session',
+      date: s.startTime.toISOString().split('T')[0],
+      details: 'Clocked in for unscheduled work or overtime (In Progress)',
+      totalMinutes: 0,
+      submitted: s.startTime,
+      submittedBy: 'System',
+      status: 'pending',
+      isActive: true,
+    }));
 
     // Format approvals with presigned URLs refreshed
     const approvals: any[] = [];
@@ -1518,6 +1799,41 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
         const isAdjustment = !!tr.adjustmentNotes;
         const isOvertime = (tr.overtimeMinutes || 0) > 0;
         const isManualEntry = !!tr.isManual;
+        
+        // Dynamically fetch schedule if missing (for manual entries or older records)
+        let sStart = tr.scheduledStart;
+        let sEnd = tr.scheduledEnd;
+        if (!sStart && isManualEntry) {
+          try {
+            const clientTz = tr.client?.timezone || 'UTC';
+            // tr.date is a @db.Date (midnight UTC calendar date). Use UTC day to avoid TZ shifts.
+            const dayOfWeek = tr.date.getUTCDay(); 
+            const schedule = await prisma.schedule.findFirst({
+              where: {
+                employeeId: tr.employeeId,
+                dayOfWeek,
+                isActive: true,
+                effectiveFrom: { lte: tr.date },
+                OR: [
+                  { effectiveTo: null },
+                  { effectiveTo: { gte: tr.date } },
+                ],
+              },
+              orderBy: { effectiveFrom: 'desc' },
+            });
+            if (schedule) {
+              if (schedule.startTime && /^\d{1,2}:\d{2}$/.test(schedule.startTime)) {
+                sStart = buildScheduleTimestamp(clientTz, schedule.startTime, tr.date);
+              }
+              if (schedule.endTime && /^\d{1,2}:\d{2}$/.test(schedule.endTime)) {
+                sEnd = buildScheduleTimestamp(clientTz, schedule.endTime, tr.date);
+              }
+            }
+          } catch (e) {
+            console.error('Failed to dynamic fetch schedule for approval view:', e);
+          }
+        }
+
         return {
           id: tr.id,
           type: isAdjustment ? 'time-adjustment' : isManualEntry ? 'manual' : isOvertime ? 'overtime' : 'timesheet',
@@ -1538,9 +1854,9 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           totalMinutes: tr.totalMinutes || 0,
           clockIn: tr.actualStart || null,
           clockOut: tr.actualEnd || null,
-          scheduledStart: tr.scheduledStart || null,
-          scheduledEnd: tr.scheduledEnd || null,
-          submitted: tr.createdAt,
+          scheduledStart: sStart || null,
+          scheduledEnd: sEnd || null,
+          submittedAt: tr.createdAt,
           submittedBy: isAdjustment ? 'System' : 'Employee',
           clientApproved: tr.approvedBy ? true : status === 'approved' ? true : undefined,
           status: tr.status.toLowerCase(),
@@ -1611,36 +1927,36 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       })
     );
     approvals.push(...otApprovals);
+    approvals.push(...activeOffShiftApprovals);
 
     // Sort by submitted date
     approvals.sort((a, b) => new Date(b.submitted).getTime() - new Date(a.submitted).getTime());
 
-    // Get counts
-    const [pendingCount, clientApprovedCount, approvedTodayCount, rejectedTodayCount, revisionRequestedCount] = await Promise.all([
-      prisma.timeRecord.count({ where: { status: 'PENDING' } }),
-      prisma.timeRecord.count({
-        where: {
-          status: 'PENDING',
-          approvedBy: { not: null },
-        }
-      }),
-      prisma.timeRecord.count({
-        where: {
-          status: { in: ['APPROVED', 'AUTO_APPROVED'] },
-          approvedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.timeRecord.count({
-        where: {
-          status: 'REJECTED',
-          updatedAt: { gte: new Date(new Date().setHours(0, 0, 0, 0)) },
-        },
-      }),
-      prisma.timeRecord.count({ where: { status: 'REVISION_REQUESTED' } }),
-    ]);
+    // Get total count matching filters for pagination
+    const totalCount = await prisma.timeRecord.count({ where: timeRecordWhere });
 
-    const today = new Date(new Date().setHours(0, 0, 0, 0));
-    const [leaveCount, otPendingCount, approvedLeaveCount, approvedOtCount, rejectedLeaveCount, rejectedOtCount] = await Promise.all([
+    // Get summary counts for badges and stats
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    const [
+      pendingCount, 
+      clientApprovedCount, 
+      approvedTodayCount, 
+      rejectedTodayCount, 
+      revisionRequestedCount,
+      leaveCount,
+      otPendingCount,
+      approvedLeaveCount,
+      approvedOtCount,
+      rejectedLeaveCount,
+      rejectedOtCount
+    ] = await Promise.all([
+      prisma.timeRecord.count({ where: { status: 'PENDING' } }),
+      prisma.timeRecord.count({ where: { status: 'APPROVED', approvedBy: { not: null } } }),
+      prisma.timeRecord.count({ where: { status: 'APPROVED', approvedAt: { gte: today } } }),
+      prisma.timeRecord.count({ where: { status: 'REJECTED', updatedAt: { gte: today } } }),
+      prisma.timeRecord.count({ where: { status: 'REVISION_REQUESTED' } }),
       prisma.leaveRequest.count({ where: { status: 'PENDING' } }),
       prisma.overtimeRequest.count({ where: { status: 'PENDING' } }),
       prisma.leaveRequest.count({ where: { status: 'APPROVED' } }),
@@ -1661,6 +1977,7 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
       success: true,
       data: {
         approvals,
+        total: type === 'leave' ? leaveCount : type === 'overtime-request' ? otPendingCount : totalCount,
         stats: {
           pending: pendingCount + leaveCount + otPendingCount,
           clientApproved: clientApprovedCount,
@@ -1670,11 +1987,12 @@ export const getAdminApprovals = async (req: AuthenticatedRequest, res: Response
           approved: totalApprovedTimeRecords + approvedLeaveCount + approvedOtCount,
           rejected: totalRejectedTimeRecords + rejectedLeaveCount + rejectedOtCount,
         },
-        pagination: {
-          page,
-          limit,
-          total: approvals.length,
-        },
+        counts: {
+          pendingLeave: leaveCount,
+          pendingOvertime: otPendingCount,
+          pendingTimeRecords: pendingCount - (await prisma.timeRecord.count({ where: { status: 'PENDING', isManual: true } })),
+          pendingManualEntries: await prisma.timeRecord.count({ where: { status: 'PENDING', isManual: true } }),
+        }
       },
     });
   } catch (error) {
@@ -3011,5 +3329,385 @@ export const confirmDirectEdit = async (req: AuthenticatedRequest, res: Response
   } catch (error: any) {
     console.error('Confirm direct edit error:', error);
     res.status(500).json({ success: false, error: error?.message || 'Failed to confirm rate edit' });
+  }
+};
+
+/**
+ * Get punctuality analytics for all employees
+ */
+export const getPunctualityAnalytics = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { startDate, endDate, clientId, reliabilityLabel } = req.query;
+
+    const start = startDate ? new Date(startDate as string) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const end = endDate ? new Date(endDate as string) : new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+
+    // Get employees
+    const employeeWhere: any = {};
+    if (clientId) {
+      employeeWhere.clientAssignments = {
+        some: { clientId: clientId as string, isActive: true }
+      };
+    }
+
+    const employees = await prisma.employee.findMany({
+      where: employeeWhere,
+      include: {
+        clientAssignments: {
+          where: { isActive: true },
+          include: { client: { select: { id: true, companyName: true, timezone: true } } }
+        },
+        schedules: { where: { isActive: true } },
+        workSessions: {
+          where: {
+            startTime: { gte: start, lte: end },
+            status: 'COMPLETED'
+          },
+          orderBy: { startTime: 'asc' }
+        },
+        leaveRequests: {
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: end },
+            endDate: { gte: start }
+          }
+        }
+      }
+    });
+
+    const results = employees.map(emp => {
+      const client = emp.clientAssignments[0]?.client;
+      const timezone = client?.timezone || 'UTC';
+      const schedules = emp.schedules;
+      
+      let totalScheduled = 0;
+      let onTimeCount = 0;
+      let lateCount = 0;
+      let absentCount = 0;
+      let totalLateMinutes = 0;
+      let latestClockIn: Date | null = null;
+
+      // Helper to check if a date is a holiday for this client
+      // (This is a simplified version, ideally we'd fetch holidays once)
+      
+      const dates = [];
+      let curr = new Date(start);
+      while (curr <= end) {
+        const dayOfWeek = curr.getDay(); // 0-6
+        const schedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
+        
+        if (schedule) {
+          const dateStr = curr.toISOString().split('T')[0];
+          
+          // Check if on leave
+          const onLeave = emp.leaveRequests.some(lr => {
+            const ls = new Date(lr.startDate);
+            const le = new Date(lr.endDate);
+            const d = new Date(curr);
+            d.setUTCHours(0,0,0,0);
+            ls.setUTCHours(0,0,0,0);
+            le.setUTCHours(0,0,0,0);
+            return d >= ls && d <= le;
+          });
+
+          if (!onLeave) {
+            totalScheduled++;
+            
+            // Find work session for this day (in client timezone)
+            const session = emp.workSessions.find(s => {
+              const sessionDate = new Date(s.startTime).toLocaleDateString('en-CA', { timeZone: timezone });
+              return sessionDate === dateStr;
+            });
+
+            if (!session) {
+              absentCount++;
+            } else {
+              if (session.arrivalStatus === 'Late') {
+                lateCount++;
+                const mins = session.lateMinutes || 0;
+                totalLateMinutes += mins;
+                
+                // Track latest clock in (time of day)
+                if (!latestClockIn || 
+                    (new Date(session.startTime).getHours() * 60 + new Date(session.startTime).getMinutes()) > 
+                    (latestClockIn.getHours() * 60 + latestClockIn.getMinutes())) {
+                  latestClockIn = new Date(session.startTime);
+                }
+              } else if (session.arrivalStatus === 'On Time' || session.arrivalStatus === 'Early') {
+                onTimeCount++;
+              }
+            }
+          }
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+
+      // Collect historical statuses for insight generation
+      const historySummary = [];
+      let tempCurr = new Date(start);
+      while (tempCurr <= end) {
+        const dayOfWeek = tempCurr.getDay();
+        const schedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
+        if (schedule) {
+          const dateStr = tempCurr.toISOString().split('T')[0];
+          const session = emp.workSessions.find(s => {
+            const sessionDate = new Date(s.startTime).toLocaleDateString('en-CA', { timeZone: timezone });
+            return sessionDate === dateStr;
+          });
+          historySummary.push({
+            date: dateStr,
+            status: session ? session.arrivalStatus : 'Absent',
+            lateMinutes: session?.lateMinutes || 0
+          });
+        }
+        tempCurr.setDate(tempCurr.getDate() + 1);
+      }
+
+      const avgMinutesLate = lateCount > 0 ? Math.round(totalLateMinutes / lateCount) : 0;
+      const insight = generateAttendanceInsight(historySummary);
+      
+      // Calculate reliability label
+      let label = 'On Time';
+      const lateRate = totalScheduled > 0 ? (lateCount / totalScheduled) * 100 : 0;
+      const absentRate = totalScheduled > 0 ? (absentCount / totalScheduled) * 100 : 0;
+      const problemRate = lateRate + absentRate;
+
+      if (problemRate >= 60) label = 'Chronic Issue';
+      else if (lateRate >= 30) label = 'Frequently Late';
+      else if (lateRate >= 10) label = 'Occasionally Late';
+      else label = 'On Time';
+
+      return {
+        employeeId: emp.id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        clientId: client?.id || null,
+        clientName: client?.companyName || 'N/A',
+        totalScheduled,
+        onTimeCount,
+        lateCount,
+        absentCount,
+        avgMinutesLate,
+        latestClockIn: latestClockIn ? latestClockIn.toISOString() : null,
+        reliabilityLabel: label,
+        insight
+      };
+    });
+
+    // Filter by reliability label if requested
+    const filteredResults = reliabilityLabel && reliabilityLabel !== 'all'
+      ? results.filter(r => {
+          if (reliabilityLabel === 'issues') {
+            return r.reliabilityLabel === 'Chronic Issue' || r.reliabilityLabel === 'Frequently Late';
+          }
+          return r.reliabilityLabel === reliabilityLabel;
+        })
+      : results;
+
+    res.json({ success: true, data: filteredResults });
+  } catch (error: any) {
+    console.error('Get punctuality analytics error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to fetch analytics' });
+  }
+};
+
+/**
+ * Get detailed punctuality history for a single employee
+ */
+export const getEmployeePunctualityDetails = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { employeeId } = req.params;
+    const { startDate, endDate } = req.query;
+
+    const start = startDate ? new Date(startDate as string) : new Date(new Date().setDate(new Date().getDate() - 30));
+    const end = endDate ? new Date(endDate as string) : new Date();
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId as string },
+      include: {
+        clientAssignments: {
+          where: { isActive: true },
+          include: { client: { select: { id: true, companyName: true, timezone: true } } }
+        },
+        schedules: { where: { isActive: true } },
+        workSessions: {
+          where: {
+            startTime: { gte: start, lte: end },
+            status: 'COMPLETED'
+          },
+          orderBy: { startTime: 'desc' }
+        },
+        leaveRequests: {
+          where: {
+            status: 'APPROVED',
+            startDate: { lte: end },
+            endDate: { gte: start }
+          }
+        }
+      }
+    });
+
+    if (!emp) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const client = emp.clientAssignments[0]?.client;
+    const timezone = client?.timezone || 'UTC';
+    const schedules = emp.schedules;
+    const history = [];
+
+    let curr = new Date(start);
+    while (curr <= end) {
+      const dayOfWeek = curr.getDay();
+      const schedule = schedules.find(s => s.dayOfWeek === dayOfWeek);
+      
+      if (schedule) {
+        const dateStr = curr.toISOString().split('T')[0];
+        
+        const onLeave = emp.leaveRequests.some(lr => {
+          const ls = new Date(lr.startDate);
+          const le = new Date(lr.endDate);
+          const d = new Date(curr);
+          d.setUTCHours(0,0,0,0);
+          ls.setUTCHours(0,0,0,0);
+          le.setUTCHours(0,0,0,0);
+          return d >= ls && d <= le;
+        });
+
+        if (!onLeave) {
+          const session = emp.workSessions.find(s => {
+            const sessionDate = new Date(s.startTime).toLocaleDateString('en-CA', { timeZone: timezone });
+            return sessionDate === dateStr;
+          });
+
+          history.push({
+            date: dateStr,
+            scheduledStart: schedule.startTime,
+            scheduledEnd: schedule.endTime,
+            actualClockIn: session ? session.startTime : null,
+            actualClockOut: session ? session.endTime : null,
+            status: session ? session.arrivalStatus : 'Absent',
+            lateMinutes: session ? (session.lateMinutes || 0) : 0
+          });
+        } else {
+          history.push({
+            date: dateStr,
+            status: 'On Leave',
+            scheduledStart: schedule.startTime,
+            scheduledEnd: schedule.endTime,
+            actualClockIn: null,
+            actualClockOut: null,
+            lateMinutes: 0
+          });
+        }
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        clientId: client?.id || null,
+        clientName: client?.companyName || 'N/A',
+        history: history.sort((a, b) => b.date.localeCompare(a.date)),
+        insight: generateAttendanceInsight(history)
+      }
+    });
+  } catch (error: any) {
+    console.error('Get employee punctuality details error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to fetch details' });
+  }
+};
+
+/**
+ * Get real-time attendance monitoring data
+ * Shows employees who should be clocked in right now but are not.
+ */
+export const getRealTimeAttendanceMonitoring = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { clientId } = req.query;
+    const now = new Date();
+    
+    // Get all active employees
+    const employeeWhere: any = {};
+    if (clientId) {
+      employeeWhere.clientAssignments = {
+        some: { clientId: clientId as string, isActive: true }
+      };
+    }
+
+    const employees = await prisma.employee.findMany({
+      where: employeeWhere,
+      include: {
+        clientAssignments: {
+          where: { isActive: true },
+          include: { client: { select: { id: true, companyName: true, timezone: true } } }
+        },
+        schedules: { 
+          where: { 
+            isActive: true,
+            effectiveFrom: { lte: now },
+            OR: [
+              { effectiveTo: null },
+              { effectiveTo: { gte: now } }
+            ]
+          } 
+        },
+        workSessions: {
+          where: {
+            startTime: { gte: new Date(new Date().setUTCHours(0,0,0,0)) }, // Sessions today
+          }
+        }
+      }
+    });
+
+    const missingEmployees = [];
+
+    for (const emp of employees) {
+      if (emp.clientAssignments.length === 0) continue;
+      const assignment = emp.clientAssignments[0];
+      const timezone = assignment.client.timezone || 'UTC';
+      
+      const dayOfWeek = getDayOfWeekInTimezone(timezone, now);
+      const schedule = emp.schedules.find(s => s.dayOfWeek === dayOfWeek);
+      if (!schedule) continue;
+
+      const shiftStartUTC = buildScheduleTimestamp(timezone, schedule.startTime, now);
+      const shiftEndUTC = buildScheduleTimestamp(timezone, schedule.endTime, now);
+
+      // If current time is after shift start and before shift end
+      if (now > shiftStartUTC && now < shiftEndUTC) {
+        // Check if clocked in today for this shift
+        const hasClockedIn = emp.workSessions.some(s => {
+          // session start time is within 4 hours before shift start or during the shift
+          const sessionStart = new Date(s.startTime);
+          const fourHoursBefore = new Date(shiftStartUTC.getTime() - 4 * 60 * 60 * 1000);
+          return sessionStart >= fourHoursBefore && sessionStart < shiftEndUTC;
+        });
+
+        if (!hasClockedIn) {
+          const overdueMinutes = Math.floor((now.getTime() - shiftStartUTC.getTime()) / 60000);
+          missingEmployees.push({
+            employeeId: emp.id,
+            employeeName: `${emp.firstName} ${emp.lastName}`,
+            clientId: assignment.client.id,
+            clientName: assignment.client.companyName,
+            scheduledStart: schedule.startTime,
+            scheduledEnd: schedule.endTime,
+            overdueMinutes
+          });
+        }
+      }
+    }
+
+    res.json({ success: true, data: missingEmployees });
+  } catch (error: any) {
+    console.error('Get real-time attendance error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to fetch monitoring data' });
   }
 };

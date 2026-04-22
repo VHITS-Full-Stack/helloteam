@@ -7,6 +7,7 @@ import { runAggressiveOTReminder } from './aggressiveOTReminder.job';
 import { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';
 import { runPayrollGeneration } from './payrollGeneration.job';
 import { runExpiredOTRequestJob } from './expiredOTRequest.job';
+import { runAttendanceAlertJob } from './attendanceAlert.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -15,6 +16,7 @@ export const initializeJobs = (io: Server): void => {
   // Guard flags to prevent overlapping runs
   let shiftEndRunning = false;
   let autoApprovalRunning = false;
+  let attendanceAlertRunning = false;
 
   // Shift end: runs every minute to check for ending shifts and auto-clock-out
   cron.schedule('* * * * *', async () => {
@@ -23,6 +25,14 @@ export const initializeJobs = (io: Server): void => {
     try { await runShiftEndJob(io); } finally { shiftEndRunning = false; }
   });
   console.log('[Jobs] Shift-end job scheduled (every minute)');
+
+  // Attendance alert: runs every minute to check for missing clock-ins
+  cron.schedule('* * * * *', async () => {
+    if (attendanceAlertRunning) return;
+    attendanceAlertRunning = true;
+    try { await runAttendanceAlertJob(); } finally { attendanceAlertRunning = false; }
+  });
+  console.log('[Jobs] Attendance-alert job scheduled (every minute)');
 
   // Auto-approval: runs every 5 minutes
   cron.schedule('*/5 * * * *', async () => {

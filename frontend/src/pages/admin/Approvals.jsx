@@ -847,15 +847,15 @@ const Approvals = () => {
                               : (itemStatus || "").toUpperCase() === "PENDING"
                           ) ? (
                             <div className="flex gap-1.5">
-                              <Button
-                                variant="success"
-                                size="xs"
-                                icon={CheckCircle}
-                                onClick={() => handleApprove(item)}
-                                disabled={processing}
-                              >
-                                Approve
-                              </Button>
+                                <Button
+                                  variant="success"
+                                  size="xs"
+                                  icon={CheckCircle}
+                                  onClick={() => handleApprove(item)}
+                                  disabled={processing || item.isActive}
+                                >
+                                  Approve
+                                </Button>
                               {activeType === "timesheet" ? (
                                 <Button
                                   variant="ghost"
@@ -873,7 +873,7 @@ const Approvals = () => {
                                   size="xs"
                                   icon={XCircle}
                                   onClick={() => handleReject(item)}
-                                  disabled={processing}
+                                  disabled={processing || item.isActive}
                                 >
                                   Reject
                                 </Button>

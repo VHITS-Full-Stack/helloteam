@@ -1,0 +1,1 @@
+SELECT id, status, "isManual", "date", "createdAt" FROM "time_records" WHERE "employeeId" = (SELECT id FROM "employees" WHERE "firstName" = 'Nikita' AND "lastName" = 'Karanpuria' LIMIT 1) ORDER BY "createdAt" DESC LIMIT 5;

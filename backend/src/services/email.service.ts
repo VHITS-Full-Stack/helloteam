@@ -734,7 +734,38 @@ export const sendInvoiceEmail = async (
     ],
   });
 };
+export const sendAttendanceAlertEmail = async (
+  email: string,
+  employeeName: string,
+  clientName: string,
+  shiftTime: string,
+  overdueMinutes: number,
+): Promise<EmailResult> => {
+    const content = `
+      <h2 style="${styles.h2}">Attendance Alert: Missing Employee</h2>
+      <p style="${styles.paragraph}">
+        An employee is currently missing from their scheduled shift.
+      </p>
+      ${detailBoxHtml(`
+        <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Client:</strong> ${clientName}</p>
+        <p style="margin: 0 0 8px 0;"><strong>Scheduled Shift:</strong> ${shiftTime}</p>
+        <p style="margin: 0; color: ${colors.dangerText}; font-weight: 600;"><strong>Overdue By:</strong> ${overdueMinutes} minutes</p>
+      `)}
+      <p style="${styles.paragraph}">
+        Please reach out to the employee or their manager immediately.
+      </p>
+    `;
 
+    const html = emailLayout("Attendance Alert", content, colors.danger);
+
+    return sendEmail({
+      to: email,
+      subject: `ATTENDANCE ALERT: ${employeeName} is ${overdueMinutes}m late for ${clientName}`,
+      html,
+      text: `Attendance Alert: ${employeeName} is missing from their ${shiftTime} shift at ${clientName}. They are currently ${overdueMinutes} minutes overdue.`,
+    });
+  }
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -749,4 +780,5 @@ export default {
   sendOTBillingReminderEmail,
   sendAggressiveOTReminderEmail,
   sendInvoiceEmail,
+  sendAttendanceAlertEmail
 };

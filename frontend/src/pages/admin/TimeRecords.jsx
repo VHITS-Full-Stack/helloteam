@@ -444,6 +444,12 @@ const TimeRecords = () => {
             Adjusted
           </Badge>
         );
+      case "unapproved_ot":
+        return (
+          <Badge variant="warning" size="xs">
+            Worked OT Without Prior Approval
+          </Badge>
+        );
       case "rejected":
         return (
           <Badge variant="danger" size="xs">

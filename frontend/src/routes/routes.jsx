@@ -84,6 +84,8 @@ const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
 const AdminRaiseRequests = lazy(() => import('../pages/admin/RaiseRequests'));
 const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
 const AdminSupport = lazy(() => import('../pages/admin/Support'));
+const PunctualityAnalytics = lazy(() => import('../pages/admin/PunctualityAnalytics'));
+const AttendanceMonitoring = lazy(() => import('../pages/admin/AttendanceMonitoring'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -240,6 +242,8 @@ const AppRoutes = () => {
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="tasks/:id" element={<AdminTaskDetail />} />
           <Route path="analytics" element={<AdminAnalytics />} />
+          <Route path="analytics/punctuality" element={<PunctualityAnalytics />} />
+          <Route path="attendance-monitoring" element={<AttendanceMonitoring />} />
           <Route path="time-records" element={<AdminTimeRecords />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="raise-requests" element={<AdminRaiseRequests />} />

@@ -888,6 +888,7 @@ enum NotificationType {
   AUTO_CLOCK_OUT
   SUPPORT_TICKET
   RAISE_APPLIED
+  ATTENDANCE_ALERT
 }
 
 enum MessageType {
