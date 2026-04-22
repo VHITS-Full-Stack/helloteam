@@ -441,7 +441,9 @@ const BonusesRaises = () => {
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Amount</th>
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Effective Date</th>
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Submitted</th>
-                  <th className="text-left py-2 font-medium text-gray-500 whitespace-nowrap">Status</th>
+                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Status</th>
+                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Approved By</th>
+                  <th className="text-left py-2 font-medium text-gray-500 whitespace-nowrap">Approval Note</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -481,8 +483,16 @@ const BonusesRaises = () => {
                         month: "short", day: "numeric", year: "numeric",
                       })}
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 pr-4">
                       <StatusBadge status={req.status} />
+                    </td>
+                    <td className="py-3 pr-4 text-sm text-gray-700">
+                      {req.status === "APPROVED" ? (req.reviewedBy || <span className="text-gray-300">—</span>) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="py-3 text-sm text-gray-500 max-w-[200px]">
+                      {req.status === "APPROVED"
+                        ? (req.approvalNote || req.adminNotes || <span className="text-gray-300">—</span>)
+                        : <span className="text-gray-300">—</span>}
                     </td>
                   </tr>
                 ))}

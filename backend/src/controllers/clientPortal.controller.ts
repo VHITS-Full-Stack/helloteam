@@ -3925,6 +3925,24 @@ export const getClientRequests = async (req: AuthenticatedRequest, res: Response
       take: 100,
     });
 
+    // Fetch approvalNote via raw query (field added after Prisma client gen)
+    const requestIds = requests.map((r) => r.id);
+    let approvalNoteMap: Record<string, string | null> = {};
+    if (requestIds.length > 0) {
+      const notes = await prisma.$queryRawUnsafe<{ id: string; approvalNote: string | null }[]>(
+        `SELECT id, "approvalNote" FROM client_requests WHERE id = ANY($1::uuid[])`,
+        requestIds
+      );
+      notes.forEach((n) => { approvalNoteMap[n.id] = n.approvalNote; });
+    }
+
+    // Resolve reviewer names
+    const reviewerUserIds = [...new Set(requests.map((r: any) => r.reviewedBy).filter(Boolean))];
+    const reviewers = reviewerUserIds.length > 0
+      ? await prisma.admin.findMany({ where: { userId: { in: reviewerUserIds } }, select: { userId: true, firstName: true, lastName: true } })
+      : [];
+    const reviewerNameMap = new Map(reviewers.map((a) => [a.userId, `${a.firstName} ${a.lastName}`]));
+
     const data = requests.map((r: any) => ({
       id: r.id,
       type: r.type,
@@ -3936,6 +3954,8 @@ export const getClientRequests = async (req: AuthenticatedRequest, res: Response
       reason: r.reason,
       status: r.status,
       adminNotes: r.adminNotes,
+      approvalNote: approvalNoteMap[r.id] ?? null,
+      reviewedBy: r.reviewedBy ? (reviewerNameMap.get(r.reviewedBy) || null) : null,
       createdAt: r.createdAt,
       reviewedAt: r.reviewedAt,
     }));
