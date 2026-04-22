@@ -801,6 +801,7 @@ const Approvals = () => {
         <button
           onClick={() => {
             setActiveType("autoOvertime");
+            setActiveTab("pending");
             setSelectedItems([]);
           }}
           className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
