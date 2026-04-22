@@ -468,7 +468,7 @@ const Approvals = () => {
 
       {/* Type Toggle */}
       <div className="overflow-x-auto">
-        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit min-w-full">
+        <div className="flex gap-1 p-1 bg-gray-100 rounded-lg w-fit">
           {[
             { key: "leave", label: "Leave Requests", icon: Calendar },
             { key: "overtime", label: "Overtime Requests", icon: Timer },
