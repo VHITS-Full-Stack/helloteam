@@ -28,12 +28,11 @@ const formatHHMM = (date: Date, timeZone: string): string => {
 };
 
 async function main() {
-  // Only SHIFT_EXTENSION records have estimatedEndTime
+  // Only SHIFT_EXTENSION records have estimatedEndTime; fix all statuses
   const requests = await prisma.overtimeRequest.findMany({
     where: {
       type: 'SHIFT_EXTENSION',
       estimatedEndTime: { not: null },
-      status: 'PENDING',
     },
     select: {
       id: true,
