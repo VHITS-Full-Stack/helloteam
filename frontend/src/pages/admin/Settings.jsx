@@ -1985,8 +1985,8 @@ const Settings = () => {
                             </div>
                           )}
 
-                          {/* CKEditor for Welcome Tips text */}
-                          <div className="mt-4 pt-4 border-t border-gray-200">
+                          {/* CKEditor for Welcome Tips text - always show for editing */}
+                          <div className="pt-4 border-t border-gray-200">
                             <p className="text-sm text-gray-500 mb-2">
                               Add text content to display with the Welcome Tips PDF (optional)
                             </p>
@@ -2004,7 +2004,7 @@ const Settings = () => {
                         </div>
                       )}
                     </div>
-                  </div>
+                  )}
                 )}
               </Card>
             </div>

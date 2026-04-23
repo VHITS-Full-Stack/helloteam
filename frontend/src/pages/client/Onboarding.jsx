@@ -1356,24 +1356,25 @@ function SigningStep({
             onChange={(e) => setSignedByName(e.target.value)}
           />
           <div>
-            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block flex items-center justify-between">
-              Digital Signature
-              <button
-                className="text-primary hover:underline"
-                onClick={() => {
-                  const ctx = canvasRef.current.getContext("2d");
-                  ctx.clearRect(
-                    0,
-                    0,
-                    canvasRef.current.width,
-                    canvasRef.current.height,
-                  );
-                  setHasDrawn(false);
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase">
+                Digital Signature
+              </span>
+              <span
+                className="text-primary hover:underline text-xs cursor-pointer"
+                onClick={(e) => {
+                  if (canvasRef.current) {
+                    const ctx = canvasRef.current.getContext("2d");
+                    if (ctx) {
+                      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+                    }
+                    setHasDrawn(false);
+                  }
                 }}
               >
-                Clear Pad
-              </button>
-            </label>
+                Clear
+              </span>
+            </div>
             <div className="onboarding-sig-pad">
               <canvas
                 ref={canvasRef}
