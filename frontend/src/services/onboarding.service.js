@@ -59,6 +59,8 @@ const onboardingService = {
    */
   signAgreement: (signedByName, signatureImage) =>
     api.post('/onboarding/agreement/sign', { signedByName, ...(signatureImage && { signatureImage }) }),
+
+  completeOnboarding: () => api.post('/onboarding/complete', {}),
 };
 
 export default onboardingService;

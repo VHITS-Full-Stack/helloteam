@@ -43,14 +43,15 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     }
   }
 
-  // Gate CLIENT users with pending agreement (redirect to onboarding)
+  // Gate CLIENT users until onboarding is fully completed
   // Skip when admin is impersonating
   if (
     !isImpersonating &&
     user?.role === 'CLIENT' &&
-    user?.client?.onboardingStatus === 'PENDING_AGREEMENT' &&
+    user?.client?.onboardingStatus !== 'COMPLETED' &&
     location.pathname !== '/client/onboarding'
   ) {
+    // PENDING_AGREEMENT and SIGNED both redirect back to onboarding
     return <Navigate to="/client/onboarding" replace />;
   }
 

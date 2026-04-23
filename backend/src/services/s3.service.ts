@@ -353,10 +353,54 @@ export const uploadChatFile = async (
   }
 };
 
+// CMS document upload - PDF only, 20MB limit
+export const uploadCmsDocument = async (
+  file: Express.Multer.File
+): Promise<UploadResult> => {
+  try {
+    if (file.mimetype !== 'application/pdf') {
+      return { success: false, error: 'Only PDF files are allowed' };
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      return { success: false, error: 'File too large. Maximum size is 20MB' };
+    }
+
+    if (!isS3Configured) {
+      const { url, key } = saveLocally(file, 'cms-documents');
+      return { success: true, url, key };
+    }
+
+    const uniqueFilename = `cms-documents/${uuidv4()}.pdf`;
+
+    const command = new PutObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: uniqueFilename,
+      Body: file.buffer,
+      ContentType: 'application/pdf',
+      ContentDisposition: 'inline',
+    });
+    await s3Client.send(command);
+
+    const getCommand = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: uniqueFilename,
+    });
+    const url = await getSignedUrl(s3Client, getCommand, { expiresIn: 604800 });
+
+    return { success: true, url, key: uniqueFilename };
+  } catch (error) {
+    console.error('S3 CMS document upload error:', error);
+    return { success: false, error: 'Failed to upload document' };
+  }
+};
+
+export { isS3Configured };
+
 export default {
   uploadToS3,
   uploadGovernmentIdFile,
   uploadChatFile,
+  uploadCmsDocument,
   deleteFromS3,
   getKeyFromUrl,
   getPresignedUrl,

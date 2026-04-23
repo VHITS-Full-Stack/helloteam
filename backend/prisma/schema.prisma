@@ -61,6 +61,7 @@ enum AgreementType {
 
 enum OnboardingStatus {
   PENDING_AGREEMENT
+  SIGNED
   COMPLETED
 }
 

@@ -624,7 +624,7 @@ function NewHireStep({ onNext }) {
       <div className="section-heading">Getting Started</div>
       <div className="section-desc">Here's everything you need to know about working with your new Hello Team employee from day one.</div>
       <div className="scroll-doc">
-        <div className="doc-title">New Hire Orientation Guide</div>
+        <div className="doc-title">New Hire Guide</div>
         <div className="doc-section-title">First Week Expectations</div>
         <p>The first week is a ramp-up period. Your employee will be learning your systems, communication style, and priorities. Dedicate time for a kickoff call and a brief daily check-in during this phase.</p>
         <div className="doc-section-title">Communication</div>

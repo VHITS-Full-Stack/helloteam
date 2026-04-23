@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getAgreement, getAgreementPdf, signAgreement, saveAgreementDetails, getAgreementPreview } from '../controllers/agreement.controller';
+import { getAgreement, getAgreementPdf, signAgreement, saveAgreementDetails, getAgreementPreview, completeOnboarding } from '../controllers/agreement.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -22,5 +22,8 @@ router.get('/agreement/preview', getAgreementPreview);
 
 // Sign the agreement
 router.post('/agreement/sign', signAgreement);
+
+// Complete onboarding (called after Best Practices step)
+router.post('/complete', completeOnboarding);
 
 export default router;

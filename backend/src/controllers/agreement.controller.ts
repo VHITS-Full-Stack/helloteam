@@ -76,13 +76,29 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
 
     const client = await prisma.client.findUnique({
       where: { userId: req.user.userId },
-      include: { agreement: true },
+      include: {
+        agreement: true,
+        employees: {
+          where: { isActive: true },
+          include: {
+            employee: {
+              select: { firstName: true, lastName: true, profilePhoto: true }
+            }
+          }
+        }
+      },
     });
 
     if (!client) {
       res.status(404).json({ success: false, error: 'Client not found' });
       return;
     }
+
+    // Map employees to a simpler format
+    const assignedEmployees = (client.employees || []).map(ce => ({
+      name: `${ce.employee.firstName} ${ce.employee.lastName}`,
+      profilePhoto: ce.employee.profilePhoto
+    }));
 
     res.json({
       success: true,
@@ -92,6 +108,7 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
         companyName: client.companyName,
         address: client.address,
         contactPerson: client.contactPerson,
+        assignedEmployees,
         agreement: client.agreement
           ? {
               signedAt: client.agreement.signedAt,
@@ -473,7 +490,7 @@ export const saveAgreementDetails = async (req: AuthenticatedRequest, res: Respo
       return;
     }
 
-    if (client.onboardingStatus === 'COMPLETED') {
+    if (client.onboardingStatus === 'SIGNED' || client.onboardingStatus === 'COMPLETED') {
       res.status(400).json({ success: false, error: 'Agreement already signed' });
       return;
     }
@@ -755,7 +772,7 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
       return;
     }
 
-    if (client.onboardingStatus === 'COMPLETED') {
+    if (client.onboardingStatus === 'SIGNED' || client.onboardingStatus === 'COMPLETED') {
       res.status(400).json({ success: false, error: 'Agreement already signed' });
       return;
     }
@@ -888,10 +905,10 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
         });
       }
 
-      // Update client onboarding status
+      // Update client onboarding status to SIGNED — portal remains locked until Best Practices step
       await tx.client.update({
         where: { id: client.id },
-        data: { onboardingStatus: 'COMPLETED' },
+        data: { onboardingStatus: 'SIGNED' },
       });
 
       // Create audit log
@@ -913,10 +930,49 @@ export const signAgreement = async (req: AuthenticatedRequest, res: Response): P
 
     res.json({
       success: true,
-      message: 'Agreement signed successfully. Your portal is now unlocked.',
+      message: 'Agreement signed successfully.',
     });
   } catch (error) {
     console.error('Sign agreement error:', error);
     res.status(500).json({ success: false, error: 'Failed to sign agreement' });
+  }
+};
+
+// POST /api/onboarding/complete - Final step: mark onboarding as fully COMPLETED
+export const completeOnboarding = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'Not authenticated' });
+      return;
+    }
+
+    const client = await prisma.client.findUnique({
+      where: { userId: req.user.userId },
+    });
+
+    if (!client) {
+      res.status(404).json({ success: false, error: 'Client not found' });
+      return;
+    }
+
+    if (client.onboardingStatus === 'COMPLETED') {
+      res.json({ success: true, message: 'Already completed' });
+      return;
+    }
+
+    if (client.onboardingStatus !== 'SIGNED') {
+      res.status(400).json({ success: false, error: 'Please complete the agreement signing step first' });
+      return;
+    }
+
+    await prisma.client.update({
+      where: { id: client.id },
+      data: { onboardingStatus: 'COMPLETED' },
+    });
+
+    res.json({ success: true, message: 'Onboarding complete. Your portal is now unlocked.' });
+  } catch (error) {
+    console.error('Complete onboarding error:', error);
+    res.status(500).json({ success: false, error: 'Failed to complete onboarding' });
   }
 };
