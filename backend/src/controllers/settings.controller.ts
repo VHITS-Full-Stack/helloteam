@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS = {
     legalTerms: '<p>This agreement outlines the professional staffing services provided by Hello Team...</p>',
     newHireGuide: '<p>Welcome to your new team! This guide will help you get started...</p>',
     privacyPolicy: '<p>Hello Team is committed to protecting your privacy...</p>',
+    welcomeTips: '<p>Here are some best practices to help you get the most out of your Hello Team engagement...</p>',
   },
 };
 

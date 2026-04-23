@@ -767,55 +767,61 @@ function GuideStep({ onNext, onBack, step, content, pdfExists, welcomeTipsPdfExi
       </div>
 
       <div className="onboarding-welcome-card" style={{ padding: "60px" }}>
-        {/* Show PDF viewer when a PDF is available (new hire guide or best practices) */}
-        {pdfObjectUrl ? (
-          <PdfViewer pdfUrl={pdfObjectUrl} title={isBestPractices ? "Practical Tips / Best Practices" : "New Hire Guide"} />
-        ) : (
-        <div className="onboarding-scroll-view mb-8 ck-content">
-          {content && !isBestPractices ? (
+        {/* Show text content first (directly without scroll box) */}
+        {content ? (
+          <div className="mb-8 ck-content">
             <div dangerouslySetInnerHTML={{ __html: content }} />
-          ) : isBestPractices ? (
-            <>
-              <div className="onboarding-doc-h">Establish Daily Rhythms</div>
-              <p>
-                The most successful clients have a quick 10-minute sync at the
-                start of each shift. This eliminates ambiguity and sets the pace
-                for the day.
-              </p>
-              <div className="onboarding-doc-h">Use the Dashboard</div>
-              <p>
-                Track live clock-ins, approvals, and payroll directly through
-                this portal. All team activity is logged in real-time for full
-                transparency.
-              </p>
-              <div className="onboarding-doc-h">Clear KPIs</div>
-              <p>
-                Define 2-3 key metrics for your team member. When they know what
-                "winning" looks like, they deliver higher value consistently.
-              </p>
-            </>
-          ) : (
-            <>
-              <div className="onboarding-doc-h">Software Access</div>
-              <p>
-                Please prepare any required software licenses (Slack, CRM,
-                Project Management) prior to the first shift. We recommend using
-                LastPass for secure credential sharing.
-              </p>
-              <div className="onboarding-doc-h">The First 48 Hours</div>
-              <p>
-                Dedicate time in the first two days for training. Your dedicated
-                expert is already vetted, but they need to learn *your* specific
-                way of doing things.
-              </p>
-              <div className="onboarding-doc-h">Points of Contact</div>
-              <p>
-                Identify who your team member should reach out to for technical
-                blockers versus operational questions.
-              </p>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          /* Fallback default content when no CMS content */
+          <div className="mb-8 ck-content">
+            {isBestPractices ? (
+              <>
+                <div className="onboarding-doc-h">Establish Daily Rhythms</div>
+                <p>
+                  The most successful clients have a quick 10-minute sync at the
+                  start of each shift. This eliminates ambiguity and sets the pace
+                  for the day.
+                </p>
+                <div className="onboarding-doc-h">Use the Dashboard</div>
+                <p>
+                  Track live clock-ins, approvals, and payroll directly through
+                  this portal. All team activity is logged in real-time for full
+                  transparency.
+                </p>
+                <div className="onboarding-doc-h">Clear KPIs</div>
+                <p>
+                  Define 2-3 key metrics for your team member. When they know what
+                  "winning" looks like, they deliver higher value consistently.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="onboarding-doc-h">Software Access</div>
+                <p>
+                  Please prepare any required software licenses (Slack, CRM,
+                  Project Management) prior to the first shift. We recommend using
+                  LastPass for secure credential sharing.
+                </p>
+                <div className="onboarding-doc-h">The First 48 Hours</div>
+                <p>
+                  Dedicate time in the first two days for training. Your dedicated
+                  expert is already vetted, but they need to learn *your* specific
+                  way of doing things.
+                </p>
+                <div className="onboarding-doc-h">Points of Contact</div>
+                <p>
+                  Identify who your team member should reach out to for technical
+                  blockers versus operational questions.
+                </p>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Show PDF viewer when a PDF is available (new hire guide or best practices) */}
+        {pdfObjectUrl && (
+          <PdfViewer pdfUrl={pdfObjectUrl} title={isBestPractices ? "Practical Tips / Best Practices" : "New Hire Guide"} />
         )}
 
         <div className="flex items-center justify-between mt-16 px-4">
@@ -1805,6 +1811,7 @@ export default function ClientPortalOnboarding() {
                 step={3}
                 loading={loading}
                 welcomeTipsPdfExists={!!cmsSettings?.welcomeTipsPdfName}
+                content={cmsSettings?.welcomeTips}
               />
             )}
             {currentStep === 8 && <SuccessStep />}
