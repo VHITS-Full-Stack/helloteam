@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import prisma from '../config/database';
-import { uploadCmsDocument, deleteFromS3, getKeyFromUrl, getPresignedUrl, isS3Configured } from '../services/s3.service';
+import { uploadCmsDocument, deleteFromS3, getKeyFromUrl, getPresignedUrl, streamFromS3, isS3Configured } from '../services/s3.service';
 import { AuthenticatedRequest } from '../types';
 
 // Default settings values
@@ -37,6 +37,7 @@ const DEFAULT_SETTINGS = {
     legalTerms: '<p>This agreement outlines the professional staffing services provided by Hello Team...</p>',
     newHireGuide: '<p>Welcome to your new team! This guide will help you get started...</p>',
     privacyPolicy: '<p>Hello Team is committed to protecting your privacy...</p>',
+    welcomeTips: '<p>Here are some best practices to help you get the most out of your Hello Team engagement...</p>',
   },
 };
 
@@ -167,10 +168,15 @@ export const streamNewHireGuidePdf = async (req: AuthenticatedRequest, res: Resp
 
     const key = JSON.parse(keyRow.value) as string;
 
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="new-hire-guide.pdf"');
+
     if (isS3Configured) {
-      const url = await getPresignedUrl(key);
-      if (!url) return res.status(404).json({ success: false, error: 'Failed to generate PDF URL' });
-      return res.redirect(url);
+      // Proxy through backend to avoid browser CORS issues with S3 cross-origin requests
+      const stream = await streamFromS3(key);
+      if (!stream) return res.status(404).json({ success: false, error: 'Failed to load PDF from storage' });
+      stream.pipe(res);
+      return;
     }
 
     // Local storage fallback — stream directly
@@ -181,8 +187,6 @@ export const streamNewHireGuidePdf = async (req: AuthenticatedRequest, res: Resp
       return res.status(404).json({ success: false, error: 'PDF file not found' });
     }
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="new-hire-guide.pdf"');
     fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error('Error streaming new hire guide PDF:', error);
@@ -278,10 +282,15 @@ export const streamWelcomeTipsPdf = async (req: AuthenticatedRequest, res: Respo
 
     const key = JSON.parse(keyRow.value) as string;
 
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline; filename="welcome-tips.pdf"');
+
     if (isS3Configured) {
-      const url = await getPresignedUrl(key);
-      if (!url) return res.status(404).json({ success: false, error: 'Failed to generate PDF URL' });
-      return res.redirect(url);
+      // Proxy through backend to avoid browser CORS issues with S3 cross-origin requests
+      const stream = await streamFromS3(key);
+      if (!stream) return res.status(404).json({ success: false, error: 'Failed to load PDF from storage' });
+      stream.pipe(res);
+      return;
     }
 
     const UPLOADS_DIR = path.join(__dirname, '..', '..', 'uploads');
@@ -291,8 +300,6 @@ export const streamWelcomeTipsPdf = async (req: AuthenticatedRequest, res: Respo
       return res.status(404).json({ success: false, error: 'PDF file not found' });
     }
 
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline; filename="welcome-tips.pdf"');
     fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error('Error streaming welcome tips PDF:', error);

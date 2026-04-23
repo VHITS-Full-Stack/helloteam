@@ -1984,14 +1984,31 @@ const Settings = () => {
                               </Button>
                             </div>
                           )}
+
+                          {/* CKEditor for Welcome Tips text - always show for editing */}
+                          <div className="pt-4 border-t border-gray-200">
+                            <p className="text-sm text-gray-500 mb-2">
+                              Add text content to display with the Welcome Tips PDF (optional)
+                            </p>
+                            <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
+                              <CKEditor
+                                editor={ClassicEditor}
+                                data={cmsSettings.welcomeTips || ""}
+                                onChange={(event, editor) => {
+                                  const data = editor.getData();
+                                  setCmsSettings((prev) => ({ ...prev, welcomeTips: data }));
+                                }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
-                  </div>
-                )}
-              </Card>
-            </div>
-          )}
+                  )}
+</Card>
+</div>
+            )}
+          </div>
         </div>
       </div>
     </div>

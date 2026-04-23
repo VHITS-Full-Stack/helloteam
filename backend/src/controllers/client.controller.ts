@@ -258,6 +258,7 @@ export const getClient = async (req: AuthenticatedRequest, res: Response): Promi
 export const downloadAgreementPdf = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const id = req.params.id as string;
+    const inline = req.query.inline === 'true';
 
     const client = await prisma.client.findUnique({
       where: { id },
@@ -270,13 +271,14 @@ export const downloadAgreementPdf = async (req: AuthenticatedRequest, res: Respo
     }
 
     const safeName = client.companyName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const disposition = inline ? 'inline' : 'attachment';
 
     // If a signed PDF exists, serve it
     if (client.agreement?.signedPdfData) {
       const pdfBuffer = Buffer.from(client.agreement.signedPdfData, 'base64');
       const downloadName = `${safeName}_Signed_Agreement.pdf`;
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+      res.setHeader('Content-Disposition', `${disposition}; filename="${downloadName}"`);
       res.setHeader('Content-Length', pdfBuffer.length.toString());
       res.send(pdfBuffer);
       return;
@@ -298,7 +300,7 @@ export const downloadAgreementPdf = async (req: AuthenticatedRequest, res: Respo
     const downloadName = `${safeName}_Service_Agreement.pdf`;
 
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+    res.setHeader('Content-Disposition', `${disposition}; filename="${downloadName}"`);
     fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error('Download agreement PDF error:', error);

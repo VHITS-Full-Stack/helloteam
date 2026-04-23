@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
@@ -353,6 +354,23 @@ export const uploadChatFile = async (
   }
 };
 
+/**
+ * Stream a file from S3 directly as a Node.js Readable.
+ * Use this to proxy S3 content through the backend to avoid browser CORS issues.
+ */
+export const streamFromS3 = async (key: string): Promise<Readable | null> => {
+  if (!isS3Configured) return null;
+  try {
+    const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
+    const response = await s3Client.send(command);
+    if (!response.Body) return null;
+    return response.Body as unknown as Readable;
+  } catch (error) {
+    console.error('Error streaming from S3:', error);
+    return null;
+  }
+};
+
 // CMS document upload - PDF only, 20MB limit
 export const uploadCmsDocument = async (
   file: Express.Multer.File
@@ -401,6 +419,7 @@ export default {
   uploadGovernmentIdFile,
   uploadChatFile,
   uploadCmsDocument,
+  streamFromS3,
   deleteFromS3,
   getKeyFromUrl,
   getPresignedUrl,

@@ -115,6 +115,38 @@ const ClientDetail = () => {
     }
   };
 
+  const [previewingPdf, setPreviewingPdf] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+
+  const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://office.thehelloteam.com/api';
+
+  const handleViewPdf = async () => {
+    setPreviewingPdf(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const url = `${API_BASE_URL}/clients/${id}/agreement/pdf?inline=true`;
+      const response = await fetch(url, {
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+      if (!response.ok) throw new Error('Failed to load PDF');
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      setPdfUrl(blobUrl);
+    } catch (err) {
+      setError(err.message || 'Failed to load agreement PDF');
+      setPreviewingPdf(false);
+      setPdfUrl(null);
+    }
+  };
+
+  const closePdfPreview = () => {
+    setPreviewingPdf(false);
+    setPdfUrl(null);
+  };
+
   const onDeleteClient = async () => {
     const success = await handleDeleteClient();
     if (success) navigate('/admin/clients');
@@ -393,7 +425,10 @@ const ClientDetail = () => {
               </div>
             )}
 
-            <div className="mt-3">
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="sm" icon={Eye} onClick={handleViewPdf} loading={previewingPdf}>
+                View PDF
+              </Button>
               <Button variant="outline" size="sm" icon={Download} onClick={handleDownloadPdf} loading={downloading}>
                 Download PDF
               </Button>
@@ -558,6 +593,25 @@ const ClientDetail = () => {
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="ghost" onClick={closeDeleteModal}>Cancel</Button>
             <Button variant="primary" className="bg-red-600 hover:bg-red-700" onClick={onDeleteClient} loading={submitting}>Delete</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* PDF Preview Modal */}
+      <Modal isOpen={previewingPdf} onClose={closePdfPreview} title="Agreement PDF" size="xl">
+        <div className="space-y-4">
+          {pdfUrl && (
+            <iframe
+              src={pdfUrl}
+              className="w-full h-[70vh] border border-gray-200 rounded"
+              title="Agreement PDF"
+            />
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={closePdfPreview}>Close</Button>
+            <Button variant="primary" icon={Download} onClick={handleDownloadPdf} loading={downloading}>
+              Download
+            </Button>
           </div>
         </div>
       </Modal>
