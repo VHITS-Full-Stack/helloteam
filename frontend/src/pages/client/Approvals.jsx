@@ -465,6 +465,7 @@ const Approvals = () => {
       if (activeType === "overtime" || activeType === "autoOvertime") {
         response = await overtimeService.approveOvertimeRequest(
           selectedItem.id,
+          approvalNotes,
         );
       } else if (
         activeType === "timesheet" ||
@@ -482,6 +483,7 @@ const Approvals = () => {
       if (response.success) {
         setShowApprovalModal(false);
         setSelectedItem(null);
+        setApprovalNotes("");
         if (activeType === "leave") {
           fetchApprovals();
         } else if (activeType === "timesheet") {
@@ -1397,6 +1399,9 @@ const Approvals = () => {
                   {activeTab === "approved" && (
                     <TableHeader className="!px-3">Action By</TableHeader>
                   )}
+                  {activeTab === "approved" && (
+                    <TableHeader className="!px-3">Notes</TableHeader>
+                  )}
                   {activeTab === "rejected" && (
                     <TableHeader className="!px-3">
                       Rejection Reason
@@ -1531,6 +1536,20 @@ const Approvals = () => {
                         </span>
                       </TableCell>
                     )}
+                    {activeTab === "approved" && (
+                      <TableCell className="!px-3">
+                        {request.approvalNotes ? (
+                          <span
+                            className="text-xs text-gray-600 line-clamp-2"
+                            title={request.approvalNotes}
+                          >
+                            {request.approvalNotes}
+                          </span>
+                        ) : (
+                          <span className="text-gray-300 text-xs">—</span>
+                        )}
+                      </TableCell>
+                    )}
                     {activeTab === "rejected" && (
                       <TableCell className="!whitespace-normal !px-3">
                         <span
@@ -1661,6 +1680,20 @@ const Approvals = () => {
                     </span>
                   </div>
                 )}
+              {(activeType === "overtime" || activeType === "autoOvertime") && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    rows={2}
+                    value={approvalNotes}
+                    onChange={(e) => setApprovalNotes(e.target.value)}
+                    placeholder="Add any notes for this approval..."
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
