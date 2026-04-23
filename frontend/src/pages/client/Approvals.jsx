@@ -1032,7 +1032,7 @@ const Approvals = () => {
                   <TableHeader className="!px-3">Description</TableHeader>
                   <TableHeader className="!px-3">Date</TableHeader>
                   <TableHeader className="!px-3">Days</TableHeader>
-                  <TableHeader className="!px-3">Submitted</TableHeader>
+                  <TableHeader className="!px-3">Created At</TableHeader>
                   {activeTab === "pending" && (
                     <TableHeader className="!px-3">Actions</TableHeader>
                   )}
@@ -1040,7 +1040,7 @@ const Approvals = () => {
                     <TableHeader className="!px-3">Approved On</TableHeader>
                   )}
                   {activeTab === "approved" && (
-                    <TableHeader className="!px-3">Approved By</TableHeader>
+                    <TableHeader className="!px-3">Action By</TableHeader>
                   )}
                   {activeTab === "rejected" && (
                     <TableHeader className="!px-3">
@@ -1196,9 +1196,9 @@ const Approvals = () => {
                     <TableHeader className="!px-3">Schedule</TableHeader>
                     <TableHeader className="!px-3">Clock In/Out</TableHeader>
                     <TableHeader className="!px-3">Status</TableHeader>
-                    <TableHeader className="!px-3">Submitted</TableHeader>
+                    <TableHeader className="!px-3">Created At</TableHeader>
                     <TableHeader className="!px-3">Actions</TableHeader>
-                    <TableHeader className="!px-3">Reviewed By</TableHeader>
+                    <TableHeader className="!px-3">Action By</TableHeader>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -1387,7 +1387,7 @@ const Approvals = () => {
                   <TableHeader className="!px-3">Reason</TableHeader>
                   <TableHeader className="!px-3">Date</TableHeader>
                   <TableHeader className="!px-3">Hours</TableHeader>
-                  <TableHeader className="!px-3">Submitted</TableHeader>
+                  <TableHeader className="!px-3">Created At</TableHeader>
                   {activeTab === "pending" && (
                     <TableHeader className="!px-3">Actions</TableHeader>
                   )}
@@ -1395,7 +1395,7 @@ const Approvals = () => {
                     <TableHeader className="!px-3">Approved On</TableHeader>
                   )}
                   {activeTab === "approved" && (
-                    <TableHeader className="!px-3">Approved By</TableHeader>
+                    <TableHeader className="!px-3">Action By</TableHeader>
                   )}
                   {activeTab === "rejected" && (
                     <TableHeader className="!px-3">

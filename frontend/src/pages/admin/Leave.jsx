@@ -643,7 +643,7 @@ const AdminLeave = () => {
                         Code
                       </th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Submitted On
+                        Created At
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                         Status

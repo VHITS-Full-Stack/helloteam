@@ -440,9 +440,9 @@ const BonusesRaises = () => {
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Employee</th>
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Amount</th>
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Effective Date</th>
-                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Submitted</th>
+                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Created At</th>
                   <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Status</th>
-                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Approved By</th>
+                  <th className="text-left py-2 pr-4 font-medium text-gray-500 whitespace-nowrap">Action By</th>
                   <th className="text-left py-2 font-medium text-gray-500 whitespace-nowrap">Approval Note</th>
                 </tr>
               </thead>

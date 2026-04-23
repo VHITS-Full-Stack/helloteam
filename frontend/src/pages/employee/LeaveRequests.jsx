@@ -164,7 +164,7 @@ const LeaveRequests = () => {
               <TableHeader>Dates</TableHeader>
               <TableHeader>Days</TableHeader>
               <TableHeader>Reason</TableHeader>
-              <TableHeader>Submitted</TableHeader>
+              <TableHeader>Created At</TableHeader>
               <TableHeader>Status</TableHeader>
             </TableRow>
           </TableHead>

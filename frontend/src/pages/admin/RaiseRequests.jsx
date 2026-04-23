@@ -469,7 +469,7 @@ const RaiseRequests = () => {
           <th className={`text-left ${th}`}>Client</th>
           <th className={`text-center ${th}`}>Bonus Amount ($)</th>
           <th className={`text-left ${th}`}>Reason</th>
-          <th className={`text-center ${th}`}>Submitted</th>
+          <th className={`text-center ${th}`}>Created At</th>
           <th className={`text-center ${th}`}>Status</th>
           <th className={`text-right ${th} px-4`}>Action</th>
         </tr>
@@ -556,7 +556,7 @@ const RaiseRequests = () => {
           <th className={`text-center ${th}`}>New Rate ($)</th>
           <th className={`text-left ${th}`}>Reason</th>
           <th className={`text-center ${th}`}>Effective</th>
-          <th className={`text-center ${th}`}>Submitted</th>
+          <th className={`text-center ${th}`}>Created At</th>
           <th className={`text-center ${th}`}>Status</th>
           <th className={`text-right ${th} px-4`}>Action</th>
         </tr>

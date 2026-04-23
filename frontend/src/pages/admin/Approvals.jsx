@@ -379,9 +379,9 @@ const Approvals = () => {
           "Date",
           "Hours",
           "Status",
-          "Submitted",
+          "Created At",
         ]
-      : ["Employee", "Client", "Description", "Date", "Status", "Submitted"];
+      : ["Employee", "Client", "Description", "Date", "Status", "Created At"];
     const rows = items.map((item) => {
       const empName = isOTType
         ? item.employee
@@ -647,9 +647,9 @@ const Approvals = () => {
                     <TableHeader className="!px-3">Hours</TableHeader>
                   )}
                   <TableHeader className="!px-3">Status</TableHeader>
-                  <TableHeader className="!px-3">Submitted</TableHeader>
+                  <TableHeader className="!px-3">Created At</TableHeader>
                   {activeType === "autoOvertime" && (
-                    <TableHeader className="!px-3">Reviewed By</TableHeader>
+                    <TableHeader className="!px-3">Action By</TableHeader>
                   )}
                   {activeType === "autoOvertime" && (
                     <TableHeader className="!px-3">Note</TableHeader>
@@ -819,9 +819,13 @@ const Approvals = () => {
                       {activeType === "autoOvertime" && (
                         <TableCell className="!px-3">
                           {item.status === "APPROVED" && item.approver ? (
-                            <span className="text-xs font-medium text-gray-800">{item.approver.name}</span>
+                            <span className="text-xs font-medium text-gray-800">
+                              {item.approver.name}
+                            </span>
                           ) : item.status === "REJECTED" && item.rejecter ? (
-                            <span className="text-xs font-medium text-gray-800">{item.rejecter.name}</span>
+                            <span className="text-xs font-medium text-gray-800">
+                              {item.rejecter.name}
+                            </span>
                           ) : (
                             <span className="text-gray-300 text-xs">—</span>
                           )}
@@ -830,9 +834,20 @@ const Approvals = () => {
                       {activeType === "autoOvertime" && (
                         <TableCell className="!px-3 max-w-[180px]">
                           {item.status === "APPROVED" && item.approvalNotes ? (
-                            <span className="text-xs text-gray-700 line-clamp-2" title={item.approvalNotes}>{item.approvalNotes}</span>
-                          ) : item.status === "REJECTED" && item.rejectionReason ? (
-                            <span className="text-xs text-red-600 line-clamp-2" title={item.rejectionReason}>{item.rejectionReason}</span>
+                            <span
+                              className="text-xs text-gray-700 line-clamp-2"
+                              title={item.approvalNotes}
+                            >
+                              {item.approvalNotes}
+                            </span>
+                          ) : item.status === "REJECTED" &&
+                            item.rejectionReason ? (
+                            <span
+                              className="text-xs text-red-600 line-clamp-2"
+                              title={item.rejectionReason}
+                            >
+                              {item.rejectionReason}
+                            </span>
                           ) : (
                             <span className="text-gray-300 text-xs">—</span>
                           )}
@@ -847,15 +862,15 @@ const Approvals = () => {
                               : (itemStatus || "").toUpperCase() === "PENDING"
                           ) ? (
                             <div className="flex gap-1.5">
-                                <Button
-                                  variant="success"
-                                  size="xs"
-                                  icon={CheckCircle}
-                                  onClick={() => handleApprove(item)}
-                                  disabled={processing || item.isActive}
-                                >
-                                  Approve
-                                </Button>
+                              <Button
+                                variant="success"
+                                size="xs"
+                                icon={CheckCircle}
+                                onClick={() => handleApprove(item)}
+                                disabled={processing || item.isActive}
+                              >
+                                Approve
+                              </Button>
                               {activeType === "timesheet" ? (
                                 <Button
                                   variant="ghost"
@@ -1087,13 +1102,24 @@ const Approvals = () => {
                       {formatDuration(selectedItem.requestedMinutes)}
                     </span>
                   </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Clock-in/Clock-out</span>
+                    <span className="font-medium">
+                      {selectedItem.requestedStartTime &&
+                      selectedItem.requestedEndTime
+                        ? `${formatTimeInTimeZone(selectedItem.requestedStartTime, selectedItem.clientTimezone)} – ${formatTimeInTimeZone(selectedItem.requestedEndTime, selectedItem.clientTimezone)}`
+                        : selectedItem.estimatedEndTime
+                          ? `until ${formatTimeInTimeZone(selectedItem.estimatedEndTime, selectedItem.clientTimezone)}`
+                          : ""}
+                    </span>
+                  </div>
                 </>
               )}
             </div>
             {activeType === "autoOvertime" && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">
-                  OT Approval — Require Note{" "}
+                  Select OT Approval Reason{" "}
                   <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">

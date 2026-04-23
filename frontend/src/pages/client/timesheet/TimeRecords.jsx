@@ -918,7 +918,7 @@ const TimeRecords = () => {
                             },
                             {
                               key: null,
-                              label: "Approved By",
+                              label: "Action By",
                               align: "center",
                               px: "px-3",
                             },
@@ -1307,7 +1307,7 @@ const TimeRecords = () => {
                                   Worked OT Without Prior Approval
                                 </th>
                                 <th className="text-center text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-3">
-                                  Approved By
+                                  Action By
                                 </th>
                                 <th className="text-right text-[11px] font-medium text-gray-400 uppercase tracking-wider py-2 px-4 w-[180px]">
                                   Actions

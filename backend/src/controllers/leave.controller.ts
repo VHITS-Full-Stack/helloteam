@@ -708,7 +708,7 @@ export const getLeaveRequestDetails = async (req: AuthenticatedRequest, res: Res
     const approvalFlow = [
       {
         step: 1,
-        label: 'Submitted',
+        label: 'Created At',
         status: 'completed',
         date: leaveRequest.createdAt,
         actor: 'You',
