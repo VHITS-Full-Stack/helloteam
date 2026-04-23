@@ -64,12 +64,31 @@ const BonusesRaises = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [empRes, notifRes, reqRes] = await Promise.all([
-          clientPortalService.getEmployeesWithRates(),
+        console.log('[BonusesRaises] Fetching data...');
+        const empRes = await clientPortalService.getEmployeesWithRates();
+        console.log('[BonusesRaises] empRes:', JSON.stringify(empRes, null, 2));
+        
+        if (empRes.success) {
+          // Handle both { data: { employees: [] } } and { data: employees: [] }
+          let empList = [];
+          if (Array.isArray(empRes.data)) {
+            empList = empRes.data;
+          } else if (empRes.data?.employees) {
+            empList = empRes.data.employees;
+          } else if (empRes.data?.data?.employees) {
+            empList = empRes.data.data.employees;
+          }
+          console.log('[BonusesRaises] Setting employees:', empList);
+          setEmployees(empList);
+        } else {
+          console.error('[BonusesRaises] API error:', empRes.error);
+        }
+        
+        // Also fetch notifications and requests
+        const [notifRes, reqRes] = await Promise.all([
           clientPortalService.getAdminRaiseNotifications(),
           clientPortalService.getRequests(),
         ]);
-        if (empRes.success) setEmployees(empRes.data.employees || []);
         if (notifRes.success) setRaiseNotifications(notifRes.data.notifications || []);
         if (reqRes.success) setRequests(reqRes.data.requests || []);
       } catch (err) {
