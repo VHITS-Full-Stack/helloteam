@@ -941,15 +941,15 @@ function EntityFormStep({ onNext, onBack, form, setForm, loading }) {
           </div>
         </div>
 
-<div className="flex items-center justify-between mt-16 px-4">
-            <button
-              type="button"
-              className="text-slate-500 font-bold hover:text-slate-800 transition-colors tracking-[0.2em] text-xs"
-              disabled={loading}
-              onClick={onBack}
-            >
-              BACK
-            </button>
+        <div className="flex items-center justify-between mt-16 px-4">
+          <button
+            type="button"
+            className="text-slate-500 font-bold hover:text-slate-800 transition-colors tracking-[0.2em] text-xs"
+            disabled={loading}
+            onClick={onBack}
+          >
+            BACK
+          </button>
           <Button
             variant="secondary"
             size="xl"
@@ -1424,11 +1424,24 @@ function SigningStep({
             onChange={(e) => setSignedByName(e.target.value)}
           />
           <div>
-            <div className="mb-2">
-              <span className="text-xs font-bold text-slate-500 uppercase">
-                Digital Signature
-              </span>
-            </div>
+            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block flex items-center justify-between">
+              Digital Signature
+              <button
+                className="text-primary hover:underline"
+                onClick={() => {
+                  const ctx = canvasRef.current.getContext("2d");
+                  ctx.clearRect(
+                    0,
+                    0,
+                    canvasRef.current.width,
+                    canvasRef.current.height,
+                  );
+                  setHasDrawn(false);
+                }}
+              >
+                Clear Pad
+              </button>
+            </label>
             <div className="onboarding-sig-pad">
               <canvas
                 ref={canvasRef}
@@ -1441,54 +1454,39 @@ function SigningStep({
                 onTouchEnd={() => setIsDrawing(false)}
               />
             </div>
-            <button
-              type="button"
-              className="text-primary hover:underline text-xs cursor-pointer bg-transparent border-none p-0 mt-2"
-              onClick={() => {
-                if (canvasRef.current) {
-                  const canvas = canvasRef.current;
-                  const ctx = canvas.getContext("2d");
-                  if (ctx) {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  }
-                  setHasDrawn(false);
-                }
-              }}
-            >
-Clear
-            </button>
           </div>
         </div>
 
         <div className="flex items-center justify-between mt-16 px-4">
-            <button
-              type="button"
-              className="text-slate-500 font-bold hover:text-slate-800 transition-colors tracking-[0.2em] text-xs"
-              disabled={loading}
-              onClick={onBack}
-            >
-              BACK
-            </button>
-            <Button
-              variant="secondary"
-              size="xl"
-              rounded="pill"
-              className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
-              disabled={!hasDrawn || !signedByName || loading}
-              onClick={() => {
-                if (canvasRef.current) {
-                  onNext(signedByName, canvasRef.current.toDataURL());
-                } else {
-                  onNext(signedByName, null);
-                }
-              }}
-              loading={loading}
-              icon={Check}
-              iconPosition="right"
-            >
-              FINALIZE AND SIGN
-            </Button>
+          <button
+            type="button"
+            className="text-slate-500 font-bold hover:text-slate-800 transition-colors tracking-[0.2em] text-xs"
+            disabled={loading}
+            onClick={onBack}
+          >
+            BACK
+          </button>
+          <Button
+            variant="secondary"
+            size="xl"
+            rounded="pill"
+            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            disabled={!hasDrawn || !signedByName || loading}
+            onClick={() => {
+              if (canvasRef.current) {
+                onNext(signedByName, canvasRef.current.toDataURL());
+              } else {
+                onNext(signedByName, null);
+              }
+            }}
+            loading={loading}
+            icon={Check}
+            iconPosition="right"
+          >
+            FINALIZE AND SIGN
+          </Button>
         </div>
+      </div>
     </div>
   );
 }
