@@ -70,12 +70,7 @@ const STEPS = [
     icon: Shield,
     blocking: true,
   },
-  {
-    id: "best-practices",
-    label: "Practical Tips / Best Practices",
-    icon: Zap,
-    blocking: false,
-  },
+  { id: "best-practices", label: "Practical Tips / Best Practices", icon: Zap, blocking: false },
 ];
 
 const styles = `
@@ -601,20 +596,19 @@ function PrivacyPolicyStep({ onNext, onBack, content }) {
             <>
               <div className="onboarding-doc-h">Data Collection</div>
               <p>
-                We collect information necessary to provide our staffing
-                services, including business contact details and payment
-                information.
+                We collect information necessary to provide our staffing services,
+                including business contact details and payment information.
               </p>
               <div className="onboarding-doc-h">Data Use</div>
               <p>
-                Your data is used solely to manage your account, process
-                payments, and facilitate employee placement. We do not sell your
-                data to third parties.
+                Your data is used solely to manage your account, process payments,
+                and facilitate employee placement. We do not sell your data to
+                third parties.
               </p>
               <div className="onboarding-doc-h">Data Security</div>
               <p>
-                All data is encrypted in transit and at rest. Access is
-                restricted to authorized Hello Team personnel only.
+                All data is encrypted in transit and at rest. Access is restricted
+                to authorized Hello Team personnel only.
               </p>
             </>
           )}
@@ -740,27 +734,17 @@ function PdfViewer({ pdfUrl, title = "New Hire Guide" }) {
   );
 }
 
-function GuideStep({
-  onNext,
-  onBack,
-  step,
-  content,
-  pdfExists,
-  welcomeTipsPdfExists,
-  loading,
-}) {
+function GuideStep({ onNext, onBack, step, content, pdfExists, welcomeTipsPdfExists, loading }) {
   const isBestPractices = step === 3;
   const [pdfObjectUrl, setPdfObjectUrl] = useState(null);
 
   useEffect(() => {
     if (!isBestPractices && pdfExists) {
-      settingsService
-        .downloadNewHireGuidePdf()
+      settingsService.downloadNewHireGuidePdf()
         .then((blob) => setPdfObjectUrl(URL.createObjectURL(blob)))
         .catch(() => setPdfObjectUrl(null));
     } else if (isBestPractices && welcomeTipsPdfExists) {
-      settingsService
-        .downloadWelcomeTipsPdf()
+      settingsService.downloadWelcomeTipsPdf()
         .then((blob) => setPdfObjectUrl(URL.createObjectURL(blob)))
         .catch(() => setPdfObjectUrl(null));
     }
@@ -778,9 +762,7 @@ function GuideStep({
             : "STEP 3 OF 8 — FOUNDATIONS"}
         </div>
         <h2 className="onboarding-headline" style={{ fontSize: "42px" }}>
-          {isBestPractices
-            ? "Practical Tips / Best Practices"
-            : "New Hire Guide"}
+          {isBestPractices ? "Practical Tips / Best Practices" : "New Hire Guide"}
         </h2>
       </div>
 
@@ -798,8 +780,8 @@ function GuideStep({
                 <div className="onboarding-doc-h">Establish Daily Rhythms</div>
                 <p>
                   The most successful clients have a quick 10-minute sync at the
-                  start of each shift. This eliminates ambiguity and sets the
-                  pace for the day.
+                  start of each shift. This eliminates ambiguity and sets the pace
+                  for the day.
                 </p>
                 <div className="onboarding-doc-h">Use the Dashboard</div>
                 <p>
@@ -809,9 +791,8 @@ function GuideStep({
                 </p>
                 <div className="onboarding-doc-h">Clear KPIs</div>
                 <p>
-                  Define 2-3 key metrics for your team member. When they know
-                  what "winning" looks like, they deliver higher value
-                  consistently.
+                  Define 2-3 key metrics for your team member. When they know what
+                  "winning" looks like, they deliver higher value consistently.
                 </p>
               </>
             ) : (
@@ -819,19 +800,19 @@ function GuideStep({
                 <div className="onboarding-doc-h">Software Access</div>
                 <p>
                   Please prepare any required software licenses (Slack, CRM,
-                  Project Management) prior to the first shift. We recommend
-                  using LastPass for secure credential sharing.
+                  Project Management) prior to the first shift. We recommend using
+                  LastPass for secure credential sharing.
                 </p>
                 <div className="onboarding-doc-h">The First 48 Hours</div>
                 <p>
-                  Dedicate time in the first two days for training. Your
-                  dedicated expert is already vetted, but they need to learn
-                  *your* specific way of doing things.
+                  Dedicate time in the first two days for training. Your dedicated
+                  expert is already vetted, but they need to learn *your* specific
+                  way of doing things.
                 </p>
                 <div className="onboarding-doc-h">Points of Contact</div>
                 <p>
-                  Identify who your team member should reach out to for
-                  technical blockers versus operational questions.
+                  Identify who your team member should reach out to for technical
+                  blockers versus operational questions.
                 </p>
               </>
             )}
@@ -840,14 +821,7 @@ function GuideStep({
 
         {/* Show PDF viewer when a PDF is available (new hire guide or best practices) */}
         {pdfObjectUrl && (
-          <PdfViewer
-            pdfUrl={pdfObjectUrl}
-            title={
-              isBestPractices
-                ? "Practical Tips / Best Practices"
-                : "New Hire Guide"
-            }
-          />
+          <PdfViewer pdfUrl={pdfObjectUrl} title={isBestPractices ? "Practical Tips / Best Practices" : "New Hire Guide"} />
         )}
 
         <div className="flex items-center justify-between mt-16 px-4">
@@ -870,7 +844,7 @@ function GuideStep({
             icon={ChevronRight}
             iconPosition="right"
           >
-            {isBestPractices ? "COMPLETE ONBOARDING" : "CONTINUE"}
+            {isBestPractices ? 'COMPLETE ONBOARDING' : 'CONTINUE'}
           </Button>
         </div>
       </div>
@@ -934,9 +908,7 @@ function EntityFormStep({ onNext, onBack, form, setForm, loading }) {
               className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="XX-XXXXXXX"
               value={form.ein}
-              onChange={(e) =>
-                setForm({ ...form, ein: formatEIN(e.target.value) })
-              }
+              onChange={(e) => setForm({ ...form, ein: formatEIN(e.target.value) })}
             />
           </div>
         </div>
@@ -971,11 +943,7 @@ function EntityFormStep({ onNext, onBack, form, setForm, loading }) {
 
 function PaymentStep({ onNext, onBack, form, setForm, loading }) {
   const formatCard = (val) =>
-    val
-      .replace(/\D/g, "")
-      .slice(0, 16)
-      .replace(/(.{4})/g, "$1 ")
-      .trim();
+    val.replace(/\D/g, "").slice(0, 16).replace(/(.{4})/g, "$1 ").trim();
   const formatExpiry = (val) => {
     let v = val.replace(/\D/g, "").slice(0, 4);
     return v.length >= 3 ? v.slice(0, 2) + "/" + v.slice(2) : v;
@@ -1036,9 +1004,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                 onChange={() => setForm({ ...form, paymentType: opt.value })}
                 className="w-4 h-4 accent-primary"
               />
-              <span className="text-sm font-semibold text-slate-700">
-                {opt.label}
-              </span>
+              <span className="text-sm font-semibold text-slate-700">{opt.label}</span>
             </label>
           ))}
         </div>
@@ -1071,9 +1037,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                 className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="Billing address"
                 value={form.ccBillingAddress}
-                onChange={(e) =>
-                  setForm({ ...form, ccBillingAddress: e.target.value })
-                }
+                onChange={(e) => setForm({ ...form, ccBillingAddress: e.target.value })}
               />
             </div>
 
@@ -1097,9 +1061,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                   className="w-full border border-slate-300 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="State"
                   value={form.ccState}
-                  onChange={(e) =>
-                    setForm({ ...form, ccState: e.target.value })
-                  }
+                  onChange={(e) => setForm({ ...form, ccState: e.target.value })}
                 />
               </div>
               <div>
@@ -1111,10 +1073,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                   placeholder="Zip"
                   value={form.ccZip}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      ccZip: e.target.value.replace(/\D/g, "").slice(0, 10),
-                    })
+                    setForm({ ...form, ccZip: e.target.value.replace(/\D/g, "").slice(0, 10) })
                   }
                 />
               </div>
@@ -1125,24 +1084,19 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                 Card Type <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-5">
-                {["Visa", "MasterCard", "American Express", "Discover"].map(
-                  (type) => (
-                    <label
-                      key={type}
-                      className="flex items-center gap-2 cursor-pointer text-sm text-slate-700"
-                    >
-                      <input
-                        type="radio"
-                        name="ccCardType"
-                        value={type}
-                        checked={form.ccCardType === type}
-                        onChange={() => setForm({ ...form, ccCardType: type })}
-                        className="w-4 h-4 accent-primary"
-                      />
-                      {type}
-                    </label>
-                  ),
-                )}
+                {["Visa", "MasterCard", "American Express", "Discover"].map((type) => (
+                  <label key={type} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                    <input
+                      type="radio"
+                      name="ccCardType"
+                      value={type}
+                      checked={form.ccCardType === type}
+                      onChange={() => setForm({ ...form, ccCardType: type })}
+                      className="w-4 h-4 accent-primary"
+                    />
+                    {type}
+                  </label>
+                ))}
               </div>
             </div>
 
@@ -1182,10 +1136,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                   placeholder="XXX"
                   value={form.cvv}
                   onChange={(e) =>
-                    setForm({
-                      ...form,
-                      cvv: e.target.value.replace(/\D/g, "").slice(0, 4),
-                    })
+                    setForm({ ...form, cvv: e.target.value.replace(/\D/g, "").slice(0, 4) })
                   }
                 />
               </div>
@@ -1199,17 +1150,13 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
             <Input
               label="Account Holder Name"
               value={form.achAccountHolder}
-              onChange={(e) =>
-                setForm({ ...form, achAccountHolder: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, achAccountHolder: e.target.value })}
               placeholder="Full legal name"
             />
             <Input
               label="Bank Name"
               value={form.achBankName}
-              onChange={(e) =>
-                setForm({ ...form, achBankName: e.target.value })
-              }
+              onChange={(e) => setForm({ ...form, achBankName: e.target.value })}
               placeholder="e.g. Chase, Bank of America"
             />
             <div className="grid grid-cols-2 gap-6">
@@ -1217,12 +1164,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                 label="Routing Number"
                 value={form.achRoutingNumber}
                 onChange={(e) =>
-                  setForm({
-                    ...form,
-                    achRoutingNumber: e.target.value
-                      .replace(/\D/g, "")
-                      .slice(0, 9),
-                  })
+                  setForm({ ...form, achRoutingNumber: e.target.value.replace(/\D/g, "").slice(0, 9) })
                 }
                 placeholder="9-digit routing number"
               />
@@ -1230,10 +1172,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
                 label="Account Number"
                 value={form.achAccountNumber}
                 onChange={(e) =>
-                  setForm({
-                    ...form,
-                    achAccountNumber: e.target.value.replace(/\D/g, ""),
-                  })
+                  setForm({ ...form, achAccountNumber: e.target.value.replace(/\D/g, "") })
                 }
                 placeholder="Account number"
               />
@@ -1244,23 +1183,16 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
               </label>
               <div className="flex gap-6">
                 {["Checking", "Savings"].map((type) => (
-                  <label
-                    key={type}
-                    className="flex items-center gap-3 cursor-pointer"
-                  >
+                  <label key={type} className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="radio"
                       name="achAccountType"
                       value={type.toLowerCase()}
                       checked={form.achAccountType === type.toLowerCase()}
-                      onChange={() =>
-                        setForm({ ...form, achAccountType: type.toLowerCase() })
-                      }
+                      onChange={() => setForm({ ...form, achAccountType: type.toLowerCase() })}
                       className="w-4 h-4 accent-primary"
                     />
-                    <span className="text-sm font-semibold text-slate-700">
-                      {type}
-                    </span>
+                    <span className="text-sm font-semibold text-slate-700">{type}</span>
                   </label>
                 ))}
               </div>
@@ -1322,8 +1254,8 @@ function SigningStep({
         setPdfLoading(false);
       })
       .catch((err) => {
-        console.error("Failed to load PDF:", err);
-        setPdfError(err.message || "Failed to load agreement PDF");
+        console.error('Failed to load PDF:', err);
+        setPdfError(err.message || 'Failed to load agreement PDF');
         setPdfLoading(false);
       });
   }, []);
@@ -1331,18 +1263,18 @@ function SigningStep({
   // Setup canvas when it becomes available
   useEffect(() => {
     if (canvasSetupRef.current) return;
-
+    
     const trySetup = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-
+      
       try {
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
-
+        
         // Wait for canvas to have dimensions
         if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
-
+        
         const dpr = window.devicePixelRatio || 1;
         canvas.width = canvas.clientWidth * dpr;
         canvas.height = canvas.clientHeight * dpr;
@@ -1350,16 +1282,16 @@ function SigningStep({
         ctx.strokeStyle = "#102a43";
         ctx.lineWidth = 2;
         ctx.lineCap = "round";
-
+        
         canvasSetupRef.current = true;
       } catch (err) {
-        console.error("Canvas setup error:", err);
+        console.error('Canvas setup error:', err);
       }
     };
-
+    
     // Try multiple times in case DOM isn't ready
     const intervals = [0, 50, 100, 200, 300, 500];
-    intervals.forEach((delay) => {
+    intervals.forEach(delay => {
       setTimeout(trySetup, delay);
     });
   }, []);
@@ -1501,12 +1433,12 @@ function AccessPolicyStep({ onNext, onBack, privacyPolicy }) {
         <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
           STEP 7 OF 8 — SECURITY POLICY
         </div>
-        <h2 className="onboarding-headline">
-          Employee Access and Offboarding Policy
-        </h2>
+        <h2 className="onboarding-headline">Employee Access and Offboarding Policy</h2>
       </div>
 
       <div className="onboarding-welcome-card">
+       
+
         <div
           className="onboarding-scroll-view mb-8 ck-content"
           onScroll={(e) => {
@@ -1528,39 +1460,32 @@ function AccessPolicyStep({ onNext, onBack, privacyPolicy }) {
               </h4>
               <div className="onboarding-doc-h">1. Access Provisioning</div>
               <p>
-                Clients must document all systems and tools access granted to
-                Hello Team employees. A digital access log must be maintained
-                and made available to Hello Team upon request.
+                Clients must document all systems and tools access granted to Hello
+                Team employees. A digital access log must be maintained and made
+                available to Hello Team upon request.
               </p>
-              <div className="onboarding-doc-h">
-                2. Principle of Least Privilege
-              </div>
+              <div className="onboarding-doc-h">2. Principle of Least Privilege</div>
               <p>
-                Grant employees only the access necessary for their tasks. Do
-                not share root/admin passwords unless approved in writing by
-                Hello Team.
+                Grant employees only the access necessary for their tasks. Do not
+                share root/admin passwords unless approved in writing by Hello Team.
               </p>
-              <div className="onboarding-doc-h">
-                3. Day-of-Termination Protocol
-              </div>
+              <div className="onboarding-doc-h">3. Day-of-Termination Protocol</div>
               <p>
-                In the event of a contract termination, all system access must
-                be revoked within four (4) hours of the notice. The client is
-                solely responsible for timely access removal.
+                In the event of a contract termination, all system access must be
+                revoked within four (4) hours of the notice. The client is solely
+                responsible for timely access removal.
               </p>
-              <div className="onboarding-doc-h">
-                4. Post-Termination Confirmation
-              </div>
+              <div className="onboarding-doc-h">4. Post-Termination Confirmation</div>
               <p>
-                Within 48 hours of termination, clients must confirm in writing
-                to Hello Team that all access has been revoked, including a
-                summary of systems accessed.
+                Within 48 hours of termination, clients must confirm in writing to
+                Hello Team that all access has been revoked, including a summary of
+                systems accessed.
               </p>
               <div className="onboarding-doc-h">5. Data and IP</div>
               <p>
                 Clients are responsible for ensuring all company data is secured
-                prior to termination. Hello Team personnel must not retain
-                copies of client data.
+                prior to termination. Hello Team personnel must not retain copies of
+                client data.
               </p>
             </>
           )}
@@ -1674,34 +1599,31 @@ export default function ClientPortalOnboarding() {
   const [signedByName, setSignedByName] = useState("");
 
   useEffect(() => {
-    onboardingService
-      .getAgreement()
-      .then((res) => {
-        if (res.success) {
-          setData(res.data);
-          if (res.data.onboardingStatus === "COMPLETED") setCurrentStep(8);
-          else if (res.data.onboardingStatus === "SIGNED") setCurrentStep(7);
-          setForm((f) => ({
-            ...f,
-            company:
-              res.data.agreement?.businessName || res.data.companyName || "",
-            contact:
-              res.data.agreement?.signerName || res.data.contactPerson || "",
-            address:
-              res.data.agreement?.businessAddress || res.data.address || "",
-            ein: res.data.agreement?.businessEIN || "",
-            cardName:
-              res.data.agreement?.ccCardholderName ||
-              res.data.contactPerson ||
-              "",
-          }));
-          setSignedByName(
-            res.data.agreement?.signedByName || res.data.contactPerson || "",
-          );
-        }
-        setDataLoading(false);
-      })
-      .catch(() => setDataLoading(false));
+    onboardingService.getAgreement().then((res) => {
+      if (res.success) {
+        setData(res.data);
+        if (res.data.onboardingStatus === "COMPLETED") setCurrentStep(8);
+        else if (res.data.onboardingStatus === "SIGNED") setCurrentStep(7);
+        setForm((f) => ({
+          ...f,
+          company:
+            res.data.agreement?.businessName || res.data.companyName || "",
+          contact:
+            res.data.agreement?.signerName || res.data.contactPerson || "",
+          address:
+            res.data.agreement?.businessAddress || res.data.address || "",
+          ein: res.data.agreement?.businessEIN || "",
+          cardName:
+            res.data.agreement?.ccCardholderName ||
+            res.data.contactPerson ||
+            "",
+        }));
+        setSignedByName(
+          res.data.agreement?.signedByName || res.data.contactPerson || "",
+        );
+      }
+      setDataLoading(false);
+    }).catch(() => setDataLoading(false));
 
     settingsService.getCmsSettings().then((res) => {
       if (res.success) setCmsSettings(res.data);
@@ -1819,8 +1741,8 @@ export default function ClientPortalOnboarding() {
           </div>
 
           <div key={currentStep}>
-            {currentStep === 0 &&
-              (dataLoading ? (
+            {currentStep === 0 && (
+              dataLoading ? (
                 <div className="flex items-center justify-center py-32">
                   <Loader2 className="animate-spin text-primary" size={36} />
                 </div>
@@ -1829,7 +1751,8 @@ export default function ClientPortalOnboarding() {
                   onNext={() => setCurrentStep(1)}
                   employees={data?.assignedEmployees || []}
                 />
-              ))}
+              )
+            )}
             {currentStep === 1 && (
               <LegalStep
                 onNext={() => setCurrentStep(2)}

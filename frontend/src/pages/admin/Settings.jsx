@@ -637,13 +637,11 @@ const Settings = () => {
     if (!welcomeTipsPdfFile) return;
     try {
       setUploadingWelcomeTipsPdf(true);
-      const response =
-        await settingsService.uploadWelcomeTipsPdf(welcomeTipsPdfFile);
+      const response = await settingsService.uploadWelcomeTipsPdf(welcomeTipsPdfFile);
       if (response.success) {
         setCmsSettings(response.data);
         setWelcomeTipsPdfFile(null);
-        if (welcomeTipsPdfInputRef.current)
-          welcomeTipsPdfInputRef.current.value = "";
+        if (welcomeTipsPdfInputRef.current) welcomeTipsPdfInputRef.current.value = "";
       } else {
         alert(response.error || "Failed to upload PDF");
       }
@@ -1783,9 +1781,7 @@ const Settings = () => {
                 {loadingCmsSettings ? (
                   <div className="flex items-center justify-center py-12">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-                    <span className="ml-3 text-gray-500">
-                      Loading content...
-                    </span>
+                    <span className="ml-3 text-gray-500">Loading content...</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
@@ -1794,22 +1790,14 @@ const Settings = () => {
                       <button
                         type="button"
                         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                        onClick={() =>
-                          setOpenCmsSection(
-                            openCmsSection === "legalTerms"
-                              ? null
-                              : "legalTerms",
-                          )
-                        }
+                        onClick={() => setOpenCmsSection(openCmsSection === 'legalTerms' ? null : 'legalTerms')}
                       >
-                        <span className="font-medium text-gray-900">
-                          Legal Terms &amp; Conditions
-                        </span>
+                        <span className="font-medium text-gray-900">Legal Terms &amp; Conditions</span>
                         <ChevronDown
-                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === "legalTerms" ? "rotate-180" : ""}`}
+                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === 'legalTerms' ? 'rotate-180' : ''}`}
                         />
                       </button>
-                      {openCmsSection === "legalTerms" && (
+                      {openCmsSection === 'legalTerms' && (
                         <div className="px-5 pb-5">
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                             <CKEditor
@@ -1817,10 +1805,7 @@ const Settings = () => {
                               data={cmsSettings.legalTerms || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
-                                setCmsSettings((prev) => ({
-                                  ...prev,
-                                  legalTerms: data,
-                                }));
+                                setCmsSettings((prev) => ({ ...prev, legalTerms: data }));
                               }}
                             />
                           </div>
@@ -1833,76 +1818,40 @@ const Settings = () => {
                       <button
                         type="button"
                         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                        onClick={() =>
-                          setOpenCmsSection(
-                            openCmsSection === "newHireGuide"
-                              ? null
-                              : "newHireGuide",
-                          )
-                        }
+                        onClick={() => setOpenCmsSection(openCmsSection === 'newHireGuide' ? null : 'newHireGuide')}
                       >
-                        <span className="font-medium text-gray-900">
-                          New Hire Guide
-                        </span>
+                        <span className="font-medium text-gray-900">New Hire Guide</span>
                         <ChevronDown
-                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === "newHireGuide" ? "rotate-180" : ""}`}
+                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === 'newHireGuide' ? 'rotate-180' : ''}`}
                         />
                       </button>
-                      {openCmsSection === "newHireGuide" && (
+                      {openCmsSection === 'newHireGuide' && (
                         <div className="px-5 pb-5 space-y-4">
                           <p className="text-sm text-gray-500">
-                            Upload a PDF to display on the New Hire Guide step.
-                            If a PDF is uploaded it takes priority; otherwise
-                            the HTML content is shown.
+                            Upload a PDF to display on the New Hire Guide step. If a PDF is uploaded it takes priority; otherwise the HTML content is shown.
                           </p>
 
                           {cmsSettings.newHireGuidePdfName ? (
                             <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-xl">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                  <svg
-                                    className="w-5 h-5 text-blue-600"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
+                                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                   </svg>
                                 </div>
                                 <div>
-                                  <p className="font-medium text-gray-900 text-sm">
-                                    {cmsSettings.newHireGuidePdfName}
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    Currently active PDF
-                                  </p>
+                                  <p className="font-medium text-gray-900 text-sm">{cmsSettings.newHireGuidePdfName}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Currently active PDF</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 {cmsSettings.newHireGuidePdfUrl && (
-                                  <a
-                                    href={cmsSettings.newHireGuidePdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-blue-600 hover:underline font-medium"
-                                  >
+                                  <a href={cmsSettings.newHireGuidePdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline font-medium">
                                     Preview
                                   </a>
                                 )}
                                 {isSuperAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    icon={Trash2}
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    onClick={handlePdfDelete}
-                                    loading={deletingPdf}
-                                  >
+                                  <Button variant="ghost" size="sm" icon={Trash2} className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handlePdfDelete} loading={deletingPdf}>
                                     Remove
                                   </Button>
                                 )}
@@ -1910,8 +1859,7 @@ const Settings = () => {
                             </div>
                           ) : (
                             <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center text-sm text-gray-400">
-                              No PDF uploaded — HTML content will be shown to
-                              clients
+                              No PDF uploaded — HTML content will be shown to clients
                             </div>
                           )}
 
@@ -1922,17 +1870,9 @@ const Settings = () => {
                                 type="file"
                                 accept="application/pdf"
                                 className="block text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer"
-                                onChange={(e) =>
-                                  setPdfFile(e.target.files?.[0] || null)
-                                }
+                                onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
                               />
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={handlePdfUpload}
-                                disabled={!pdfFile || uploadingPdf}
-                                loading={uploadingPdf}
-                              >
+                              <Button variant="primary" size="sm" onClick={handlePdfUpload} disabled={!pdfFile || uploadingPdf} loading={uploadingPdf}>
                                 {uploadingPdf ? "Uploading..." : "Upload PDF"}
                               </Button>
                             </div>
@@ -1944,10 +1884,7 @@ const Settings = () => {
                               data={cmsSettings.newHireGuide || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
-                                setCmsSettings((prev) => ({
-                                  ...prev,
-                                  newHireGuide: data,
-                                }));
+                                setCmsSettings((prev) => ({ ...prev, newHireGuide: data }));
                               }}
                             />
                           </div>
@@ -1960,22 +1897,14 @@ const Settings = () => {
                       <button
                         type="button"
                         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                        onClick={() =>
-                          setOpenCmsSection(
-                            openCmsSection === "privacyPolicy"
-                              ? null
-                              : "privacyPolicy",
-                          )
-                        }
+                        onClick={() => setOpenCmsSection(openCmsSection === 'privacyPolicy' ? null : 'privacyPolicy')}
                       >
-                        <span className="font-medium text-gray-900">
-                          Employee Access and Offboarding Policy
-                        </span>
+                        <span className="font-medium text-gray-900">Employee Access and Offboarding Policy</span>
                         <ChevronDown
-                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === "privacyPolicy" ? "rotate-180" : ""}`}
+                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === 'privacyPolicy' ? 'rotate-180' : ''}`}
                         />
                       </button>
-                      {openCmsSection === "privacyPolicy" && (
+                      {openCmsSection === 'privacyPolicy' && (
                         <div className="px-5 pb-5">
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                             <CKEditor
@@ -1983,10 +1912,7 @@ const Settings = () => {
                               data={cmsSettings.privacyPolicy || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
-                                setCmsSettings((prev) => ({
-                                  ...prev,
-                                  privacyPolicy: data,
-                                }));
+                                setCmsSettings((prev) => ({ ...prev, privacyPolicy: data }));
                               }}
                             />
                           </div>
@@ -1999,75 +1925,40 @@ const Settings = () => {
                       <button
                         type="button"
                         className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                        onClick={() =>
-                          setOpenCmsSection(
-                            openCmsSection === "welcomeTips"
-                              ? null
-                              : "welcomeTips",
-                          )
-                        }
+                        onClick={() => setOpenCmsSection(openCmsSection === 'welcomeTips' ? null : 'welcomeTips')}
                       >
-                        <span className="font-medium text-gray-900">
-                          Welcome Tips
-                        </span>
+                        <span className="font-medium text-gray-900">Welcome Tips</span>
                         <ChevronDown
-                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === "welcomeTips" ? "rotate-180" : ""}`}
+                          className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${openCmsSection === 'welcomeTips' ? 'rotate-180' : ''}`}
                         />
                       </button>
-                      {openCmsSection === "welcomeTips" && (
+                      {openCmsSection === 'welcomeTips' && (
                         <div className="px-5 pb-5 space-y-4">
                           <p className="text-sm text-gray-500">
-                            Upload a PDF to display on the Best Practices step
-                            of client onboarding.
+                            Upload a PDF to display on the Best Practices step of client onboarding.
                           </p>
 
                           {cmsSettings.welcomeTipsPdfName ? (
                             <div className="flex items-center justify-between p-4 bg-blue-50 border border-blue-100 rounded-xl">
                               <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                                  <svg
-                                    className="w-5 h-5 text-blue-600"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                    />
+                                  <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                   </svg>
                                 </div>
                                 <div>
-                                  <p className="font-medium text-gray-900 text-sm">
-                                    {cmsSettings.welcomeTipsPdfName}
-                                  </p>
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    Currently active PDF
-                                  </p>
+                                  <p className="font-medium text-gray-900 text-sm">{cmsSettings.welcomeTipsPdfName}</p>
+                                  <p className="text-xs text-gray-500 mt-0.5">Currently active PDF</p>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
                                 {cmsSettings.welcomeTipsPdfUrl && (
-                                  <a
-                                    href={cmsSettings.welcomeTipsPdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-sm text-blue-600 hover:underline font-medium"
-                                  >
+                                  <a href={cmsSettings.welcomeTipsPdfUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline font-medium">
                                     Preview
                                   </a>
                                 )}
                                 {isSuperAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    icon={Trash2}
-                                    className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                    onClick={handleWelcomeTipsPdfDelete}
-                                    loading={deletingWelcomeTipsPdf}
-                                  >
+                                  <Button variant="ghost" size="sm" icon={Trash2} className="text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleWelcomeTipsPdfDelete} loading={deletingWelcomeTipsPdf}>
                                     Remove
                                   </Button>
                                 )}
@@ -2075,8 +1966,7 @@ const Settings = () => {
                             </div>
                           ) : (
                             <div className="p-4 bg-gray-50 border border-dashed border-gray-200 rounded-xl text-center text-sm text-gray-400">
-                              No PDF uploaded — hardcoded Best Practices content
-                              will be shown
+                              No PDF uploaded — hardcoded Best Practices content will be shown
                             </div>
                           )}
 
@@ -2087,24 +1977,10 @@ const Settings = () => {
                                 type="file"
                                 accept="application/pdf"
                                 className="block text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary hover:file:bg-primary-100 cursor-pointer"
-                                onChange={(e) =>
-                                  setWelcomeTipsPdfFile(
-                                    e.target.files?.[0] || null,
-                                  )
-                                }
+                                onChange={(e) => setWelcomeTipsPdfFile(e.target.files?.[0] || null)}
                               />
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                onClick={handleWelcomeTipsPdfUpload}
-                                disabled={
-                                  !welcomeTipsPdfFile || uploadingWelcomeTipsPdf
-                                }
-                                loading={uploadingWelcomeTipsPdf}
-                              >
-                                {uploadingWelcomeTipsPdf
-                                  ? "Uploading..."
-                                  : "Upload PDF"}
+                              <Button variant="primary" size="sm" onClick={handleWelcomeTipsPdfUpload} disabled={!welcomeTipsPdfFile || uploadingWelcomeTipsPdf} loading={uploadingWelcomeTipsPdf}>
+                                {uploadingWelcomeTipsPdf ? "Uploading..." : "Upload PDF"}
                               </Button>
                             </div>
                           )}
@@ -2112,8 +1988,7 @@ const Settings = () => {
                           {/* CKEditor for Welcome Tips text */}
                           <div className="mt-4 pt-4 border-t border-gray-200">
                             <p className="text-sm text-gray-500 mb-2">
-                              Add text content to display with the Welcome Tips
-                              PDF (optional)
+                              Add text content to display with the Welcome Tips PDF (optional)
                             </p>
                             <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                               <CKEditor
@@ -2121,10 +1996,7 @@ const Settings = () => {
                                 data={cmsSettings.welcomeTips || ""}
                                 onChange={(event, editor) => {
                                   const data = editor.getData();
-                                  setCmsSettings((prev) => ({
-                                    ...prev,
-                                    welcomeTips: data,
-                                  }));
+                                  setCmsSettings((prev) => ({ ...prev, welcomeTips: data }));
                                 }}
                               />
                             </div>
