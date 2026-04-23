@@ -426,7 +426,7 @@ function WelcomeStep({ onNext, employees }) {
 
       <div className="onboarding-welcome-card">
         <p className="text-slate-600 mb-8 text-lg leading-relaxed">
-          We're thrilled to have you here! This secure portal is your central
+          We're thrilled to have you here! This Hello Team portal is your central
           hub for managing your {isMultiple ? "new employees" : "new employee"},
           reviewing timesheets, and approving payments.
           <br />
