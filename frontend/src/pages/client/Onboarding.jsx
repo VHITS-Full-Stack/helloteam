@@ -1230,44 +1230,81 @@ function SigningStep({
   error,
 }) {
   const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfError, setPdfError] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(true);
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasDrawn, setHasDrawn] = useState(false);
+  const canvasSetupRef = useRef(false);
 
   useEffect(() => {
+    setPdfLoading(true);
+    setPdfError(null);
     onboardingService
       .getPreviewPdf()
-      .then((blob) => setPdfUrl(URL.createObjectURL(blob)));
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        setPdfUrl(url);
+        setPdfLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load PDF:', err);
+        setPdfError(err.message || 'Failed to load agreement PDF');
+        setPdfLoading(false);
+      });
   }, []);
 
+  // Setup canvas when it becomes available
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    ctx.strokeStyle = "#102a43";
-    ctx.lineWidth = 2;
-    ctx.lineCap = "round";
-  }, [pdfUrl]);
+    if (canvasSetupRef.current) return;
+    
+    const trySetup = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      
+      try {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        
+        // Wait for canvas to have dimensions
+        if (canvas.clientWidth === 0 || canvas.clientHeight === 0) return;
+        
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvas.clientWidth * dpr;
+        canvas.height = canvas.clientHeight * dpr;
+        ctx.scale(dpr, dpr);
+        ctx.strokeStyle = "#102a43";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        
+        canvasSetupRef.current = true;
+      } catch (err) {
+        console.error('Canvas setup error:', err);
+      }
+    };
+    
+    // Try multiple times in case DOM isn't ready
+    const intervals = [0, 50, 100, 200, 300, 500];
+    intervals.forEach(delay => {
+      setTimeout(trySetup, delay);
+    });
+  }, []);
 
   const draw = (e) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
     const ctx = canvasRef.current.getContext("2d");
     ctx.lineTo(x, y);
     ctx.stroke();
   };
 
   const start = (e) => {
+    if (!canvasRef.current) return;
     const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
+    const x = (e.clientX || e.touches?.[0]?.clientX) - rect.left;
+    const y = (e.clientY || e.touches?.[0]?.clientY) - rect.top;
     const ctx = canvasRef.current.getContext("2d");
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -1285,16 +1322,25 @@ function SigningStep({
       </div>
 
       <div className="onboarding-welcome-card">
-        {!pdfUrl ? (
+        {pdfLoading ? (
           <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-xl mb-6">
             <Loader2 className="animate-spin text-primary" />
           </div>
-        ) : (
+        ) : pdfError ? (
+          <div className="h-[300px] flex flex-col items-center justify-center bg-slate-50 rounded-xl mb-6 text-slate-500">
+            <AlertCircle className="w-8 h-8 text-red-500 mb-2" />
+            <p className="text-sm">{pdfError}</p>
+          </div>
+        ) : pdfUrl ? (
           <iframe
             src={pdfUrl}
             className="w-full h-[300px] border border-slate-200 rounded-xl mb-6 shadow-inner"
             title="Contract"
           />
+        ) : (
+          <div className="h-[300px] flex items-center justify-center bg-slate-50 rounded-xl mb-6">
+            <p className="text-slate-500 text-sm">No PDF available</p>
+          </div>
         )}
 
         <div className="space-y-6 mb-8">
@@ -1352,7 +1398,13 @@ function SigningStep({
             rounded="pill"
             className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
             disabled={!hasDrawn || !signedByName || loading}
-            onClick={() => onNext(signedByName, canvasRef.current.toDataURL())}
+            onClick={() => {
+              if (canvasRef.current) {
+                onNext(signedByName, canvasRef.current.toDataURL());
+              } else {
+                onNext(signedByName, null);
+              }
+            }}
             loading={loading}
             icon={Check}
             iconPosition="right"

@@ -38,6 +38,7 @@ const onboardingService = {
   getPreviewPdf: async () => {
     const url = `${api.baseUrl}/onboarding/agreement/preview`;
     const token = api.getToken();
+    console.log('[Onboarding] Fetching PDF preview from:', url);
 
     const response = await fetch(url, {
       headers: {
@@ -46,7 +47,9 @@ const onboardingService = {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch agreement preview');
+      const errorText = await response.text();
+      console.error('[Onboarding] PDF fetch failed:', response.status, errorText);
+      throw new Error(`Failed to fetch agreement preview (${response.status})`);
     }
 
     return response.blob();

@@ -662,12 +662,14 @@ export const getAgreementPreview = async (req: AuthenticatedRequest, res: Respon
     }
 
     const templatePath = getTemplatePath(client.agreementType);
+    console.log('[Agreement] Getting preview template path:', templatePath, 'exists:', fs.existsSync(templatePath));
     if (!fs.existsSync(templatePath)) {
       res.status(404).json({ success: false, error: 'Agreement template PDF not found' });
       return;
     }
 
     const templateBytes = fs.readFileSync(templatePath);
+    console.log('[Agreement] Template loaded, size:', templateBytes.length, 'bytes');
     const agreement = client.agreement;
 
     // Build employee list for Exhibit A
