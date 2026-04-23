@@ -1514,6 +1514,7 @@ export default function ClientPortalOnboarding() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [dataLoading, setDataLoading] = useState(true);
   const [cmsSettings, setCmsSettings] = useState(null);
 
   const [form, setForm] = useState({
@@ -1563,7 +1564,8 @@ export default function ClientPortalOnboarding() {
           res.data.agreement?.signedByName || res.data.contactPerson || "",
         );
       }
-    });
+      setDataLoading(false);
+    }).catch(() => setDataLoading(false));
 
     settingsService.getCmsSettings().then((res) => {
       if (res.success) setCmsSettings(res.data);
@@ -1682,10 +1684,16 @@ export default function ClientPortalOnboarding() {
 
           <div key={currentStep}>
             {currentStep === 0 && (
-              <WelcomeStep
-                onNext={() => setCurrentStep(1)}
-                employees={data?.assignedEmployees || []}
-              />
+              dataLoading ? (
+                <div className="flex items-center justify-center py-32">
+                  <Loader2 className="animate-spin text-primary" size={36} />
+                </div>
+              ) : (
+                <WelcomeStep
+                  onNext={() => setCurrentStep(1)}
+                  employees={data?.assignedEmployees || []}
+                />
+              )
             )}
             {currentStep === 1 && (
               <LegalStep

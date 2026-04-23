@@ -79,7 +79,6 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
       include: {
         agreement: true,
         employees: {
-          where: { isActive: true },
           include: {
             employee: {
               select: { firstName: true, lastName: true, profilePhoto: true }
@@ -94,11 +93,11 @@ export const getAgreement = async (req: AuthenticatedRequest, res: Response): Pr
       return;
     }
 
-    // Map employees to a simpler format
+    // Show all assigned employees for onboarding welcome step (active or inactive)
     const assignedEmployees = (client.employees || []).map(ce => ({
-      name: `${ce.employee.firstName} ${ce.employee.lastName}`,
+      name: `${ce.employee.firstName} ${ce.employee.lastName}`.trim(),
       profilePhoto: ce.employee.profilePhoto
-    }));
+    })).filter(e => e.name);
 
     res.json({
       success: true,
