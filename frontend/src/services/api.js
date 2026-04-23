@@ -142,6 +142,19 @@ class ApiService {
         headers: { ...(token && { Authorization: `Bearer ${token}` }) },
         body: formData,
       });
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        if (response.status === 413) {
+          const error = new Error('File too large. Please reduce the file size and try again.');
+          error.status = 413;
+          throw error;
+        }
+        const error = new Error(`Server error (${response.status}). Please try again later.`);
+        error.status = response.status;
+        throw error;
+      }
+
       const data = await response.json();
       if (!response.ok) {
         if (response.status === 401) {
@@ -179,6 +192,20 @@ class ApiService {
         },
         body: formData,
       });
+
+      // Handle non-JSON responses (e.g. Nginx 413, 502 HTML error pages)
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        if (response.status === 413) {
+          const error = new Error('File too large. Please reduce the file size and try again.');
+          error.status = 413;
+          throw error;
+        }
+        const error = new Error(`Server error (${response.status}). Please try again later.`);
+        error.status = response.status;
+        throw error;
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
