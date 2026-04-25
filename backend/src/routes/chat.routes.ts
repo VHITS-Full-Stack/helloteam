@@ -18,8 +18,8 @@ const upload = multer({
   limits: { fileSize: 25 * 1024 * 1024 },
 });
 
-// All routes require authentication and CLIENT or EMPLOYEE role
-router.use(authenticate, authorize('CLIENT', 'EMPLOYEE'));
+// All routes require authentication and CLIENT, EMPLOYEE, or ADMIN role
+router.use(authenticate, authorize('CLIENT', 'EMPLOYEE', 'ADMIN'));
 
 router.get('/conversations', getConversations);
 router.post('/conversations', createConversation);

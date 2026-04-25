@@ -215,20 +215,24 @@ const EmployeeDashboard = () => {
     }
   }, []);
 
-  // Fetch tasks assigned to this employee (show 5 on dashboard)
+  // Fetch tasks (personal + client-assigned)
   const fetchingTasksRef = useRef(false);
   const fetchTasks = useCallback(async () => {
     if (fetchingTasksRef.current) return;
     fetchingTasksRef.current = true;
     try {
       setTasksLoading(true);
-      const [tasksRes, doneRes] = await Promise.all([
-        taskService.getTasks({ limit: 5, isPersonal: false }),
-        taskService.getTasks({ limit: 1, status: "DONE", isPersonal: false }),
+      const [personalRes, clientRes, doneRes] = await Promise.all([
+        taskService.getTasks({ limit: 5, isPersonal: "true" }),
+        taskService.getTasks({ limit: 5, isPersonal: "false" }),
+        taskService.getTasks({ limit: 1, status: "DONE" }),
       ]);
-      if (tasksRes.success) {
-        setTodayTasks(tasksRes.data.tasks || []);
-        setTotalTaskCount(tasksRes.data.pagination?.total || 0);
+      if (personalRes.success && clientRes.success) {
+        const combined = [...(personalRes.data.tasks || []), ...(clientRes.data.tasks || [])];
+        setTodayTasks(combined.slice(0, 5));
+        const totalPersonal = personalRes.data.pagination?.total || 0;
+        const totalClient = clientRes.data.pagination?.total || 0;
+        setTotalTaskCount(totalPersonal + totalClient);
       }
       if (doneRes.success) {
         setDoneTaskCount(doneRes.data.pagination?.total || 0);
@@ -1318,11 +1322,22 @@ const EmployeeDashboard = () => {
                           )}
                         </button>
                         <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-sm font-medium truncate ${task.status === "DONE" ? "text-gray-400 line-through" : "text-gray-900"}`}
-                          >
-                            {task.title}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p
+                              className={`text-sm font-medium truncate ${task.status === "DONE" ? "text-gray-400 line-through" : "text-gray-900"}`}
+                            >
+                              {task.title}
+                            </p>
+                            {task.isPersonal ? (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary-100 text-primary-600 font-medium flex-shrink-0">
+                                Personal
+                              </span>
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary-100 text-secondary-600 font-medium flex-shrink-0">
+                                Client
+                              </span>
+                            )}
+                          </div>
                           {task.client?.companyName && (
                             <p className="text-xs text-gray-400 mt-0.5">
                               {task.client.companyName}

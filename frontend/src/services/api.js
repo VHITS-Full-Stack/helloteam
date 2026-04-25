@@ -128,8 +128,12 @@ class ApiService {
   }
 
   // DELETE request
-  delete(endpoint) {
-    return this.request(endpoint, { method: 'DELETE' });
+  delete(endpoint, options = {}) {
+    const requestOptions = { method: 'DELETE' };
+    if (options.body) {
+      requestOptions.body = JSON.stringify(options.body);
+    }
+    return this.request(endpoint, requestOptions);
   }
 
   // POST FormData (for mixed file + fields requests)

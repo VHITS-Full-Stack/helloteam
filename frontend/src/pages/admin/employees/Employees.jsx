@@ -363,17 +363,17 @@ const Employees = () => {
                   onClick={() => navigate(`/admin/employees/${employee.id}`)}
                 >
                   <TableCell>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
                       <Avatar
                         src={employee.profilePhoto}
                         name={`${employee.firstName} ${employee.lastName}`}
                         size="md"
                       />
-                      <div>
-                        <p className="font-medium text-gray-900">
+                        <div className="min-w-0">
+                        <p className="font-medium text-gray-500 truncate">
                           {employee.firstName} {employee.lastName}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-400 truncate">
                           {employee.user?.email}
                         </p>
                         {employee.phone && (

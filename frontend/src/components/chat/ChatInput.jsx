@@ -1,5 +1,5 @@
-import { useState, useRef, useCallback } from 'react';
-import { Paperclip, Send, X, Loader2 } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { Paperclip, Send, X, Loader2, Upload } from 'lucide-react';
 import AudioRecorder from './AudioRecorder';
 
 const FilePreviewItem = ({ file, preview, onRemove, disabled }) => {
@@ -35,14 +35,37 @@ const FilePreviewItem = ({ file, preview, onRemove, disabled }) => {
   );
 };
 
-const ChatInput = ({ onSendText, onSendFile, onSendAudio, onTyping, disabled, participantName }) => {
+const ChatInput = ({ onSendText, onSendFile, onSendAudio, onTyping, disabled, participantName, droppedFiles = [], onDroppedFilesSent }) => {
   const [text, setText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [filePreviews, setFilePreviews] = useState([]);
   const [showRecorder, setShowRecorder] = useState(false);
   const [sending, setSending] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const dragAreaRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+
+  // Handle dropped files from parent
+  useEffect(() => {
+    if (droppedFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...droppedFiles]);
+
+      droppedFiles.forEach((file) => {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setFilePreviews((prev) => [...prev, { name: file.name, preview: ev.target.result }]);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setFilePreviews((prev) => [...prev, { name: file.name, preview: null }]);
+        }
+      });
+      
+      if (onDroppedFilesSent) onDroppedFilesSent();
+    }
+  }, [droppedFiles, onDroppedFilesSent]);
 
   const handleTextChange = (e) => {
     setText(e.target.value);
@@ -104,6 +127,47 @@ const ChatInput = ({ onSendText, onSendFile, onSendAudio, onTyping, disabled, pa
   const removeFile = (index) => {
     setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
     setFilePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
+
+    setSelectedFiles((prev) => [...prev, ...files]);
+
+    files.forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          setFilePreviews((prev) => [...prev, { name: file.name, preview: ev.target.result }]);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        setFilePreviews((prev) => [...prev, { name: file.name, preview: null }]);
+      }
+    });
   };
 
   const clearFiles = () => {

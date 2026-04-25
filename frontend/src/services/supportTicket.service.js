@@ -20,6 +20,10 @@ const supportTicketService = {
   updateTicket: async (id, data) => {
     return await api.put(`/support-tickets/${id}`, data);
   },
+
+  getPendingCount: async () => {
+    return await api.get('/support-tickets', { params: { status: 'PENDING', limit: 1 } });
+  },
 };
 
 export default supportTicketService;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Calendar,
   Clock,
@@ -14,6 +14,8 @@ import {
   Loader2,
   Info,
   Building2,
+  Paperclip,
+  Eye,
 } from 'lucide-react';
 import { Card, CardContent, Badge, Button, Modal } from '../../components/common';
 import leaveService from '../../services/leave.service';
@@ -29,20 +31,35 @@ const Leave = () => {
   // Request form state
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [leaveType, setLeaveType] = useState('');
+  const [formError, setFormError] = useState('');
   const today = new Date().toISOString().split('T')[0];
   const [leaveDays, setLeaveDays] = useState([{ date: today, hours: 8, mins: 0 }]);
   const [leaveNotes, setLeaveNotes] = useState('');
+  const [leaveDocuments, setLeaveDocuments] = useState([]);
+  const documentInputRef = useRef(null);
   const [submitting, setSubmitting] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Auto-clear toast message after 5 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   // Detail modal state
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
 
   // Filter state for history
   const [historyFilter, setHistoryFilter] = useState('all');
   const [historySearch, setHistorySearch] = useState('');
   const [historyPage, setHistoryPage] = useState(1);
+  const [historyStartDate, setHistoryStartDate] = useState('');
+  const [historyEndDate, setHistoryEndDate] = useState('');
   const historyPageSize = 10;
 
   // Fetch data
@@ -58,10 +75,13 @@ const Leave = () => {
       ]);
 
       if (optionsRes?.success) {
+        console.log('Leave options:', optionsRes.data);
         setLeaveOptions(optionsRes.data);
         if (optionsRes.data?.options?.length > 0 && !leaveType) {
           setLeaveType(optionsRes.data.options[0].type);
         }
+      } else {
+        console.log('Leave options error:', optionsRes);
       }
 
       if (balanceRes?.success) {
@@ -99,6 +119,7 @@ const Leave = () => {
         leaveType,
         days: leaveDays,
         notes: leaveNotes,
+        documents: leaveDocuments.length > 0 ? leaveDocuments : undefined,
       });
 
       if (result?.success) {
@@ -106,12 +127,19 @@ const Leave = () => {
         setLeaveType(leaveOptions?.options?.[0]?.type || '');
         setLeaveDays([{ date: new Date().toISOString().split('T')[0], hours: 8, mins: 0 }]);
         setLeaveNotes('');
+        setLeaveDocuments([]);
+        setFormError('');
         fetchData();
+        
+        // Show warning if any
+        if (result.data?.balanceWarning || result.data?.shortNoticeWarning) {
+          setError(result.data?.balanceWarning || result.data?.shortNoticeWarning);
+        }
       } else {
-        setError(result?.error || 'Failed to submit leave request');
+        setFormError(result?.error || 'Failed to submit leave request');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to submit leave request');
+      setFormError(err.error || err.message || 'Failed to submit leave request');
     } finally {
       setSubmitting(false);
     }
@@ -136,23 +164,36 @@ const Leave = () => {
   };
 
   // Cancel request
-  const handleCancelRequest = async (requestId) => {
-    if (!window.confirm('Are you sure you want to cancel this leave request?')) {
-      return;
-    }
-
+  const handleCancelRequest = async () => {
+    if (!selectedRequest) return;
+    
+    setSubmitting(true);
     try {
-      const result = await leaveService.cancelLeaveRequest(requestId);
+      const result = await leaveService.cancelLeaveRequest(selectedRequest.id);
       if (result?.success) {
+        setToastMessage({
+          title: 'Leave Request Cancelled',
+          description: 'Your leave request has been cancelled successfully.',
+        });
+        setShowCancelModal(false);
         setShowDetailModal(false);
         setSelectedRequest(null);
         fetchData();
       } else {
-        setError(result?.error || 'Failed to cancel request');
+        setFormError(result?.error || result?.message || 'Failed to cancel request');
       }
     } catch (err) {
-      setError(err.error || err.message || 'Failed to cancel request');
+      console.error('Cancel error:', err);
+      setFormError(err?.error || err?.message || 'Failed to cancel request');
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  const openCancelModal = (request) => {
+    setSelectedRequest(request);
+    setFormError('');
+    setShowCancelModal(true);
   };
 
   // Get status badge
@@ -162,15 +203,75 @@ const Leave = () => {
       APPROVED_BY_CLIENT: { variant: 'info', label: 'Client Approved' },
       APPROVED: { variant: 'success', label: 'Approved' },
       REJECTED: { variant: 'danger', label: 'Rejected' },
+      CANCELLED: { variant: 'default', label: 'Cancelled' },
     };
     const config = statusConfig[status] || { variant: 'default', label: status };
     return <Badge variant={config.variant}>{config.label}</Badge>;
   };
 
+  // Get action taken info
+  const getActionTaken = (request) => {
+    const { status, clientApprovedAt, adminApprovedAt, rejectedAt } = request;
+    
+    if (status === 'PENDING') {
+      return <span className="text-xs text-yellow-600">Pending</span>;
+    }
+    
+    if (status === 'CANCELLED') {
+      return <span className="text-xs text-gray-500">Cancelled by employee</span>;
+    }
+    
+    let action = '';
+    let actionBy = '';
+    let actionAt = null;
+    let actionTime = '';
+    
+    if (status === 'REJECTED') {
+      action = 'Rejected';
+      actionBy = 'Client';
+      actionAt = rejectedAt;
+    } else if (status === 'APPROVED_BY_CLIENT') {
+      action = 'Approved';
+      actionBy = 'Client';
+      actionAt = clientApprovedAt;
+    } else if (status === 'APPROVED') {
+      action = 'Approved';
+      actionBy = 'Admin';
+      actionAt = adminApprovedAt;
+    }
+    
+    if (actionAt) {
+      const date = new Date(actionAt);
+      const today = new Date();
+      const diffMs = today.getTime() - date.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffHours < 24) {
+        actionTime = diffHours === 0 ? 'Just now' : `${diffHours}h ago`;
+      } else if (diffDays < 7) {
+        actionTime = `${diffDays}d ago`;
+      } else {
+        actionTime = formatDate(actionAt, { includeYear: true });
+      }
+    }
+    
+    return (
+      <div className="text-xs space-y-0.5">
+        <div className={`font-medium ${status === 'REJECTED' ? 'text-red-600' : 'text-green-600'}`}>
+          {action} by {actionBy}
+        </div>
+        {actionTime && <div className="text-gray-500">{actionTime}</div>}
+      </div>
+    );
+  };
+
   // Get leave type label
   const getLeaveTypeLabel = (type) => {
+    if (!type) return 'Leave';
+    const t = type.toUpperCase();
     const labels = { PTO: 'PTO', VTO: 'VTO', PAID: 'PTO', UNPAID: 'VTO' };
-    return labels[type] || type;
+    return labels[t] || type;
   };
 
 
@@ -198,7 +299,7 @@ const Leave = () => {
         <Button
           variant="primary"
           icon={Plus}
-          onClick={() => setShowRequestModal(true)}
+          onClick={() => { setShowRequestModal(true); setFormError(''); }}
         >
           New Request
         </Button>
@@ -344,6 +445,23 @@ const Leave = () => {
                     className="w-40 h-9 pl-8 pr-3 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={historyStartDate}
+                    onChange={(e) => { setHistoryStartDate(e.target.value); setHistoryPage(1); }}
+                    className="w-28 h-9 px-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="Start date"
+                  />
+                  <span className="text-gray-400">-</span>
+                  <input
+                    type="date"
+                    value={historyEndDate}
+                    onChange={(e) => { setHistoryEndDate(e.target.value); setHistoryPage(1); }}
+                    className="w-28 h-9 px-2 border border-gray-300 rounded-lg text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
+                    placeholder="End date"
+                  />
+                </div>
                 <div className="relative">
                   <select
                     value={historyFilter}
@@ -355,21 +473,42 @@ const Leave = () => {
                     <option value="APPROVED_BY_CLIENT">Client Approved</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
+                    <option value="CANCELLED">Cancelled</option>
                   </select>
                   <ChevronDown className="w-3.5 h-3.5 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+                {(historyStartDate || historyEndDate) && (
+                  <button
+                    type="button"
+                    onClick={() => { setHistoryStartDate(''); setHistoryEndDate(''); setHistoryPage(1); }}
+                    className="text-xs text-gray-500 hover:text-primary"
+                  >
+                    Clear dates
+                  </button>
+                )}
               </div>
             </div>
 
             {/* History Table */}
             {(() => {
-              const filtered = historySearch.trim()
-                ? leaveHistory.filter((r) => {
-                    const q = historySearch.toLowerCase();
-                    return (r.reason || '').toLowerCase().includes(q)
-                      || (r.leaveType || '').toLowerCase().includes(q);
-                  })
-                : leaveHistory;
+              let filtered = leaveHistory;
+              
+              if (historySearch.trim()) {
+                const q = historySearch.toLowerCase();
+                filtered = filtered.filter((r) => {
+                  return (r.reason || '').toLowerCase().includes(q)
+                    || (r.leaveType || '').toLowerCase().includes(q);
+                });
+              }
+              
+              if (historyStartDate || historyEndDate) {
+                filtered = filtered.filter((r) => {
+                  const reqStart = new Date(r.startDate);
+                  if (historyStartDate && reqStart < new Date(historyStartDate)) return false;
+                  if (historyEndDate && reqStart > new Date(historyEndDate)) return false;
+                  return true;
+                });
+              }
               const totalPages = Math.ceil(filtered.length / historyPageSize);
               const startIdx = (historyPage - 1) * historyPageSize;
               const paginated = filtered.slice(startIdx, startIdx + historyPageSize);
@@ -391,6 +530,7 @@ const Leave = () => {
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Days</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Reason</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Action Taken</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16" />
                     </tr>
                   </thead>
@@ -402,7 +542,7 @@ const Leave = () => {
                         className="hover:bg-gray-50 cursor-pointer transition-colors"
                       >
                         <td className="px-4 py-3">
-                          <span className={`text-sm font-medium ${request.leaveType === 'PAID' ? 'text-green-700' : 'text-gray-900'}`}>
+                          <span className={`text-sm font-medium ${(request.leaveType === 'PAID' || request.leaveType === 'PTO') ? 'text-green-700' : 'text-gray-900'}`}>
                             {getLeaveTypeLabel(request.leaveType)}
                           </span>
                         </td>
@@ -435,8 +575,28 @@ const Leave = () => {
                         <td className="px-4 py-3 text-center">
                           {getStatusBadge(request.status)}
                         </td>
+                        <td className="px-4 py-3">
+                          {getActionTaken(request)}
+                        </td>
                         <td className="px-4 py-3 text-center">
-                          <ChevronRight className="w-4 h-4 text-gray-400 inline-block" />
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleViewDetails(request); }}
+                              className="text-gray-400 hover:text-primary"
+                              title="View details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {(request.status === 'PENDING' || request.status === 'APPROVED_BY_CLIENT') && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); openCancelModal(request); }}
+                                className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded"
+                                title="Cancel request"
+                              >
+                                Cancel
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -488,10 +648,15 @@ const Leave = () => {
       {/* Request Leave Modal */}
       <Modal
         isOpen={showRequestModal}
-        onClose={() => setShowRequestModal(false)}
+        onClose={() => { setShowRequestModal(false); setFormError(''); }}
         title="New Leave Request"
       >
         <form onSubmit={handleSubmitRequest}>
+          {formError && (
+            <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
           {/* CODE dropdown */}
           <div className="mb-5">
             <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Leave Type</label>
@@ -503,9 +668,16 @@ const Leave = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                   required
                 >
-                  {leaveOptions?.options?.map(opt => (
-                    <option key={opt.type} value={opt.type}>{opt.label}</option>
-                  ))}
+                  {(!leaveOptions?.options || leaveOptions.options.length === 0) ? (
+                    <>
+                      <option value="PTO">PTO - Paid Time Off</option>
+                      <option value="VTO">VTO - Voluntary Time Off</option>
+                    </>
+                  ) : (
+                    leaveOptions.options.map(opt => (
+                      <option key={opt.type} value={opt.type}>{opt.label}</option>
+                    ))
+                  )}
                 </select>
                 <ChevronDown className="w-4 h-4 text-gray-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
@@ -607,6 +779,45 @@ const Leave = () => {
               placeholder=""
             />
             <p className="text-right text-xs text-gray-400 mt-1">{leaveNotes.length} / 1000 characters</p>
+          </div>
+
+          {/* Documents */}
+          <div className="mb-5">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Documents (optional)</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+              <input
+                type="file"
+                multiple
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files || []);
+                  setLeaveDocuments(prev => [...prev, ...files]);
+                }}
+                className="hidden"
+                id="leave-documents"
+              />
+              <label htmlFor="leave-documents" className="flex flex-col items-center cursor-pointer">
+                <Paperclip className="w-8 h-8 text-gray-400 mb-2" />
+                <span className="text-sm text-gray-500">Click to upload documents</span>
+                <span className="text-xs text-gray-400">PDF, DOC, JPG (max 10MB)</span>
+              </label>
+            </div>
+            {leaveDocuments.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {leaveDocuments.map((file, idx) => (
+                  <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+                    <span className="text-sm text-gray-600 truncate">{file.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => setLeaveDocuments(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Footer: total + actions */}
@@ -762,15 +973,68 @@ const Leave = () => {
             )}
 
             {/* Rejection Reason */}
-            {selectedRequest.status === 'REJECTED' && selectedRequest.rejectionReason && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-red-800">Rejection Reason:</p>
-                <p className="text-sm text-red-700 mt-1">{selectedRequest.rejectionReason}</p>
+            {(selectedRequest.status === 'REJECTED' || selectedRequest.status === 'CANCELLED') && selectedRequest.rejectionReason && (
+              <div className={`border rounded-lg p-4 ${selectedRequest.status === 'CANCELLED' ? 'bg-gray-50 border-gray-200' : 'bg-red-50 border-red-200'}`}>
+                <p className={`text-sm font-medium ${selectedRequest.status === 'CANCELLED' ? 'text-gray-800' : 'text-red-800'}`}>
+                  {selectedRequest.status === 'CANCELLED' ? 'Cancellation Reason:' : 'Rejection Reason:'}
+                </p>
+                <p className={`text-sm ${selectedRequest.status === 'CANCELLED' ? 'text-gray-600' : 'text-red-700'} mt-1`}>{selectedRequest.rejectionReason}</p>
               </div>
             )}
           </div>
         )}
       </Modal>
+
+      {/* Cancel Confirmation Modal */}
+      <Modal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        title="Cancel Leave Request"
+      >
+        <div className="space-y-4">
+          {formError && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
+              {formError}
+            </div>
+          )}
+          <p className="text-gray-600">
+            Are you sure you want to cancel this leave request?
+          </p>
+          {selectedRequest && (
+            <div className="bg-gray-50 rounded-lg p-3 text-sm">
+              <p><strong>Type:</strong> {getLeaveTypeLabel(selectedRequest.leaveType)}</p>
+              <p><strong>Dates:</strong> {formatDate(selectedRequest.startDate)} - {formatDate(selectedRequest.endDate)}</p>
+            </div>
+          )}
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={() => setShowCancelModal(false)} disabled={submitting}>No, Keep It</Button>
+            <Button variant="danger" onClick={handleCancelRequest} loading={submitting}>Yes, Cancel Request</Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-slide-in">
+          <div className="bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 min-w-80">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-bold text-gray-900">{toastMessage.title}</h3>
+                <p className="text-xs text-gray-500 mt-1">{toastMessage.description}</p>
+              </div>
+              <button
+                onClick={() => setToastMessage(null)}
+                className="ml-3 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

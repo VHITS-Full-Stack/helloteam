@@ -308,10 +308,10 @@ const Settings = () => {
                       className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
                     >
                       <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
-                          <span className="font-semibold text-primary">
-                            {employee.firstName?.charAt(0) || employee.name?.charAt(0)}
-                          </span>
+                        <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-center overflow-hidden">
+<span className="font-semibold text-primary">
+                              {employee.firstName?.charAt(0) || employee.name?.charAt(0) || '?'}
+                            </span>
                         </div>
                         <div>
                           <p className="font-medium text-gray-900">{employee.name}</p>

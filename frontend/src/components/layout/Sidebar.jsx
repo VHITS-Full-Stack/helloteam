@@ -35,6 +35,8 @@ import { PERMISSIONS } from "../../config/permissions";
 import clientPortalService from "../../services/clientPortal.service";
 import adminPortalService from "../../services/adminPortal.service";
 import chatService from "../../services/chat.service";
+import taskService from "../../services/task.service";
+import supportTicketService from "../../services/supportTicket.service";
 
 const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlledCollapsed, onToggleCollapse }) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
@@ -44,7 +46,9 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [pendingTaskCount, setPendingTaskCount] = useState(0);
   const [outstandingInvoiceCount, setOutstandingInvoiceCount] = useState(0);
+  const [supportTicketCount, setSupportTicketCount] = useState(0);
 
   // Fetch pending approval counts for sidebar badge
   const fetchPendingCounts = useCallback(async () => {
@@ -86,12 +90,22 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       }
     } else if (portalType === "employee") {
       try {
-        const chatRes = await chatService.getUnreadCount();
+        const [chatRes, taskRes, supportRes] = await Promise.all([
+          chatService.getUnreadCount(),
+          taskService.getPendingTaskCount(),
+          supportTicketService.getPendingCount(),
+        ]);
         if (chatRes.success) {
           setUnreadChatCount(chatRes.data?.count || 0);
         }
+        if (taskRes.success) {
+          setPendingTaskCount(taskRes.data?.pagination?.total || 0);
+        }
+        if (supportRes.success) {
+          setSupportTicketCount(supportRes.data?.pagination?.total || 0);
+        }
       } catch (e) {
-        console.error("Failed to fetch employee chat count:", e);
+        console.error("Failed to fetch employee counts:", e);
       }
     } else if (portalType === "admin") {
       try {
@@ -112,20 +126,30 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       } catch (e) {
         console.error("Failed to fetch admin raise counts:", e);
       }
+      try {
+        const supportRes = await supportTicketService.getPendingCount();
+        if (supportRes.success) {
+          setSupportTicketCount(supportRes.data?.pagination?.total || 0);
+        }
+      } catch (e) {
+        console.error("Failed to fetch support ticket count:", e);
+      }
     }
   }, [portalType]);
 
   useEffect(() => {
     // Use microtask to avoid synchronous setState in effect body
     queueMicrotask(() => fetchPendingCounts());
-    // Re-fetch when approvals, chat, or billing are updated
+    // Re-fetch when approvals, chat, tasks, or billing are updated
     const handleUpdate = () => fetchPendingCounts();
     window.addEventListener("approvals-updated", handleUpdate);
     window.addEventListener("chat-updated", handleUpdate);
+    window.addEventListener("tasks-updated", handleUpdate);
     window.addEventListener("billing-updated", handleUpdate);
     return () => {
       window.removeEventListener("approvals-updated", handleUpdate);
       window.removeEventListener("chat-updated", handleUpdate);
+      window.removeEventListener("tasks-updated", handleUpdate);
       window.removeEventListener("billing-updated", handleUpdate);
     };
   }, [fetchPendingCounts]);
@@ -138,12 +162,12 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     { to: "/employee/time-records", icon: FileText, label: "Time Records" },
     { to: "/employee/overtime-requests", icon: Clock, label: "Overtime Requests" },
     { to: "/employee/leave", icon: Calendar, label: "Time Off" },
-    { to: "/employee/tasks", icon: ClipboardList, label: "Tasks" },
+    { to: "/employee/tasks", icon: ClipboardList, label: "Tasks", badge: pendingTaskCount },
     { group: "Finance" },
     { to: "/employee/payslips", icon: Wallet, label: "Payslips" },
     { group: "" },
     { to: "/employee/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
-    { to: "/employee/support", icon: MessageSquare, label: "Support" },
+    { to: "/employee/support", icon: MessageSquare, label: "Support", badge: supportTicketCount },
     { to: "/employee/profile", icon: User, label: "Profile" },
   ];
 
@@ -261,6 +285,7 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       to: "/admin/support",
       icon: MessageSquare,
       label: "Support Tickets",
+      badge: supportTicketCount,
     },
     { group: "Billing & Payroll" },
     {

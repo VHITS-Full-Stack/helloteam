@@ -13,6 +13,38 @@ const leaveService = {
 
   // Submit a leave request
   async submitLeaveRequest(data) {
+    const { documents, ...rest } = data;
+    
+    if (documents && documents.length > 0) {
+      const url = `${api.baseUrl}/leave/request`;
+      const token = api.getToken();
+      const formData = new FormData();
+      
+      Object.entries(rest).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'object') {
+            formData.append(key, JSON.stringify(value));
+          } else {
+            formData.append(key, value);
+          }
+        }
+      });
+      
+      documents.forEach(file => {
+        formData.append('documents', file);
+      });
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+        body: formData,
+      });
+
+      return await response.json();
+    }
+    
     return await api.post('/leave/request', data);
   },
 
@@ -34,7 +66,8 @@ const leaveService = {
 
   // Cancel a leave request
   async cancelLeaveRequest(requestId, reason = '') {
-    return await api.delete(`/leave/request/${requestId}`, { data: { reason } });
+    const result = await api.delete(`/leave/request/${requestId}`, { body: { reason } });
+    return result;
   },
 };
 
