@@ -7,7 +7,7 @@ import { formatDuration, getDayOfWeekInTimezone, buildScheduleTimestamp } from '
 
 // Helper function to refresh presigned URL for profile photos
 const refreshProfilePhotoUrl = async (photoUrl: string | null | undefined): Promise<string | null> => {
-  if (!photoUrl) return null;
+  if (!photoUrl || photoUrl === 'undefined' || photoUrl === 'null') return null;
   const key = getKeyFromUrl(photoUrl);
   if (!key) return photoUrl;
   const freshUrl = await getPresignedUrl(key);
@@ -1263,7 +1263,7 @@ export const getAdminTimeRecords = async (req: AuthenticatedRequest, res: Respon
         id: session.id,
         employee: `${emp.firstName} ${emp.lastName}`,
         employeeId: session.employeeId,
-        profilePhoto: emp.profilePhoto,
+        profilePhoto: (emp.profilePhoto && emp.profilePhoto !== 'undefined' && emp.profilePhoto !== 'null') ? emp.profilePhoto : null,
         client: clientInfo?.companyName || 'Unassigned',
         clientId: clientInfo?.clientId || null,
         clientTimezone: clientInfo?.timezone || null,
