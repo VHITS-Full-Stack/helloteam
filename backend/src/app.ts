@@ -12,17 +12,10 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS configuration — supports comma-separated list of origins
-const allowedOrigins = config.cors.origin.split(',').map((o) => o.trim());
+// CORS configuration
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error(`CORS: origin ${origin} not allowed`));
-      }
-    },
+    origin: config.cors.origin,
     credentials: true,
   })
 );
