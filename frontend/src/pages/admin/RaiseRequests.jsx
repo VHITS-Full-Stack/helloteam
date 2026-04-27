@@ -730,17 +730,21 @@ const RaiseRequests = () => {
                 : "—"}
             </td>
             <td className="py-3 px-3 text-center text-sm text-gray-500">
-              {rr.currentPayRate !== null && rr.currentPayRate !== undefined
-                ? rr.currentPayRate.toFixed(2)
-                : "—"}
+              {rr.payRate != null && rr.employeeRaiseAmount != null
+                ? (rr.payRate - rr.employeeRaiseAmount).toFixed(2)
+                : rr.payRate != null
+                  ? rr.payRate.toFixed(2)
+                  : "—"}
             </td>
             <td className="py-3 px-3 text-center text-sm font-semibold text-blue-700">
               {rr.payRate?.toFixed(2)}
             </td>
             <td className="py-3 px-3 text-center text-sm text-gray-500">
-              {rr.currentBillRate !== null && rr.currentBillRate !== undefined
-                ? rr.currentBillRate.toFixed(2)
-                : "—"}
+              {rr.billRate != null && rr.clientCoveredAmount != null
+                ? (rr.billRate - rr.clientCoveredAmount).toFixed(2)
+                : rr.billRate != null
+                  ? rr.billRate.toFixed(2)
+                  : "—"}
             </td>
             <td className="py-3 px-3 text-center text-sm font-semibold text-primary-700">
               {rr.billRate?.toFixed(2)}
@@ -1413,11 +1417,10 @@ const RaiseRequests = () => {
       {showConfirmDirectEdit && pendingDirectEdit && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowConfirmDirectEdit(false)}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowConfirmDirectEdit(false); }}
         >
-<div
+          <div
             className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
-            onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               Confirm Rate Change
@@ -1503,13 +1506,12 @@ const RaiseRequests = () => {
       {showGiveBonusModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => {
-            if (giveBonusStep === 1) setShowGiveBonusModal(false);
+          onClick={(e) => {
+            if (e.target === e.currentTarget && giveBonusStep === 1) setShowGiveBonusModal(false);
           }}
         >
           <div
             className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-5">
@@ -1764,12 +1766,14 @@ const RaiseRequests = () => {
 
                 <div className="flex justify-end gap-3 mt-5">
                   <button
+                    type="button"
                     onClick={() => setShowGiveBonusModal(false)}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleGiveBonusSubmit}
                     disabled={giveBonusLoading || candidatesLoading}
                     className="px-4 py-2 text-sm font-medium text-white bg-amber-500 hover:bg-amber-600 rounded-lg disabled:opacity-50 transition-colors inline-flex items-center gap-2"
@@ -1920,11 +1924,10 @@ const RaiseRequests = () => {
       {showGiveRaiseModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowGiveRaiseModal(false)}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowGiveRaiseModal(false); }}
         >
           <div
             className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
-            onClick={(e) => e.stopPropagation()}
           >
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-5">
@@ -2183,12 +2186,14 @@ const RaiseRequests = () => {
 
                 <div className="flex justify-end gap-3 mt-5">
                   <button
+                    type="button"
                     onClick={() => setShowGiveRaiseModal(false)}
                     className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
+                    type="button"
                     onClick={handleGiveRaiseSubmit}
                     disabled={giveRaiseLoading || candidatesLoading}
                     className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors inline-flex items-center gap-2"
@@ -2387,11 +2392,10 @@ const RaiseRequests = () => {
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-              onClick={() => setShowApproveModal(false)}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowApproveModal(false); }}
             >
               <div
                 className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-                onClick={(e) => e.stopPropagation()}
               >
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   Approve {isRaise ? "Raise" : "Bonus"}
@@ -2629,11 +2633,10 @@ const RaiseRequests = () => {
       {showRejectModal && selectedRequest && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={() => setShowRejectModal(false)}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowRejectModal(false); }}
         >
           <div
             className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-            onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {selectedRequest.raisedBy === "ADMIN" ? "Cancel" : "Reject"}{" "}

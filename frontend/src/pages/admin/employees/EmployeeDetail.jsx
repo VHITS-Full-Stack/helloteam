@@ -2047,18 +2047,9 @@ const EmployeeDetail = () => {
       {showGiveBonusModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          role="button"
-          tabIndex={0}
-          aria-label="Close bonus modal"
           onClick={(e) => {
             if (e.target === e.currentTarget && giveBonusStep === 1)
               setShowGiveBonusModal(false);
-          }}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && giveBonusStep === 1) {
-              e.preventDefault();
-              setShowGiveBonusModal(false);
-            }
           }}
         >
           <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
@@ -2322,22 +2313,12 @@ const EmployeeDetail = () => {
       {showGiveRaiseModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          role="button"
-          tabIndex={0}
-          aria-label="Close raise modal"
-          onClick={() => {
-            if (giveRaiseStep === 1) setShowGiveRaiseModal(false);
-          }}
-          onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && giveRaiseStep === 1) {
-              e.preventDefault();
-              setShowGiveRaiseModal(false);
-            }
+          onClick={(e) => {
+            if (e.target === e.currentTarget && giveRaiseStep === 1) setShowGiveRaiseModal(false);
           }}
         >
           <div
             className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 mb-5">
               <div
@@ -2452,26 +2433,7 @@ const EmployeeDetail = () => {
                   </div>
                   {giveRaiseForm.coverageType === "PARTIAL" && (
                     <div>
-                      <label className="text-sm font-medium text-gray-700 block mb-1">
-                        Client covers ($/hr)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={giveRaiseForm.clientCoveredAmount}
-                        onChange={(e) =>
-                          setGiveRaiseForm({
-                            ...giveRaiseForm,
-                            clientCoveredAmount: e.target.value,
-                          })
-                        }
-                        placeholder="e.g. 1.00"
-                        className="input w-full"
-                      />
-                    </div>
-                  )}
-                  <div>
+                         <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Raise Amount($/hr)
                     </label>
@@ -2506,6 +2468,26 @@ const EmployeeDetail = () => {
                       );
                     })()}
                   </div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">
+                        Client covers ($/hr)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={giveRaiseForm.clientCoveredAmount}
+                        onChange={(e) =>
+                          setGiveRaiseForm({
+                            ...giveRaiseForm,
+                            clientCoveredAmount: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. 1.00"
+                        className="input w-full"
+                      />
+                    </div>
+                  )}
+               
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Effective Date
