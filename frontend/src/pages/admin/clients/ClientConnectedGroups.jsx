@@ -64,8 +64,16 @@ const ClientConnectedGroups = () => {
   // Filter groups that belong to this client
   const filterClientGroups = useCallback((groups) => {
     const myGroups = [];
+    let hasDefaultGroup = false;
 
-    groups.forEach((group) => {
+    // Sort groups by createdAt to ensure the oldest "Default" group comes first
+    const sortedGroups = [...groups].sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateA - dateB;
+    });
+
+    sortedGroups.forEach((group) => {
       if (!group.isActive) return;
 
       const clientGroupLink = group.clients?.find((cg) => {
@@ -74,6 +82,12 @@ const ClientConnectedGroups = () => {
       });
 
       if (clientGroupLink) {
+        // Ensure only one "Default" group is shown per client
+        if (group.name?.trim() === 'Default') {
+          if (hasDefaultGroup) return;
+          hasDefaultGroup = true;
+        }
+
         const totalEmployees = group.employees?.length || 0;
         let assignedCount = 0;
         if (group.employees && group.employees.length > 0) {
