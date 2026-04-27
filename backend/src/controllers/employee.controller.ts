@@ -83,9 +83,15 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
       where.OR = searchConditions;
     }
 
-    // Add status filter separately (works with or without search)
+    // Add status filter - use nested path for proper filtering
     if (status) {
-      where.user = { status: status as string };
+      if (where.OR) {
+        // Combine search and status with AND
+        where.AND = [{ OR: where.OR }, { user: { status: status as string } }];
+        delete where.OR;
+      } else {
+        where.user = { status: status as string };
+      }
     }
 
     if (clientId) {
