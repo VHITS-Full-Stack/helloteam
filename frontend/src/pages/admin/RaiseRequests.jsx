@@ -1614,26 +1614,7 @@ const RaiseRequests = () => {
                       </div>
                     </div>
 
-                    {/* Bonus Amount */}
-                    <div>
-                      <label className="text-sm font-medium text-gray-700 block mb-1">
-                        Bonus Amount ($)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        value={giveBonusForm.amount}
-                        onChange={(e) =>
-                          setGiveBonusForm({
-                            ...giveBonusForm,
-                            amount: e.target.value,
-                          })
-                        }
-                        placeholder="e.g. 500.00"
-                        className="input w-full"
-                      />
-                    </div>
+              
 
                     {/* Coverage Type */}
                     <div>
@@ -1682,29 +1663,49 @@ const RaiseRequests = () => {
                       </div>
                     </div>
 
-                    {/* Partial: client covered amount */}
-                    {giveBonusForm.coverageType === "PARTIAL" && (
+                    {/* Bonus Amount + Client Covers */}
+                    <div className={`grid gap-3 ${giveBonusForm.coverageType === "PARTIAL" ? "grid-cols-2" : "grid-cols-1"}`}>
                       <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1">
-                          Client covers ($)
+                          Bonus Amount ($)
                         </label>
                         <input
                           type="number"
                           step="0.01"
                           min="0.01"
-                          value={giveBonusForm.clientCoveredAmount}
+                          value={giveBonusForm.amount}
                           onChange={(e) =>
                             setGiveBonusForm({
                               ...giveBonusForm,
-                              clientCoveredAmount: e.target.value,
+                              amount: e.target.value,
                             })
                           }
-                          placeholder="e.g. 250.00"
+                          placeholder="e.g. 500.00"
                           className="input w-full"
                         />
                       </div>
-                    )}
-
+                      {giveBonusForm.coverageType === "PARTIAL" && (
+                        <div>
+                          <label className="text-sm font-medium text-gray-700 block mb-1">
+                            Client covers ($)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            value={giveBonusForm.clientCoveredAmount}
+                            onChange={(e) =>
+                              setGiveBonusForm({
+                                ...giveBonusForm,
+                                clientCoveredAmount: e.target.value,
+                              })
+                            }
+                            placeholder="e.g. 250.00"
+                            className="input w-full"
+                          />
+                        </div>
+                      )}
+                    </div>
                     {/* Effective Payroll Date */}
                     <div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">
