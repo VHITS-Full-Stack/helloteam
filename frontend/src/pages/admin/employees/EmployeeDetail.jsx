@@ -575,6 +575,11 @@ const EmployeeDetail = () => {
   const isTerminated = !!employee.terminationDate;
   const isPendingOnboarding = employee.onboardingStatus === "PENDING_AGREEMENT";
   const kycStatus = employee.kycStatus || "PENDING";
+  const hasDocuments = !!(
+    employee?.governmentIdUrl ||
+    employee?.governmentId2Url ||
+    employee?.proofOfAddressUrl
+  );
 
   // Billing rate resolution
   const billingRateDisplay = employee.billingRate
@@ -621,7 +626,7 @@ const EmployeeDetail = () => {
                 variant="outline"
                 size="sm"
                 icon={Eye}
-                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                className="!text-blue-600 !border-blue-300 enabled:hover:!bg-blue-50 enabled:hover:!text-blue-700"
                 onClick={handleImpersonate}
                 loading={impersonating}
               >
@@ -641,7 +646,7 @@ const EmployeeDetail = () => {
               variant="outline"
               size="sm"
               icon={UserCheck}
-              className="text-green-600 border-green-300 hover:bg-green-50"
+              className="!text-green-600 !border-green-300 enabled:hover:!bg-green-50 enabled:hover:!text-green-700"
               onClick={handleReactivate}
               loading={submitting}
             >
@@ -652,7 +657,7 @@ const EmployeeDetail = () => {
               variant="outline"
               size="sm"
               icon={UserX}
-              className="text-orange-600 border-orange-300 hover:bg-orange-50"
+              className="!text-orange-600 !border-orange-300 enabled:hover:!bg-amber-50 enabled:hover:!text-orange-700"
               onClick={openTerminateModal}
             >
               Terminate
@@ -662,7 +667,7 @@ const EmployeeDetail = () => {
             variant="outline"
             size="sm"
             icon={Trash2}
-            className="text-red-600 border-red-300 hover:bg-red-50 hover:text-red-700"
+            className="!text-red-600 !border-red-300 enabled:hover:!bg-red-50 enabled:hover:!text-red-700"
             onClick={openDeleteModal}
             title="Delete employee"
           >
@@ -722,14 +727,16 @@ const EmployeeDetail = () => {
             >
               {kycStatus}
             </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={FileText}
-              onClick={() => navigate(`/admin/employees/${id}/documents`)}
-            >
-              Review Documents
-            </Button>
+            {hasDocuments && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={FileText}
+                onClick={() => navigate(`/admin/employees/${id}/documents`)}
+              >
+                Review Documents
+              </Button>
+            )}
           </div>
         </div>
       </div>

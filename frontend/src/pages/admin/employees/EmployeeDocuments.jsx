@@ -77,6 +77,7 @@ const EmployeeDocuments = () => {
 
   const hasPending = documents.some(d => d.status === 'PENDING' || d.status === 'RESUBMITTED');
   const allReviewed = !hasPending;
+  const hasAnyDocument = documents.some(d => !!d.url);
 
   const getStatusColor = (status) => {
     if (status === 'APPROVED') return 'success';
@@ -201,9 +202,9 @@ const EmployeeDocuments = () => {
                   variant="outline"
                   size="sm"
                   icon={XCircle}
-                  className="text-red-600 border-red-300 hover:bg-red-50"
+                  className="text-red-600 border-red-300 enabled:hover:bg-red-50"
                   onClick={() => setBulkAction('rejecting')}
-                  disabled={!!bulkAction}
+                  disabled={!!bulkAction || !hasAnyDocument}
                 >
                   Reject All
                 </Button>
@@ -211,8 +212,8 @@ const EmployeeDocuments = () => {
                   variant="outline"
                   size="sm"
                   icon={CheckCircle}
-                  className="text-green-600 border-green-300 hover:bg-green-50"
-                  disabled={!!bulkAction}
+                  className="text-green-600 border-green-300 enabled:hover:bg-green-50"
+                  disabled={!!bulkAction || !hasAnyDocument}
                   onClick={() => setBulkAction('confirmApprove')}
                 >
                   Approve All
@@ -448,7 +449,7 @@ const EmployeeDocuments = () => {
                 navigate(`/admin/employees/${id}`);
               }}
               loading={bulkAction === 'finalizing'}
-              disabled={!allReviewed || !!reviewingDoc || !!bulkAction}
+              disabled={!allReviewed || !!reviewingDoc || !!bulkAction || !hasAnyDocument}
             >
               Submit Review
             </Button>
