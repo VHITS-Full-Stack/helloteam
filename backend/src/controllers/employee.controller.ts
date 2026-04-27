@@ -85,12 +85,16 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
 
     // Add status filter - use nested path for proper filtering
     if (status) {
-      if (where.OR) {
-        // Combine search and status with AND
-        where.AND = [{ OR: where.OR }, { user: { status: status as string } }];
-        delete where.OR;
-      } else {
-        where.user = { status: status as string };
+      const statusValue = status as string;
+      // Only filter by ACTIVE, INACTIVE, SUSPENDED from UserStatus enum
+      if (['ACTIVE', 'INACTIVE', 'SUSPENDED'].includes(statusValue)) {
+        if (where.OR) {
+          // Combine search and status with AND
+          where.AND = [{ OR: where.OR }, { user: { status: statusValue } }];
+          delete where.OR;
+        } else {
+          where.user = { status: statusValue };
+        }
       }
     }
 
