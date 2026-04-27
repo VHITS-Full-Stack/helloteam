@@ -61,6 +61,8 @@ import { formatTime12, formatDuration } from "../../utils/formatDateTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -1766,7 +1768,7 @@ const EmployeeDashboard = () => {
                         isToday ? "text-primary-100" : "text-gray-500"
                       }`}
                     >
-                      {daySchedule.dayName?.slice(0, 3)}
+                      {DAY_NAMES[dayDate.getDay()]}
                     </p>
                     <p
                       className={`text-2xl font-bold mt-1 ${

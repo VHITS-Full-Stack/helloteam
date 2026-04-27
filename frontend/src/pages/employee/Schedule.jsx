@@ -11,6 +11,11 @@ import { Card, Button, Badge } from "../../components/common";
 import scheduleService from "../../services/schedule.service";
 import { formatTime12, formatDuration } from "../../utils/formatDateTime";
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+// Parse a YYYY-MM-DD string as local midnight (avoids UTC shift)
+const parseLocalDate = (dateStr) => new Date(dateStr + 'T00:00:00');
+
 // Helper: local date to YYYY-MM-DD (avoids UTC shift from toISOString)
 const toLocalDateStr = (date) => {
   const y = date.getFullYear();
@@ -166,7 +171,7 @@ const Schedule = () => {
     if (viewMode !== "week") return [];
     const weekStart = getWeekStart(currentDate);
     return scheduleData.filter((day) => {
-      const dayDate = new Date(day.date);
+      const dayDate = parseLocalDate(day.date);
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekEnd.getDate() + 7);
       return dayDate >= weekStart && dayDate < weekEnd;
@@ -374,7 +379,7 @@ const Schedule = () => {
           <div className="grid grid-cols-7 gap-2">
             {weekSchedule.length > 0
               ? weekSchedule.map((day, index) => {
-                  const dayDate = new Date(day.date);
+                  const dayDate = parseLocalDate(day.date);
                   const today = isToday(dayDate);
 
                   return (
@@ -389,7 +394,7 @@ const Schedule = () => {
                       <p
                         className={`text-sm font-medium ${today ? "text-primary" : "text-gray-500"}`}
                       >
-                        {day.dayName?.slice(0, 3)}
+                        {DAY_NAMES[dayDate.getDay()]}
                       </p>
                       <p
                         className={`text-2xl font-bold mt-1 ${today ? "text-primary" : "text-gray-900"}`}
@@ -672,7 +677,7 @@ const Schedule = () => {
                   {weekSchedule
                     .filter((d) => d.isScheduled)
                     .map((day, index) => {
-                      const dayDate = new Date(day.date);
+                      const dayDate = parseLocalDate(day.date);
                       const today = isToday(dayDate);
 
                       return (
@@ -684,7 +689,7 @@ const Schedule = () => {
                             <span
                               className={`font-medium ${today ? "text-primary" : "text-gray-900"}`}
                             >
-                              {day.dayName}
+                              {DAY_NAMES[dayDate.getDay()]}
                             </span>
                             {today && (
                               <Badge
