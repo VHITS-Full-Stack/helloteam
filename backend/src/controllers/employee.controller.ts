@@ -9,7 +9,7 @@ import { logRateChange } from '../utils/rateChangeLogger';
 
 // Helper function to refresh presigned URL (handles both S3 and local URLs)
 const refreshUrl = async (url: string | null | undefined): Promise<string | null> => {
-  if (!url) return null;
+  if (!url || url === 'undefined' || url === 'null') return null;
   return await refreshPresignedUrl(url) || url;
 };
 
