@@ -22,7 +22,7 @@ const supportTicketService = {
   },
 
   getPendingCount: async () => {
-    return await api.get('/support-tickets', { params: { status: 'PENDING', limit: 1 } });
+    return await api.get('/support-tickets', { params: { status: 'OPEN', limit: 1 } });
   },
 };
 

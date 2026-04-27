@@ -466,7 +466,7 @@ const RaiseRequests = () => {
       if (
         !covered ||
         covered <= 0 ||
-        covered >= parseFloat(employeeRaiseAmount)
+        covered > parseFloat(employeeRaiseAmount)
       ) {
         setGiveRaiseError(
           "Client covered amount must be between $0 and the employee raise amount.",
@@ -730,9 +730,9 @@ const RaiseRequests = () => {
                 : "—"}
             </td>
             <td className="py-3 px-3 text-center text-sm text-gray-500">
-              {rr.payRate != null && rr.employeeRaiseAmount != null
+              {rr.payRate !== null && rr.employeeRaiseAmount !== null
                 ? (rr.payRate - rr.employeeRaiseAmount).toFixed(2)
-                : rr.payRate != null
+                : rr.payRate !== null
                   ? rr.payRate.toFixed(2)
                   : "—"}
             </td>
@@ -740,9 +740,9 @@ const RaiseRequests = () => {
               {rr.payRate?.toFixed(2)}
             </td>
             <td className="py-3 px-3 text-center text-sm text-gray-500">
-              {rr.billRate != null && rr.clientCoveredAmount != null
+              {rr.billRate !== null && rr.clientCoveredAmount !== null
                 ? (rr.billRate - rr.clientCoveredAmount).toFixed(2)
-                : rr.billRate != null
+                : rr.billRate !== null
                   ? rr.billRate.toFixed(2)
                   : "—"}
             </td>
@@ -1417,11 +1417,11 @@ const RaiseRequests = () => {
       {showConfirmDirectEdit && pendingDirectEdit && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowConfirmDirectEdit(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowConfirmDirectEdit(false);
+          }}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
-          >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
               Confirm Rate Change
             </h3>
@@ -1507,12 +1507,11 @@ const RaiseRequests = () => {
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           onClick={(e) => {
-            if (e.target === e.currentTarget && giveBonusStep === 1) setShowGiveBonusModal(false);
+            if (e.target === e.currentTarget && giveBonusStep === 1)
+              setShowGiveBonusModal(false);
           }}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
-          >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4">
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-5">
               <div
@@ -1554,11 +1553,14 @@ const RaiseRequests = () => {
                           value={giveBonusForm.employeeId}
                           onChange={(e) => {
                             const empId = e.target.value;
-                            const clients = raiseCandidates.filter((c) => c.employeeId === empId);
+                            const clients = raiseCandidates.filter(
+                              (c) => c.employeeId === empId,
+                            );
                             setGiveBonusForm({
                               ...giveBonusForm,
                               employeeId: empId,
-                              clientId: clients.length === 1 ? clients[0].clientId : "",
+                              clientId:
+                                clients.length === 1 ? clients[0].clientId : "",
                             });
                           }}
                         >
@@ -1924,11 +1926,11 @@ const RaiseRequests = () => {
       {showGiveRaiseModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowGiveRaiseModal(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowGiveRaiseModal(false);
+          }}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
-          >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
             {/* Step indicator */}
             <div className="flex items-center gap-2 mb-5">
               <div
@@ -2079,8 +2081,13 @@ const RaiseRequests = () => {
                           className="input w-full"
                         />
                         {(() => {
-                          const currentRate = selectedCandidate?.currentPayRate != null ? Number(selectedCandidate.currentPayRate) : null;
-                          const raise = parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
+                          const rawRate = selectedCandidate?.currentPayRate;
+                          const currentRate =
+                            rawRate !== null && rawRate !== undefined
+                              ? Number(rawRate)
+                              : null;
+                          const raise =
+                            parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
                           if (currentRate === null && raise === 0) return null;
                           const newRate = (currentRate ?? 0) + raise;
                           return (
@@ -2259,10 +2266,17 @@ const RaiseRequests = () => {
                     candidate?.currentBillRate ??
                     selectedRequest?.currentBillRate ??
                     0;
-                  const effDate =
+                  const rawEffDate =
                     giveRaiseForm.effectiveDate ||
                     selectedRequest?.effectiveDate?.split("T")[0] ||
-                    "—";
+                    "";
+                  const effDate = rawEffDate
+                    ? new Date(rawEffDate + "T00:00:00").toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })
+                    : "—";
 
                   return (
                     <div className="space-y-3">
@@ -2392,11 +2406,11 @@ const RaiseRequests = () => {
           return (
             <div
               className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-              onClick={(e) => { if (e.target === e.currentTarget) setShowApproveModal(false); }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget) setShowApproveModal(false);
+              }}
             >
-              <div
-                className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-              >
+              <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">
                   Approve {isRaise ? "Raise" : "Bonus"}
                 </h3>
@@ -2633,11 +2647,11 @@ const RaiseRequests = () => {
       {showRejectModal && selectedRequest && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowRejectModal(false); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowRejectModal(false);
+          }}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4"
-          >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
               {selectedRequest.raisedBy === "ADMIN" ? "Cancel" : "Reject"}{" "}
               {selectedRequest.type === "BONUS" ? "Bonus" : "Raise"} Request

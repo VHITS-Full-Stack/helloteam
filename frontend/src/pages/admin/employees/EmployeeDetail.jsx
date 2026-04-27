@@ -337,6 +337,7 @@ const EmployeeDetail = () => {
       const res = await adminPortalService.confirmAdminRaise(pendingRaiseId);
       if (res.success) {
         setShowGiveRaiseModal(false);
+        refresh();
         const [pendingRes, raiseRes] = await Promise.all([
           adminPortalService.getRaiseRequests({
             status: "PENDING",
@@ -426,6 +427,7 @@ const EmployeeDetail = () => {
     modalError,
 
     rateHistory,
+    refresh,
   } = useEmployeeDetail(id);
 
   const openEditPayRate = () => {
