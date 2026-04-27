@@ -324,6 +324,29 @@ const TimeRecords = () => {
     if (manualEntry.endTime <= manualEntry.startTime) {
       return;
     }
+
+    // Check for overlapping approved entries on the same date
+    const entryDate = manualEntry.date;
+    const newStart = manualEntry.startTime;
+    const newEnd = manualEntry.endTime;
+
+    const hasOverlap = manualEntries.some((entry) => {
+      if (entry.date !== entryDate) return false;
+      const status = entry.status?.toUpperCase();
+      if (status !== "APPROVED" && status !== "AUTO_APPROVED" && status !== "PENDING") return false;
+
+      const existingStart = entry.startTime;
+      const existingEnd = entry.endTime;
+
+      // Check for overlap: newStart < existingEnd AND newEnd > existingStart
+      return newStart < existingEnd && newEnd > existingStart;
+    });
+
+    if (hasOverlap) {
+      setAddTimeError("You already have an entry for this time slot. Please choose different times.");
+      return;
+    }
+
     setAddTimeLoading(true);
     setAddTimeError(null);
 

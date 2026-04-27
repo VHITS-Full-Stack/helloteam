@@ -57,12 +57,29 @@ const EmployeeDetail = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [pendingRequests, setPendingRequests] = useState([]);
   const [bonusHistory, setBonusHistory] = useState([]);
+  const [raiseHistory, setRaiseHistory] = useState([]);
 
   // Edit Pay Rate modal
   const [showEditPayRate, setShowEditPayRate] = useState(false);
   const [editPayRateForm, setEditPayRateForm] = useState({ newPayRate: '', effectiveDate: '', reason: '' });
   const [editPayRateLoading, setEditPayRateLoading] = useState(false);
   const [editPayRateError, setEditPayRateError] = useState('');
+
+  // Give Bonus modal
+  const [showGiveBonusModal, setShowGiveBonusModal] = useState(false);
+  const [giveBonusStep, setGiveBonusStep] = useState(1);
+  const [pendingBonusId, setPendingBonusId] = useState(null);
+  const [giveBonusForm, setGiveBonusForm] = useState({ clientId: '', amount: '', reason: '', effectiveDate: new Date().toISOString().split('T')[0], coverageType: 'FULL', clientCoveredAmount: '', internalNotes: '' });
+  const [giveBonusLoading, setGiveBonusLoading] = useState(false);
+  const [giveBonusError, setGiveBonusError] = useState('');
+
+  // Give Raise modal
+  const [showGiveRaiseModal, setShowGiveRaiseModal] = useState(false);
+  const [giveRaiseStep, setGiveRaiseStep] = useState(1);
+  const [pendingRaiseId, setPendingRaiseId] = useState(null);
+  const [giveRaiseForm, setGiveRaiseForm] = useState({ clientId: '', coverageType: 'FULL', employeeRaiseAmount: '', clientCoveredAmount: '', effectiveDate: new Date().toISOString().split('T')[0], reason: '', internalNotes: '' });
+  const [giveRaiseLoading, setGiveRaiseLoading] = useState(false);
+  const [giveRaiseError, setGiveRaiseError] = useState('');
 
   // Edit Billing Rate modal
   const [showEditBillRate, setShowEditBillRate] = useState(false);
@@ -73,16 +90,142 @@ const EmployeeDetail = () => {
   useEffect(() => {
     const fetchEmployeeRequests = async () => {
       try {
+        const [pendingRes, bonusRes, raiseRes] = await Promise.all([
+          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
+          adminPortalService.getRaiseRequests({ type: 'BONUS', status: 'APPROVED', employeeId: id }),
+          adminPortalService.getRaiseRequests({ type: 'RAISE', status: 'APPROVED', employeeId: id }),
+        ]);
+        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (bonusRes.success) setBonusHistory(bonusRes.data?.requests || []);
+        if (raiseRes.success) setRaiseHistory(raiseRes.data?.requests || []);
+      } catch (e) { /* ignore */ }
+    };
+    if (id) fetchEmployeeRequests();
+  }, [id]);
+
+  const openGiveBonusModal = () => {
+    setGiveBonusStep(1);
+    setPendingBonusId(null);
+    setGiveBonusError('');
+    const activeClientId = employee?.clientAssignments?.find(a => a.isActive)?.client?.id || '';
+    setGiveBonusForm({ clientId: activeClientId, amount: '', reason: '', effectiveDate: new Date().toISOString().split('T')[0], coverageType: 'FULL', clientCoveredAmount: '', internalNotes: '' });
+    setShowGiveBonusModal(true);
+  };
+
+  const handleGiveBonusSubmit = async () => {
+    const { clientId, amount, effectiveDate, coverageType, clientCoveredAmount } = giveBonusForm;
+    if (!clientId) return setGiveBonusError('Please select a client.');
+    if (!amount || parseFloat(amount) <= 0) return setGiveBonusError('Please enter a valid bonus amount.');
+    if (!effectiveDate) return setGiveBonusError('Please select an effective date.');
+    if (coverageType === 'PARTIAL') {
+      const covered = parseFloat(clientCoveredAmount);
+      if (!clientCoveredAmount || isNaN(covered) || covered <= 0 || covered > parseFloat(amount))
+        return setGiveBonusError('Client-covered amount must be between $0.01 and the total bonus amount.');
+    }
+    try {
+      setGiveBonusLoading(true);
+      setGiveBonusError('');
+      const res = await adminPortalService.giveBonus({
+        employeeId: employee.id, clientId,
+        amount: parseFloat(amount),
+        reason: giveBonusForm.reason?.trim() || undefined,
+        effectiveDate, coverageType,
+        clientCoveredAmount: coverageType === 'FULL' ? parseFloat(amount) : coverageType === 'NONE' ? 0 : parseFloat(clientCoveredAmount),
+        internalNotes: giveBonusForm.internalNotes?.trim() || undefined,
+      });
+      if (res.success) { setPendingBonusId(res.data.bonusRequest.id); setGiveBonusStep(2); }
+      else setGiveBonusError(res.error || 'Failed to create bonus.');
+    } catch (e) { setGiveBonusError(e.message || 'Failed to create bonus.'); }
+    finally { setGiveBonusLoading(false); }
+  };
+
+  const handleConfirmBonus = async () => {
+    if (!pendingBonusId) return;
+    try {
+      setGiveBonusLoading(true);
+      setGiveBonusError('');
+      const res = await adminPortalService.confirmAdminBonus(pendingBonusId);
+      if (res.success) {
+        setShowGiveBonusModal(false);
         const [pendingRes, bonusRes] = await Promise.all([
           adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
           adminPortalService.getRaiseRequests({ type: 'BONUS', status: 'APPROVED', employeeId: id }),
         ]);
         if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
         if (bonusRes.success) setBonusHistory(bonusRes.data?.requests || []);
-      } catch (e) { /* ignore */ }
-    };
-    if (id) fetchEmployeeRequests();
-  }, [id]);
+      } else setGiveBonusError(res.error || 'Failed to confirm bonus.');
+    } catch (e) { setGiveBonusError(e.message || 'Failed to confirm bonus.'); }
+    finally { setGiveBonusLoading(false); }
+  };
+
+  const handleCancelPendingBonus = async () => {
+    if (pendingBonusId) {
+      try { await adminPortalService.rejectRaiseRequest(pendingBonusId, 'Cancelled before confirmation'); } catch (_) {}
+    }
+    setGiveBonusStep(1); setPendingBonusId(null); setGiveBonusError('');
+  };
+
+  const openGiveRaiseModal = () => {
+    setGiveRaiseStep(1);
+    setPendingRaiseId(null);
+    setGiveRaiseError('');
+    const activeClientId = employee?.clientAssignments?.find(a => a.isActive)?.client?.id || '';
+    setGiveRaiseForm({ clientId: activeClientId, coverageType: 'FULL', employeeRaiseAmount: '', clientCoveredAmount: '', effectiveDate: new Date().toISOString().split('T')[0], reason: '', internalNotes: '' });
+    setShowGiveRaiseModal(true);
+  };
+
+  const handleGiveRaiseSubmit = async () => {
+    const { clientId, coverageType, employeeRaiseAmount, clientCoveredAmount, effectiveDate } = giveRaiseForm;
+    if (!clientId) return setGiveRaiseError('Please select a client.');
+    if (!employeeRaiseAmount || parseFloat(employeeRaiseAmount) <= 0) return setGiveRaiseError('Enter a valid raise amount.');
+    if (coverageType === 'PARTIAL') {
+      const covered = parseFloat(clientCoveredAmount);
+      if (!covered || covered <= 0 || covered > parseFloat(employeeRaiseAmount))
+        return setGiveRaiseError('Client covered amount must be between $0.01 and the raise amount.');
+    }
+    if (!effectiveDate) return setGiveRaiseError('Please select an effective date.');
+    try {
+      setGiveRaiseLoading(true);
+      setGiveRaiseError('');
+      const res = await adminPortalService.giveRaise({
+        employeeId: employee.id, clientId, coverageType,
+        employeeRaiseAmount: parseFloat(employeeRaiseAmount),
+        clientCoveredAmount: coverageType === 'FULL' ? parseFloat(employeeRaiseAmount) : coverageType === 'NONE' ? 0 : parseFloat(clientCoveredAmount),
+        effectiveDate,
+        reason: giveRaiseForm.reason?.trim() || undefined,
+        internalNotes: giveRaiseForm.internalNotes?.trim() || undefined,
+      });
+      if (res.success) { setPendingRaiseId(res.data.raiseRequest.id); setGiveRaiseStep(2); }
+      else setGiveRaiseError(res.error || 'Failed to create raise.');
+    } catch (e) { setGiveRaiseError(e.message || 'Failed to create raise.'); }
+    finally { setGiveRaiseLoading(false); }
+  };
+
+  const handleConfirmRaise = async () => {
+    if (!pendingRaiseId) return;
+    try {
+      setGiveRaiseLoading(true);
+      setGiveRaiseError('');
+      const res = await adminPortalService.confirmAdminRaise(pendingRaiseId);
+      if (res.success) {
+        setShowGiveRaiseModal(false);
+        const [pendingRes, raiseRes] = await Promise.all([
+          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
+          adminPortalService.getRaiseRequests({ type: 'RAISE', status: 'APPROVED', employeeId: id }),
+        ]);
+        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (raiseRes.success) setRaiseHistory(raiseRes.data?.requests || []);
+      } else setGiveRaiseError(res.error || 'Failed to confirm raise.');
+    } catch (e) { setGiveRaiseError(e.message || 'Failed to confirm raise.'); }
+    finally { setGiveRaiseLoading(false); }
+  };
+
+  const handleCancelPendingRaise = async () => {
+    if (pendingRaiseId) {
+      try { await adminPortalService.rejectRaiseRequest(pendingRaiseId, 'Cancelled before confirmation'); } catch (_) {}
+    }
+    setGiveRaiseStep(1); setPendingRaiseId(null); setGiveRaiseError('');
+  };
 
   const handleImpersonate = async () => {
     if (!employee?.user?.id) return;
@@ -654,16 +797,12 @@ const EmployeeDetail = () => {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-900">Employee Pay</h3>
                 <div className="flex items-center gap-2">
-                  <Link to="/admin/raise-requests?tab=raise">
-                    <Button variant="outline" size="sm" icon={TrendingUp} className="text-blue-600 border-blue-300 hover:bg-blue-50">
-                      Give Raise
-                    </Button>
-                  </Link>
-                  <Link to="/admin/raise-requests?tab=bonus">
-                    <Button variant="outline" size="sm" icon={Gift} className="text-amber-600 border-amber-300 hover:bg-amber-50">
-                      Give Bonus
-                    </Button>
-                  </Link>
+                  <Button variant="outline" size="sm" icon={TrendingUp} className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={openGiveRaiseModal}>
+                    Give Raise
+                  </Button>
+                  <Button variant="outline" size="sm" icon={Gift} className="text-amber-600 border-amber-300 hover:bg-amber-50" onClick={openGiveBonusModal}>
+                    Give Bonus
+                  </Button>
                   <Button variant="outline" size="sm" icon={Edit} onClick={openEditPayRate}>
                     Edit Pay Rate
                   </Button>
@@ -683,43 +822,59 @@ const EmployeeDetail = () => {
                   </p>
                 </div>
               </div>
-              {bonusHistory.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Bonus History</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-amber-50/60 border-b border-gray-200">
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
-                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Amount</th>
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Coverage</th>
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Reason</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {bonusHistory.map((b) => (
-                          <tr key={b.id} className="hover:bg-gray-50/50">
-                            <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
-                              {new Date(b.effectiveDate || b.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                            </td>
-                            <td className="py-2 px-3 text-center font-semibold text-amber-700">${Number(b.amount).toFixed(2)}</td>
-                            <td className="py-2 px-3 text-xs">
-                              {b.coverageType ? (
-                                <span className={`px-2 py-0.5 rounded-full font-semibold ${
-                                  b.coverageType === 'FULL' ? 'bg-green-100 text-green-700' :
-                                  b.coverageType === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
-                                  'bg-gray-100 text-gray-600'
-                                }`}>{b.coverageType}</span>
-                              ) : '—'}
-                            </td>
-                            <td className="py-2 px-3 text-gray-400 text-xs truncate max-w-[160px]">{b.reason || '—'}</td>
+              {(raiseHistory.length > 0 || bonusHistory.length > 0) && (() => {
+                const combined = [
+                  ...raiseHistory.map(r => ({ ...r, _type: 'RAISE' })),
+                  ...bonusHistory.map(b => ({ ...b, _type: 'BONUS' })),
+                ].sort((a, b) => new Date(b.effectiveDate || b.createdAt) - new Date(a.effectiveDate || a.createdAt));
+                return (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Raise & Bonus History</p>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Type</th>
+                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Amount</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Coverage</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Reason</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {combined.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50/50">
+                              <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
+                                {new Date(item.effectiveDate || item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                  item._type === 'RAISE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                                }`}>{item._type}</span>
+                              </td>
+                              <td className="py-2 px-3 text-center font-semibold whitespace-nowrap">
+                                {item._type === 'RAISE'
+                                  ? <span className="text-green-700">+${Number(item.employeeRaiseAmount ?? item.amount ?? 0).toFixed(2)}/hr</span>
+                                  : <span className="text-amber-700">${Number(item.amount ?? 0).toFixed(2)}</span>}
+                              </td>
+                              <td className="py-2 px-3 text-xs">
+                                {item.coverageType ? (
+                                  <span className={`px-2 py-0.5 rounded-full font-semibold ${
+                                    item.coverageType === 'FULL' ? 'bg-green-100 text-green-700' :
+                                    item.coverageType === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
+                                    'bg-gray-100 text-gray-600'
+                                  }`}>{item.coverageType}</span>
+                                ) : '—'}
+                              </td>
+                              <td className="py-2 px-3 text-gray-400 text-xs truncate max-w-[160px]">{item.reason || '—'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {payRateHistory.length > 0 && (
                 <div>
@@ -1221,6 +1376,181 @@ const EmployeeDetail = () => {
           </div>
         </div>
       </Modal>
+
+    {/* Give Bonus Modal */}
+    {showGiveBonusModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => { if (giveBonusStep === 1) setShowGiveBonusModal(false); }}>
+        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-5">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 1 ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>1</div>
+            <div className={`flex-1 h-0.5 ${giveBonusStep >= 2 ? 'bg-amber-500' : 'bg-gray-200'}`} />
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 2 ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>2</div>
+          </div>
+
+          {giveBonusStep === 1 && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Give a Bonus — {employee?.firstName} {employee?.lastName}</h3>
+              <div className="space-y-4">
+                {/* Client selector */}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Client</label>
+                  <select className="input w-full" value={giveBonusForm.clientId} onChange={e => setGiveBonusForm({ ...giveBonusForm, clientId: e.target.value })}>
+                    <option value="">Select client...</option>
+                    {employee?.clientAssignments?.filter(a => a.isActive).map(a => (
+                      <option key={a.client.id} value={a.client.id}>{a.client.companyName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Bonus Amount ($)</label>
+                  <input type="number" step="0.01" min="0.01" value={giveBonusForm.amount} onChange={e => setGiveBonusForm({ ...giveBonusForm, amount: e.target.value })} placeholder="e.g. 500.00" className="input w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">Who covers the bonus?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ key: 'FULL', label: 'Full', desc: 'Client pays all' }, { key: 'PARTIAL', label: 'Partial', desc: 'Client pays part' }, { key: 'NONE', label: 'None', desc: 'Admin absorbs' }].map(opt => (
+                      <button key={opt.key} type="button" onClick={() => setGiveBonusForm({ ...giveBonusForm, coverageType: opt.key })} className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveBonusForm.coverageType === opt.key ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <p className={`text-sm font-semibold ${giveBonusForm.coverageType === opt.key ? 'text-amber-700' : 'text-gray-700'}`}>{opt.label}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {giveBonusForm.coverageType === 'PARTIAL' && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Client covers ($)</label>
+                    <input type="number" step="0.01" min="0.01" value={giveBonusForm.clientCoveredAmount} onChange={e => setGiveBonusForm({ ...giveBonusForm, clientCoveredAmount: e.target.value })} placeholder="e.g. 250.00" className="input w-full" />
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Effective Payroll Date</label>
+                  <input type="date" value={giveBonusForm.effectiveDate} onChange={e => setGiveBonusForm({ ...giveBonusForm, effectiveDate: e.target.value })} className="input w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Reason (optional)</label>
+                  <input type="text" value={giveBonusForm.reason} onChange={e => setGiveBonusForm({ ...giveBonusForm, reason: e.target.value })} placeholder="e.g. Q1 performance bonus" className="input w-full" />
+                </div>
+                {giveBonusError && <p className="text-sm text-red-600">{giveBonusError}</p>}
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setShowGiveBonusModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                  <button type="button" onClick={handleGiveBonusSubmit} disabled={giveBonusLoading} className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                    {giveBonusLoading && <Loader2 className="w-4 h-4 animate-spin" />} Review →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {giveBonusStep === 2 && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Bonus</h3>
+              <p className="text-sm text-gray-500 mb-4">Review and confirm before applying.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2 text-sm mb-4">
+                <div className="flex justify-between"><span className="text-gray-600">Employee</span><span className="font-semibold">{employee?.firstName} {employee?.lastName}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Amount</span><span className="font-bold text-amber-700">${parseFloat(giveBonusForm.amount).toFixed(2)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Coverage</span><span className="font-medium">{giveBonusForm.coverageType}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Effective Date</span><span className="font-medium">{giveBonusForm.effectiveDate}</span></div>
+                {giveBonusForm.reason && <div className="flex justify-between"><span className="text-gray-600">Reason</span><span className="font-medium">{giveBonusForm.reason}</span></div>}
+              </div>
+              {giveBonusError && <p className="text-sm text-red-600 mb-3">{giveBonusError}</p>}
+              <div className="flex gap-3">
+                <button type="button" onClick={handleCancelPendingBonus} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back</button>
+                <button type="button" onClick={handleConfirmBonus} disabled={giveBonusLoading} className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {giveBonusLoading && <Loader2 className="w-4 h-4 animate-spin" />} Confirm &amp; Apply
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
+
+    {/* Give Raise Modal */}
+    {showGiveRaiseModal && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => { if (giveRaiseStep === 1) setShowGiveRaiseModal(false); }}>
+        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center gap-2 mb-5">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 1 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>1</div>
+            <div className={`flex-1 h-0.5 ${giveRaiseStep >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`} />
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 2 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>2</div>
+          </div>
+
+          {giveRaiseStep === 1 && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Give a Raise — {employee?.firstName} {employee?.lastName}</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Client</label>
+                  <select className="input w-full" value={giveRaiseForm.clientId} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, clientId: e.target.value })}>
+                    <option value="">Select client...</option>
+                    {employee?.clientAssignments?.filter(a => a.isActive).map(a => (
+                      <option key={a.client.id} value={a.client.id}>{a.client.companyName}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Employee raise ($/hr)</label>
+                  <input type="number" step="0.01" min="0.01" value={giveRaiseForm.employeeRaiseAmount} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, employeeRaiseAmount: e.target.value })} placeholder="e.g. 2.00" className="input w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">Who covers the raise?</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[{ key: 'FULL', label: 'Full', desc: 'Client pays all' }, { key: 'PARTIAL', label: 'Partial', desc: 'Client pays part' }, { key: 'NONE', label: 'None', desc: 'Admin absorbs' }].map(opt => (
+                      <button key={opt.key} type="button" onClick={() => setGiveRaiseForm({ ...giveRaiseForm, coverageType: opt.key })} className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveRaiseForm.coverageType === opt.key ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                        <p className={`text-sm font-semibold ${giveRaiseForm.coverageType === opt.key ? 'text-blue-700' : 'text-gray-700'}`}>{opt.label}</p>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {giveRaiseForm.coverageType === 'PARTIAL' && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">Client covers ($/hr)</label>
+                    <input type="number" step="0.01" min="0.01" value={giveRaiseForm.clientCoveredAmount} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, clientCoveredAmount: e.target.value })} placeholder="e.g. 1.00" className="input w-full" />
+                  </div>
+                )}
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Effective Date</label>
+                  <input type="date" value={giveRaiseForm.effectiveDate} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, effectiveDate: e.target.value })} className="input w-full" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 block mb-1">Reason (optional)</label>
+                  <input type="text" value={giveRaiseForm.reason} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, reason: e.target.value })} placeholder="e.g. Annual review" className="input w-full" />
+                </div>
+                {giveRaiseError && <p className="text-sm text-red-600">{giveRaiseError}</p>}
+                <div className="flex gap-3 pt-1">
+                  <button type="button" onClick={() => setShowGiveRaiseModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+                  <button type="button" onClick={handleGiveRaiseSubmit} disabled={giveRaiseLoading} className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                    {giveRaiseLoading && <Loader2 className="w-4 h-4 animate-spin" />} Review →
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {giveRaiseStep === 2 && (
+            <>
+              <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Raise</h3>
+              <p className="text-sm text-gray-500 mb-4">Review and confirm before applying.</p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-sm mb-4">
+                <div className="flex justify-between"><span className="text-gray-600">Employee</span><span className="font-semibold">{employee?.firstName} {employee?.lastName}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Raise Amount</span><span className="font-bold text-blue-700">+${parseFloat(giveRaiseForm.employeeRaiseAmount).toFixed(2)}/hr</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Coverage</span><span className="font-medium">{giveRaiseForm.coverageType}</span></div>
+                <div className="flex justify-between"><span className="text-gray-600">Effective Date</span><span className="font-medium">{giveRaiseForm.effectiveDate}</span></div>
+                {giveRaiseForm.reason && <div className="flex justify-between"><span className="text-gray-600">Reason</span><span className="font-medium">{giveRaiseForm.reason}</span></div>}
+              </div>
+              {giveRaiseError && <p className="text-sm text-red-600 mb-3">{giveRaiseError}</p>}
+              <div className="flex gap-3">
+                <button type="button" onClick={handleCancelPendingRaise} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back</button>
+                <button type="button" onClick={handleConfirmRaise} disabled={giveRaiseLoading} className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {giveRaiseLoading && <Loader2 className="w-4 h-4 animate-spin" />} Confirm &amp; Apply
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
 
     </div>
   );
