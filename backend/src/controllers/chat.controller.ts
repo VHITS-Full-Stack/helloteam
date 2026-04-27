@@ -137,6 +137,66 @@ export const getConversations = async (req: AuthenticatedRequest, res: Response)
           };
         })
       );
+    } else if (role === 'ADMIN') {
+      // Admin can see all conversations
+      conversations = await prisma.conversation.findMany({
+        include: {
+          client: {
+            select: {
+              id: true,
+              companyName: true,
+              contactPerson: true,
+              logoUrl: true,
+              userId: true,
+              phone: true,
+            },
+          },
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              profilePhoto: true,
+              userId: true,
+              phone: true,
+            },
+          },
+          messages: {
+            take: 1,
+            orderBy: { createdAt: 'desc' },
+          },
+        },
+        orderBy: { lastMessageAt: 'desc' },
+      });
+
+      conversations = await Promise.all(
+        conversations.map(async (conv) => {
+          const unreadCount = await prisma.message.count({
+            where: {
+              conversationId: conv.id,
+              senderUserId: { not: userId },
+              isRead: false,
+            },
+          });
+          const messages = conv.messages[0]?.fileKey
+            ? await refreshMessageUrls(conv.messages)
+            : conv.messages;
+          return {
+            ...conv,
+            messages,
+            unreadCount,
+            participant: {
+              id: conv.client.id,
+              name: conv.client.companyName,
+              profilePhoto: conv.client.logoUrl,
+              userId: conv.client.userId,
+              phone: conv.client.phone,
+              employeeName: `${conv.employee.firstName} ${conv.employee.lastName}`,
+              employeeId: conv.employee.id,
+            },
+          };
+        })
+      );
     } else {
       return res.status(403).json({ success: false, error: 'Chat not available for this role' });
     }
@@ -380,18 +440,28 @@ export const sendMessage = async (req: AuthenticatedRequest, res: Response) => {
 export const getUnreadCount = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user!.userId;
+    const role = req.user!.role;
+
+    let whereClause: any = {
+      senderUserId: { not: userId },
+      isRead: false,
+    };
+
+    if (role === 'ADMIN') {
+      // Admin can see all unread messages
+      whereClause.conversation = {};
+    } else {
+      // Client or Employee - only their own conversations
+      whereClause.conversation = {
+        OR: [
+          { client: { userId } },
+          { employee: { userId } },
+        ],
+      };
+    }
 
     const count = await prisma.message.count({
-      where: {
-        conversation: {
-          OR: [
-            { client: { userId } },
-            { employee: { userId } },
-          ],
-        },
-        senderUserId: { not: userId },
-        isRead: false,
-      },
+      where: whereClause,
     });
 
     res.json({ success: true, data: { count } });

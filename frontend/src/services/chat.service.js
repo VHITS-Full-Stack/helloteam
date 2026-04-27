@@ -50,6 +50,14 @@ const chatService = {
     });
   },
 
+  sendFile(conversationId, file, messageType = 'FILE') {
+    return this.sendMessage(conversationId, { messageType, file });
+  },
+
+  close(conversationId) {
+    return api.post(`/chat/conversations/${conversationId}/close`);
+  },
+
   getUnreadCount() {
     return api.get('/chat/unread-count');
   },

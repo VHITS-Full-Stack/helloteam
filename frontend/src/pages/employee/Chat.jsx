@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
+import { Upload } from 'lucide-react';
 import chatService from '../../services/chat.service';
 import ConversationList from '../../components/chat/ConversationList';
 import ChatHeader from '../../components/chat/ChatHeader';
@@ -22,6 +23,8 @@ const EmployeeChat = () => {
   const [typingUser, setTypingUser] = useState(null);
   const [showMobileList, setShowMobileList] = useState(true);
   const [messagesError, setMessagesError] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [droppedFiles, setDroppedFiles] = useState([]);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
 
@@ -76,6 +79,7 @@ const EmployeeChat = () => {
     setSelectedConversation(conv);
     setMessages([]);
     setShowMobileList(false);
+    setDroppedFiles([]); // Clear any pending dropped files
     fetchMessages(conv.id);
 
     if (socket && conv.participant?.userId) {
@@ -294,9 +298,9 @@ const EmployeeChat = () => {
   }, [socket, selectedConversation, user]);
 
   const scrollToBottom = () => {
-    setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, 100);
+    requestAnimationFrame(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    });
   };
 
   useEffect(() => {
@@ -312,8 +316,55 @@ const EmployeeChat = () => {
     }
   };
 
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    if (selectedConversation) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    if (!e.currentTarget.contains(e.relatedTarget)) setIsDragging(false);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (!selectedConversation) return;
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (files.length === 0) return;
+
+    // Store files to pass to ChatInput for preview
+    setDroppedFiles(files);
+  };
+
+  // Pass dropped files to ChatInput and clear after sending
+  const handleDroppedFilesSent = () => {
+    setDroppedFiles([]);
+  };
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+    <div 
+      className="flex h-[calc(100vh-8rem)] bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 bg-primary-500/10 border-2 border-dashed border-primary rounded-2xl z-50 flex items-center justify-center">
+          <div className="bg-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3">
+            <Upload className="w-8 h-8 text-primary" />
+            <span className="text-lg font-semibold text-gray-900">Drop files to upload</span>
+          </div>
+        </div>
+      )}
+
       {/* Conversation List */}
       <div className={`w-80 flex-shrink-0 ${showMobileList ? 'block' : 'hidden'} lg:block`}>
         <ConversationList
@@ -330,7 +381,7 @@ const EmployeeChat = () => {
       {/* Chat Area */}
       <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${!showMobileList ? 'flex' : 'hidden'} lg:flex`}>
         {selectedConversation ? (
-          <div className="flex flex-col h-full min-h-0">
+          <div className="flex flex-col h-full min-h-0 relative">
             <ChatHeader
               participant={selectedConversation.participant}
               isOnline={isUserOnline?.(selectedConversation.participant?.userId)}
@@ -397,6 +448,8 @@ const EmployeeChat = () => {
               onSendFile={handleSendFile}
               onSendAudio={handleSendAudio}
               onTyping={handleTyping}
+              droppedFiles={droppedFiles}
+              onDroppedFilesSent={handleDroppedFilesSent}
               participantName={selectedConversation.participant?.name?.split(' ')[0]}
             />
           </div>

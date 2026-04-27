@@ -501,7 +501,7 @@ function LegalStep({ onNext, onBack, content }) {
 
         <h4>
           Please review before getting started, need to review and accept Hello
-          Team’s legal terms and conditions..
+          Team’s legal terms and conditions.
         </h4>
       </div>
 

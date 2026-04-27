@@ -229,14 +229,16 @@ const ScheduleManagement = () => {
   }, [showEmployeeDropdown]);
 
   // Copy a day's schedule to another day or all days
-  const copyDayTo = (fromIndex, toIndex) => {
+  const copyDayTo = (fromIndex, toValue) => {
     const source = weeklySchedule[fromIndex];
     setWeeklySchedule(prev => {
-      if (toIndex === 'all') {
+      if (toValue === 'all') {
         return prev.map((day, i) =>
           i === fromIndex ? day : { ...day, startTime: source.startTime, endTime: source.endTime, isWorking: source.isWorking }
         );
       }
+      // Convert day value (1-6) to array index (0-5)
+      const toIndex = toValue - 1;
       const newSchedule = [...prev];
       newSchedule[toIndex] = { ...newSchedule[toIndex], startTime: source.startTime, endTime: source.endTime, isWorking: source.isWorking };
       return newSchedule;
@@ -249,8 +251,8 @@ const ScheduleManagement = () => {
     setWeeklySchedule(prev => {
       return prev.map((day, index) => {
         if (template === 'weekdays') {
-          // Monday-Friday 9-5
-          const isWorkday = index >= 1 && index <= 5;
+          // Monday-Friday 9-5 (indices 0-4)
+          const isWorkday = index >= 0 && index <= 5;
           return {
             ...day,
             startTime: '09:00',

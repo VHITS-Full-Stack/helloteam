@@ -42,9 +42,66 @@ const getStatusBadge = (status) => {
     APPROVED_BY_CLIENT: { variant: "info", label: "Client Approved" },
     APPROVED: { variant: "success", label: "Approved" },
     REJECTED: { variant: "danger", label: "Rejected" },
+    CANCELLED: { variant: "default", label: "Cancelled" },
   };
   const cfg = map[status] || { variant: "default", label: status };
   return <Badge variant={cfg.variant}>{cfg.label}</Badge>;
+};
+
+const getActionTaken = (request) => {
+  const { status, clientApprovedAt, adminApprovedAt, rejectedAt } = request;
+  
+  if (status === 'PENDING') {
+    return <span className="text-xs text-yellow-600">Pending</span>;
+  }
+  
+  if (status === 'CANCELLED') {
+    return <span className="text-xs text-gray-500">Cancelled by employee</span>;
+  }
+  
+  let action = '';
+  let actionBy = '';
+  let actionAt = null;
+  let actionTime = '';
+  
+  if (status === 'REJECTED') {
+    action = 'Rejected';
+    actionBy = 'Client';
+    actionAt = rejectedAt;
+  } else if (status === 'APPROVED_BY_CLIENT') {
+    action = 'Approved';
+    actionBy = 'Client';
+    actionAt = clientApprovedAt;
+  } else if (status === 'APPROVED') {
+    action = 'Approved';
+    actionBy = 'Admin';
+    actionAt = adminApprovedAt;
+  }
+  
+  if (actionAt) {
+    const date = new Date(actionAt);
+    const today = new Date();
+    const diffMs = today.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    
+    if (diffHours < 24) {
+      actionTime = diffHours === 0 ? 'Just now' : `${diffHours}h ago`;
+    } else if (diffDays < 7) {
+      actionTime = `${diffDays}d ago`;
+    } else {
+      actionTime = new Date(actionAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+  }
+  
+  return (
+    <div className="text-xs space-y-0.5">
+      <div className={`font-medium ${status === 'REJECTED' ? 'text-red-600' : 'text-green-600'}`}>
+        {action} by {actionBy}
+      </div>
+      {actionTime && <div className="text-gray-500">{actionTime}</div>}
+    </div>
+  );
 };
 
 const getLeaveTypeLabel = (type) => {
@@ -648,6 +705,9 @@ const AdminLeave = () => {
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                         Status
                       </th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
+                        Action Taken
+                      </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-28">
                         Actions
                       </th>
@@ -726,6 +786,9 @@ const AdminLeave = () => {
                           </td>
                           <td className="px-4 py-3 text-center">
                             {getStatusBadge(r.status)}
+                          </td>
+                          <td className="px-4 py-3">
+                            {getActionTaken(r)}
                           </td>
                           <td className="px-4 py-3">
                             {canAct ? (

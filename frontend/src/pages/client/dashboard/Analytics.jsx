@@ -327,10 +327,10 @@ const Analytics = () => {
                   }`}
                 >
                   <div className="relative mb-3">
-                    <div className={`w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center font-bold text-lg text-primary ${
+                    <div className={`w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center font-bold text-lg text-primary text-center overflow-hidden ${
                       index === 0 ? 'ring-2 ring-yellow-400 ring-offset-2' : ''
                     }`}>
-                      {performer.name.split(' ').map(n => n[0]).join('')}
+                      {performer.name?.split(' ').map(n => n?.[0]).join('') || '?'}
                     </div>
                     {index < 3 && (
                       <div className="absolute -top-1 -right-1">

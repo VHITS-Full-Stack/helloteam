@@ -412,7 +412,7 @@ const TaskDetail = () => {
                 <div className="space-y-4">
                   {comments.map(comment => (
                     <div key={comment.id} className="flex gap-2.5">
-                      <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <div className="w-7 h-7 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5 text-center overflow-hidden">
                         {comment.authorAvatar ? (
                           <img src={comment.authorAvatar} alt="" className="w-7 h-7 rounded-full object-cover" />
                         ) : (

@@ -225,7 +225,6 @@ const MessageBubble = ({ message, isMine, senderName }) => {
           <div className="space-y-1.5">
             <a
               href={message.fileUrl}
-              target="_blank"
               rel="noopener noreferrer"
               className="block rounded-xl overflow-hidden border border-gray-200 shadow-sm"
             >
@@ -255,12 +254,10 @@ const MessageBubble = ({ message, isMine, senderName }) => {
           </div>
         );
 
-      case 'FILE':
       case 'VIDEO':
         return (
           <a
             href={message.fileUrl}
-            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 shadow-sm transition-colors"
           >

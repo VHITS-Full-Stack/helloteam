@@ -85,6 +85,7 @@ enum LeaveStatus {
   APPROVED_BY_CLIENT
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 enum TicketStatus {
@@ -792,6 +793,7 @@ model LeaveRequest {
   rejectedAt       DateTime?
   rejectedBy       String?
   rejectionReason  String?
+  documentUrls     String[]    // URLs for uploaded documents
   isShortNotice    Boolean     @default(false)
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt

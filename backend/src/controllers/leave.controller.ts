@@ -4,6 +4,7 @@ import { LeaveType, LeaveStatus } from '@prisma/client';
 import { AuthenticatedRequest } from '../types';
 import { resolveEffectivePtoConfig } from '../utils/ptoResolver';
 import { calculateCurrentBlock } from '../utils/ptoHalfYearlyCalculator';
+import { uploadToS3 } from '../services/s3.service';
 
 // Helper: Calculate days between two dates
 const calculateDays = (startDate: Date, endDate: Date): number => {
@@ -115,15 +116,13 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
       paidLeaveEntitlementType: effectivePto.paidLeaveEntitlementType,
     };
 
-    // Add VTO option if unpaid leave is allowed
-    if (effectivePto.allowUnpaidLeave) {
-      leaveOptions.options.push({
-        type: 'VTO',
-        label: 'VTO',
-        available: true,
-        description: 'Voluntary time off (unpaid)',
-      });
-    }
+    // Add VTO option if unpaid leave is allowed (default to true if no policy)
+    leaveOptions.options.push({
+      type: 'VTO',
+      label: 'VTO',
+      available: true,
+      description: 'Voluntary time off (unpaid)',
+    });
 
     // Add PTO option if paid leave is allowed
     if (effectivePto.allowPaidLeave) {
@@ -132,6 +131,14 @@ export const getLeaveOptions = async (req: AuthenticatedRequest, res: Response):
         label: 'PTO',
         available: true,
         description: `Paid time off (${effectivePto.paidLeaveEntitlementType} entitlement)`,
+      });
+    } else {
+      // Always show PTO option as available but show info about balance
+      leaveOptions.options.push({
+        type: 'PTO',
+        label: 'PTO',
+        available: false,
+        description: 'No paid leave available',
       });
     }
 
@@ -364,33 +371,24 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     const policy = assignment.client.clientPolicies;
     const effectivePto = resolveEffectivePtoConfig(policy, assignment);
 
-    // Validate leave type is allowed (using effective per-employee PTO config)
-    if ((leaveType === 'PAID' || leaveType === 'PTO') && !effectivePto.allowPaidLeave) {
-      res.status(400).json({ success: false, error: 'Paid leave is not available for you' });
-      return;
-    }
-
-    if ((leaveType === 'UNPAID' || leaveType === 'VTO') && !effectivePto.allowUnpaidLeave) {
-      res.status(400).json({ success: false, error: 'Unpaid leave is not available for you' });
-      return;
-    }
-
-    const requestedDays = calculateDays(start, end);
+    // Allow all leave types - check balance only for paid
     const isPaid = leaveType === 'PAID' || leaveType === 'PTO';
+    
+    const requestedDays = calculateDays(start, end);
     const noticeRequired = isPaid
       ? (policy?.requireTwoWeeksNoticePaidLeave ?? true)
       : (policy?.requireTwoWeeksNoticeUnpaidLeave ?? true);
     const shortNotice = noticeRequired && isShortNotice(start);
 
-    // Check balance for paid leave
+    // Check balance for paid leave - if insufficient, allow but flag
+    let isPaidWithNoBalance = false;
+    let available = 0;
+    
     if (leaveType === 'PAID' || leaveType === 'PTO') {
-      let available: number;
-
       if (effectivePto.paidLeaveEntitlementType === 'FIXED_HALF_YEARLY' && employee.hireDate) {
         const now = new Date();
         const block = calculateCurrentBlock(employee.hireDate, now, effectivePto.annualPaidLeaveDays);
 
-        // Sum days used + pending within current block
         const blockRequests = await prisma.leaveRequest.findMany({
           where: {
             employeeId: employee.id,
@@ -408,18 +406,15 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
         available = block.entitledDays - usedAndPending;
       } else {
         const balance = await getOrCreateLeaveBalance(employee.id, assignment.clientId);
-        available = Number(balance.paidLeaveEntitled) +
-          Number(balance.paidLeaveCarryover) -
-          Number(balance.paidLeaveUsed) -
-          Number(balance.paidLeavePending);
+        available = Number(balance.paidLeaveEntitled ?? 0) +
+          Number(balance.paidLeaveCarryover ?? 0) -
+          Number(balance.paidLeaveUsed ?? 0) -
+          Number(balance.paidLeavePending ?? 0);
       }
 
-      if (requestedDays > available) {
-        res.status(400).json({
-          success: false,
-          error: `Insufficient paid leave balance. Available: ${available} days, Requested: ${requestedDays} days`,
-        });
-        return;
+      if (available <= 0) {
+        available = 0;
+        isPaidWithNoBalance = true;
       }
     }
 
@@ -462,6 +457,35 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
       },
     });
 
+    let responseMessage = 'Leave request submitted successfully';
+    let warning = null;
+    if (isPaidWithNoBalance) {
+      warning = 'Warning: No paid leave balance available. This request may be rejected unless additional balance is granted.';
+    }
+
+    // Upload documents if any
+    let documentUrls: string[] = [];
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      for (const file of req.files) {
+        try {
+          const uploadResult = await uploadToS3(file, 'leave-documents');
+          if (uploadResult.success && uploadResult.url) {
+            documentUrls.push(uploadResult.url);
+          }
+        } catch (uploadErr) {
+          console.error('Document upload error:', uploadErr);
+        }
+      }
+
+      // Save document URLs to database
+      if (documentUrls.length > 0) {
+        await prisma.leaveRequest.update({
+          where: { id: leaveRequest.id },
+          data: { documentUrls: documentUrls as any },
+        });
+      }
+    }
+
     // Update pending balance
     if (leaveType === 'PAID' || leaveType === 'PTO') {
       await prisma.leaveBalance.update({
@@ -499,10 +523,11 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
         shortNoticeWarning: shortNotice
           ? 'This request is submitted with less than 2 weeks notice'
           : null,
+        balanceWarning: warning,
       },
-      message: shortNotice
+      message: warning || (shortNotice
         ? 'Leave request submitted. Note: This is a short-notice request (< 2 weeks)'
-        : 'Leave request submitted successfully',
+        : 'Leave request submitted successfully'),
     });
   } catch (error) {
     console.error('Error submitting leave request:', error);
@@ -514,19 +539,21 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
 export const getLeaveHistory = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
-    const { status, year } = req.query;
+    const status = req.query.status as string;
+    const year = req.query.year as string;
 
-    // Get employee
+    // Get employee by userId
     const employee = await prisma.employee.findFirst({
       where: { userId },
     });
 
+    // If no employee found with userId, return empty
     if (!employee) {
-      res.status(404).json({ success: false, error: 'Employee not found' });
+      res.json({ success: true, data: [] });
       return;
     }
 
-    // Build where clause
+    // Build where clause with employeeId
     const where: any = { employeeId: employee.id };
 
     if (status && status !== 'all') {
@@ -534,7 +561,7 @@ export const getLeaveHistory = async (req: AuthenticatedRequest, res: Response):
     }
 
     if (year) {
-      const yearNum = parseInt(year as string);
+      const yearNum = parseInt(year);
       where.startDate = {
         gte: new Date(yearNum, 0, 1),
         lt: new Date(yearNum + 1, 0, 1),
@@ -543,20 +570,13 @@ export const getLeaveHistory = async (req: AuthenticatedRequest, res: Response):
 
     const requests = await prisma.leaveRequest.findMany({
       where,
-      include: {
-        client: {
-          select: {
-            companyName: true,
-          },
-        },
-      },
       orderBy: { createdAt: 'desc' },
     });
 
     // Add calculated days to each request
     const requestsWithDays = requests.map(request => ({
       ...request,
-      requestedDays: calculateDays(new Date(request.startDate), new Date(request.endDate)),
+      requestedDays: request.requestedDays ?? calculateDays(new Date(request.startDate), new Date(request.endDate)),
     }));
 
     res.json({
@@ -613,11 +633,11 @@ export const cancelLeaveRequest = async (req: AuthenticatedRequest, res: Respons
       new Date(leaveRequest.endDate)
     );
 
-    // Update leave request to rejected (self-cancelled)
+    // Update leave request to cancelled
     await prisma.leaveRequest.update({
       where: { id: requestId },
       data: {
-        status: 'REJECTED',
+        status: 'CANCELLED',
         rejectedAt: new Date(),
         rejectedBy: employee.id,
         rejectionReason: reason || 'Cancelled by employee',
@@ -626,6 +646,7 @@ export const cancelLeaveRequest = async (req: AuthenticatedRequest, res: Respons
 
     // Update balance
     const currentYear = new Date().getFullYear();
+    
     if (leaveRequest.leaveType === 'PAID') {
       await prisma.leaveBalance.update({
         where: {

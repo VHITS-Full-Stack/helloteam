@@ -134,15 +134,17 @@ const Tasks = () => {
 
   // Client-side filtering
   const filteredTasks = useMemo(() => {
-    return allTasks.filter(task => {
-      if (search) {
-        const q = search.toLowerCase();
-        if (!task.title.toLowerCase().includes(q) && !(task.description || '').toLowerCase().includes(q)) return false;
-      }
-      if (priorityFilter && task.priority !== priorityFilter) return false;
-      if (employeeFilter && task.employeeId !== employeeFilter) return false;
-      return true;
-    });
+    return allTasks
+      .filter(task => {
+        if (search) {
+          const q = search.toLowerCase();
+          if (!task.title.toLowerCase().includes(q) && !(task.description || '').toLowerCase().includes(q)) return false;
+        }
+        if (priorityFilter && task.priority !== priorityFilter) return false;
+        if (employeeFilter && task.employeeId !== employeeFilter) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   }, [allTasks, search, priorityFilter, employeeFilter]);
 
   // Stats
@@ -341,14 +343,14 @@ const Tasks = () => {
                   <TableCell>
                     {task.assignee ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                          {task.assignee.profilePhoto ? (
+                        <div className="w-6 h-6 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 text-center overflow-hidden">
+                          {task.assignee?.profilePhoto ? (
                             <img src={task.assignee.profilePhoto} alt="" className="w-6 h-6 rounded-full object-cover" />
                           ) : (
-                            <span className="text-[10px] font-bold text-primary-700">{task.assignee.firstName?.charAt(0)}</span>
+                            <span className="text-[10px] font-bold text-primary-700">{task.assignee?.firstName?.charAt(0) || '?'}</span>
                           )}
                         </div>
-                        <span className="text-sm text-gray-600">{task.assignee.firstName} {task.assignee.lastName}</span>
+                        <span className="text-sm text-gray-600">{task.assignee?.firstName} {task.assignee?.lastName}</span>
                       </div>
                     ) : (
                       <span className="text-sm text-gray-400">Unassigned</span>

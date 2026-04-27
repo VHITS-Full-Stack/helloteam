@@ -45,6 +45,11 @@ const taskService = {
     const response = await api.get(`/tasks/${id}/activities`);
     return response;
   },
+
+  getPendingTaskCount: async () => {
+    const response = await api.get('/tasks', { params: { status: 'TODO', limit: 1 } });
+    return response;
+  },
 };
 
 export default taskService;

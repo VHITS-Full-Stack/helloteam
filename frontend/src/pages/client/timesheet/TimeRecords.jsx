@@ -995,7 +995,7 @@ const TimeRecords = () => {
                             >
                               <td className="py-2.5 px-4">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600 flex-shrink-0">
+                                  <div className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-semibold text-gray-600 flex-shrink-0 text-center overflow-hidden">
                                     {rec.empName?.charAt(0) || "?"}
                                   </div>
                                   <span className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
