@@ -1,18 +1,18 @@
 import { forwardRef } from 'react';
 
 const variants = {
-  primary: 'bg-primary text-white hover:bg-primary-dark focus:ring-primary shadow-button hover:shadow-button-hover',
-  secondary: 'bg-secondary text-gray-900 hover:bg-secondary-dark focus:ring-secondary',
-  accent: 'bg-accent text-gray-900 hover:bg-accent-dark focus:ring-accent',
-  outline: 'border-2 border-primary text-primary hover:bg-primary hover:text-white focus:ring-primary bg-transparent',
-  'outline-secondary': 'border-2 border-secondary text-secondary-700 hover:bg-secondary hover:text-gray-900 focus:ring-secondary bg-transparent',
-  'outline-accent': 'border-2 border-accent text-accent-700 hover:bg-accent hover:text-gray-900 focus:ring-accent bg-transparent',
-  ghost: 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 focus:ring-gray-300 bg-transparent',
-  'ghost-primary': 'text-primary hover:bg-primary-50 focus:ring-primary bg-transparent',
-  danger: 'bg-danger text-white hover:bg-red-600 focus:ring-danger',
-  success: 'bg-success text-white hover:bg-green-600 focus:ring-success',
-  warning: 'bg-warning text-gray-900 hover:bg-amber-600 focus:ring-warning',
-  info: 'bg-info text-white hover:bg-blue-600 focus:ring-info',
+  primary: 'bg-primary text-white enabled:hover:bg-primary-dark focus:ring-primary shadow-button enabled:hover:shadow-button-hover',
+  secondary: 'bg-secondary text-gray-900 enabled:hover:bg-secondary-dark focus:ring-secondary',
+  accent: 'bg-accent text-gray-900 enabled:hover:bg-accent-dark focus:ring-accent',
+  outline: 'border-2 border-primary text-primary enabled:hover:bg-primary enabled:hover:text-white focus:ring-primary bg-transparent',
+  'outline-secondary': 'border-2 border-secondary text-secondary-700 enabled:hover:bg-secondary enabled:hover:text-gray-900 focus:ring-secondary bg-transparent',
+  'outline-accent': 'border-2 border-accent text-accent-700 enabled:hover:bg-accent enabled:hover:text-gray-900 focus:ring-accent bg-transparent',
+  ghost: 'text-gray-600 enabled:hover:bg-gray-100 enabled:hover:text-gray-900 focus:ring-gray-300 bg-transparent',
+  'ghost-primary': 'text-primary enabled:hover:bg-primary-50 focus:ring-primary bg-transparent',
+  danger: 'bg-danger text-white enabled:hover:bg-red-600 focus:ring-danger',
+  success: 'bg-success text-white enabled:hover:bg-green-600 focus:ring-success',
+  warning: 'bg-warning text-gray-900 enabled:hover:bg-amber-600 focus:ring-warning',
+  info: 'bg-info text-white enabled:hover:bg-blue-600 focus:ring-info',
 };
 
 const sizes = {
