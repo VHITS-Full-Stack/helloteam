@@ -315,14 +315,33 @@ function useClientDetail(id) {
     try {
       const response = await groupService.getGroups({ limit: 100 });
       if (response.success) {
-        const groups = response.data.groups.filter((group) =>
-          group.clients?.some((cg) => {
+        // Sort groups by createdAt to prioritize the oldest one
+        const sortedGroups = [...response.data.groups].sort((a, b) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return dateA - dateB;
+        });
+
+        let hasDefaultGroup = false;
+        const filteredGroups = sortedGroups.filter((group) => {
+          // Check if group is assigned to this client
+          const isAssigned = group.clients?.some((cg) => {
             const cid = cg.client?.id || cg.clientId;
             return cid === id;
-          })
-        );
+          });
 
-        const groupsWithCount = groups.map((group) => {
+          if (!isAssigned) return false;
+
+          // Deduplicate 'Default' groups
+          if (group.name?.trim() === 'Default') {
+            if (hasDefaultGroup) return false;
+            hasDefaultGroup = true;
+          }
+
+          return true;
+        });
+
+        const groupsWithData = filteredGroups.map((group) => {
           const assignedCount = group.employees?.filter((ge) =>
             ge.employee?.clientAssignments?.some((ca) => {
               const cid = ca.client?.id || ca.clientId;
@@ -340,7 +359,7 @@ function useClientDetail(id) {
           };
         });
 
-        setConnectedGroups(groupsWithCount);
+        setConnectedGroups(groupsWithData);
       }
     } catch (err) {
       console.error('Failed to fetch connected groups:', err);
