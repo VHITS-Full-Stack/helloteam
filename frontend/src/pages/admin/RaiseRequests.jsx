@@ -2059,7 +2059,7 @@ const RaiseRequests = () => {
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="text-sm font-medium text-gray-700 block mb-1">
-                          Employee raise ($/hr)
+                          Raise Amount($/hr)
                         </label>
                         <input
                           type="number"

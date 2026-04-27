@@ -44,17 +44,20 @@ function useClientList() {
     activeAssignedEmployees: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [fetching, setFetching] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
   const fetchingClientsRef = useRef(false);
   const fetchingStatsRef = useRef(false);
+  const isFirstFetchRef = useRef(true);
 
   const fetchClients = useCallback(async () => {
     if (fetchingClientsRef.current) return;
     fetchingClientsRef.current = true;
     try {
-      setLoading(true);
+      if (isFirstFetchRef.current) setLoading(true);
+      else setFetching(true);
       const response = await clientService.getClients({
         page: pagination.page,
         limit: pagination.limit,
@@ -72,11 +75,13 @@ function useClientList() {
           total: p.total ?? prev.total,
           totalPages: p.totalPages ?? prev.totalPages,
         }));
+        isFirstFetchRef.current = false;
       }
     } catch (err) {
       setError(err.error || 'Failed to fetch clients');
     } finally {
       setLoading(false);
+      setFetching(false);
       fetchingClientsRef.current = false;
     }
   }, [pagination.page, pagination.limit]);
@@ -199,6 +204,7 @@ function useClientList() {
     selectedClient,
     groupsModalClient,
     loading,
+    fetching,
     error,
     submitting,
     showDeleteModal,

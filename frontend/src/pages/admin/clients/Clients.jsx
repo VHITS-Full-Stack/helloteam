@@ -43,6 +43,7 @@ const Clients = () => {
     searchQuery,
     filters,
     loading,
+    fetching,
     error,
     setSearchQuery,
     setFilters,
@@ -221,7 +222,7 @@ const Clients = () => {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
           <p className="mt-2 text-gray-500">Loading clients...</p>
         </div>
-      ) : clients.length === 0 ? (
+      ) : clients.length === 0 && !fetching ? (
         <Card>
           <div className="p-8 text-center">
             <Building className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -233,6 +234,12 @@ const Clients = () => {
         </Card>
       ) : (
         <Card padding="none">
+          {fetching && (
+            <div className="flex items-center justify-center gap-2 py-2 text-sm text-primary border-b border-gray-100">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
+              Loading...
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>

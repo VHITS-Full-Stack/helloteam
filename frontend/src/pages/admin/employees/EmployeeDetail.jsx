@@ -1889,7 +1889,7 @@ const EmployeeDetail = () => {
               type="date"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               value={terminationDate}
-              min={new Date().toISOString().split('T')[0]}
+              min={new Date().toISOString().split("T")[0]}
               onChange={(e) => setTerminationDate(e.target.value)}
             />
           </div>
@@ -2101,7 +2101,10 @@ const EmployeeDetail = () => {
                     >
                       <option value="">Select a client</option>
                       {employee?.clientAssignments?.map((assignment) => (
-                        <option key={assignment.clientId} value={assignment.clientId}>
+                        <option
+                          key={assignment.clientId}
+                          value={assignment.clientId}
+                        >
                           {assignment.client?.companyName}
                         </option>
                       ))}
@@ -2401,7 +2404,10 @@ const EmployeeDetail = () => {
                     >
                       <option value="">Select a client</option>
                       {employee?.clientAssignments?.map((assignment) => (
-                        <option key={assignment.clientId} value={assignment.clientId}>
+                        <option
+                          key={assignment.clientId}
+                          value={assignment.clientId}
+                        >
                           {assignment.client?.companyName}
                         </option>
                       ))}
@@ -2467,7 +2473,7 @@ const EmployeeDetail = () => {
                   )}
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Employee raise ($/hr)
+                      Raise Amount($/hr)
                     </label>
                     <input
                       type="number"
@@ -2484,8 +2490,11 @@ const EmployeeDetail = () => {
                       className="input w-full"
                     />
                     {(() => {
-                      const currentRate = employee?.payableRate ? Number(employee.payableRate) : null;
-                      const raise = parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
+                      const currentRate = employee?.payableRate
+                        ? Number(employee.payableRate)
+                        : null;
+                      const raise =
+                        parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
                       if (!currentRate && raise === 0) return null;
                       const newRate = (currentRate ?? 0) + raise;
                       return (
