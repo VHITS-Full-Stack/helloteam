@@ -2060,7 +2060,7 @@ const EmployeeDetail = () => {
             }
           }}
         >
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin">
             <div className="flex items-center gap-2 mb-5">
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 1 ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-400"}`}
@@ -2083,16 +2083,28 @@ const EmployeeDetail = () => {
                   Give a Bonus — {employee?.firstName} {employee?.lastName}
                 </h3>
                 <div className="space-y-4">
-                  {/* Client display */}
+                  {/* Client selection */}
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Client
                     </label>
-                    <div className="input w-full bg-gray-50 text-gray-700 cursor-default flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      {employee?.clientAssignments?.find((a) => a.isActive)
-                        ?.client?.companyName || "—"}
-                    </div>
+                    <select
+                      className="input w-full"
+                      value={giveBonusForm.clientId}
+                      onChange={(e) =>
+                        setGiveBonusForm({
+                          ...giveBonusForm,
+                          clientId: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select a client</option>
+                      {employee?.clientAssignments?.map((assignment) => (
+                        <option key={assignment.clientId} value={assignment.clientId}>
+                          {assignment.client?.companyName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -2320,7 +2332,7 @@ const EmployeeDetail = () => {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 mb-5">
@@ -2371,15 +2383,28 @@ const EmployeeDetail = () => {
                   </div>
                 </div> */}
                 <div className="space-y-4">
+                  {/* Client selection */}
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Client
                     </label>
-                    <div className="input w-full bg-gray-50 text-gray-700 cursor-default flex items-center gap-2">
-                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      {employee?.clientAssignments?.find((a) => a.isActive)
-                        ?.client?.companyName || "—"}
-                    </div>
+                    <select
+                      className="input w-full"
+                      value={giveRaiseForm.clientId}
+                      onChange={(e) =>
+                        setGiveRaiseForm({
+                          ...giveRaiseForm,
+                          clientId: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">Select a client</option>
+                      {employee?.clientAssignments?.map((assignment) => (
+                        <option key={assignment.clientId} value={assignment.clientId}>
+                          {assignment.client?.companyName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-2">

@@ -1415,8 +1415,8 @@ const RaiseRequests = () => {
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
           onClick={() => setShowConfirmDirectEdit(false)}
         >
-          <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-sm mx-4"
+<div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-lg font-semibold text-gray-900 mb-1">
@@ -1923,7 +1923,7 @@ const RaiseRequests = () => {
           onClick={() => setShowGiveRaiseModal(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto scrollbar-thin"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Step indicator */}
