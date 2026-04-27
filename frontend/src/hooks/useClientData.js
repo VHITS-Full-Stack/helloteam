@@ -114,22 +114,31 @@ function useClientList() {
     prevSearchRef.current = searchQuery;
     const timer = setTimeout(() => {
       if (pagination.page === 1) {
-        fetchClients();
+        fetchClientsRef.current();
       } else {
         setPagination(prev => ({ ...prev, page: 1 }));
       }
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, fetchClients, pagination.page]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
-  // Re-fetch when filters change
+  // Re-fetch when filters change (not when pagination/fetchClients changes)
   useEffect(() => {
+    const prev = prevFiltersRef.current;
+    const changed =
+      prev.status !== filters.status ||
+      prev.startDate !== filters.startDate ||
+      prev.endDate !== filters.endDate;
+    if (!changed) return;
+    prevFiltersRef.current = { status: filters.status, startDate: filters.startDate, endDate: filters.endDate };
     if (pagination.page === 1) {
-      fetchClients();
+      fetchClientsRef.current();
     } else {
       setPagination(prev => ({ ...prev, page: 1 }));
     }
-  }, [filters.status, filters.startDate, filters.endDate, fetchClients, pagination.page]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.status, filters.startDate, filters.endDate]);
 
   const handleDeleteClient = async () => {
     if (!selectedClient) return;

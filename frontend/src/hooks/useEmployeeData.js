@@ -36,6 +36,7 @@ function useEmployeeList() {
   });
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const prevFiltersRef = useRef(filters);
   const [employees, setEmployees] = useState([]);
   const [stats, setStats] = useState({
     total: 0,
@@ -134,15 +135,25 @@ function useEmployeeList() {
     };
   }, [searchQuery, pagination.page, fetchEmployees]);
 
-  // Re-fetch when filters change
+  // Re-fetch when filters change (compare with previous to avoid unnecessary calls)
   useEffect(() => {
+    const hasChanged =
+      filters.status !== prevFiltersRef.current.status ||
+      filters.clientId !== prevFiltersRef.current.clientId ||
+      filters.startDate !== prevFiltersRef.current.startDate ||
+      filters.endDate !== prevFiltersRef.current.endDate;
+
+    if (!hasChanged) return;
+
+    prevFiltersRef.current = filters;
+
     if (pagination.page === 1) {
       fetchEmployeesRef.current();
     } else {
       setPagination((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [filters.status, filters.clientId, filters.startDate, filters.endDate]);
 
   const refresh = () => {
     fetchEmployees();
