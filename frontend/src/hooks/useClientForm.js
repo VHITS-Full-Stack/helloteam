@@ -92,12 +92,36 @@ const [formData, setFormData] = useState({
         ]);
 
         if (groupsRes.success) {
-          setGroups(groupsRes.data.groups);
+          const allGroups = groupsRes.data.groups;
+          // Filter groups client-wise: create mode shows unassigned groups only;
+          // edit mode shows groups assigned to this client + unassigned groups.
           if (!isEdit) {
-            const defaultGroup = groupsRes.data.groups.find((g) => g.name === 'Default');
+            // Find the first unassigned Default group (deduplicate if multiple exist)
+            let defaultGroup = allGroups.find(
+              (g) => (!g.clients || g.clients.length === 0) && g.name === 'Default',
+            );
+            if (!defaultGroup) {
+              try {
+                const createRes = await groupService.createGroup({ name: 'Default' });
+                if (createRes.success) {
+                  defaultGroup = { ...createRes.data, clients: [] };
+                }
+              } catch (e) {
+                // continue without auto-created group
+              }
+            }
+            setGroups(defaultGroup ? [defaultGroup] : []);
             if (defaultGroup) {
               setFormData((prev) => ({ ...prev, groupId: defaultGroup.id }));
             }
+          } else {
+            const availableGroups = allGroups.filter(
+              (g) =>
+                !g.clients ||
+                g.clients.length === 0 ||
+                g.clients.some((cg) => cg.client?.id === id),
+            );
+            setGroups(availableGroups);
           }
         }
 
