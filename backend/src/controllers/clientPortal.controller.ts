@@ -3720,8 +3720,11 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
   try {
     const userId = req.user?.userId;
     const client = await prisma.client.findFirst({ where: { userId } });
-    if (!client) return res.status(403).json({ success: false, error: 'Client not found' });
+    if (!client) {
+      return res.status(403).json({ success: false, error: 'Client not found' });
+    }
 
+    // Simple query first to verify it works
     const clientEmployees = await prisma.clientEmployee.findMany({
       where: { clientId: client.id, isActive: true },
       include: {
@@ -3731,45 +3734,19 @@ export const getEmployeesWithRates = async (req: AuthenticatedRequest, res: Resp
             firstName: true,
             lastName: true,
             profilePhoto: true,
-            billingRate: true,
-            groupAssignments: {
-              select: {
-                group: {
-                  select: {
-                    billingRate: true,
-                    clients: {
-                      where: { clientId: client.id },
-                      select: { billingRate: true },
-                    },
-                  },
-                },
-              },
-            },
           },
         },
       },
+      take: 50,
     });
 
     const employees = clientEmployees.map((ce) => {
-      const emp = ce.employee;
-      const group = emp.groupAssignments?.[0]?.group;
-      const clientGroupRate = group?.clients?.[0]?.billingRate;
-      const groupRate = group?.billingRate;
-
-      // Rate hierarchy: assignment override > employee rate > client-group rate > group rate
-      const effectiveRate =
-        ce.hourlyRate ??
-        emp.billingRate ??
-        clientGroupRate ??
-        groupRate ??
-        null;
-
       return {
-        id: emp.id,
-        firstName: emp.firstName,
-        lastName: emp.lastName,
-        profilePhoto: emp.profilePhoto,
-        hourlyRate: effectiveRate ? Number(effectiveRate) : 0,
+        id: ce.employee.id,
+        firstName: ce.employee.firstName,
+        lastName: ce.employee.lastName,
+        profilePhoto: ce.employee.profilePhoto,
+        hourlyRate: ce.hourlyRate ? Number(ce.hourlyRate) : 0,
       };
     });
 
@@ -3823,10 +3800,17 @@ export const sendBonus = async (req: AuthenticatedRequest, res: Response) => {
 export const submitRaiseRequest = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
+    console.log('[RaiseRequest] User ID:', userId);
+    
     const client = await prisma.client.findFirst({ where: { userId } });
-    if (!client) return res.status(403).json({ success: false, error: 'Client not found' });
+    if (!client) {
+      console.log('[RaiseRequest] No client found for userId:', userId);
+      return res.status(403).json({ success: false, error: 'Client not found' });
+    }
+    console.log('[RaiseRequest] Client ID:', client.id);
 
     const { employeeId, payRate, billRate, effectiveDate } = req.body;
+    console.log('[RaiseRequest] Payload:', { employeeId, payRate, billRate, effectiveDate });
 
     if (!employeeId) return res.status(400).json({ success: false, error: 'Employee is required' });
     if (!billRate || Number(billRate) <= 0) return res.status(400).json({ success: false, error: 'Bill rate must be greater than 0' });
@@ -3860,6 +3844,7 @@ export const submitRaiseRequest = async (req: AuthenticatedRequest, res: Respons
     res.json({ success: true, data: raiseRequest, message: 'Raise request submitted successfully' });
   } catch (error) {
     console.error('Submit raise request error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'Unknown');
     res.status(500).json({ success: false, error: 'Failed to submit raise request' });
   }
 };
@@ -3929,11 +3914,14 @@ export const getClientRequests = async (req: AuthenticatedRequest, res: Response
     const requestIds = requests.map((r) => r.id);
     let approvalNoteMap: Record<string, string | null> = {};
     if (requestIds.length > 0) {
-      const notes = await prisma.$queryRawUnsafe<{ id: string; approvalNote: string | null }[]>(
-        `SELECT id, "approvalNote" FROM client_requests WHERE id = ANY($1::uuid[])`,
-        requestIds
-      );
-      notes.forEach((n) => { approvalNoteMap[n.id] = n.approvalNote; });
+      try {
+        const notes = await prisma.$queryRaw<{ id: string; approvalNote: string | null }[]>(
+          Prisma.sql`SELECT id, "approvalNote" FROM client_requests WHERE id = ANY(${Prisma.join(requestIds)})`,
+        );
+        notes.forEach((n) => { approvalNoteMap[n.id] = n.approvalNote; });
+      } catch (e) {
+        console.log('[getClientRequests] approvalNote fetch error:', e);
+      }
     }
 
     // Resolve reviewer names

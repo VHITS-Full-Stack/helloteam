@@ -119,7 +119,7 @@ const Support = () => {
     const descText = ticketDetail.description?.replace(/^\[.+?\]\s*/, '') || ticketDetail.description;
 
     return (
-      <div className="space-y-3 animate-fade-in max-w-2xl">
+      <div className="space-y-4 animate-fade-in">
         <button
           onClick={() => { setSelectedTicket(null); setTicketDetail(null); }}
           className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 cursor-pointer transition-colors"
@@ -128,24 +128,146 @@ const Support = () => {
           Back
         </button>
 
-        <div className="border border-gray-200 rounded-lg px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold text-gray-900">{ticketDetail.subject}</h3>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              {getPriorityBadge(ticketDetail.priority)}
-              {getStatusBadge(ticketDetail.status)}
+        <div className="grid grid-cols-3 gap-4">
+          {/* Left Column - Ticket Details */}
+          <div className="col-span-2 space-y-4">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{ticketDetail.subject}</h3>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-gray-400">
+                    <span>#{ticketDetail.id.slice(0, 8).toUpperCase()}</span>
+                    <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
+                    <span className="text-primary font-medium">{category}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {getStatusBadge(ticketDetail.status)}
+                  {getPriorityBadge(ticketDetail.priority)}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1">Description</p>
+                <p className="text-sm text-gray-700">{descText}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-100">
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Created</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {new Date(ticketDetail.createdAt).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-0.5">Last Updated</p>
+                  <p className="text-sm font-medium text-gray-900">
+                    {new Date(ticketDetail.updatedAt).toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-1.5 text-[11px] text-gray-400">
-            <span>#{ticketDetail.id.slice(0, 8).toUpperCase()}</span>
-            <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
-            <span className="text-primary font-medium">{category}</span>
-            <span className="w-0.5 h-0.5 bg-gray-300 rounded-full" />
-            <span>{new Date(ticketDetail.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-          </div>
-          <p className="text-xs text-gray-600 mt-2 leading-relaxed border-t border-gray-100 pt-2">{descText}</p>
-        </div>
 
+          {/* Right Column - Chat */}
+          <div className="col-span-1">
+            <div className="bg-white rounded-xl border border-gray-200 h-full flex flex-col">
+              <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-gray-900">Chat</h3>
+                <span className="text-xs text-gray-400">
+                  ({visibleMessages.length})
+                </span>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-350px)]">
+                {visibleMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                      <MessageSquare className="w-6 h-6 text-primary" />
+                    </div>
+                    <p className="text-sm text-gray-500">No messages yet</p>
+                    <p className="text-xs text-gray-400">Start the conversation</p>
+                  </div>
+                ) : (
+                  visibleMessages.map((msg) => {
+                    const isEmployee = msg.senderType === 'employee';
+                    return (
+                      <div
+                        key={msg.id}
+                        className={`flex ${isEmployee ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                            isEmployee
+                              ? 'bg-primary text-white rounded-br-md'
+                              : 'bg-gray-100 text-gray-900 rounded-bl-md'
+                          }`}
+                        >
+                          {!isEmployee && (
+                            <p className="text-xs font-medium mb-1 text-gray-500">Admin</p>
+                          )}
+                          <p className={isEmployee ? 'text-white' : 'text-gray-700'}>
+                            {msg.message}
+                          </p>
+                          <p className={`text-[10px] mt-1.5 ${isEmployee ? 'text-white/70' : 'text-gray-400'}`}>
+                            {new Date(msg.createdAt).toLocaleTimeString('en-US', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {ticketDetail.status !== 'CLOSED' && (
+                <div className="p-3 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+                  <div className="flex items-end gap-2">
+                    <textarea
+                      placeholder="Type a message..."
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      rows={1}
+                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+                      style={{ minHeight: '42px', maxHeight: '100px' }}
+                    />
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={Send}
+                      onClick={handleSendMessage}
+                      disabled={sending || !newMessage.trim()}
+                      className="!h-10 !w-10 !p-0 shrink-0"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

@@ -1204,7 +1204,7 @@ const RaiseRequests = () => {
                     </div>
 
                     {/* Internal Notes */}
-                    <div>
+                    {/* <div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">Internal Notes <span className="text-gray-400 font-normal">(optional)</span></label>
                       <textarea
                         value={giveBonusForm.internalNotes}
@@ -1213,7 +1213,7 @@ const RaiseRequests = () => {
                         rows={2}
                         className="input w-full resize-none"
                       />
-                    </div>
+                    </div> */}
 
                     {giveBonusError && (
                       <div className="flex items-center gap-2 text-red-600 text-sm">
@@ -1482,7 +1482,7 @@ const RaiseRequests = () => {
                     </div>
 
                     {/* Internal Notes */}
-                    <div>
+                    {/* <div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">Internal Notes <span className="text-gray-400 font-normal">(optional)</span></label>
                       <textarea
                         value={giveRaiseForm.internalNotes}
@@ -1491,7 +1491,7 @@ const RaiseRequests = () => {
                         rows={2}
                         className="input w-full resize-none"
                       />
-                    </div>
+                    </div> */}
 
                     {giveRaiseError && (
                       <div className="flex items-center gap-2 text-red-600 text-sm">

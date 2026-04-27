@@ -202,6 +202,14 @@ router.delete('/groups/:groupId/employees/:employeeId', removeEmployeeFromClient
 // BONUSES & RAISES ROUTES
 // ============================================
 router.get('/employees/with-rates', getEmployeesWithRates);
+router.get('/test-employees', async (req, res) => {
+  // Test endpoint - remove after debugging
+  const userId = req.user?.userId;
+  const client = await prisma.client.findFirst({ where: { userId } });
+  if (!client) return res.json({ error: 'No client' });
+  const count = await prisma.clientEmployee.count({ where: { clientId: client.id, isActive: true } });
+  res.json({ clientId: client.id, activeEmployees: count });
+});
 router.post('/bonuses', sendBonus);
 router.post('/raises', submitRaiseRequest);
 router.get('/rate-history', getClientRateHistory);
