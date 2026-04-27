@@ -74,6 +74,16 @@ const workSessionService = {
   async shiftEndResponse(action, reason = null) {
     return await api.post('/work-sessions/shift-end-response', { action, reason });
   },
+
+  // Approve manual time entry (admin)
+  async approveManualEntry(id) {
+    return await api.patch(`/work-sessions/manual-entry/${id}/approve`);
+  },
+
+  // Reject manual time entry (admin)
+  async rejectManualEntry(id, reason) {
+    return await api.patch(`/work-sessions/manual-entry/${id}/reject`, { reason });
+  },
 };
 
 export default workSessionService;

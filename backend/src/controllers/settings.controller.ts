@@ -38,6 +38,10 @@ const DEFAULT_SETTINGS = {
     newHireGuide: '<p>Welcome to your new team! This guide will help you get started...</p>',
     privacyPolicy: '<p>Hello Team is committed to protecting your privacy...</p>',
     welcomeTips: '<p>Here are some best practices to help you get the most out of your Hello Team engagement...</p>',
+    newHireGuidePdfKey: null,
+    newHireGuidePdfUrl: null,
+    welcomeTipsPdfKey: null,
+    welcomeTipsPdfUrl: null,
   },
 };
 

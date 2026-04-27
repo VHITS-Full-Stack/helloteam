@@ -587,7 +587,10 @@ model TimeRecord {
   revisionRequestedBy   String?
   revisionRequestedAt   DateTime?
   isManual              Boolean              @default(false) // true = submitted by employee as manual entry
-  invoiceId             String? // Set when this record is included in an invoice; null = not yet invoiced
+  rejectedBy           String?
+  rejectedAt          DateTime?
+  rejectionReason     String?
+  invoiceId           String? // Set when this record is included in an invoice; null = not yet invoiced
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
 

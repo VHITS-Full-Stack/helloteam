@@ -31,6 +31,7 @@ import {
 } from "../../components/common";
 import adminPortalService from "../../services/adminPortal.service";
 import overtimeService from "../../services/overtime.service";
+import workSessionService from "../../services/workSession.service";
 import clientService from "../../services/client.service";
 import employeeService from "../../services/employee.service";
 import {
@@ -258,6 +259,8 @@ const Approvals = () => {
         response = await adminPortalService.approveLeaveRequest(
           selectedItem.id,
         );
+      } else if (activeType === "manual" || selectedItem.isManual) {
+        response = await workSessionService.approveManualEntry(selectedItem.id);
       } else {
         response = await adminPortalService.approveTimeRecord(selectedItem.id);
       }
@@ -288,6 +291,11 @@ const Approvals = () => {
         );
       } else if (selectedItem.type === "leave") {
         response = await adminPortalService.rejectLeaveRequest(
+          selectedItem.id,
+          rejectionReason,
+        );
+      } else if (activeType === "manual" || selectedItem.isManual) {
+        response = await workSessionService.rejectManualEntry(
           selectedItem.id,
           rejectionReason,
         );

@@ -434,7 +434,10 @@ const RaiseRequests = () => {
   const handleGiveRaiseFormChange = (field, value) => {
     setGiveRaiseForm((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === "employeeId") updated.clientId = "";
+      if (field === "employeeId") {
+        const clients = raiseCandidates.filter((c) => c.employeeId === value);
+        updated.clientId = clients.length === 1 ? clients[0].clientId : "";
+      }
       return updated;
     });
     setGiveRaiseError("");
@@ -1547,13 +1550,15 @@ const RaiseRequests = () => {
                         <select
                           className="input w-full appearance-none"
                           value={giveBonusForm.employeeId}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const empId = e.target.value;
+                            const clients = raiseCandidates.filter((c) => c.employeeId === empId);
                             setGiveBonusForm({
                               ...giveBonusForm,
-                              employeeId: e.target.value,
-                              clientId: "",
-                            })
-                          }
+                              employeeId: empId,
+                              clientId: clients.length === 1 ? clients[0].clientId : "",
+                            });
+                          }}
                         >
                           <option value="">Select employee...</option>
                           {[
@@ -2070,6 +2075,19 @@ const RaiseRequests = () => {
                           placeholder="e.g. 2.00"
                           className="input w-full"
                         />
+                        {(() => {
+                          const currentRate = selectedCandidate?.currentPayRate != null ? Number(selectedCandidate.currentPayRate) : null;
+                          const raise = parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
+                          if (currentRate === null && raise === 0) return null;
+                          const newRate = (currentRate ?? 0) + raise;
+                          return (
+                            <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 whitespace-nowrap">
+                              {raise > 0
+                                ? `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr + Raise: $${raise.toFixed(2)}/hr = New Rate: $${newRate.toFixed(2)}/hr`
+                                : `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr`}
+                            </div>
+                          );
+                        })()}
                       </div>
                       {giveRaiseForm.coverageType === "PARTIAL" && (
                         <div>

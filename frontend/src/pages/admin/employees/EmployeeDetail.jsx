@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
   Mail,
@@ -24,20 +24,22 @@ import {
   Minus,
   TrendingUp,
   Gift,
-} from 'lucide-react';
-import {
-  Card,
-  Button,
-  Badge,
-  Avatar,
-  Modal,
-} from '../../../components/common';
-import { useEmployeeDetail } from '../../../hooks/useEmployeeData';
-import { useAuth } from '../../../context/AuthContext';
-import adminPortalService from '../../../services/adminPortal.service';
-import { formatDuration } from '../../../utils/formatDateTime';
+} from "lucide-react";
+import { Card, Button, Badge, Avatar, Modal } from "../../../components/common";
+import { useEmployeeDetail } from "../../../hooks/useEmployeeData";
+import { useAuth } from "../../../context/AuthContext";
+import adminPortalService from "../../../services/adminPortal.service";
+import { formatDuration } from "../../../utils/formatDateTime";
 
-const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAYS_OF_WEEK = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 const InfoRow = ({ label, value, icon: Icon }) => (
   <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
@@ -45,7 +47,9 @@ const InfoRow = ({ label, value, icon: Icon }) => (
       {Icon && <Icon className="w-3.5 h-3.5" />}
       {label}
     </span>
-    <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] truncate">{value || '—'}</span>
+    <span className="text-sm font-medium text-gray-900 text-right max-w-[60%] truncate">
+      {value || "—"}
+    </span>
   </div>
 );
 
@@ -54,51 +58,89 @@ const EmployeeDetail = () => {
   const navigate = useNavigate();
   const { impersonate, user: currentUser } = useAuth();
   const [impersonating, setImpersonating] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState("overview");
   const [pendingRequests, setPendingRequests] = useState([]);
   const [bonusHistory, setBonusHistory] = useState([]);
   const [raiseHistory, setRaiseHistory] = useState([]);
 
   // Edit Pay Rate modal
   const [showEditPayRate, setShowEditPayRate] = useState(false);
-  const [editPayRateForm, setEditPayRateForm] = useState({ newPayRate: '', effectiveDate: '', reason: '' });
+  const [editPayRateForm, setEditPayRateForm] = useState({
+    newPayRate: "",
+    effectiveDate: "",
+    reason: "",
+  });
   const [editPayRateLoading, setEditPayRateLoading] = useState(false);
-  const [editPayRateError, setEditPayRateError] = useState('');
+  const [editPayRateError, setEditPayRateError] = useState("");
 
   // Give Bonus modal
   const [showGiveBonusModal, setShowGiveBonusModal] = useState(false);
   const [giveBonusStep, setGiveBonusStep] = useState(1);
   const [pendingBonusId, setPendingBonusId] = useState(null);
-  const [giveBonusForm, setGiveBonusForm] = useState({ clientId: '', amount: '', reason: '', effectiveDate: new Date().toISOString().split('T')[0], coverageType: 'FULL', clientCoveredAmount: '', internalNotes: '' });
+  const [giveBonusForm, setGiveBonusForm] = useState({
+    clientId: "",
+    amount: "",
+    reason: "",
+    effectiveDate: new Date().toISOString().split("T")[0],
+    coverageType: "FULL",
+    clientCoveredAmount: "",
+    internalNotes: "",
+  });
   const [giveBonusLoading, setGiveBonusLoading] = useState(false);
-  const [giveBonusError, setGiveBonusError] = useState('');
+  const [giveBonusError, setGiveBonusError] = useState("");
 
   // Give Raise modal
   const [showGiveRaiseModal, setShowGiveRaiseModal] = useState(false);
   const [giveRaiseStep, setGiveRaiseStep] = useState(1);
   const [pendingRaiseId, setPendingRaiseId] = useState(null);
-  const [giveRaiseForm, setGiveRaiseForm] = useState({ clientId: '', coverageType: 'FULL', employeeRaiseAmount: '', clientCoveredAmount: '', effectiveDate: new Date().toISOString().split('T')[0], reason: '', internalNotes: '' });
+  const [giveRaiseForm, setGiveRaiseForm] = useState({
+    clientId: "",
+    coverageType: "FULL",
+    employeeRaiseAmount: "",
+    clientCoveredAmount: "",
+    effectiveDate: new Date().toISOString().split("T")[0],
+    reason: "",
+    internalNotes: "",
+  });
   const [giveRaiseLoading, setGiveRaiseLoading] = useState(false);
-  const [giveRaiseError, setGiveRaiseError] = useState('');
+  const [giveRaiseError, setGiveRaiseError] = useState("");
 
   // Edit Billing Rate modal
   const [showEditBillRate, setShowEditBillRate] = useState(false);
-  const [editBillRateForm, setEditBillRateForm] = useState({ newBillRate: '', effectiveDate: '', reason: '' });
+  const [editBillRateForm, setEditBillRateForm] = useState({
+    newBillRate: "",
+    effectiveDate: "",
+    reason: "",
+  });
   const [editBillRateLoading, setEditBillRateLoading] = useState(false);
-  const [editBillRateError, setEditBillRateError] = useState('');
+  const [editBillRateError, setEditBillRateError] = useState("");
 
   useEffect(() => {
     const fetchEmployeeRequests = async () => {
       try {
         const [pendingRes, bonusRes, raiseRes] = await Promise.all([
-          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
-          adminPortalService.getRaiseRequests({ type: 'BONUS', status: 'APPROVED', employeeId: id }),
-          adminPortalService.getRaiseRequests({ type: 'RAISE', status: 'APPROVED', employeeId: id }),
+          adminPortalService.getRaiseRequests({
+            status: "PENDING",
+            employeeId: id,
+          }),
+          adminPortalService.getRaiseRequests({
+            type: "BONUS",
+            status: "APPROVED",
+            employeeId: id,
+          }),
+          adminPortalService.getRaiseRequests({
+            type: "RAISE",
+            status: "APPROVED",
+            employeeId: id,
+          }),
         ]);
-        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (pendingRes.success)
+          setPendingRequests(pendingRes.data?.requests || []);
         if (bonusRes.success) setBonusHistory(bonusRes.data?.requests || []);
         if (raiseRes.success) setRaiseHistory(raiseRes.data?.requests || []);
-      } catch (e) { /* ignore */ }
+      } catch (e) {
+        /* ignore */
+      }
     };
     if (id) fetchEmployeeRequests();
   }, [id]);
@@ -106,125 +148,231 @@ const EmployeeDetail = () => {
   const openGiveBonusModal = () => {
     setGiveBonusStep(1);
     setPendingBonusId(null);
-    setGiveBonusError('');
-    const activeClientId = employee?.clientAssignments?.find(a => a.isActive)?.client?.id || '';
-    setGiveBonusForm({ clientId: activeClientId, amount: '', reason: '', effectiveDate: new Date().toISOString().split('T')[0], coverageType: 'FULL', clientCoveredAmount: '', internalNotes: '' });
+    setGiveBonusError("");
+    const activeClientId =
+      employee?.clientAssignments?.find((a) => a.isActive)?.client?.id || "";
+    setGiveBonusForm({
+      clientId: activeClientId,
+      amount: "",
+      reason: "",
+      effectiveDate: new Date().toISOString().split("T")[0],
+      coverageType: "FULL",
+      clientCoveredAmount: "",
+      internalNotes: "",
+    });
     setShowGiveBonusModal(true);
   };
-
   const handleGiveBonusSubmit = async () => {
-    const { clientId, amount, effectiveDate, coverageType, clientCoveredAmount } = giveBonusForm;
-    if (!clientId) return setGiveBonusError('Please select a client.');
-    if (!amount || parseFloat(amount) <= 0) return setGiveBonusError('Please enter a valid bonus amount.');
-    if (!effectiveDate) return setGiveBonusError('Please select an effective date.');
-    if (coverageType === 'PARTIAL') {
+    const {
+      clientId,
+      amount,
+      effectiveDate,
+      coverageType,
+      clientCoveredAmount,
+    } = giveBonusForm;
+    if (!clientId) return setGiveBonusError("Please select a client.");
+    if (!amount || parseFloat(amount) <= 0)
+      return setGiveBonusError("Please enter a valid bonus amount.");
+    if (!effectiveDate)
+      return setGiveBonusError("Please select an effective date.");
+    if (coverageType === "PARTIAL") {
       const covered = parseFloat(clientCoveredAmount);
-      if (!clientCoveredAmount || isNaN(covered) || covered <= 0 || covered > parseFloat(amount))
-        return setGiveBonusError('Client-covered amount must be between $0.01 and the total bonus amount.');
+      if (
+        !clientCoveredAmount ||
+        isNaN(covered) ||
+        covered <= 0 ||
+        covered > parseFloat(amount)
+      )
+        return setGiveBonusError(
+          "Client-covered amount must be between $0.01 and the total bonus amount.",
+        );
     }
     try {
       setGiveBonusLoading(true);
-      setGiveBonusError('');
+      setGiveBonusError("");
       const res = await adminPortalService.giveBonus({
-        employeeId: employee.id, clientId,
+        employeeId: employee.id,
+        clientId,
         amount: parseFloat(amount),
         reason: giveBonusForm.reason?.trim() || undefined,
-        effectiveDate, coverageType,
-        clientCoveredAmount: coverageType === 'FULL' ? parseFloat(amount) : coverageType === 'NONE' ? 0 : parseFloat(clientCoveredAmount),
+        effectiveDate,
+        coverageType,
+        clientCoveredAmount:
+          coverageType === "FULL"
+            ? parseFloat(amount)
+            : coverageType === "NONE"
+              ? 0
+              : parseFloat(clientCoveredAmount),
         internalNotes: giveBonusForm.internalNotes?.trim() || undefined,
       });
-      if (res.success) { setPendingBonusId(res.data.bonusRequest.id); setGiveBonusStep(2); }
-      else setGiveBonusError(res.error || 'Failed to create bonus.');
-    } catch (e) { setGiveBonusError(e.message || 'Failed to create bonus.'); }
-    finally { setGiveBonusLoading(false); }
+      if (res.success) {
+        setPendingBonusId(res.data.bonusRequest.id);
+        setGiveBonusStep(2);
+      } else setGiveBonusError(res.error || "Failed to create bonus.");
+    } catch (e) {
+      setGiveBonusError(e.message || "Failed to create bonus.");
+    } finally {
+      setGiveBonusLoading(false);
+    }
   };
 
   const handleConfirmBonus = async () => {
     if (!pendingBonusId) return;
     try {
       setGiveBonusLoading(true);
-      setGiveBonusError('');
+      setGiveBonusError("");
       const res = await adminPortalService.confirmAdminBonus(pendingBonusId);
       if (res.success) {
         setShowGiveBonusModal(false);
         const [pendingRes, bonusRes] = await Promise.all([
-          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
-          adminPortalService.getRaiseRequests({ type: 'BONUS', status: 'APPROVED', employeeId: id }),
+          adminPortalService.getRaiseRequests({
+            status: "PENDING",
+            employeeId: id,
+          }),
+          adminPortalService.getRaiseRequests({
+            type: "BONUS",
+            status: "APPROVED",
+            employeeId: id,
+          }),
         ]);
-        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (pendingRes.success)
+          setPendingRequests(pendingRes.data?.requests || []);
         if (bonusRes.success) setBonusHistory(bonusRes.data?.requests || []);
-      } else setGiveBonusError(res.error || 'Failed to confirm bonus.');
-    } catch (e) { setGiveBonusError(e.message || 'Failed to confirm bonus.'); }
-    finally { setGiveBonusLoading(false); }
+      } else setGiveBonusError(res.error || "Failed to confirm bonus.");
+    } catch (e) {
+      setGiveBonusError(e.message || "Failed to confirm bonus.");
+    } finally {
+      setGiveBonusLoading(false);
+    }
   };
 
   const handleCancelPendingBonus = async () => {
     if (pendingBonusId) {
-      try { await adminPortalService.rejectRaiseRequest(pendingBonusId, 'Cancelled before confirmation'); } catch (_) {}
+      try {
+        await adminPortalService.rejectRaiseRequest(
+          pendingBonusId,
+          "Cancelled before confirmation",
+        );
+      } catch (error) {
+        console.log(error);
+      }
     }
-    setGiveBonusStep(1); setPendingBonusId(null); setGiveBonusError('');
+    setGiveBonusStep(1);
+    setPendingBonusId(null);
+    setGiveBonusError("");
   };
 
   const openGiveRaiseModal = () => {
     setGiveRaiseStep(1);
     setPendingRaiseId(null);
-    setGiveRaiseError('');
-    const activeClientId = employee?.clientAssignments?.find(a => a.isActive)?.client?.id || '';
-    setGiveRaiseForm({ clientId: activeClientId, coverageType: 'FULL', employeeRaiseAmount: '', clientCoveredAmount: '', effectiveDate: new Date().toISOString().split('T')[0], reason: '', internalNotes: '' });
+    setGiveRaiseError("");
+    const activeClientId =
+      employee?.clientAssignments?.find((a) => a.isActive)?.client?.id || "";
+    setGiveRaiseForm({
+      clientId: activeClientId,
+      coverageType: "FULL",
+      employeeRaiseAmount: "",
+      clientCoveredAmount: "",
+      effectiveDate: new Date().toISOString().split("T")[0],
+      reason: "",
+      internalNotes: "",
+    });
     setShowGiveRaiseModal(true);
   };
 
   const handleGiveRaiseSubmit = async () => {
-    const { clientId, coverageType, employeeRaiseAmount, clientCoveredAmount, effectiveDate } = giveRaiseForm;
-    if (!clientId) return setGiveRaiseError('Please select a client.');
-    if (!employeeRaiseAmount || parseFloat(employeeRaiseAmount) <= 0) return setGiveRaiseError('Enter a valid raise amount.');
-    if (coverageType === 'PARTIAL') {
+    const {
+      clientId,
+      coverageType,
+      employeeRaiseAmount,
+      clientCoveredAmount,
+      effectiveDate,
+    } = giveRaiseForm;
+    if (!clientId) return setGiveRaiseError("Please select a client.");
+    if (!employeeRaiseAmount || parseFloat(employeeRaiseAmount) <= 0)
+      return setGiveRaiseError("Enter a valid raise amount.");
+    if (coverageType === "PARTIAL") {
       const covered = parseFloat(clientCoveredAmount);
       if (!covered || covered <= 0 || covered > parseFloat(employeeRaiseAmount))
-        return setGiveRaiseError('Client covered amount must be between $0.01 and the raise amount.');
+        return setGiveRaiseError(
+          "Client covered amount must be between $0.01 and the raise amount.",
+        );
     }
-    if (!effectiveDate) return setGiveRaiseError('Please select an effective date.');
+    if (!effectiveDate)
+      return setGiveRaiseError("Please select an effective date.");
     try {
       setGiveRaiseLoading(true);
-      setGiveRaiseError('');
+      setGiveRaiseError("");
       const res = await adminPortalService.giveRaise({
-        employeeId: employee.id, clientId, coverageType,
+        employeeId: employee.id,
+        clientId,
+        coverageType,
         employeeRaiseAmount: parseFloat(employeeRaiseAmount),
-        clientCoveredAmount: coverageType === 'FULL' ? parseFloat(employeeRaiseAmount) : coverageType === 'NONE' ? 0 : parseFloat(clientCoveredAmount),
+        clientCoveredAmount:
+          coverageType === "FULL"
+            ? parseFloat(employeeRaiseAmount)
+            : coverageType === "NONE"
+              ? 0
+              : parseFloat(clientCoveredAmount),
         effectiveDate,
         reason: giveRaiseForm.reason?.trim() || undefined,
         internalNotes: giveRaiseForm.internalNotes?.trim() || undefined,
       });
-      if (res.success) { setPendingRaiseId(res.data.raiseRequest.id); setGiveRaiseStep(2); }
-      else setGiveRaiseError(res.error || 'Failed to create raise.');
-    } catch (e) { setGiveRaiseError(e.message || 'Failed to create raise.'); }
-    finally { setGiveRaiseLoading(false); }
+      if (res.success) {
+        setPendingRaiseId(res.data.raiseRequest.id);
+        setGiveRaiseStep(2);
+      } else setGiveRaiseError(res.error || "Failed to create raise.");
+    } catch (e) {
+      setGiveRaiseError(e.message || "Failed to create raise.");
+    } finally {
+      setGiveRaiseLoading(false);
+    }
   };
 
   const handleConfirmRaise = async () => {
     if (!pendingRaiseId) return;
     try {
       setGiveRaiseLoading(true);
-      setGiveRaiseError('');
+      setGiveRaiseError("");
       const res = await adminPortalService.confirmAdminRaise(pendingRaiseId);
       if (res.success) {
         setShowGiveRaiseModal(false);
         const [pendingRes, raiseRes] = await Promise.all([
-          adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id }),
-          adminPortalService.getRaiseRequests({ type: 'RAISE', status: 'APPROVED', employeeId: id }),
+          adminPortalService.getRaiseRequests({
+            status: "PENDING",
+            employeeId: id,
+          }),
+          adminPortalService.getRaiseRequests({
+            type: "RAISE",
+            status: "APPROVED",
+            employeeId: id,
+          }),
         ]);
-        if (pendingRes.success) setPendingRequests(pendingRes.data?.requests || []);
+        if (pendingRes.success)
+          setPendingRequests(pendingRes.data?.requests || []);
         if (raiseRes.success) setRaiseHistory(raiseRes.data?.requests || []);
-      } else setGiveRaiseError(res.error || 'Failed to confirm raise.');
-    } catch (e) { setGiveRaiseError(e.message || 'Failed to confirm raise.'); }
-    finally { setGiveRaiseLoading(false); }
+      } else setGiveRaiseError(res.error || "Failed to confirm raise.");
+    } catch (e) {
+      setGiveRaiseError(e.message || "Failed to confirm raise.");
+    } finally {
+      setGiveRaiseLoading(false);
+    }
   };
 
   const handleCancelPendingRaise = async () => {
     if (pendingRaiseId) {
-      try { await adminPortalService.rejectRaiseRequest(pendingRaiseId, 'Cancelled before confirmation'); } catch (_) {}
+      try {
+        await adminPortalService.rejectRaiseRequest(
+          pendingRaiseId,
+          "Cancelled before confirmation",
+        );
+      } catch (error) {
+        console.log(error);
+      }
     }
-    setGiveRaiseStep(1); setPendingRaiseId(null); setGiveRaiseError('');
+    setGiveRaiseStep(1);
+    setPendingRaiseId(null);
+    setGiveRaiseError("");
   };
 
   const handleImpersonate = async () => {
@@ -232,7 +380,7 @@ const EmployeeDetail = () => {
     setImpersonating(true);
     const result = await impersonate(employee.user.id);
     if (!result.success) {
-      alert(result.error || 'Failed to impersonate');
+      alert(result.error || "Failed to impersonate");
     }
     setImpersonating(false);
   };
@@ -276,29 +424,29 @@ const EmployeeDetail = () => {
     // Shared
     submitting,
     modalError,
-    approveKyc,
-    rejectKyc,
-    refresh,
+
     rateHistory,
   } = useEmployeeDetail(id);
 
   const openEditPayRate = () => {
     setEditPayRateForm({
-      newPayRate: employee?.payableRate ? Number(employee.payableRate).toFixed(2) : '',
-      effectiveDate: new Date().toISOString().split('T')[0],
-      reason: '',
+      newPayRate: employee?.payableRate
+        ? Number(employee.payableRate).toFixed(2)
+        : "",
+      effectiveDate: new Date().toISOString().split("T")[0],
+      reason: "",
     });
-    setEditPayRateError('');
+    setEditPayRateError("");
     setShowEditPayRate(true);
   };
 
   const handleEditPayRateSubmit = async () => {
     if (!editPayRateForm.reason?.trim()) {
-      setEditPayRateError('Reason is required');
+      setEditPayRateError("Reason is required");
       return;
     }
     setEditPayRateLoading(true);
-    setEditPayRateError('');
+    setEditPayRateError("");
     try {
       const response = await adminPortalService.editPayRate(id, {
         ...editPayRateForm,
@@ -307,38 +455,44 @@ const EmployeeDetail = () => {
       if (response.success) {
         setShowEditPayRate(false);
         // Re-fetch pending requests to show the new pending edit
-        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id });
+        const res = await adminPortalService.getRaiseRequests({
+          status: "PENDING",
+          employeeId: id,
+        });
         if (res.success) setPendingRequests(res.data?.requests || []);
       } else {
-        setEditPayRateError(response.error || 'Failed to submit pay rate edit');
+        setEditPayRateError(response.error || "Failed to submit pay rate edit");
       }
     } catch (err) {
-      setEditPayRateError(err.error || err.message || 'Failed to submit pay rate edit');
+      setEditPayRateError(
+        err.error || err.message || "Failed to submit pay rate edit",
+      );
     } finally {
       setEditPayRateLoading(false);
     }
   };
 
   const openEditBillRate = () => {
-    const currentBillRate = activeClient
-      ? (employee.billingRate ? Number(employee.billingRate).toFixed(2) : '')
-      : '';
+    const effectiveRate = activeClient?.hourlyRate || employee.billingRate;
+    const currentBillRate = effectiveRate
+      ? Number(effectiveRate).toFixed(2)
+      : "";
     setEditBillRateForm({
       newBillRate: currentBillRate,
-      effectiveDate: new Date().toISOString().split('T')[0],
-      reason: '',
+      effectiveDate: new Date().toISOString().split("T")[0],
+      reason: "",
     });
-    setEditBillRateError('');
+    setEditBillRateError("");
     setShowEditBillRate(true);
   };
 
   const handleEditBillRateSubmit = async () => {
     if (!editBillRateForm.reason?.trim()) {
-      setEditBillRateError('Reason is required');
+      setEditBillRateError("Reason is required");
       return;
     }
     setEditBillRateLoading(true);
-    setEditBillRateError('');
+    setEditBillRateError("");
     try {
       const response = await adminPortalService.editBillingRate(id, {
         clientId: activeClient?.client?.id,
@@ -346,13 +500,20 @@ const EmployeeDetail = () => {
       });
       if (response.success) {
         setShowEditBillRate(false);
-        const res = await adminPortalService.getRaiseRequests({ status: 'PENDING', employeeId: id });
+        const res = await adminPortalService.getRaiseRequests({
+          status: "PENDING",
+          employeeId: id,
+        });
         if (res.success) setPendingRequests(res.data?.requests || []);
       } else {
-        setEditBillRateError(response.error || 'Failed to submit billing rate edit');
+        setEditBillRateError(
+          response.error || "Failed to submit billing rate edit",
+        );
       }
     } catch (err) {
-      setEditBillRateError(err.error || err.message || 'Failed to submit billing rate edit');
+      setEditBillRateError(
+        err.error || err.message || "Failed to submit billing rate edit",
+      );
     } finally {
       setEditBillRateLoading(false);
     }
@@ -362,19 +523,19 @@ const EmployeeDetail = () => {
     if (employee?.terminationDate) {
       return <Badge variant="error">Terminated</Badge>;
     }
-    const status = employee?.user?.status || 'ACTIVE';
+    const status = employee?.user?.status || "ACTIVE";
     const variants = {
-      ACTIVE: 'success',
-      INACTIVE: 'default',
-      SUSPENDED: 'warning',
+      ACTIVE: "success",
+      INACTIVE: "default",
+      SUSPENDED: "warning",
     };
-    return <Badge variant={variants[status] || 'default'}>{status}</Badge>;
+    return <Badge variant={variants[status] || "default"}>{status}</Badge>;
   };
 
   const onDelete = async () => {
     const success = await handleDelete();
     if (success) {
-      navigate('/admin/employees');
+      navigate("/admin/employees");
     }
   };
 
@@ -389,42 +550,49 @@ const EmployeeDetail = () => {
   if (error || !employee) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" icon={ArrowLeft} onClick={() => navigate('/admin/employees')}>
+        <Button
+          variant="ghost"
+          icon={ArrowLeft}
+          onClick={() => navigate("/admin/employees")}
+        >
           Back to Employees
         </Button>
         <Card padding="lg">
           <div className="text-center py-8">
             <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Error Loading Employee</h3>
-            <p className="text-gray-500">{error || 'Employee not found'}</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              Error Loading Employee
+            </h3>
+            <p className="text-gray-500">{error || "Employee not found"}</p>
           </div>
         </Card>
       </div>
     );
   }
 
-  const activeClient = employee.clientAssignments?.find(a => a.isActive);
+  const activeClient = employee.clientAssignments?.find((a) => a.isActive);
   const groupAssignment = employee.groupAssignments?.[0];
   const isTerminated = !!employee.terminationDate;
-  const isPendingOnboarding = employee.onboardingStatus === 'PENDING_AGREEMENT';
-  const kycStatus = employee.kycStatus || 'PENDING';
+  const isPendingOnboarding = employee.onboardingStatus === "PENDING_AGREEMENT";
+  const kycStatus = employee.kycStatus || "PENDING";
 
   // Billing rate resolution
   const billingRateDisplay = employee.billingRate
     ? `$${Number(employee.billingRate).toFixed(2)}`
-    : '—';
+    : "—";
   const groupBillingRate = groupAssignment?.group?.billingRate
     ? `$${Number(groupAssignment.group.billingRate).toFixed(2)}`
-    : '—';
-  const deductionDisplay = employee.deduction !== null
-    ? `$${Number(employee.deduction).toFixed(2)}`
-    : '—';
+    : "—";
+  const deductionDisplay =
+    employee.deduction !== null
+      ? `$${Number(employee.deduction).toFixed(2)}`
+      : "—";
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => navigate('/admin/employees')}
+          onClick={() => navigate("/admin/employees")}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5 text-gray-500" />
@@ -441,21 +609,25 @@ const EmployeeDetail = () => {
             </h2>
             {getStatusBadge()}
           </div>
-          <p className="text-sm text-gray-500 truncate">{employee.user?.email}</p>
+          <p className="text-sm text-gray-500 truncate">
+            {employee.user?.email}
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {['SUPER_ADMIN', 'ADMIN'].includes(currentUser?.role) && !isTerminated && employee.user?.status === 'ACTIVE' && (
-            <Button
-              variant="outline"
-              size="sm"
-              icon={Eye}
-              className="text-blue-600 border-blue-300 hover:bg-blue-50"
-              onClick={handleImpersonate}
-              loading={impersonating}
-            >
-              Impersonate
-            </Button>
-          )}
+          {["SUPER_ADMIN", "ADMIN"].includes(currentUser?.role) &&
+            !isTerminated &&
+            employee.user?.status === "ACTIVE" && (
+              <Button
+                variant="outline"
+                size="sm"
+                icon={Eye}
+                className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                onClick={handleImpersonate}
+                loading={impersonating}
+              >
+                Impersonate
+              </Button>
+            )}
           <Button
             variant="outline"
             size="sm"
@@ -475,7 +647,7 @@ const EmployeeDetail = () => {
             >
               Reactivate
             </Button>
-          ) : employee.user?.status === 'ACTIVE' ? (
+          ) : employee.user?.status === "ACTIVE" ? (
             <Button
               variant="outline"
               size="sm"
@@ -502,36 +674,49 @@ const EmployeeDetail = () => {
       {isPendingOnboarding && (
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-xl flex items-center gap-3">
           <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-          <p className="text-sm text-yellow-700">Employee onboarding is pending — agreement not yet completed.</p>
+          <p className="text-sm text-yellow-700">
+            Employee onboarding is pending — agreement not yet completed.
+          </p>
         </div>
       )}
       {/* KYC Status */}
-      <div className={`rounded-2xl p-4 ${
-        kycStatus === 'APPROVED' ? 'bg-green-50 border border-green-200' :
-        kycStatus === 'REJECTED' ? 'bg-red-50 border border-red-200' :
-        kycStatus === 'RESUBMITTED' ? 'bg-blue-50 border border-blue-200' :
-        'bg-amber-50 border border-amber-200'
-      }`}>
+      <div
+        className={`rounded-2xl p-4 ${
+          kycStatus === "APPROVED"
+            ? "bg-green-50 border border-green-200"
+            : kycStatus === "REJECTED"
+              ? "bg-red-50 border border-red-200"
+              : kycStatus === "RESUBMITTED"
+                ? "bg-blue-50 border border-blue-200"
+                : "bg-amber-50 border border-amber-200"
+        }`}
+      >
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">KYC Status</p>
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              KYC Status
+            </p>
             <p className="text-sm text-gray-700 mt-1">
-              {kycStatus === 'APPROVED' && 'All identity documents have been approved. Employee can access the portal.'}
-              {kycStatus === 'PENDING' && 'KYC review is pending. Employee cannot access the portal until KYC is approved.'}
-              {kycStatus === 'REJECTED' && 'KYC was rejected. Employee has been emailed to re-upload documents.'}
-              {kycStatus === 'RESUBMITTED' && 'Employee has resubmitted their documents. Please review the updated documents.'}
+              {kycStatus === "APPROVED" &&
+                "All identity documents have been approved. Employee can access the portal."}
+              {kycStatus === "PENDING" &&
+                "KYC review is pending. Employee cannot access the portal until KYC is approved."}
+              {kycStatus === "REJECTED" &&
+                "KYC was rejected. Employee has been emailed to re-upload documents."}
+              {kycStatus === "RESUBMITTED" &&
+                "Employee has resubmitted their documents. Please review the updated documents."}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Badge
               variant={
-                kycStatus === 'APPROVED'
-                  ? 'success'
-                  : kycStatus === 'REJECTED'
-                    ? 'error'
-                    : kycStatus === 'RESUBMITTED'
-                      ? 'info'
-                      : 'warning'
+                kycStatus === "APPROVED"
+                  ? "success"
+                  : kycStatus === "REJECTED"
+                    ? "error"
+                    : kycStatus === "RESUBMITTED"
+                      ? "info"
+                      : "warning"
               }
             >
               {kycStatus}
@@ -551,7 +736,8 @@ const EmployeeDetail = () => {
         <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-3">
           <UserX className="w-5 h-5 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700">
-            This employee was terminated on <strong>{formatDate(employee.terminationDate)}</strong>.
+            This employee was terminated on{" "}
+            <strong>{formatDate(employee.terminationDate)}</strong>.
           </p>
         </div>
       )}
@@ -563,30 +749,51 @@ const EmployeeDetail = () => {
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-purple-500" />
               <p className="text-sm font-semibold text-purple-700">
-                {pendingRequests.length} Pending {pendingRequests.length === 1 ? 'Request' : 'Requests'}
+                {pendingRequests.length} Pending{" "}
+                {pendingRequests.length === 1 ? "Request" : "Requests"}
               </p>
             </div>
             <Link to="/admin/raise-requests">
-              <Button className="review-btn" variant="ghost" size="sm">Review</Button>
+              <Button className="review-btn" variant="ghost" size="sm">
+                Review
+              </Button>
             </Link>
           </div>
           <div className="space-y-1.5 ml-6">
             {pendingRequests.map((r) => (
               <div key={r.id} className="flex items-center gap-2 text-sm">
-                {r.type === 'BONUS' ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">Bonus</span>
-                ) : r.type === 'PAY_EDIT' ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">Pay Edit</span>
-                ) : r.type === 'BILLING_EDIT' ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">Bill Edit</span>
+                {r.type === "BONUS" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                    Bonus
+                  </span>
+                ) : r.type === "PAY_EDIT" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700">
+                    Pay Edit
+                  </span>
+                ) : r.type === "BILLING_EDIT" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                    Bill Edit
+                  </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Raise</span>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">
+                    Raise
+                  </span>
                 )}
                 <span className="text-gray-700">
-                  {r.type === 'BONUS' ? (
-                    <><span className="font-semibold">${Number(r.amount).toFixed(2)}</span> from {r.client.companyName}</>
+                  {r.type === "BONUS" ? (
+                    <>
+                      <span className="font-semibold">
+                        ${Number(r.amount).toFixed(2)}
+                      </span>{" "}
+                      from {r.client.companyName}
+                    </>
                   ) : (
-                    <><span className="font-semibold">${Number(r.billRate).toFixed(2)}</span> from {r.client.companyName}</>
+                    <>
+                      <span className="font-semibold">
+                        ${Number(r.billRate).toFixed(2)}
+                      </span>{" "}
+                      from {r.client.companyName}
+                    </>
                   )}
                 </span>
               </div>
@@ -599,19 +806,19 @@ const EmployeeDetail = () => {
       <div className="border-b border-gray-200">
         <nav className="flex gap-8">
           {[
-            { key: 'overview', label: 'Overview', icon: Mail },
-            { key: 'schedule', label: 'Schedule & Rates', icon: Calendar },
-            { key: 'compensation', label: 'Compensation', icon: DollarSign },
-            { key: 'time', label: 'Time & Stats', icon: Clock },
-            { key: 'billing', label: 'Billing History', icon: DollarSign },
+            { key: "overview", label: "Overview", icon: Mail },
+            { key: "schedule", label: "Schedule & Rates", icon: Calendar },
+            { key: "compensation", label: "Compensation", icon: DollarSign },
+            { key: "time", label: "Time & Stats", icon: Clock },
+            { key: "billing", label: "Billing History", icon: DollarSign },
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-1.5 ${
                 activeTab === tab.key
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? "border-primary text-primary"
+                  : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
               }`}
             >
               <tab.icon className="w-3.5 h-3.5" />
@@ -622,17 +829,39 @@ const EmployeeDetail = () => {
       </div>
 
       {/* Overview Tab */}
-      {activeTab === 'overview' && (
+      {activeTab === "overview" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <Card padding="md">
-            <h3 className="text-sm font-semibold text-gray-900 mb-2">Contact Information</h3>
+            <h3 className="text-sm font-semibold text-gray-900 mb-2">
+              Contact Information
+            </h3>
             <InfoRow label="Email" value={employee.user?.email} icon={Mail} />
-            <InfoRow label="Phone" value={employee.phone ? `${employee.countryCode || '+1'} ${employee.phone}` : null} icon={Phone} />
-            <InfoRow label="Personal Email" value={employee.personalEmail} icon={Mail} />
+            <InfoRow
+              label="Phone"
+              value={
+                employee.phone
+                  ? `${employee.countryCode || "+1"} ${employee.phone}`
+                  : null
+              }
+              icon={Phone}
+            />
+            <InfoRow
+              label="Personal Email"
+              value={employee.personalEmail}
+              icon={Mail}
+            />
             <InfoRow label="Address" value={employee.address} icon={MapPin} />
-            <InfoRow label="Hire Date" value={formatDate(employee.hireDate)} icon={Calendar} />
+            <InfoRow
+              label="Hire Date"
+              value={formatDate(employee.hireDate)}
+              icon={Calendar}
+            />
             {employee.terminationDate && (
-              <InfoRow label="Termination Date" value={formatDate(employee.terminationDate)} icon={UserX} />
+              <InfoRow
+                label="Termination Date"
+                value={formatDate(employee.terminationDate)}
+                icon={UserX}
+              />
             )}
           </Card>
 
@@ -640,9 +869,16 @@ const EmployeeDetail = () => {
             {/* Assignment */}
             <Card padding="md">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold text-gray-900">Assignment</h3>
-                <Button variant="ghost" size="sm" icon={UserPlus} onClick={openAssignModal}>
-                  {activeClient ? 'Reassign' : 'Assign'}
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Assignment
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={UserPlus}
+                  onClick={openAssignModal}
+                >
+                  {activeClient ? "Reassign" : "Assign"}
                 </Button>
               </div>
               {activeClient ? (
@@ -650,66 +886,92 @@ const EmployeeDetail = () => {
                   <InfoRow
                     label="Client"
                     value={
-                      <Link to={`/admin/clients/${activeClient.client?.id}`} className="text-primary hover:underline">
+                      <Link
+                        to={`/admin/clients/${activeClient.client?.id}`}
+                        className="text-primary hover:underline"
+                      >
                         {activeClient.client?.companyName}
                       </Link>
                     }
                     icon={Building2}
                   />
-                  <InfoRow label="Group" value={groupAssignment?.group?.name} icon={Users} />
+                  <InfoRow
+                    label="Group"
+                    value={groupAssignment?.group?.name}
+                    icon={Users}
+                  />
                 </div>
               ) : (
-                <p className="text-sm text-gray-400 py-2">Not assigned to any client</p>
+                <p className="text-sm text-gray-400 py-2">
+                  Not assigned to any client
+                </p>
               )}
             </Card>
 
             {/* Emergency Contacts */}
-            {employee.emergencyContacts && employee.emergencyContacts.length > 0 && (
-              <Card padding="md">
-                <h3 className="text-sm font-semibold text-gray-900 mb-2">Emergency Contacts</h3>
-                <div className="space-y-3">
-                  {employee.emergencyContacts.map((contact, i) => (
-                    <div key={contact.id || i} className="p-2.5 bg-gray-50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-900">{contact.name}</p>
-                      <div className="flex items-center gap-4 mt-1">
-                        <span className="text-xs text-gray-500 flex items-center gap-1">
-                          <Phone className="w-3 h-3" /> {contact.countryCode || '+1'} {contact.phone}
-                        </span>
-                        <span className="text-xs text-gray-400">{contact.relationship}</span>
+            {employee.emergencyContacts &&
+              employee.emergencyContacts.length > 0 && (
+                <Card padding="md">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                    Emergency Contacts
+                  </h3>
+                  <div className="space-y-3">
+                    {employee.emergencyContacts.map((contact, i) => (
+                      <div
+                        key={contact.id || i}
+                        className="p-2.5 bg-gray-50 rounded-lg"
+                      >
+                        <p className="text-sm font-medium text-gray-900">
+                          {contact.name}
+                        </p>
+                        <div className="flex items-center gap-4 mt-1">
+                          <span className="text-xs text-gray-500 flex items-center gap-1">
+                            <Phone className="w-3 h-3" />{" "}
+                            {contact.countryCode || "+1"} {contact.phone}
+                          </span>
+                          <span className="text-xs text-gray-400">
+                            {contact.relationship}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
-            )}
+                    ))}
+                  </div>
+                </Card>
+              )}
           </div>
         </div>
       )}
 
       {/* Schedule & Rates Tab */}
-      {activeTab === 'schedule' && (
+      {activeTab === "schedule" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Rates */}
           <Card padding="md">
             <h3 className="text-sm font-semibold text-gray-900 mb-2">Rates</h3>
             <InfoRow
               label="Payable Rate"
-              value={employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}` : null}
+              value={
+                employee.payableRate
+                  ? `$${Number(employee.payableRate).toFixed(2)}`
+                  : null
+              }
               icon={DollarSign}
             />
             <InfoRow
               label="Billing Rate"
-              value={billingRateDisplay !== '—' ? `${billingRateDisplay}` : null}
+              value={
+                billingRateDisplay !== "—" ? `${billingRateDisplay}` : null
+              }
               icon={DollarSign}
             />
-             <InfoRow
+            <InfoRow
               label="Deduction"
-              value={deductionDisplay !== '—' ? `${deductionDisplay}` : null}
+              value={deductionDisplay !== "—" ? `${deductionDisplay}` : null}
               icon={Minus}
             />
             <InfoRow
               label="Group Billing Rate"
-              value={groupBillingRate !== '—' ? `${groupBillingRate}` : null}
+              value={groupBillingRate !== "—" ? `${groupBillingRate}` : null}
               icon={Users}
             />
           </Card>
@@ -717,25 +979,34 @@ const EmployeeDetail = () => {
           {/* Work Schedule */}
           <Card padding="md">
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-gray-900">Work Schedule</h3>
+              <h3 className="text-sm font-semibold text-gray-900">
+                Work Schedule
+              </h3>
               <Link to={`/admin/schedules?employee=${id}`}>
-                <Button variant="ghost" size="sm" icon={Edit}>Edit</Button>
+                <Button variant="ghost" size="sm" icon={Edit}>
+                  Edit
+                </Button>
               </Link>
             </div>
             {schedules.length > 0 ? (
               <div className="space-y-1">
                 {DAYS_OF_WEEK.map((day, index) => {
-                  const schedule = schedules.find(s => s.dayOfWeek === index);
+                  const schedule = schedules.find((s) => s.dayOfWeek === index);
                   return (
                     <div
                       key={day}
-                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${schedule ? 'bg-green-50' : 'bg-gray-50'}`}
+                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${schedule ? "bg-green-50" : "bg-gray-50"}`}
                     >
-                      <span className={`text-xs font-medium ${schedule ? 'text-green-800' : 'text-gray-400'}`}>
+                      <span
+                        className={`text-xs font-medium ${schedule ? "text-green-800" : "text-gray-400"}`}
+                      >
                         {day.slice(0, 3)}
                       </span>
                       {schedule ? (
-                        <span className="text-xs text-green-700">{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
+                        <span className="text-xs text-green-700">
+                          {formatTime(schedule.startTime)} -{" "}
+                          {formatTime(schedule.endTime)}
+                        </span>
                       ) : (
                         <span className="text-xs text-gray-300">Off</span>
                       )}
@@ -747,34 +1018,73 @@ const EmployeeDetail = () => {
               <div className="text-center py-4 text-gray-400">
                 <Calendar className="w-8 h-8 mx-auto mb-1 text-gray-300" />
                 <p className="text-xs">No schedule configured</p>
-                <Link to={`/admin/schedules?employee=${id}`} className="text-primary hover:underline text-xs">Set up schedule</Link>
+                <Link
+                  to={`/admin/schedules?employee=${id}`}
+                  className="text-primary hover:underline text-xs"
+                >
+                  Set up schedule
+                </Link>
               </div>
             )}
           </Card>
 
           {/* Holiday Policy */}
-          {(employeePtoConfig?.effective || (activeClientHolidays && activeClientHolidays.length > 0)) && (
+          {(employeePtoConfig?.effective ||
+            (activeClientHolidays && activeClientHolidays.length > 0)) && (
             <Card padding="md">
-              <h3 className="text-sm font-semibold text-gray-900 mb-2">Holiday Policy</h3>
+              <h3 className="text-sm font-semibold text-gray-900 mb-2">
+                Holiday Policy
+              </h3>
               {employeePtoConfig?.effective && (
                 <>
-                  <InfoRow label="Paid Holidays" value={employeePtoConfig.effective.allowPaidHolidays ? 'Yes' : 'No'} icon={Calendar} />
-                  <InfoRow label="Unpaid Holidays" value={employeePtoConfig.effective.allowUnpaidHolidays ? 'Yes' : 'No'} icon={Calendar} />
+                  <InfoRow
+                    label="Paid Holidays"
+                    value={
+                      employeePtoConfig.effective.allowPaidHolidays
+                        ? "Yes"
+                        : "No"
+                    }
+                    icon={Calendar}
+                  />
+                  <InfoRow
+                    label="Unpaid Holidays"
+                    value={
+                      employeePtoConfig.effective.allowUnpaidHolidays
+                        ? "Yes"
+                        : "No"
+                    }
+                    icon={Calendar}
+                  />
                   {employeePtoConfig.effective.source && (
-                    <InfoRow label="Source" value={employeePtoConfig.effective.source === 'employee_override' ? 'Employee override' : 'Client policy'} icon={Edit} />
+                    <InfoRow
+                      label="Source"
+                      value={
+                        employeePtoConfig.effective.source ===
+                        "employee_override"
+                          ? "Employee override"
+                          : "Client policy"
+                      }
+                      icon={Edit}
+                    />
                   )}
                 </>
               )}
               {activeClientHolidays && activeClientHolidays.length > 0 && (
                 <>
-                  <h4 className="text-xs font-medium text-gray-500 mt-3 mb-1">Upcoming Holidays</h4>
+                  <h4 className="text-xs font-medium text-gray-500 mt-3 mb-1">
+                    Upcoming Holidays
+                  </h4>
                   <ul className="text-sm space-y-1">
-                    {activeClientHolidays.filter(h => new Date(h.date) >= new Date()).map((h) => (
-                      <li key={h.id} className="flex justify-between">
-                        <span>{formatDate(h.date)}</span>
-                        <span className="text-gray-700 truncate ml-2">{h.name}</span>
-                      </li>
-                    ))}
+                    {activeClientHolidays
+                      .filter((h) => new Date(h.date) >= new Date())
+                      .map((h) => (
+                        <li key={h.id} className="flex justify-between">
+                          <span>{formatDate(h.date)}</span>
+                          <span className="text-gray-700 truncate ml-2">
+                            {h.name}
+                          </span>
+                        </li>
+                      ))}
                   </ul>
                 </>
               )}
@@ -784,175 +1094,235 @@ const EmployeeDetail = () => {
       )}
 
       {/* Compensation Tab */}
-      {activeTab === 'compensation' && (() => {
-        const payRateHistory = rateHistory.filter(r => r.rateType === 'PAYABLE_RATE');
-        const billRateHistory = rateHistory.filter(r => r.rateType === 'BILLING_RATE' || r.rateType === 'HOURLY_RATE');
-        const latestPayChange = payRateHistory[0];
-        const latestBillChange = billRateHistory[0];
+      {activeTab === "compensation" &&
+        (() => {
+          const payRateHistory = rateHistory.filter(
+            (r) => r.rateType === "PAYABLE_RATE",
+          );
+          const billRateHistory = rateHistory.filter(
+            (r) =>
+              r.rateType === "BILLING_RATE" || r.rateType === "HOURLY_RATE",
+          );
+          const latestPayChange = payRateHistory[0];
+          const latestBillChange = billRateHistory[0];
 
-        return (
-          <div className="space-y-4">
-            {/* Employee Pay section */}
-            <Card padding="md">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-900">Employee Pay</h3>
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" icon={TrendingUp} className="text-blue-600 border-blue-300 hover:bg-blue-50" onClick={openGiveRaiseModal}>
-                    Give Raise
-                  </Button>
-                  <Button variant="outline" size="sm" icon={Gift} className="text-amber-600 border-amber-300 hover:bg-amber-50" onClick={openGiveBonusModal}>
-                    Give Bonus
-                  </Button>
-                  <Button variant="outline" size="sm" icon={Edit} onClick={openEditPayRate}>
-                    Edit Pay Rate
-                  </Button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Current Pay Rate</p>
-                  <p className="text-lg font-bold text-gray-900">
-                    {employee.payableRate ? `$${Number(employee.payableRate).toFixed(2)}/hr` : '—'}
-                  </p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-xs text-gray-500 mb-1">Effective Since</p>
-                  <p className="text-sm font-medium text-gray-700">
-                    {latestPayChange ? formatDate(latestPayChange.changeDate) : (employee.hireDate ? formatDate(employee.hireDate) : '—')}
-                  </p>
-                </div>
-              </div>
-              {(raiseHistory.length > 0 || bonusHistory.length > 0) && (() => {
-                const combined = [
-                  ...raiseHistory.map(r => ({ ...r, _type: 'RAISE' })),
-                  ...bonusHistory.map(b => ({ ...b, _type: 'BONUS' })),
-                ].sort((a, b) => new Date(b.effectiveDate || b.createdAt) - new Date(a.effectiveDate || a.createdAt));
-                return (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Raise & Bonus History</p>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-gray-50 border-b border-gray-200">
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Type</th>
-                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Amount</th>
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Coverage</th>
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Reason</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {combined.map((item) => (
-                            <tr key={item.id} className="hover:bg-gray-50/50">
-                              <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
-                                {new Date(item.effectiveDate || item.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                              </td>
-                              <td className="py-2 px-3">
-                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                                  item._type === 'RAISE' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-                                }`}>{item._type}</span>
-                              </td>
-                              <td className="py-2 px-3 text-center font-semibold whitespace-nowrap">
-                                {item._type === 'RAISE'
-                                  ? <span className="text-green-700">+${Number(item.employeeRaiseAmount ?? item.amount ?? 0).toFixed(2)}/hr</span>
-                                  : <span className="text-amber-700">${Number(item.amount ?? 0).toFixed(2)}</span>}
-                              </td>
-                              <td className="py-2 px-3 text-xs">
-                                {item.coverageType ? (
-                                  <span className={`px-2 py-0.5 rounded-full font-semibold ${
-                                    item.coverageType === 'FULL' ? 'bg-green-100 text-green-700' :
-                                    item.coverageType === 'PARTIAL' ? 'bg-yellow-100 text-yellow-700' :
-                                    'bg-gray-100 text-gray-600'
-                                  }`}>{item.coverageType}</span>
-                                ) : '—'}
-                              </td>
-                              <td className="py-2 px-3 text-gray-400 text-xs truncate max-w-[160px]">{item.reason || '—'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {payRateHistory.length > 0 && (
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Pay Rate History</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50/50 border-b border-gray-200">
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
-                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Old Rate</th>
-                          <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">New Rate</th>
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Changed By</th>
-                          <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {payRateHistory.map((r) => (
-                          <tr key={r.id} className="hover:bg-gray-50/50">
-                            <td className="py-2 px-3 text-gray-900 whitespace-nowrap">{formatDate(r.changeDate)}</td>
-                            <td className="py-2 px-3 text-center text-gray-500">{r.oldValue != null ? `$${Number(r.oldValue).toFixed(2)}` : '—'}</td>
-                            <td className="py-2 px-3 text-center font-semibold text-gray-900">{r.newValue != null ? `$${Number(r.newValue).toFixed(2)}` : '—'}</td>
-                            <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{r.changedByName || '—'}</td>
-                            <td className="py-2 px-3 text-gray-400 text-xs">{r.notes || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </Card>
-
-            {/* Billing Rate section */}
-            {activeClient && (
+          return (
+            <div className="space-y-4">
+              {/* Employee Pay section */}
               <Card padding="md">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold text-gray-900">Billing Rate</h3>
-                  <Button variant="outline" size="sm" icon={Edit} onClick={openEditBillRate}>
-                    Edit Billing Rate
-                  </Button>
+                  <h3 className="text-sm font-semibold text-gray-900">
+                    Employee Pay
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={TrendingUp}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      onClick={openGiveRaiseModal}
+                    >
+                      Give Raise
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={Gift}
+                      className="text-amber-600 border-amber-300 hover:bg-amber-50"
+                      onClick={openGiveBonusModal}
+                    >
+                      Give Bonus
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={Edit}
+                      onClick={openEditPayRate}
+                    >
+                      Edit Pay Rate
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 mb-1">Current Billing Rate</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      {employee.billingRate ? `$${Number(employee.billingRate).toFixed(2)}/hr` : '—'}
+                    <p className="text-xs text-gray-500 mb-1">
+                      Current Pay Rate
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">{activeClient.client?.companyName}</p>
+                    <p className="text-lg font-bold text-gray-900">
+                      {employee.payableRate
+                        ? `$${Number(employee.payableRate).toFixed(2)}/hr`
+                        : "—"}
+                    </p>
                   </div>
                   <div className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-xs text-gray-500 mb-1">Effective Since</p>
+                    <p className="text-xs text-gray-500 mb-1">
+                      Effective Since
+                    </p>
                     <p className="text-sm font-medium text-gray-700">
-                      {latestBillChange ? formatDate(latestBillChange.changeDate) : (employee.hireDate ? formatDate(employee.hireDate) : '—')}
+                      {latestPayChange
+                        ? formatDate(latestPayChange.changeDate)
+                        : employee.hireDate
+                          ? formatDate(employee.hireDate)
+                          : "—"}
                     </p>
                   </div>
                 </div>
-                {billRateHistory.length > 0 && (
+                {(raiseHistory.length > 0 || bonusHistory.length > 0) &&
+                  (() => {
+                    const combined = [
+                      ...raiseHistory.map((r) => ({ ...r, _type: "RAISE" })),
+                      ...bonusHistory.map((b) => ({ ...b, _type: "BONUS" })),
+                    ].sort(
+                      (a, b) =>
+                        new Date(b.effectiveDate || b.createdAt) -
+                        new Date(a.effectiveDate || a.createdAt),
+                    );
+                    return (
+                      <div className="mb-4">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                          Raise & Bonus History
+                        </p>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-gray-50 border-b border-gray-200">
+                                <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                  Date
+                                </th>
+                                <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                  Type
+                                </th>
+                                <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                  Amount
+                                </th>
+                                <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                  Coverage
+                                </th>
+                                <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                  Reason
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {combined.map((item) => (
+                                <tr
+                                  key={item.id}
+                                  className="hover:bg-gray-50/50"
+                                >
+                                  <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
+                                    {new Date(
+                                      item.effectiveDate || item.createdAt,
+                                    ).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </td>
+                                  <td className="py-2 px-3">
+                                    <span
+                                      className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+                                        item._type === "RAISE"
+                                          ? "bg-green-100 text-green-700"
+                                          : "bg-amber-100 text-amber-700"
+                                      }`}
+                                    >
+                                      {item._type}
+                                    </span>
+                                  </td>
+                                  <td className="py-2 px-3 text-center font-semibold whitespace-nowrap">
+                                    {item._type === "RAISE" ? (
+                                      <span className="text-green-700">
+                                        +$
+                                        {Number(
+                                          item.employeeRaiseAmount ??
+                                            item.amount ??
+                                            0,
+                                        ).toFixed(2)}
+                                        /hr
+                                      </span>
+                                    ) : (
+                                      <span className="text-amber-700">
+                                        ${Number(item.amount ?? 0).toFixed(2)}
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3 text-xs">
+                                    {item.coverageType ? (
+                                      <span
+                                        className={`px-2 py-0.5 rounded-full font-semibold ${
+                                          item.coverageType === "FULL"
+                                            ? "bg-green-100 text-green-700"
+                                            : item.coverageType === "PARTIAL"
+                                              ? "bg-yellow-100 text-yellow-700"
+                                              : "bg-gray-100 text-gray-600"
+                                        }`}
+                                      >
+                                        {item.coverageType}
+                                      </span>
+                                    ) : (
+                                      "—"
+                                    )}
+                                  </td>
+                                  <td className="py-2 px-3 text-gray-400 text-xs truncate max-w-[160px]">
+                                    {item.reason || "—"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                {payRateHistory.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Billing Rate History</p>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                      Pay Rate History
+                    </p>
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="bg-slate-50/50 border-b border-gray-200">
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Date</th>
-                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Old Rate</th>
-                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">New Rate</th>
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Changed By</th>
-                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">Notes</th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                              Date
+                            </th>
+                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                              Old Rate
+                            </th>
+                            <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                              New Rate
+                            </th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                              Changed By
+                            </th>
+                            <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                              Notes
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                          {billRateHistory.map((r) => (
+                          {payRateHistory.map((r) => (
                             <tr key={r.id} className="hover:bg-gray-50/50">
-                              <td className="py-2 px-3 text-gray-900 whitespace-nowrap">{formatDate(r.changeDate)}</td>
-                              <td className="py-2 px-3 text-center text-gray-500">{r.oldValue != null ? `$${Number(r.oldValue).toFixed(2)}` : '—'}</td>
-                              <td className="py-2 px-3 text-center font-semibold text-gray-900">{r.newValue != null ? `$${Number(r.newValue).toFixed(2)}` : '—'}</td>
-                              <td className="py-2 px-3 text-gray-500 whitespace-nowrap">{r.changedByName || '—'}</td>
-                              <td className="py-2 px-3 text-gray-400 text-xs">{r.notes || '—'}</td>
+                              <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
+                                {formatDate(r.changeDate)}
+                              </td>
+                              <td className="py-2 px-3 text-center text-gray-500">
+                                {r.oldValue !== null
+                                  ? `$${Number(r.oldValue).toFixed(2)}`
+                                  : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-center font-semibold text-gray-900">
+                                {r.newValue !== null
+                                  ? `$${Number(r.newValue).toFixed(2)}`
+                                  : "—"}
+                              </td>
+                              <td className="py-2 px-3 text-gray-500 whitespace-nowrap">
+                                {r.changedByName || "—"}
+                              </td>
+                              <td className="py-2 px-3 text-gray-400 text-xs">
+                                {r.notes || "—"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -961,32 +1331,148 @@ const EmployeeDetail = () => {
                   </div>
                 )}
               </Card>
-            )}
-          </div>
-        );
-      })()}
+
+              {/* Billing Rate section */}
+              {activeClient && (
+                <Card padding="md">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-900">
+                      Billing Rate
+                    </h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      icon={Edit}
+                      onClick={openEditBillRate}
+                    >
+                      Edit Billing Rate
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">
+                        Current Billing Rate
+                      </p>
+                      <p className="text-lg font-bold text-gray-900">
+                        {activeClient.hourlyRate || employee.billingRate
+                          ? `$${Number(activeClient.hourlyRate || employee.billingRate).toFixed(2)}/hr`
+                          : "—"}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {activeClient.client?.companyName}
+                      </p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg">
+                      <p className="text-xs text-gray-500 mb-1">
+                        Effective Since
+                      </p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {latestBillChange
+                          ? formatDate(latestBillChange.changeDate)
+                          : employee.hireDate
+                            ? formatDate(employee.hireDate)
+                            : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  {billRateHistory.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">
+                        Billing Rate History
+                      </p>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50/50 border-b border-gray-200">
+                              <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                Date
+                              </th>
+                              <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                Old Rate
+                              </th>
+                              <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                New Rate
+                              </th>
+                              <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                Changed By
+                              </th>
+                              <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2 px-3">
+                                Notes
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {billRateHistory.map((r) => (
+                              <tr key={r.id} className="hover:bg-gray-50/50">
+                                <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
+                                  {formatDate(r.changeDate)}
+                                </td>
+                                <td className="py-2 px-3 text-center text-gray-500">
+                                  {r.oldValue !== null
+                                    ? `$${Number(r.oldValue).toFixed(2)}`
+                                    : "—"}
+                                </td>
+                                <td className="py-2 px-3 text-center font-semibold text-gray-900">
+                                  {r.newValue !== null
+                                    ? `$${Number(r.newValue).toFixed(2)}`
+                                    : "—"}
+                                </td>
+                                <td className="py-2 px-3 text-gray-500 whitespace-nowrap">
+                                  {r.changedByName || "—"}
+                                </td>
+                                <td className="py-2 px-3 text-gray-400 text-xs">
+                                  {r.notes || "—"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
+          );
+        })()}
 
       {/* Time & Stats Tab */}
-      {activeTab === 'time' && (
+      {activeTab === "time" && (
         <div className="space-y-4">
           {/* Monthly Stats */}
           {timeStats ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
               <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200/60 rounded-lg px-3 py-2">
-                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">Total Hours</p>
-                <p className="text-xl font-bold text-blue-700 mt-0.5">{formatDuration(timeStats.totalMinutes)}</p>
+                <p className="text-[10px] font-semibold text-blue-500 uppercase tracking-wider">
+                  Total Hours
+                </p>
+                <p className="text-xl font-bold text-blue-700 mt-0.5">
+                  {formatDuration(timeStats.totalMinutes)}
+                </p>
               </div>
               <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-200/60 rounded-lg px-3 py-2">
-                <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wider">Overtime</p>
-                <p className="text-xl font-bold text-orange-700 mt-0.5">{formatDuration(timeStats.overtimeMinutes)}</p>
+                <p className="text-[10px] font-semibold text-orange-500 uppercase tracking-wider">
+                  Overtime
+                </p>
+                <p className="text-xl font-bold text-orange-700 mt-0.5">
+                  {formatDuration(timeStats.overtimeMinutes)}
+                </p>
               </div>
               <div className="bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200/60 rounded-lg px-3 py-2">
-                <p className="text-[10px] font-semibold text-green-500 uppercase tracking-wider">Work Days</p>
-                <p className="text-xl font-bold text-green-700 mt-0.5">{timeStats.workDays}</p>
+                <p className="text-[10px] font-semibold text-green-500 uppercase tracking-wider">
+                  Work Days
+                </p>
+                <p className="text-xl font-bold text-green-700 mt-0.5">
+                  {timeStats.workDays}
+                </p>
               </div>
               <div className="bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200/60 rounded-lg px-3 py-2">
-                <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wider">Avg/Day</p>
-                <p className="text-xl font-bold text-purple-700 mt-0.5">{formatDuration(timeStats.avgMinutesPerDay)}</p>
+                <p className="text-[10px] font-semibold text-purple-500 uppercase tracking-wider">
+                  Avg/Day
+                </p>
+                <p className="text-xl font-bold text-purple-700 mt-0.5">
+                  {formatDuration(timeStats.avgMinutesPerDay)}
+                </p>
               </div>
             </div>
           ) : (
@@ -1002,24 +1488,42 @@ const EmployeeDetail = () => {
           {recentRecords.length > 0 && (
             <Card padding="none" className="overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Recent Records</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Recent Records
+                </h3>
               </div>
               <table className="w-full">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-gray-200">
-                    <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
-                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Duration</th>
-                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Status</th>
+                    <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">
+                      Date
+                    </th>
+                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                      Duration
+                    </th>
+                    <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                      Status
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {recentRecords.map((record) => (
                     <tr key={record.id} className="hover:bg-gray-50/50">
-                      <td className="py-2.5 px-4 text-sm text-gray-900">{formatDate(record.date)}</td>
-                      <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">{formatDuration(record.totalMinutes || 0)}</td>
+                      <td className="py-2.5 px-4 text-sm text-gray-900">
+                        {formatDate(record.date)}
+                      </td>
+                      <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">
+                        {formatDuration(record.totalMinutes || 0)}
+                      </td>
                       <td className="py-2.5 px-3 text-center">
                         <Badge
-                          variant={record.status === 'APPROVED' ? 'success' : record.status === 'REJECTED' ? 'danger' : 'warning'}
+                          variant={
+                            record.status === "APPROVED"
+                              ? "success"
+                              : record.status === "REJECTED"
+                                ? "danger"
+                                : "warning"
+                          }
                           size="sm"
                         >
                           {record.status}
@@ -1035,7 +1539,7 @@ const EmployeeDetail = () => {
       )}
 
       {/* Billing History Tab */}
-      {activeTab === 'billing' && (
+      {activeTab === "billing" && (
         <div className="space-y-4">
           {rateHistory.length === 0 ? (
             <Card>
@@ -1047,52 +1551,93 @@ const EmployeeDetail = () => {
           ) : (
             <Card padding="none" className="overflow-hidden">
               <div className="px-4 py-3 border-b border-gray-100">
-                <h3 className="text-sm font-semibold text-gray-900">Rate Change History</h3>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Rate Change History
+                </h3>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-slate-50/50 border-b border-gray-200">
-                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">Date</th>
-                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Rate Type</th>
-                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Old Rate ($)</th>
-                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">New Rate ($)</th>
-                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Client</th>
-                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Changed By</th>
-                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">Source</th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-4">
+                        Date
+                      </th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        Rate Type
+                      </th>
+                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        Old Rate ($)
+                      </th>
+                      <th className="text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        New Rate ($)
+                      </th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        Client
+                      </th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        Changed By
+                      </th>
+                      <th className="text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider py-2.5 px-3">
+                        Source
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
                     {rateHistory.map((record) => {
-                      const oldVal = record.oldValue !== null ? Number(record.oldValue).toFixed(2) : '—';
-                      const newVal = record.newValue !== null ? Number(record.newValue).toFixed(2) : '—';
-                      const rateLabel = {
-                        BILLING_RATE: 'Billing Rate',
-                        PAYABLE_RATE: 'Payable Rate',
-                        HOURLY_RATE: 'Hourly Rate',
-                        OVERTIME_RATE: 'Overtime Rate',
-                      }[record.rateType] || record.rateType;
-                      const sourceLabel = {
-                        EMPLOYEE_PROFILE: 'Profile Update',
-                        CLIENT_ASSIGNMENT: 'Client Assignment',
-                        CLIENT_RAISE_REQUEST: 'Raise Request',
-                      }[record.source] || record.source;
+                      const oldVal =
+                        record.oldValue !== null
+                          ? Number(record.oldValue).toFixed(2)
+                          : "—";
+                      const newVal =
+                        record.newValue !== null
+                          ? Number(record.newValue).toFixed(2)
+                          : "—";
+                      const rateLabel =
+                        {
+                          BILLING_RATE: "Billing Rate",
+                          PAYABLE_RATE: "Payable Rate",
+                          HOURLY_RATE: "Hourly Rate",
+                          OVERTIME_RATE: "Overtime Rate",
+                        }[record.rateType] || record.rateType;
+                      const sourceLabel =
+                        {
+                          EMPLOYEE_PROFILE: "Profile Update",
+                          CLIENT_ASSIGNMENT: "Client Assignment",
+                          CLIENT_RAISE_REQUEST: "Raise Request",
+                        }[record.source] || record.source;
                       return (
                         <tr key={record.id} className="hover:bg-gray-50/50">
                           <td className="py-2.5 px-4 text-sm text-gray-900 whitespace-nowrap">
                             {formatDate(record.changeDate)}
                           </td>
                           <td className="py-2.5 px-3">
-                            <Badge variant={record.rateType === 'BILLING_RATE' ? 'primary' : 'default'} size="sm">
+                            <Badge
+                              variant={
+                                record.rateType === "BILLING_RATE"
+                                  ? "primary"
+                                  : "default"
+                              }
+                              size="sm"
+                            >
                               {rateLabel}
                             </Badge>
                           </td>
-                          <td className="py-2.5 px-3 text-center text-sm text-gray-500">{oldVal}</td>
-                          <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">{newVal}</td>
-                          <td className="py-2.5 px-3 text-sm text-gray-700 whitespace-nowrap">{record.clientName || '—'}</td>
-                          <td className="py-2.5 px-3 text-sm text-gray-500 whitespace-nowrap">{record.changedByName || '—'}</td>
+                          <td className="py-2.5 px-3 text-center text-sm text-gray-500">
+                            {oldVal}
+                          </td>
+                          <td className="py-2.5 px-3 text-center text-sm font-semibold text-gray-900">
+                            {newVal}
+                          </td>
+                          <td className="py-2.5 px-3 text-sm text-gray-700 whitespace-nowrap">
+                            {record.clientName || "—"}
+                          </td>
+                          <td className="py-2.5 px-3 text-sm text-gray-500 whitespace-nowrap">
+                            {record.changedByName || "—"}
+                          </td>
                           <td className="py-2.5 px-3">
-                            <span className="text-xs text-gray-400">{sourceLabel}</span>
+                            <span className="text-xs text-gray-400">
+                              {sourceLabel}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -1113,8 +1658,35 @@ const EmployeeDetail = () => {
         size="sm"
       >
         <div className="space-y-4">
+          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                Current
+              </p>
+              <p className="text-base font-bold text-gray-700">
+                {employee?.payableRate
+                  ? `$${Number(employee.payableRate).toFixed(2)}/hr`
+                  : "—"}
+              </p>
+            </div>
+            <div className="text-gray-300 text-lg font-light">→</div>
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                New
+              </p>
+              <p
+                className={`text-base font-bold ${editPayRateForm.newPayRate ? "text-primary" : "text-gray-300"}`}
+              >
+                {editPayRateForm.newPayRate
+                  ? `$${Number(editPayRateForm.newPayRate).toFixed(2)}/hr`
+                  : "—"}
+              </p>
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Pay Rate ($/hr)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              New Pay Rate ($/hr)
+            </label>
             <input
               type="number"
               min="0"
@@ -1122,26 +1694,42 @@ const EmployeeDetail = () => {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="e.g. 22.50"
               value={editPayRateForm.newPayRate}
-              onChange={(e) => setEditPayRateForm(f => ({ ...f, newPayRate: e.target.value }))}
+              onChange={(e) =>
+                setEditPayRateForm((f) => ({
+                  ...f,
+                  newPayRate: e.target.value,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Effective Date
+            </label>
             <input
               type="date"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               value={editPayRateForm.effectiveDate}
-              onChange={(e) => setEditPayRateForm(f => ({ ...f, effectiveDate: e.target.value }))}
+              onChange={(e) =>
+                setEditPayRateForm((f) => ({
+                  ...f,
+                  effectiveDate: e.target.value,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason <span className="text-red-500">*</span>
+            </label>
             <textarea
               rows={2}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
               placeholder="Reason for rate change..."
               value={editPayRateForm.reason}
-              onChange={(e) => setEditPayRateForm(f => ({ ...f, reason: e.target.value }))}
+              onChange={(e) =>
+                setEditPayRateForm((f) => ({ ...f, reason: e.target.value }))
+              }
             />
           </div>
           {editPayRateError && (
@@ -1150,12 +1738,18 @@ const EmployeeDetail = () => {
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" onClick={() => setShowEditPayRate(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setShowEditPayRate(false)}>
+              Cancel
+            </Button>
             <Button
               variant="primary"
               onClick={handleEditPayRateSubmit}
               loading={editPayRateLoading}
-              disabled={!editPayRateForm.newPayRate || !editPayRateForm.effectiveDate || !editPayRateForm.reason?.trim()}
+              disabled={
+                !editPayRateForm.newPayRate ||
+                !editPayRateForm.effectiveDate ||
+                !editPayRateForm.reason?.trim()
+              }
             >
               Submit for Approval
             </Button>
@@ -1171,8 +1765,35 @@ const EmployeeDetail = () => {
         size="sm"
       >
         <div className="space-y-4">
+          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                Current
+              </p>
+              <p className="text-base font-bold text-gray-700">
+                {activeClient?.hourlyRate || employee?.billingRate
+                  ? `$${Number(activeClient?.hourlyRate || employee?.billingRate).toFixed(2)}/hr`
+                  : "—"}
+              </p>
+            </div>
+            <div className="text-gray-300 text-lg font-light">→</div>
+            <div className="text-center">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                New
+              </p>
+              <p
+                className={`text-base font-bold ${editBillRateForm.newBillRate ? "text-primary" : "text-gray-300"}`}
+              >
+                {editBillRateForm.newBillRate
+                  ? `$${Number(editBillRateForm.newBillRate).toFixed(2)}/hr`
+                  : "—"}
+              </p>
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">New Billing Rate ($/hr)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              New Billing Rate ($/hr)
+            </label>
             <input
               type="number"
               min="0"
@@ -1180,26 +1801,42 @@ const EmployeeDetail = () => {
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="e.g. 35.00"
               value={editBillRateForm.newBillRate}
-              onChange={(e) => setEditBillRateForm(f => ({ ...f, newBillRate: e.target.value }))}
+              onChange={(e) =>
+                setEditBillRateForm((f) => ({
+                  ...f,
+                  newBillRate: e.target.value,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Effective Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Effective Date
+            </label>
             <input
               type="date"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               value={editBillRateForm.effectiveDate}
-              onChange={(e) => setEditBillRateForm(f => ({ ...f, effectiveDate: e.target.value }))}
+              onChange={(e) =>
+                setEditBillRateForm((f) => ({
+                  ...f,
+                  effectiveDate: e.target.value,
+                }))
+              }
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason <span className="text-red-500">*</span>
+            </label>
             <textarea
               rows={2}
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary resize-none"
               placeholder="Reason for rate change..."
               value={editBillRateForm.reason}
-              onChange={(e) => setEditBillRateForm(f => ({ ...f, reason: e.target.value }))}
+              onChange={(e) =>
+                setEditBillRateForm((f) => ({ ...f, reason: e.target.value }))
+              }
             />
           </div>
           {editBillRateError && (
@@ -1208,12 +1845,18 @@ const EmployeeDetail = () => {
             </div>
           )}
           <div className="flex justify-end gap-3 pt-2">
-            <Button variant="ghost" onClick={() => setShowEditBillRate(false)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setShowEditBillRate(false)}>
+              Cancel
+            </Button>
             <Button
               variant="primary"
               onClick={handleEditBillRateSubmit}
               loading={editBillRateLoading}
-              disabled={!editBillRateForm.newBillRate || !editBillRateForm.effectiveDate || !editBillRateForm.reason?.trim()}
+              disabled={
+                !editBillRateForm.newBillRate ||
+                !editBillRateForm.effectiveDate ||
+                !editBillRateForm.reason?.trim()
+              }
             >
               Submit for Approval
             </Button>
@@ -1230,11 +1873,17 @@ const EmployeeDetail = () => {
       >
         <div className="space-y-4">
           <p className="text-gray-600 text-sm">
-            This will set <strong>{employee.firstName} {employee.lastName}</strong>'s status to Inactive,
-            record the termination date, and deactivate all client assignments.
+            This will set{" "}
+            <strong>
+              {employee.firstName} {employee.lastName}
+            </strong>
+            's status to Inactive, record the termination date, and deactivate
+            all client assignments.
           </p>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Termination Date</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Termination Date
+            </label>
             <input
               type="date"
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
@@ -1275,8 +1924,11 @@ const EmployeeDetail = () => {
       >
         <div className="space-y-4">
           <p className="text-gray-600 text-sm">
-            Are you sure you want to delete <strong>{employee.firstName} {employee.lastName}</strong>?
-            This will deactivate their account.
+            Are you sure you want to delete{" "}
+            <strong>
+              {employee.firstName} {employee.lastName}
+            </strong>
+            ? This will deactivate their account.
           </p>
 
           {modalError && (
@@ -1310,18 +1962,26 @@ const EmployeeDetail = () => {
       >
         <div className="space-y-4">
           <p className="text-gray-600 text-sm">
-            Assign <strong>{employee.firstName} {employee.lastName}</strong> to a client:
+            Assign{" "}
+            <strong>
+              {employee.firstName} {employee.lastName}
+            </strong>{" "}
+            to a client:
           </p>
           {activeClient && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-700">
-                Currently assigned to <strong>{activeClient.client?.companyName}</strong>. Assigning to a new client will remove the existing assignment.
+                Currently assigned to{" "}
+                <strong>{activeClient.client?.companyName}</strong>. Assigning
+                to a new client will remove the existing assignment.
               </p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Select Client</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Select Client
+            </label>
             <select
               className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
               value={selectedClientId}
@@ -1338,7 +1998,9 @@ const EmployeeDetail = () => {
 
           {selectedClientId && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Select Group (Optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Select Group (Optional)
+              </label>
               <select
                 className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
                 value={selectedGroupId}
@@ -1351,7 +2013,9 @@ const EmployeeDetail = () => {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">Optionally add to a group under the selected client</p>
+              <p className="text-xs text-gray-400 mt-1">
+                Optionally add to a group under the selected client
+              </p>
             </div>
           )}
 
@@ -1377,181 +2041,567 @@ const EmployeeDetail = () => {
         </div>
       </Modal>
 
-    {/* Give Bonus Modal */}
-    {showGiveBonusModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => { if (giveBonusStep === 1) setShowGiveBonusModal(false); }}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-2 mb-5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 1 ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>1</div>
-            <div className={`flex-1 h-0.5 ${giveBonusStep >= 2 ? 'bg-amber-500' : 'bg-gray-200'}`} />
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 2 ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-400'}`}>2</div>
-          </div>
+      {/* Give Bonus Modal */}
+      {showGiveBonusModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          role="button"
+          tabIndex={0}
+          aria-label="Close bonus modal"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && giveBonusStep === 1)
+              setShowGiveBonusModal(false);
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === " ") && giveBonusStep === 1) {
+              e.preventDefault();
+              setShowGiveBonusModal(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4">
+            <div className="flex items-center gap-2 mb-5">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 1 ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-400"}`}
+              >
+                1
+              </div>
+              <div
+                className={`flex-1 h-0.5 ${giveBonusStep >= 2 ? "bg-amber-500" : "bg-gray-200"}`}
+              />
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveBonusStep >= 2 ? "bg-amber-500 text-white" : "bg-gray-100 text-gray-400"}`}
+              >
+                2
+              </div>
+            </div>
 
-          {giveBonusStep === 1 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Give a Bonus — {employee?.firstName} {employee?.lastName}</h3>
-              <div className="space-y-4">
-                {/* Client selector */}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Client</label>
-                  <select className="input w-full" value={giveBonusForm.clientId} onChange={e => setGiveBonusForm({ ...giveBonusForm, clientId: e.target.value })}>
-                    <option value="">Select client...</option>
-                    {employee?.clientAssignments?.filter(a => a.isActive).map(a => (
-                      <option key={a.client.id} value={a.client.id}>{a.client.companyName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Bonus Amount ($)</label>
-                  <input type="number" step="0.01" min="0.01" value={giveBonusForm.amount} onChange={e => setGiveBonusForm({ ...giveBonusForm, amount: e.target.value })} placeholder="e.g. 500.00" className="input w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">Who covers the bonus?</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[{ key: 'FULL', label: 'Full', desc: 'Client pays all' }, { key: 'PARTIAL', label: 'Partial', desc: 'Client pays part' }, { key: 'NONE', label: 'None', desc: 'Admin absorbs' }].map(opt => (
-                      <button key={opt.key} type="button" onClick={() => setGiveBonusForm({ ...giveBonusForm, coverageType: opt.key })} className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveBonusForm.coverageType === opt.key ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <p className={`text-sm font-semibold ${giveBonusForm.coverageType === opt.key ? 'text-amber-700' : 'text-gray-700'}`}>{opt.label}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                {giveBonusForm.coverageType === 'PARTIAL' && (
+            {giveBonusStep === 1 && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Give a Bonus — {employee?.firstName} {employee?.lastName}
+                </h3>
+                <div className="space-y-4">
+                  {/* Client display */}
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">Client covers ($)</label>
-                    <input type="number" step="0.01" min="0.01" value={giveBonusForm.clientCoveredAmount} onChange={e => setGiveBonusForm({ ...giveBonusForm, clientCoveredAmount: e.target.value })} placeholder="e.g. 250.00" className="input w-full" />
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Client
+                    </label>
+                    <div className="input w-full bg-gray-50 text-gray-700 cursor-default flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      {employee?.clientAssignments?.find((a) => a.isActive)
+                        ?.client?.companyName || "—"}
+                    </div>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Bonus Amount ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={giveBonusForm.amount}
+                      onChange={(e) =>
+                        setGiveBonusForm({
+                          ...giveBonusForm,
+                          amount: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. 500.00"
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Who covers the bonus?
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: "FULL", label: "Full", desc: "Client pays all" },
+                        {
+                          key: "PARTIAL",
+                          label: "Partial",
+                          desc: "Client pays part",
+                        },
+                        { key: "NONE", label: "None", desc: "Admin absorbs" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() =>
+                            setGiveBonusForm({
+                              ...giveBonusForm,
+                              coverageType: opt.key,
+                            })
+                          }
+                          className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveBonusForm.coverageType === opt.key ? "border-amber-500 bg-amber-50" : "border-gray-200 hover:border-gray-300"}`}
+                        >
+                          <p
+                            className={`text-sm font-semibold ${giveBonusForm.coverageType === opt.key ? "text-amber-700" : "text-gray-700"}`}
+                          >
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {giveBonusForm.coverageType === "PARTIAL" && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">
+                        Client covers ($)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={giveBonusForm.clientCoveredAmount}
+                        onChange={(e) =>
+                          setGiveBonusForm({
+                            ...giveBonusForm,
+                            clientCoveredAmount: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. 250.00"
+                        className="input w-full"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Effective Payroll Date
+                    </label>
+                    <input
+                      type="date"
+                      value={giveBonusForm.effectiveDate}
+                      onChange={(e) =>
+                        setGiveBonusForm({
+                          ...giveBonusForm,
+                          effectiveDate: e.target.value,
+                        })
+                      }
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Reason (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={giveBonusForm.reason}
+                      onChange={(e) =>
+                        setGiveBonusForm({
+                          ...giveBonusForm,
+                          reason: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Q1 performance bonus"
+                      className="input w-full"
+                    />
+                  </div>
+                  {giveBonusError && (
+                    <p className="text-sm text-red-600">{giveBonusError}</p>
+                  )}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowGiveBonusModal(false)}
+                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGiveBonusSubmit}
+                      disabled={giveBonusLoading}
+                      className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {giveBonusLoading && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}{" "}
+                      Review →
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {giveBonusStep === 2 && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Confirm Bonus
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Review and confirm before applying.
+                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2 text-sm mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Employee</span>
+                    <span className="font-semibold">
+                      {employee?.firstName} {employee?.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Amount</span>
+                    <span className="font-bold text-amber-700">
+                      ${parseFloat(giveBonusForm.amount).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Coverage</span>
+                    <span className="font-medium">
+                      {giveBonusForm.coverageType}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Effective Date</span>
+                    <span className="font-medium">
+                      {giveBonusForm.effectiveDate}
+                    </span>
+                  </div>
+                  {giveBonusForm.reason && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Reason</span>
+                      <span className="font-medium">
+                        {giveBonusForm.reason}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {giveBonusError && (
+                  <p className="text-sm text-red-600 mb-3">{giveBonusError}</p>
                 )}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Effective Payroll Date</label>
-                  <input type="date" value={giveBonusForm.effectiveDate} onChange={e => setGiveBonusForm({ ...giveBonusForm, effectiveDate: e.target.value })} className="input w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Reason (optional)</label>
-                  <input type="text" value={giveBonusForm.reason} onChange={e => setGiveBonusForm({ ...giveBonusForm, reason: e.target.value })} placeholder="e.g. Q1 performance bonus" className="input w-full" />
-                </div>
-                {giveBonusError && <p className="text-sm text-red-600">{giveBonusError}</p>}
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowGiveBonusModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                  <button type="button" onClick={handleGiveBonusSubmit} disabled={giveBonusLoading} className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                    {giveBonusLoading && <Loader2 className="w-4 h-4 animate-spin" />} Review →
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelPendingBonus}
+                    className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmBonus}
+                    disabled={giveBonusLoading}
+                    className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {giveBonusLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}{" "}
+                    Confirm &amp; Apply
                   </button>
                 </div>
-              </div>
-            </>
-          )}
-
-          {giveBonusStep === 2 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Bonus</h3>
-              <p className="text-sm text-gray-500 mb-4">Review and confirm before applying.</p>
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 space-y-2 text-sm mb-4">
-                <div className="flex justify-between"><span className="text-gray-600">Employee</span><span className="font-semibold">{employee?.firstName} {employee?.lastName}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Amount</span><span className="font-bold text-amber-700">${parseFloat(giveBonusForm.amount).toFixed(2)}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Coverage</span><span className="font-medium">{giveBonusForm.coverageType}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Effective Date</span><span className="font-medium">{giveBonusForm.effectiveDate}</span></div>
-                {giveBonusForm.reason && <div className="flex justify-between"><span className="text-gray-600">Reason</span><span className="font-medium">{giveBonusForm.reason}</span></div>}
-              </div>
-              {giveBonusError && <p className="text-sm text-red-600 mb-3">{giveBonusError}</p>}
-              <div className="flex gap-3">
-                <button type="button" onClick={handleCancelPendingBonus} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back</button>
-                <button type="button" onClick={handleConfirmBonus} disabled={giveBonusLoading} className="flex-1 px-4 py-2 rounded-lg bg-amber-500 text-white text-sm font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {giveBonusLoading && <Loader2 className="w-4 h-4 animate-spin" />} Confirm &amp; Apply
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    )}
-
-    {/* Give Raise Modal */}
-    {showGiveRaiseModal && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => { if (giveRaiseStep === 1) setShowGiveRaiseModal(false); }}>
-        <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center gap-2 mb-5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 1 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>1</div>
-            <div className={`flex-1 h-0.5 ${giveRaiseStep >= 2 ? 'bg-blue-500' : 'bg-gray-200'}`} />
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 2 ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>2</div>
+              </>
+            )}
           </div>
+        </div>
+      )}
 
-          {giveRaiseStep === 1 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Give a Raise — {employee?.firstName} {employee?.lastName}</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Client</label>
-                  <select className="input w-full" value={giveRaiseForm.clientId} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, clientId: e.target.value })}>
-                    <option value="">Select client...</option>
-                    {employee?.clientAssignments?.filter(a => a.isActive).map(a => (
-                      <option key={a.client.id} value={a.client.id}>{a.client.companyName}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Employee raise ($/hr)</label>
-                  <input type="number" step="0.01" min="0.01" value={giveRaiseForm.employeeRaiseAmount} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, employeeRaiseAmount: e.target.value })} placeholder="e.g. 2.00" className="input w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-2">Who covers the raise?</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[{ key: 'FULL', label: 'Full', desc: 'Client pays all' }, { key: 'PARTIAL', label: 'Partial', desc: 'Client pays part' }, { key: 'NONE', label: 'None', desc: 'Admin absorbs' }].map(opt => (
-                      <button key={opt.key} type="button" onClick={() => setGiveRaiseForm({ ...giveRaiseForm, coverageType: opt.key })} className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveRaiseForm.coverageType === opt.key ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}`}>
-                        <p className={`text-sm font-semibold ${giveRaiseForm.coverageType === opt.key ? 'text-blue-700' : 'text-gray-700'}`}>{opt.label}</p>
-                        <p className="text-[10px] text-gray-500 mt-0.5">{opt.desc}</p>
-                      </button>
-                    ))}
+      {/* Give Raise Modal */}
+      {showGiveRaiseModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          role="button"
+          tabIndex={0}
+          aria-label="Close raise modal"
+          onClick={() => {
+            if (giveRaiseStep === 1) setShowGiveRaiseModal(false);
+          }}
+          onKeyDown={(e) => {
+            if ((e.key === "Enter" || e.key === " ") && giveRaiseStep === 1) {
+              e.preventDefault();
+              setShowGiveRaiseModal(false);
+            }
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-lg mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-5">
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 1 ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-400"}`}
+              >
+                1
+              </div>
+              <div
+                className={`flex-1 h-0.5 ${giveRaiseStep >= 2 ? "bg-blue-500" : "bg-gray-200"}`}
+              />
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${giveRaiseStep >= 2 ? "bg-blue-500 text-white" : "bg-gray-100 text-gray-400"}`}
+              >
+                2
+              </div>
+            </div>
+
+            {giveRaiseStep === 1 && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                  Give a Raise — {employee?.firstName} {employee?.lastName}
+                </h3>
+                {/* <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 mb-4">
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                      Current Rate
+                    </p>
+                    <p className="text-base font-bold text-gray-700">
+                      {employee?.payableRate
+                        ? `$${Number(employee.payableRate).toFixed(2)}/hr`
+                        : "—"}
+                    </p>
                   </div>
-                </div>
-                {giveRaiseForm.coverageType === 'PARTIAL' && (
+                  <div className="text-gray-300 text-lg font-light">→</div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
+                      After Raise
+                    </p>
+                    <p
+                      className={`text-base font-bold ${giveRaiseForm.employeeRaiseAmount && employee?.payableRate ? "text-green-600" : "text-gray-300"}`}
+                    >
+                      {giveRaiseForm.employeeRaiseAmount &&
+                      employee?.payableRate
+                        ? `$${(Number(employee.payableRate) + Number(giveRaiseForm.employeeRaiseAmount)).toFixed(2)}/hr`
+                        : "—"}
+                    </p>
+                  </div>
+                </div> */}
+                <div className="space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">Client covers ($/hr)</label>
-                    <input type="number" step="0.01" min="0.01" value={giveRaiseForm.clientCoveredAmount} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, clientCoveredAmount: e.target.value })} placeholder="e.g. 1.00" className="input w-full" />
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Client
+                    </label>
+                    <div className="input w-full bg-gray-50 text-gray-700 cursor-default flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      {employee?.clientAssignments?.find((a) => a.isActive)
+                        ?.client?.companyName || "—"}
+                    </div>
                   </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-2">
+                      Who covers the raise?
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { key: "FULL", label: "Full", desc: "Client pays all" },
+                        {
+                          key: "PARTIAL",
+                          label: "Partial",
+                          desc: "Client pays part",
+                        },
+                        { key: "NONE", label: "None", desc: "Admin absorbs" },
+                      ].map((opt) => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() =>
+                            setGiveRaiseForm({
+                              ...giveRaiseForm,
+                              coverageType: opt.key,
+                            })
+                          }
+                          className={`p-2.5 rounded-lg border-2 text-left transition-colors ${giveRaiseForm.coverageType === opt.key ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"}`}
+                        >
+                          <p
+                            className={`text-sm font-semibold ${giveRaiseForm.coverageType === opt.key ? "text-blue-700" : "text-gray-700"}`}
+                          >
+                            {opt.label}
+                          </p>
+                          <p className="text-[10px] text-gray-500 mt-0.5">
+                            {opt.desc}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {giveRaiseForm.coverageType === "PARTIAL" && (
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-1">
+                        Client covers ($/hr)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        value={giveRaiseForm.clientCoveredAmount}
+                        onChange={(e) =>
+                          setGiveRaiseForm({
+                            ...giveRaiseForm,
+                            clientCoveredAmount: e.target.value,
+                          })
+                        }
+                        placeholder="e.g. 1.00"
+                        className="input w-full"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Employee raise ($/hr)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={giveRaiseForm.employeeRaiseAmount}
+                      onChange={(e) =>
+                        setGiveRaiseForm({
+                          ...giveRaiseForm,
+                          employeeRaiseAmount: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. 2.00"
+                      className="input w-full"
+                    />
+                    {(() => {
+                      const currentRate = employee?.payableRate ? Number(employee.payableRate) : null;
+                      const raise = parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
+                      if (!currentRate && raise === 0) return null;
+                      const newRate = (currentRate ?? 0) + raise;
+                      return (
+                        <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 whitespace-nowrap">
+                          {raise > 0
+                            ? `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr + Raise: $${raise.toFixed(2)}/hr = New Rate: $${newRate.toFixed(2)}/hr`
+                            : `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr`}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Effective Date
+                    </label>
+                    <input
+                      type="date"
+                      value={giveRaiseForm.effectiveDate}
+                      onChange={(e) =>
+                        setGiveRaiseForm({
+                          ...giveRaiseForm,
+                          effectiveDate: e.target.value,
+                        })
+                      }
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 block mb-1">
+                      Reason (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={giveRaiseForm.reason}
+                      onChange={(e) =>
+                        setGiveRaiseForm({
+                          ...giveRaiseForm,
+                          reason: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. Annual review"
+                      className="input w-full"
+                    />
+                  </div>
+                  {giveRaiseError && (
+                    <p className="text-sm text-red-600">{giveRaiseError}</p>
+                  )}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowGiveRaiseModal(false)}
+                      className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGiveRaiseSubmit}
+                      disabled={giveRaiseLoading}
+                      className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {giveRaiseLoading && (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      )}{" "}
+                      Review →
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {giveRaiseStep === 2 && (
+              <>
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Confirm Raise
+                </h3>
+                <p className="text-sm text-gray-500 mb-4">
+                  Review and confirm before applying.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-sm mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Employee</span>
+                    <span className="font-semibold">
+                      {employee?.firstName} {employee?.lastName}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Raise Amount</span>
+                    <span className="font-bold text-blue-700">
+                      +$
+                      {parseFloat(giveRaiseForm.employeeRaiseAmount).toFixed(2)}
+                      /hr
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Coverage</span>
+                    <span className="font-medium">
+                      {giveRaiseForm.coverageType}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Effective Date</span>
+                    <span className="font-medium">
+                      {giveRaiseForm.effectiveDate}
+                    </span>
+                  </div>
+                  {giveRaiseForm.reason && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Reason</span>
+                      <span className="font-medium">
+                        {giveRaiseForm.reason}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {giveRaiseError && (
+                  <p className="text-sm text-red-600 mb-3">{giveRaiseError}</p>
                 )}
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Effective Date</label>
-                  <input type="date" value={giveRaiseForm.effectiveDate} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, effectiveDate: e.target.value })} className="input w-full" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-gray-700 block mb-1">Reason (optional)</label>
-                  <input type="text" value={giveRaiseForm.reason} onChange={e => setGiveRaiseForm({ ...giveRaiseForm, reason: e.target.value })} placeholder="e.g. Annual review" className="input w-full" />
-                </div>
-                {giveRaiseError && <p className="text-sm text-red-600">{giveRaiseError}</p>}
-                <div className="flex gap-3 pt-1">
-                  <button type="button" onClick={() => setShowGiveRaiseModal(false)} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
-                  <button type="button" onClick={handleGiveRaiseSubmit} disabled={giveRaiseLoading} className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                    {giveRaiseLoading && <Loader2 className="w-4 h-4 animate-spin" />} Review →
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={handleCancelPendingRaise}
+                    className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleConfirmRaise}
+                    disabled={giveRaiseLoading}
+                    className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {giveRaiseLoading && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}{" "}
+                    Confirm &amp; Apply
                   </button>
                 </div>
-              </div>
-            </>
-          )}
-
-          {giveRaiseStep === 2 && (
-            <>
-              <h3 className="text-lg font-semibold text-gray-900 mb-1">Confirm Raise</h3>
-              <p className="text-sm text-gray-500 mb-4">Review and confirm before applying.</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2 text-sm mb-4">
-                <div className="flex justify-between"><span className="text-gray-600">Employee</span><span className="font-semibold">{employee?.firstName} {employee?.lastName}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Raise Amount</span><span className="font-bold text-blue-700">+${parseFloat(giveRaiseForm.employeeRaiseAmount).toFixed(2)}/hr</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Coverage</span><span className="font-medium">{giveRaiseForm.coverageType}</span></div>
-                <div className="flex justify-between"><span className="text-gray-600">Effective Date</span><span className="font-medium">{giveRaiseForm.effectiveDate}</span></div>
-                {giveRaiseForm.reason && <div className="flex justify-between"><span className="text-gray-600">Reason</span><span className="font-medium">{giveRaiseForm.reason}</span></div>}
-              </div>
-              {giveRaiseError && <p className="text-sm text-red-600 mb-3">{giveRaiseError}</p>}
-              <div className="flex gap-3">
-                <button type="button" onClick={handleCancelPendingRaise} className="flex-1 px-4 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50">← Back</button>
-                <button type="button" onClick={handleConfirmRaise} disabled={giveRaiseLoading} className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {giveRaiseLoading && <Loader2 className="w-4 h-4 animate-spin" />} Confirm &amp; Apply
-                </button>
-              </div>
-            </>
-          )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
-    )}
-
+      )}
     </div>
   );
 };

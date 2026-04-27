@@ -2452,3 +2452,87 @@ export const shiftEndResponse = async (req: AuthenticatedRequest, res: Response)
     res.status(500).json({ success: false, error: 'Failed to process shift end response' });
   }
 };
+
+// Approve manual time entry
+export const approveManualEntry = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const adminId = req.user?.userId;
+
+    if (!adminId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const timeRecord = await prisma.timeRecord.findUnique({
+      where: { id },
+    });
+
+    if (!timeRecord) {
+      res.status(404).json({ success: false, message: 'Manual entry not found' });
+      return;
+    }
+
+    if (!timeRecord.isManual) {
+      res.status(400).json({ success: false, message: 'Not a manual entry' });
+      return;
+    }
+
+    await prisma.timeRecord.update({
+      where: { id },
+      data: {
+        status: 'APPROVED',
+        approvedAt: new Date(),
+        approvedBy: adminId,
+      },
+    });
+
+    res.json({ success: true, message: 'Manual entry approved successfully' });
+  } catch (error: any) {
+    console.error('Approve manual entry error:', error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to approve manual entry' });
+  }
+};
+
+// Reject manual time entry
+export const rejectManualEntry = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const reason = req.body?.reason as string | undefined;
+    const adminId = req.user?.userId;
+
+    if (!adminId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    const timeRecord = await prisma.timeRecord.findUnique({
+      where: { id },
+    });
+
+    if (!timeRecord) {
+      res.status(404).json({ success: false, message: 'Manual entry not found' });
+      return;
+    }
+
+    if (!timeRecord.isManual) {
+      res.status(400).json({ success: false, message: 'Not a manual entry' });
+      return;
+    }
+
+    await prisma.timeRecord.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        rejectionReason: reason || null,
+        rejectedAt: new Date(),
+        rejectedBy: adminId,
+      },
+    });
+
+    res.json({ success: true, message: 'Manual entry rejected successfully' });
+  } catch (error: any) {
+    console.error('Reject manual entry error:', error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to reject manual entry' });
+  }
+};

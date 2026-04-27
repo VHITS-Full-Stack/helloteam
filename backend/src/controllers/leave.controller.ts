@@ -574,10 +574,13 @@ export const getLeaveHistory = async (req: AuthenticatedRequest, res: Response):
     });
 
     // Add calculated days to each request
-    const requestsWithDays = requests.map(request => ({
-      ...request,
-      requestedDays: request.requestedDays ?? calculateDays(new Date(request.startDate), new Date(request.endDate)),
-    }));
+    const requestsWithDays = requests.map(request => {
+      const requestAny = request as any;
+      return {
+        ...request,
+        requestedDays: requestAny.requestedDays ?? calculateDays(new Date(request.startDate), new Date(request.endDate)),
+      };
+    });
 
     res.json({
       success: true,
@@ -637,7 +640,7 @@ export const cancelLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     await prisma.leaveRequest.update({
       where: { id: requestId },
       data: {
-        status: 'CANCELLED',
+        status: 'CANCELLED' as LeaveStatus,
         rejectedAt: new Date(),
         rejectedBy: employee.id,
         rejectionReason: reason || 'Cancelled by employee',

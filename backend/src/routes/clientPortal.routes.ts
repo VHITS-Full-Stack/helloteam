@@ -1,4 +1,6 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
+import prisma from '../config/database';
+import { AuthenticatedRequest } from '../types';
 import {
   getClientDashboardStats,
   getClientWorkforce,
@@ -202,7 +204,7 @@ router.delete('/groups/:groupId/employees/:employeeId', removeEmployeeFromClient
 // BONUSES & RAISES ROUTES
 // ============================================
 router.get('/employees/with-rates', getEmployeesWithRates);
-router.get('/test-employees', async (req, res) => {
+router.get('/test-employees', async (req: AuthenticatedRequest, res: Response) => {
   // Test endpoint - remove after debugging
   const userId = req.user?.userId;
   const client = await prisma.client.findFirst({ where: { userId } });

@@ -13,6 +13,8 @@ import {
   getManualEntries,
   getSessionLogs,
   shiftEndResponse,
+  approveManualEntry,
+  rejectManualEntry,
 } from '../controllers/workSession.controller';
 import { authenticate, authorizeRoles } from '../middleware/auth.middleware';
 
@@ -50,5 +52,9 @@ router.get('/weekly-summary', getWeeklySummary);
 
 // Session logs
 router.get('/:sessionId/logs', getSessionLogs);
+
+// Admin: approve/reject manual entries
+router.patch('/manual-entry/:id/approve', authenticate, authorizeRoles(['ADMIN']), approveManualEntry);
+router.patch('/manual-entry/:id/reject', authenticate, authorizeRoles(['ADMIN']), rejectManualEntry);
 
 export default router;

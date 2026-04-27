@@ -52,7 +52,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = {};
+    const where: any = { user: {} };
 
     if (search) {
       const searchTerm = (search as string).trim();
@@ -82,7 +82,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
     }
 
     if (status) {
-      where.user = { ...where.user, status: status as string };
+      where.user.status = status as string;
     }
 
     if (clientId) {
