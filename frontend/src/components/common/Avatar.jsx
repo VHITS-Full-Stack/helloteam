@@ -32,7 +32,7 @@ const Avatar = ({
 
   return (
     <div className="relative inline-block">
-      {src ? (
+      {src && src !== 'undefined' && src !== 'null' ? (
         <img
           src={src}
           alt={alt || name}
