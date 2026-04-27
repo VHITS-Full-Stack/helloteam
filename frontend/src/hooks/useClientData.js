@@ -31,6 +31,7 @@ function useClientList() {
   });
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
+  const prevFiltersRef = useRef({ status: '', startDate: '', endDate: '' });
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showGroupsModal, setShowGroupsModal] = useState(false);
   const [groupsModalClient, setGroupsModalClient] = useState(null);
@@ -79,6 +80,8 @@ function useClientList() {
       fetchingClientsRef.current = false;
     }
   }, [pagination.page, pagination.limit]);
+  const fetchClientsRef = useRef(fetchClients);
+  fetchClientsRef.current = fetchClients;
 
   const fetchStats = async () => {
     if (fetchingStatsRef.current) return;
