@@ -52,7 +52,7 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
     const skip = (pageNum - 1) * limitNum;
 
     // Build where clause
-    const where: any = { user: {} };
+    const where: any = {};
 
     if (search) {
       const searchTerm = (search as string).trim();
@@ -62,13 +62,13 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
         { user: { email: { contains: searchTerm, mode: 'insensitive' } } },
       ];
 
-      // Sanitize phone search term by removing non-numeric characters
+      // Sanitize phone search term
       const sanitizedSearchTerm = searchTerm.replace(/\D/g, '');
       if (sanitizedSearchTerm) {
         searchConditions.push({ phone: { contains: sanitizedSearchTerm, mode: 'insensitive' } });
       }
 
-      // Full name search: "John Doe" → firstName contains "John" AND lastName contains "Doe"
+      // Full name search
       const parts = searchTerm.split(/\s+/);
       if (parts.length >= 2) {
         searchConditions.push({
@@ -78,11 +78,14 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
           ],
         });
       }
+
+      // Apply search OR condition
       where.OR = searchConditions;
     }
 
+    // Add status filter separately (works with or without search)
     if (status) {
-      where.user.status = status as string;
+      where.user = { status: status as string };
     }
 
     if (clientId) {
