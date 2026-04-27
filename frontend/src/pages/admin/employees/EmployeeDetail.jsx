@@ -29,7 +29,7 @@ import { Card, Button, Badge, Avatar, Modal } from "../../../components/common";
 import { useEmployeeDetail } from "../../../hooks/useEmployeeData";
 import { useAuth } from "../../../context/AuthContext";
 import adminPortalService from "../../../services/adminPortal.service";
-import { formatDuration } from "../../../utils/formatDateTime";
+import { formatDuration, formatDate } from "../../../utils/formatDateTime";
 
 const DAYS_OF_WEEK = [
   "Sunday",
@@ -747,7 +747,7 @@ const EmployeeDetail = () => {
           <UserX className="w-5 h-5 text-red-500 flex-shrink-0" />
           <p className="text-sm text-red-700">
             This employee was terminated on{" "}
-            <strong>{formatDate(employee.terminationDate)}</strong>.
+            <strong>{formatDate(employee.terminationDate, { format: "dd-mm-yyyy" })}</strong>.
           </p>
         </div>
       )}
@@ -869,7 +869,7 @@ const EmployeeDetail = () => {
             {employee.terminationDate && (
               <InfoRow
                 label="Termination Date"
-                value={formatDate(employee.terminationDate)}
+                value={formatDate(employee.terminationDate, { format: "dd-mm-yyyy" })}
                 icon={UserX}
               />
             )}
@@ -1220,13 +1220,7 @@ const EmployeeDetail = () => {
                                   className="hover:bg-gray-50/50"
                                 >
                                   <td className="py-2 px-3 text-gray-900 whitespace-nowrap">
-                                    {new Date(
-                                      item.effectiveDate || item.createdAt,
-                                    ).toLocaleDateString("en-US", {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                    })}
+                                    {formatDate(item.effectiveDate || item.createdAt, { format: "dd-mm-yyyy" })}
                                   </td>
                                   <td className="py-2 px-3">
                                     <span
@@ -2110,26 +2104,7 @@ const EmployeeDetail = () => {
                       ))}
                     </select>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Bonus Amount ($)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={giveBonusForm.amount}
-                      onChange={(e) =>
-                        setGiveBonusForm({
-                          ...giveBonusForm,
-                          amount: e.target.value,
-                        })
-                      }
-                      placeholder="e.g. 500.00"
-                      className="input w-full"
-                    />
-                  </div>
-                  <div>
+                         <div>
                     <label className="text-sm font-medium text-gray-700 block mb-2">
                       Who covers the bonus?
                     </label>
@@ -2166,27 +2141,49 @@ const EmployeeDetail = () => {
                       ))}
                     </div>
                   </div>
-                  {giveBonusForm.coverageType === "PARTIAL" && (
+                  <div className={`grid gap-3 ${giveBonusForm.coverageType === "PARTIAL" ? "grid-cols-2" : "grid-cols-1"}`}>
                     <div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">
-                        Client covers ($)
+                        Bonus Amount ($)
                       </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0.01"
-                        value={giveBonusForm.clientCoveredAmount}
+                        value={giveBonusForm.amount}
                         onChange={(e) =>
                           setGiveBonusForm({
                             ...giveBonusForm,
-                            clientCoveredAmount: e.target.value,
+                            amount: e.target.value,
                           })
                         }
-                        placeholder="e.g. 250.00"
+                        placeholder="e.g. 500.00"
                         className="input w-full"
                       />
                     </div>
-                  )}
+                    {giveBonusForm.coverageType === "PARTIAL" && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                          Client covers ($)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={giveBonusForm.clientCoveredAmount}
+                          onChange={(e) =>
+                            setGiveBonusForm({
+                              ...giveBonusForm,
+                              clientCoveredAmount: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 250.00"
+                          className="input w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+           
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
                       Effective Payroll Date
@@ -2277,7 +2274,7 @@ const EmployeeDetail = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Effective Date</span>
                     <span className="font-medium">
-                      {giveBonusForm.effectiveDate}
+                      {formatDate(giveBonusForm.effectiveDate, { format: "dd-mm-yyyy" })}
                     </span>
                   </div>
                   {giveBonusForm.reason && (
@@ -2440,62 +2437,64 @@ const EmployeeDetail = () => {
                       ))}
                     </div>
                   </div>
-                  {giveRaiseForm.coverageType === "PARTIAL" && (
+                  <div className={`grid gap-3 ${giveRaiseForm.coverageType === "PARTIAL" ? "grid-cols-2" : "grid-cols-1"}`}>
                     <div>
-                         <div>
-                    <label className="text-sm font-medium text-gray-700 block mb-1">
-                      Raise Amount($/hr)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      value={giveRaiseForm.employeeRaiseAmount}
-                      onChange={(e) =>
-                        setGiveRaiseForm({
-                          ...giveRaiseForm,
-                          employeeRaiseAmount: e.target.value,
-                        })
-                      }
-                      placeholder="e.g. 2.00"
-                      className="input w-full"
-                    />
-                    {(() => {
-                      const currentRate = employee?.payableRate
-                        ? Number(employee.payableRate)
-                        : null;
-                      const raise =
-                        parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
-                      if (!currentRate && raise === 0) return null;
-                      const newRate = (currentRate ?? 0) + raise;
-                      return (
-                        <div className="mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 whitespace-nowrap">
-                          {raise > 0
-                            ? `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr + Raise: $${raise.toFixed(2)}/hr = New Rate: $${newRate.toFixed(2)}/hr`
-                            : `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr`}
-                        </div>
-                      );
-                    })()}
-                  </div>
                       <label className="text-sm font-medium text-gray-700 block mb-1">
-                        Client covers ($/hr)
+                        Raise Amount ($/hr)
                       </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0.01"
-                        value={giveRaiseForm.clientCoveredAmount}
+                        value={giveRaiseForm.employeeRaiseAmount}
                         onChange={(e) =>
                           setGiveRaiseForm({
                             ...giveRaiseForm,
-                            clientCoveredAmount: e.target.value,
+                            employeeRaiseAmount: e.target.value,
                           })
                         }
-                        placeholder="e.g. 1.00"
+                        placeholder="e.g. 2.00"
                         className="input w-full"
                       />
                     </div>
-                  )}
+                    {giveRaiseForm.coverageType === "PARTIAL" && (
+                      <div>
+                        <label className="text-sm font-medium text-gray-700 block mb-1">
+                          Client covers ($/hr)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          value={giveRaiseForm.clientCoveredAmount}
+                          onChange={(e) =>
+                            setGiveRaiseForm({
+                              ...giveRaiseForm,
+                              clientCoveredAmount: e.target.value,
+                            })
+                          }
+                          placeholder="e.g. 1.00"
+                          className="input w-full"
+                        />
+                      </div>
+                    )}
+                  </div>
+                  {(() => {
+                    const currentRate = employee?.payableRate
+                      ? Number(employee.payableRate)
+                      : null;
+                    const raise =
+                      parseFloat(giveRaiseForm.employeeRaiseAmount) || 0;
+                    if (!currentRate && raise === 0) return null;
+                    const newRate = (currentRate ?? 0) + raise;
+                    return (
+                      <div className="px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 whitespace-nowrap">
+                        {raise > 0
+                          ? `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr + Raise: $${raise.toFixed(2)}/hr = New Rate: $${newRate.toFixed(2)}/hr`
+                          : `Current Rate: $${(currentRate ?? 0).toFixed(2)}/hr`}
+                      </div>
+                    );
+                  })()}
                
                   <div>
                     <label className="text-sm font-medium text-gray-700 block mb-1">
@@ -2589,7 +2588,7 @@ const EmployeeDetail = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-600">Effective Date</span>
                     <span className="font-medium">
-                      {giveRaiseForm.effectiveDate}
+                      {formatDate(giveRaiseForm.effectiveDate, { format: "dd-mm-yyyy" })}
                     </span>
                   </div>
                   {giveRaiseForm.reason && (

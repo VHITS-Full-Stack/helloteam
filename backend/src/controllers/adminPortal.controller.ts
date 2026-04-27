@@ -2787,7 +2787,7 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
     } else if (coverageType === 'PARTIAL') {
       coveredAmount = Number(clientCoveredAmount);
       if (isNaN(coveredAmount) || coveredAmount <= 0 || coveredAmount >= raiseAmount) {
-        res.status(400).json({ success: false, error: 'clientCoveredAmount must be between 0 and employeeRaiseAmount for PARTIAL coverage' });
+        res.status(400).json({ success: false, error: 'client-Covered-Amount must be between 0 and employeeRaiseAmount for PARTIAL coverage' });
         return;
       }
     } else if (coverageType === 'NONE') {

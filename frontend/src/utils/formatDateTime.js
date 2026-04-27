@@ -27,10 +27,17 @@ const isValidDate = (d) => d instanceof Date && !Number.isNaN(d.getTime());
 
 const formatSingleDate = (
   dateStr,
-  { includeWeekday, includeYear, timeZone, dateOnlyAsUTC },
+  { includeWeekday, includeYear, timeZone, dateOnlyAsUTC, format },
 ) => {
   const d = normalizeDateInput(dateStr, { dateOnlyAsUTC });
   if (!isValidDate(d)) return null;
+
+  if (format === "dd-mm-yyyy") {
+    const day = String(d.getUTCDate()).padStart(2, "0");
+    const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const year = d.getUTCFullYear();
+    return `${day}-${month}-${year}`;
+  }
 
   return d.toLocaleDateString("en-US", {
     weekday: includeWeekday ? "short" : undefined,
@@ -52,6 +59,7 @@ export const formatDate = (
     includeYear = true,
     timeZone,
     dateOnlyAsUTC = false,
+    format,
   } = {},
 ) => {
   if (!dateStr) return emptyValue;
@@ -64,12 +72,14 @@ export const formatDate = (
       includeYear,
       timeZone,
       dateOnlyAsUTC,
+      format,
     });
     const endFormatted = formatSingleDate(endStr, {
       includeWeekday: false,
       includeYear,
       timeZone,
       dateOnlyAsUTC,
+      format,
     });
     if (!startFormatted || !endFormatted) return emptyValue;
     if (startStr.trim() === endStr.trim()) return startFormatted;
@@ -81,6 +91,7 @@ export const formatDate = (
     includeYear,
     timeZone,
     dateOnlyAsUTC,
+    format,
   });
   return formatted || emptyValue;
 };

@@ -2297,7 +2297,13 @@ const RaiseRequests = () => {
                           <span className="text-gray-500">Coverage</span>
                           {getCoverageBadge(coverage)}
                         </div>
-                        <div className="border-t border-gray-200 pt-3 grid grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-500">Raise Amount</span>
+                          <span className="font-semibold text-green-700">
+                            +${raiseAmtVal.toFixed(2)}/hr
+                          </span>
+                        </div>
+                        {/* <div className="border-t border-gray-200 pt-3 grid grid-cols-2 gap-3 text-sm">
                           <div>
                             <p className="text-gray-400 text-xs mb-1">
                               Pay Rate
@@ -2308,9 +2314,6 @@ const RaiseRequests = () => {
                                 ${(currentPay + raiseAmtVal).toFixed(2)}
                               </span>
                             </p>
-                            <p className="text-xs text-green-600 mt-0.5">
-                              +${raiseAmtVal.toFixed(2)}/hr
-                            </p>
                           </div>
                           <div>
                             <p className="text-gray-400 text-xs mb-1">
@@ -2319,20 +2322,15 @@ const RaiseRequests = () => {
                             {coverage === "NONE" ? (
                               <p className="text-gray-500">No change</p>
                             ) : (
-                              <>
-                                <p className="text-gray-500">
-                                  ${currentBill.toFixed(2)} →{" "}
-                                  <span className="font-bold text-primary-700">
-                                    ${(currentBill + coveredAmtVal).toFixed(2)}
-                                  </span>
-                                </p>
-                                <p className="text-xs text-green-600 mt-0.5">
-                                  +${coveredAmtVal.toFixed(2)}/hr
-                                </p>
-                              </>
+                              <p className="text-gray-500">
+                                ${currentBill.toFixed(2)} →{" "}
+                                <span className="font-bold text-primary-700">
+                                  ${(currentBill + coveredAmtVal).toFixed(2)}
+                                </span>
+                              </p>
                             )}
                           </div>
-                        </div>
+                        </div> */}
                         <div className="flex items-center justify-between text-sm border-t border-gray-200 pt-3">
                           <span className="text-gray-500">Effective Date</span>
                           <span className="font-medium text-gray-900">
