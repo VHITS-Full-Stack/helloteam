@@ -10,21 +10,28 @@ import {
   Settings,
   Sun,
   ChevronDown,
+  RefreshCw,
 } from "lucide-react";
-import { Card, Button, Input, PhoneInput, Modal } from "../../../components/common";
+import {
+  Card,
+  Button,
+  Input,
+  PhoneInput,
+  Modal,
+} from "../../../components/common";
 import { useClientForm } from "../../../hooks/useClientForm";
 import { getFederalHolidaysForYear } from "../../../utils/holidayCalculator";
 import groupService from "../../../services/group.service";
 
 const DEFAULT_PTO = {
   allowPaidLeave: false,
-  paidLeaveType: 'fixed',
+  paidLeaveType: "fixed",
   annualPaidLeaveDays: 0,
   requireTwoWeeksNoticePaidLeave: true,
   allowUnpaidLeave: false,
   requireTwoWeeksNoticeUnpaidLeave: true,
   allowPaidHolidays: false,
-  paidHolidayType: 'federal',
+  paidHolidayType: "federal",
   numberOfPaidHolidays: 0,
   selectedFederalHolidays: [],
   customHolidays: [],
@@ -51,38 +58,50 @@ const AddClient = () => {
     addContact,
     removeContact,
     updateContact,
+    refreshEmployees,
   } = useClientForm({ id, onSuccess: () => navigate("/admin/clients") });
 
   const [employeeSearch, setEmployeeSearch] = useState("");
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [refreshingEmployees, setRefreshingEmployees] = useState(false);
   const [ptoModalEmployee, setPtoModalEmployee] = useState(null);
 
   // Add Group modal state
   const [showGroupModal, setShowGroupModal] = useState(false);
-  const [groupForm, setGroupForm] = useState({ name: '', description: '', billingRate: '' });
+  const [groupForm, setGroupForm] = useState({
+    name: "",
+    description: "",
+    billingRate: "",
+  });
   const [groupSubmitting, setGroupSubmitting] = useState(false);
-  const [groupError, setGroupError] = useState('');
+  const [groupError, setGroupError] = useState("");
+
+  const handleRefreshEmployees = async () => {
+    setRefreshingEmployees(true);
+    await refreshEmployees();
+    setRefreshingEmployees(false);
+  };
 
   const handleCreateGroup = async () => {
     if (!groupForm.name.trim()) {
-      setGroupError('Group name is required');
+      setGroupError("Group name is required");
       return;
     }
     setGroupSubmitting(true);
-    setGroupError('');
+    setGroupError("");
     try {
       const response = await groupService.createGroup(groupForm);
       if (response.success) {
         const newGroup = response.data;
-        setGroups(prev => [...prev, newGroup]);
-        setFormData(prev => ({ ...prev, groupId: newGroup.id }));
+        setGroups((prev) => [...prev, newGroup]);
+        setFormData((prev) => ({ ...prev, groupId: newGroup.id }));
         setShowGroupModal(false);
-        setGroupForm({ name: '', description: '', billingRate: '' });
+        setGroupForm({ name: "", description: "", billingRate: "" });
       } else {
-        setGroupError(response.error || 'Failed to create group');
+        setGroupError(response.error || "Failed to create group");
       }
     } catch (err) {
-      setGroupError(err.error || err.message || 'Failed to create group');
+      setGroupError(err.error || err.message || "Failed to create group");
     } finally {
       setGroupSubmitting(false);
     }
@@ -128,7 +147,11 @@ const AddClient = () => {
           ? prev.employeeAssignments.filter((a) => a.employeeId !== emp.id)
           : [
               ...prev.employeeAssignments,
-              { employeeId: emp.id, ...DEFAULT_PTO, ...getHolidayDefaults(prev) },
+              {
+                employeeId: emp.id,
+                ...DEFAULT_PTO,
+                ...getHolidayDefaults(prev),
+              },
             ],
       };
     });
@@ -185,7 +208,9 @@ const AddClient = () => {
     ? employees.find((e) => e.id === ptoModalEmployee)
     : null;
   const ptoModalAssignment = ptoModalEmployee
-    ? formData.employeeAssignments.find((a) => a.employeeId === ptoModalEmployee)
+    ? formData.employeeAssignments.find(
+        (a) => a.employeeId === ptoModalEmployee,
+      )
     : null;
 
   if (loading) {
@@ -264,8 +289,12 @@ const AddClient = () => {
                 <PhoneInput
                   phone={formData.phone}
                   countryCode={formData.countryCode}
-                  onPhoneChange={(val) => setFormData({ ...formData, phone: val })}
-                  onCountryCodeChange={(code) => setFormData({ ...formData, countryCode: code })}
+                  onPhoneChange={(val) =>
+                    setFormData({ ...formData, phone: val })
+                  }
+                  onCountryCodeChange={(code) =>
+                    setFormData({ ...formData, countryCode: code })
+                  }
                 />
                 {/* <div>
                   <Input
@@ -341,9 +370,13 @@ const AddClient = () => {
                     />
                     <PhoneInput
                       phone={contact.phone}
-                      countryCode={contact.countryCode || '+1'}
-                      onPhoneChange={(val) => updateContact(index, "phone", val)}
-                      onCountryCodeChange={(code) => updateContact(index, "countryCode", code)}
+                      countryCode={contact.countryCode || "+1"}
+                      onPhoneChange={(val) =>
+                        updateContact(index, "phone", val)
+                      }
+                      onCountryCodeChange={(code) =>
+                        updateContact(index, "countryCode", code)
+                      }
                     />
                     <Input
                       placeholder="Email"
@@ -510,7 +543,7 @@ const AddClient = () => {
               )}
 
               {/* Search input */}
-              <div className="relative">
+              <div className="relative flex items-center gap-2">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
@@ -526,6 +559,17 @@ const AddClient = () => {
                   }
                   className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                 />
+                <button
+                  type="button"
+                  onClick={handleRefreshEmployees}
+                  disabled={refreshingEmployees}
+                  className="p-2.5 text-gray-400 hover:text-primary hover:bg-gray-50 rounded-xl transition-colors disabled:opacity-50"
+                  title="Refresh employees"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${refreshingEmployees ? "animate-spin" : ""}`}
+                  />
+                </button>
 
                 {/* Dropdown results */}
                 {showEmployeeDropdown && (
@@ -578,8 +622,6 @@ const AddClient = () => {
                   </div>
                 )}
               </div>
-
-              {/* Selected employees */}
               {selectedEmployees.length > 0 && (
                 <div className="space-y-2 mt-3">
                   {selectedEmployees.map((emp) => {
@@ -588,19 +630,24 @@ const AddClient = () => {
                     );
                     if (!assignment) return null;
                     const enabledPolicies = [
-                      assignment.allowPaidLeave && 'Paid Leave',
-                      assignment.allowUnpaidLeave && 'Unpaid Leave',
-                      assignment.allowPaidHolidays && 'Paid Holidays',
-                      assignment.allowUnpaidHolidays && 'Unpaid Holidays',
+                      assignment.allowPaidLeave && "Paid Leave",
+                      assignment.allowUnpaidLeave && "Unpaid Leave",
+                      assignment.allowPaidHolidays && "Paid Holidays",
+                      assignment.allowUnpaidHolidays && "Unpaid Holidays",
                     ].filter(Boolean);
                     return (
-                      <div key={emp.id} className="p-3 border border-gray-200 rounded-xl bg-white">
+                      <div
+                        key={emp.id}
+                        className="p-3 border border-gray-200 rounded-xl bg-white"
+                      >
                         <div className="flex items-center justify-between">
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900">
                               {emp.firstName} {emp.lastName}
                             </p>
-                            <p className="text-xs text-gray-400">{emp.user?.email}</p>
+                            <p className="text-xs text-gray-400">
+                              {emp.user?.email}
+                            </p>
                           </div>
                           <div className="flex items-center gap-1.5 ml-3">
                             <button
@@ -623,14 +670,19 @@ const AddClient = () => {
                         {enabledPolicies.length > 0 && (
                           <div className="flex flex-wrap gap-1.5 mt-2">
                             {enabledPolicies.map((label) => (
-                              <span key={label} className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary">
+                              <span
+                                key={label}
+                                className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-primary/10 text-primary"
+                              >
                                 {label}
                               </span>
                             ))}
                           </div>
                         )}
                         {enabledPolicies.length === 0 && (
-                          <p className="text-[11px] text-gray-400 mt-1.5">No PTO configured</p>
+                          <p className="text-[11px] text-gray-400 mt-1.5">
+                            No PTO configured
+                          </p>
                         )}
                       </div>
                     );
@@ -648,12 +700,34 @@ const AddClient = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <label className="text-sm text-gray-700">Allow Overtime</label>
-                <input type="checkbox" checked={formData.allowOvertime} onChange={(e) => setFormData({ ...formData, allowOvertime: e.target.checked })} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <input
+                  type="checkbox"
+                  checked={formData.allowOvertime}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      allowOvertime: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </div>
               {formData.allowOvertime && (
                 <div className="flex items-center justify-between pl-4">
-                  <label className="text-sm text-gray-700">Overtime Requires Approval</label>
-                  <input type="checkbox" checked={formData.overtimeRequiresApproval} onChange={(e) => setFormData({ ...formData, overtimeRequiresApproval: e.target.checked })} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                  <label className="text-sm text-gray-700">
+                    Overtime Requires Approval
+                  </label>
+                  <input
+                    type="checkbox"
+                    checked={formData.overtimeRequiresApproval}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        overtimeRequiresApproval: e.target.checked,
+                      })
+                    }
+                    className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                  />
                 </div>
               )}
               <div className="flex items-center justify-between">
@@ -666,7 +740,17 @@ const AddClient = () => {
                     timesheets are never auto-approved)
                   </p>
                 </div>
-                <input type="checkbox" checked={formData.autoApproveTimesheets} onChange={(e) => setFormData({ ...formData, autoApproveTimesheets: e.target.checked })} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <input
+                  type="checkbox"
+                  checked={formData.autoApproveTimesheets}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      autoApproveTimesheets: e.target.checked,
+                    })
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </div>
               {formData.autoApproveTimesheets && (
                 <div className="pl-4">
@@ -698,15 +782,23 @@ const AddClient = () => {
               {/* Invoice by Group */}
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="text-sm text-gray-700">Group-wise Invoicing</label>
+                  <label className="text-sm text-gray-700">
+                    Group-wise Invoicing
+                  </label>
                   <p className="text-xs text-gray-400">
-                    Generate separate invoices for each group instead of one invoice per client
+                    Generate separate invoices for each group instead of one
+                    invoice per client
                   </p>
                 </div>
                 <input
                   type="checkbox"
                   checked={formData.invoiceByGroup || false}
-                  onChange={(e) => setFormData({ ...formData, invoiceByGroup: e.target.checked })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      invoiceByGroup: e.target.checked,
+                    })
+                  }
                   className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                 />
               </div>
@@ -720,38 +812,64 @@ const AddClient = () => {
               Holiday Configuration
             </h3>
             <p className="text-xs text-gray-400 mb-3">
-              Applies to all assigned employees. Use per-employee PTO Config to override individually.
+              Applies to all assigned employees. Use per-employee PTO Config to
+              override individually.
             </p>
             <div className="space-y-3">
               {/* Paid Holidays */}
-              <div className={`p-3.5 rounded-xl border ${formData.allowPaidHolidays ? 'bg-blue-50/50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+              <div
+                className={`p-3.5 rounded-xl border ${formData.allowPaidHolidays ? "bg-blue-50/50 border-blue-100" : "bg-gray-50 border-gray-100"}`}
+              >
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm font-medium text-gray-900">Paid Holidays</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    Paid Holidays
+                  </span>
                   <input
                     type="checkbox"
                     checked={formData.allowPaidHolidays}
-                    onChange={(e) => syncHolidayToEmployees({ allowPaidHolidays: e.target.checked })}
+                    onChange={(e) =>
+                      syncHolidayToEmployees({
+                        allowPaidHolidays: e.target.checked,
+                      })
+                    }
                     className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                   />
                 </label>
                 {formData.allowPaidHolidays && (
                   <div className="mt-3 space-y-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Holiday Type</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Holiday Type
+                      </label>
                       <div className="relative">
                         <select
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                           value={formData.paidHolidayType}
                           onChange={(e) => {
                             const val = e.target.value;
-                            const extras = val === 'custom' && formData.customHolidays.length === 0
-                              ? { customHolidays: [{ date: '', name: '' }], numberOfPaidHolidays: 1 }
-                              : val === 'custom'
-                                ? { numberOfPaidHolidays: formData.customHolidays.length }
-                                : val === 'federal'
-                                  ? { numberOfPaidHolidays: formData.selectedFederalHolidays?.length || 0 }
-                                  : {};
-                            syncHolidayToEmployees({ paidHolidayType: val, ...extras });
+                            const extras =
+                              val === "custom" &&
+                              formData.customHolidays.length === 0
+                                ? {
+                                    customHolidays: [{ date: "", name: "" }],
+                                    numberOfPaidHolidays: 1,
+                                  }
+                                : val === "custom"
+                                  ? {
+                                      numberOfPaidHolidays:
+                                        formData.customHolidays.length,
+                                    }
+                                  : val === "federal"
+                                    ? {
+                                        numberOfPaidHolidays:
+                                          formData.selectedFederalHolidays
+                                            ?.length || 0,
+                                      }
+                                    : {};
+                            syncHolidayToEmployees({
+                              paidHolidayType: val,
+                              ...extras,
+                            });
                           }}
                         >
                           <option value="federal">Federal Holidays</option>
@@ -762,42 +880,69 @@ const AddClient = () => {
                     </div>
 
                     {/* Federal Holiday Checklist */}
-                    {formData.paidHolidayType === 'federal' && (
+                    {formData.paidHolidayType === "federal" && (
                       <div className="space-y-1.5 mt-2">
                         <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs text-gray-500">{currentYear} Federal Holidays — select which apply</p>
+                          <p className="text-xs text-gray-500">
+                            {currentYear} Federal Holidays — select which apply
+                          </p>
                           <button
                             type="button"
                             onClick={() => {
-                              const allKeys = federalHolidaysList.map(h => h.key);
-                              const allSelected = allKeys.length === (formData.selectedFederalHolidays?.length || 0);
+                              const allKeys = federalHolidaysList.map(
+                                (h) => h.key,
+                              );
+                              const allSelected =
+                                allKeys.length ===
+                                (formData.selectedFederalHolidays?.length || 0);
                               syncHolidayToEmployees({
-                                selectedFederalHolidays: allSelected ? [] : allKeys,
-                                numberOfPaidHolidays: allSelected ? 0 : allKeys.length,
+                                selectedFederalHolidays: allSelected
+                                  ? []
+                                  : allKeys,
+                                numberOfPaidHolidays: allSelected
+                                  ? 0
+                                  : allKeys.length,
                               });
                             }}
                             className="text-xs text-primary hover:text-primary/80 font-medium"
                           >
-                            {federalHolidaysList.length === (formData.selectedFederalHolidays?.length || 0) ? 'Deselect All' : 'Select All'}
+                            {federalHolidaysList.length ===
+                            (formData.selectedFederalHolidays?.length || 0)
+                              ? "Deselect All"
+                              : "Select All"}
                           </button>
                         </div>
                         {federalHolidaysList.map((holiday) => (
-                          <label key={holiday.key} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
+                          <label
+                            key={holiday.key}
+                            className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer"
+                          >
                             <input
                               type="checkbox"
-                              checked={(formData.selectedFederalHolidays || []).includes(holiday.key)}
+                              checked={(
+                                formData.selectedFederalHolidays || []
+                              ).includes(holiday.key)}
                               onChange={(e) => {
-                                const current = formData.selectedFederalHolidays || [];
+                                const current =
+                                  formData.selectedFederalHolidays || [];
                                 const updated = e.target.checked
                                   ? [...current, holiday.key]
-                                  : current.filter(k => k !== holiday.key);
-                                syncHolidayToEmployees({ selectedFederalHolidays: updated, numberOfPaidHolidays: updated.length });
+                                  : current.filter((k) => k !== holiday.key);
+                                syncHolidayToEmployees({
+                                  selectedFederalHolidays: updated,
+                                  numberOfPaidHolidays: updated.length,
+                                });
                               }}
                               className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                             />
                             <div className="flex-1 flex items-center justify-between">
-                              <span className="text-sm text-gray-900">{holiday.name}</span>
-                              <span className="text-xs text-gray-400">{holiday.displayDate}{holiday.isObserved ? ' (Observed)' : ''}</span>
+                              <span className="text-sm text-gray-900">
+                                {holiday.name}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {holiday.displayDate}
+                                {holiday.isObserved ? " (Observed)" : ""}
+                              </span>
                             </div>
                           </label>
                         ))}
@@ -805,7 +950,7 @@ const AddClient = () => {
                     )}
 
                     {/* Custom Holidays */}
-                    {formData.paidHolidayType === 'custom' && (
+                    {formData.paidHolidayType === "custom" && (
                       <div className="space-y-2">
                         {formData.customHolidays.map((holiday, index) => (
                           <div key={index} className="flex items-center gap-2">
@@ -813,8 +958,15 @@ const AddClient = () => {
                               type="date"
                               value={holiday.date}
                               onChange={(e) => {
-                                const updated = formData.customHolidays.map((h, i) => i === index ? { ...h, date: e.target.value } : h);
-                                syncHolidayToEmployees({ customHolidays: updated });
+                                const updated = formData.customHolidays.map(
+                                  (h, i) =>
+                                    i === index
+                                      ? { ...h, date: e.target.value }
+                                      : h,
+                                );
+                                syncHolidayToEmployees({
+                                  customHolidays: updated,
+                                });
                               }}
                               className="w-36 px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                             />
@@ -823,8 +975,15 @@ const AddClient = () => {
                               placeholder="Holiday name"
                               value={holiday.name}
                               onChange={(e) => {
-                                const updated = formData.customHolidays.map((h, i) => i === index ? { ...h, name: e.target.value } : h);
-                                syncHolidayToEmployees({ customHolidays: updated });
+                                const updated = formData.customHolidays.map(
+                                  (h, i) =>
+                                    i === index
+                                      ? { ...h, name: e.target.value }
+                                      : h,
+                                );
+                                syncHolidayToEmployees({
+                                  customHolidays: updated,
+                                });
                               }}
                               className="flex-1 px-2.5 py-1.5 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                             />
@@ -832,8 +991,14 @@ const AddClient = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const updated = formData.customHolidays.filter((_, i) => i !== index);
-                                  syncHolidayToEmployees({ customHolidays: updated, numberOfPaidHolidays: updated.length });
+                                  const updated =
+                                    formData.customHolidays.filter(
+                                      (_, i) => i !== index,
+                                    );
+                                  syncHolidayToEmployees({
+                                    customHolidays: updated,
+                                    numberOfPaidHolidays: updated.length,
+                                  });
                                 }}
                                 className="text-gray-300 hover:text-red-500 transition-colors p-1"
                               >
@@ -845,8 +1010,14 @@ const AddClient = () => {
                         <button
                           type="button"
                           onClick={() => {
-                            const updated = [...formData.customHolidays, { date: '', name: '' }];
-                            syncHolidayToEmployees({ customHolidays: updated, numberOfPaidHolidays: updated.length });
+                            const updated = [
+                              ...formData.customHolidays,
+                              { date: "", name: "" },
+                            ];
+                            syncHolidayToEmployees({
+                              customHolidays: updated,
+                              numberOfPaidHolidays: updated.length,
+                            });
                           }}
                           className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
                         >
@@ -859,13 +1030,21 @@ const AddClient = () => {
               </div>
 
               {/* Unpaid Holidays */}
-              <div className={`p-3.5 rounded-xl border ${formData.allowUnpaidHolidays ? 'bg-purple-50/50 border-purple-100' : 'bg-gray-50 border-gray-100'}`}>
+              <div
+                className={`p-3.5 rounded-xl border ${formData.allowUnpaidHolidays ? "bg-purple-50/50 border-purple-100" : "bg-gray-50 border-gray-100"}`}
+              >
                 <label className="flex items-center justify-between cursor-pointer">
-                  <span className="text-sm font-medium text-gray-900">Unpaid Holidays</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    Unpaid Holidays
+                  </span>
                   <input
                     type="checkbox"
                     checked={formData.allowUnpaidHolidays}
-                    onChange={(e) => syncHolidayToEmployees({ allowUnpaidHolidays: e.target.checked })}
+                    onChange={(e) =>
+                      syncHolidayToEmployees({
+                        allowUnpaidHolidays: e.target.checked,
+                      })
+                    }
                     className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
                   />
                 </label>
@@ -942,7 +1121,11 @@ const AddClient = () => {
       <Modal
         isOpen={!!ptoModalEmployee}
         onClose={() => setPtoModalEmployee(null)}
-        title={ptoModalEmp ? `PTO Config — ${ptoModalEmp.firstName} ${ptoModalEmp.lastName}` : 'PTO Config'}
+        title={
+          ptoModalEmp
+            ? `PTO Config — ${ptoModalEmp.firstName} ${ptoModalEmp.lastName}`
+            : "PTO Config"
+        }
         size="md"
         footer={
           <Button variant="primary" onClick={() => setPtoModalEmployee(null)}>
@@ -953,24 +1136,49 @@ const AddClient = () => {
         {ptoModalAssignment && (
           <div className="space-y-4">
             {/* Paid Leave */}
-            <div className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowPaidLeave ? 'bg-green-50/50 border-green-100' : 'bg-gray-50 border-gray-100'}`}>
+            <div
+              className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowPaidLeave ? "bg-green-50/50 border-green-100" : "bg-gray-50 border-gray-100"}`}
+            >
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-gray-900">Paid Leave</span>
-                <input type="checkbox" checked={ptoModalAssignment.allowPaidLeave} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'allowPaidLeave', e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <span className="text-sm font-medium text-gray-900">
+                  Paid Leave
+                </span>
+                <input
+                  type="checkbox"
+                  checked={ptoModalAssignment.allowPaidLeave}
+                  onChange={(e) =>
+                    updateEmployeeField(
+                      ptoModalEmployee,
+                      "allowPaidLeave",
+                      e.target.checked,
+                    )
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </label>
               {ptoModalAssignment.allowPaidLeave && (
                 <div className="mt-3 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Leave Type</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Leave Type
+                      </label>
                       <div className="relative">
                         <select
                           className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary appearance-none pr-9"
                           value={ptoModalAssignment.paidLeaveType}
-                          onChange={(e) => updateEmployeeField(ptoModalEmployee, 'paidLeaveType', e.target.value)}
+                          onChange={(e) =>
+                            updateEmployeeField(
+                              ptoModalEmployee,
+                              "paidLeaveType",
+                              e.target.value,
+                            )
+                          }
                         >
                           <option value="fixed">Fixed Annual</option>
-                          <option value="fixed-half-yearly">Fixed Half-Yearly</option>
+                          <option value="fixed-half-yearly">
+                            Fixed Half-Yearly
+                          </option>
                           <option value="accrued">Accrued</option>
                           <option value="milestone">Milestone Based</option>
                         </select>
@@ -979,59 +1187,145 @@ const AddClient = () => {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        {ptoModalAssignment.paidLeaveType === 'fixed-half-yearly' ? 'Half-Yearly Days' : 'Annual Days'}
+                        {ptoModalAssignment.paidLeaveType ===
+                        "fixed-half-yearly"
+                          ? "Half-Yearly Days"
+                          : "Annual Days"}
                       </label>
                       <input
                         type="number"
                         min="0"
                         value={ptoModalAssignment.annualPaidLeaveDays}
-                        onChange={(e) => updateEmployeeField(ptoModalEmployee, 'annualPaidLeaveDays', e.target.value)}
+                        onChange={(e) =>
+                          updateEmployeeField(
+                            ptoModalEmployee,
+                            "annualPaidLeaveDays",
+                            e.target.value,
+                          )
+                        }
                         className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-white text-sm focus:ring-2 focus:ring-primary focus:border-primary"
                       />
                     </div>
                   </div>
                   <label className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Require 2 Weeks Notice</span>
-                    <input type="checkbox" checked={ptoModalAssignment.requireTwoWeeksNoticePaidLeave} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'requireTwoWeeksNoticePaidLeave', e.target.checked)} className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
+                    <span className="text-xs text-gray-600">
+                      Require 2 Weeks Notice
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={
+                        ptoModalAssignment.requireTwoWeeksNoticePaidLeave
+                      }
+                      onChange={(e) =>
+                        updateEmployeeField(
+                          ptoModalEmployee,
+                          "requireTwoWeeksNoticePaidLeave",
+                          e.target.checked,
+                        )
+                      }
+                      className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                    />
                   </label>
                 </div>
               )}
             </div>
 
             {/* Unpaid Leave */}
-            <div className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowUnpaidLeave ? 'bg-amber-50/50 border-amber-100' : 'bg-gray-50 border-gray-100'}`}>
+            <div
+              className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowUnpaidLeave ? "bg-amber-50/50 border-amber-100" : "bg-gray-50 border-gray-100"}`}
+            >
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-gray-900">Unpaid Leave</span>
-                <input type="checkbox" checked={ptoModalAssignment.allowUnpaidLeave} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'allowUnpaidLeave', e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <span className="text-sm font-medium text-gray-900">
+                  Unpaid Leave
+                </span>
+                <input
+                  type="checkbox"
+                  checked={ptoModalAssignment.allowUnpaidLeave}
+                  onChange={(e) =>
+                    updateEmployeeField(
+                      ptoModalEmployee,
+                      "allowUnpaidLeave",
+                      e.target.checked,
+                    )
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </label>
               {ptoModalAssignment.allowUnpaidLeave && (
                 <div className="mt-3">
                   <label className="flex items-center justify-between">
-                    <span className="text-xs text-gray-600">Require 2 Weeks Notice</span>
-                    <input type="checkbox" checked={ptoModalAssignment.requireTwoWeeksNoticeUnpaidLeave} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'requireTwoWeeksNoticeUnpaidLeave', e.target.checked)} className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary" />
+                    <span className="text-xs text-gray-600">
+                      Require 2 Weeks Notice
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={
+                        ptoModalAssignment.requireTwoWeeksNoticeUnpaidLeave
+                      }
+                      onChange={(e) =>
+                        updateEmployeeField(
+                          ptoModalEmployee,
+                          "requireTwoWeeksNoticeUnpaidLeave",
+                          e.target.checked,
+                        )
+                      }
+                      className="w-3.5 h-3.5 text-primary border-gray-300 rounded focus:ring-primary"
+                    />
                   </label>
                 </div>
               )}
             </div>
 
             {/* Paid Holidays */}
-            <div className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowPaidHolidays ? 'bg-blue-50/50 border-blue-100' : 'bg-gray-50 border-gray-100'}`}>
+            <div
+              className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowPaidHolidays ? "bg-blue-50/50 border-blue-100" : "bg-gray-50 border-gray-100"}`}
+            >
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-gray-900">Paid Holidays</span>
-                <input type="checkbox" checked={ptoModalAssignment.allowPaidHolidays} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'allowPaidHolidays', e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <span className="text-sm font-medium text-gray-900">
+                  Paid Holidays
+                </span>
+                <input
+                  type="checkbox"
+                  checked={ptoModalAssignment.allowPaidHolidays}
+                  onChange={(e) =>
+                    updateEmployeeField(
+                      ptoModalEmployee,
+                      "allowPaidHolidays",
+                      e.target.checked,
+                    )
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </label>
               {ptoModalAssignment.allowPaidHolidays && (
                 <div className="mt-3">
-                  <p className="text-xs text-gray-500">Inherits holiday selection from client configuration.</p>
+                  <p className="text-xs text-gray-500">
+                    Inherits holiday selection from client configuration.
+                  </p>
                 </div>
               )}
             </div>
 
             {/* Unpaid Holidays */}
-            <div className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowUnpaidHolidays ? 'bg-purple-50/50 border-purple-100' : 'bg-gray-50 border-gray-100'}`}>
+            <div
+              className={`p-3.5 rounded-xl border ${ptoModalAssignment.allowUnpaidHolidays ? "bg-purple-50/50 border-purple-100" : "bg-gray-50 border-gray-100"}`}
+            >
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm font-medium text-gray-900">Unpaid Holidays</span>
-                <input type="checkbox" checked={ptoModalAssignment.allowUnpaidHolidays} onChange={(e) => updateEmployeeField(ptoModalEmployee, 'allowUnpaidHolidays', e.target.checked)} className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary" />
+                <span className="text-sm font-medium text-gray-900">
+                  Unpaid Holidays
+                </span>
+                <input
+                  type="checkbox"
+                  checked={ptoModalAssignment.allowUnpaidHolidays}
+                  onChange={(e) =>
+                    updateEmployeeField(
+                      ptoModalEmployee,
+                      "allowUnpaidHolidays",
+                      e.target.checked,
+                    )
+                  }
+                  className="w-4 h-4 text-primary border-gray-300 rounded focus:ring-primary"
+                />
               </label>
             </div>
           </div>
@@ -1043,8 +1337,8 @@ const AddClient = () => {
         isOpen={showGroupModal}
         onClose={() => {
           setShowGroupModal(false);
-          setGroupForm({ name: '', description: '', billingRate: '' });
-          setGroupError('');
+          setGroupForm({ name: "", description: "", billingRate: "" });
+          setGroupError("");
         }}
         title="Add New Group"
         size="sm"
@@ -1054,8 +1348,8 @@ const AddClient = () => {
               variant="ghost"
               onClick={() => {
                 setShowGroupModal(false);
-                setGroupForm({ name: '', description: '', billingRate: '' });
-                setGroupError('');
+                setGroupForm({ name: "", description: "", billingRate: "" });
+                setGroupError("");
               }}
             >
               Cancel
@@ -1065,7 +1359,7 @@ const AddClient = () => {
               onClick={handleCreateGroup}
               disabled={groupSubmitting}
             >
-              {groupSubmitting ? 'Creating...' : 'Create Group'}
+              {groupSubmitting ? "Creating..." : "Create Group"}
             </Button>
           </>
         }
@@ -1081,21 +1375,27 @@ const AddClient = () => {
             label="Group Name"
             placeholder="Enter group name"
             value={groupForm.name}
-            onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+            onChange={(e) =>
+              setGroupForm({ ...groupForm, name: e.target.value })
+            }
             required
           />
           <Input
             label="Description (Optional)"
             placeholder="Enter description"
             value={groupForm.description}
-            onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
+            onChange={(e) =>
+              setGroupForm({ ...groupForm, description: e.target.value })
+            }
           />
           <Input
             label="Billing Rate (Optional)"
             type="number"
             placeholder="0.00"
             value={groupForm.billingRate}
-            onChange={(e) => setGroupForm({ ...groupForm, billingRate: e.target.value })}
+            onChange={(e) =>
+              setGroupForm({ ...groupForm, billingRate: e.target.value })
+            }
           />
         </div>
       </Modal>

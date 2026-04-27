@@ -21,18 +21,17 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  const [formData, setFormData] = useState({
+const [formData, setFormData] = useState({
     email: '',
     companyName: '',
     contacts: [{ name: '', position: '', phone: '', countryCode: '+1', email: '' }],
     countryCode: '+1',
     phone: '',
     address: '',
-    timezone: 'America/New_York',
+    timezone: 'UTC',
     status: 'ACTIVE',
     groupId: '',
     employeeAssignments: [],
-    agreementType: 'WEEKLY',
     allowOvertime: true,
     overtimeRequiresApproval: true,
     autoApproveTimesheets: false,
@@ -48,6 +47,17 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     defaultOvertimeRate: 0,
     currency: 'USD',
   });
+
+  const refreshEmployees = useCallback(async () => {
+    try {
+      const employeesRes = await employeeService.getEmployees({ limit: 200 });
+      if (employeesRes.success) {
+        setEmployees(employeesRes.data.employees || []);
+      }
+    } catch (err) {
+      console.error('Failed to refresh employees:', err);
+    }
+  }, []);
 
   // Contact person helpers
   const addContact = useCallback(() => {
@@ -246,6 +256,8 @@ export const useClientForm = ({ id, onSuccess } = {}) => {
     groups,
     setGroups,
     employees,
+    setEmployees,
+    refreshEmployees,
     isEdit,
     loading,
     error,

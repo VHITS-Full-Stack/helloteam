@@ -260,7 +260,7 @@ const styles = `
   }
 
   .onboarding-eyebrow {
-    font-size: 13px;
+    font-size: 20px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.2em;
@@ -269,7 +269,7 @@ const styles = `
   }
 
   .onboarding-headline {
-    font-size: 38px;
+    font-size: 34px;
     font-weight: 800;
     color: #102a43;
     letter-spacing: -0.03em;
@@ -1312,8 +1312,6 @@ function SigningStep({
   const canvasSetupRef = useRef(false);
 
   useEffect(() => {
-    setPdfLoading(true);
-    setPdfError(null);
     onboardingService
       .getPreviewPdf()
       .then((blob) => {
@@ -1644,8 +1642,13 @@ function SuccessStep() {
 }
 
 // --- Main Page ---
+const STEP_KEY = "ht_onboarding_step";
+
 export default function ClientPortalOnboarding() {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(() => {
+    const saved = localStorage.getItem(STEP_KEY);
+    return saved !== null ? parseInt(saved, 10) : 0;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
@@ -1676,13 +1679,18 @@ export default function ClientPortalOnboarding() {
   const [signedByName, setSignedByName] = useState("");
 
   useEffect(() => {
+    localStorage.setItem(STEP_KEY, String(currentStep));
+  }, [currentStep]);
+
+  useEffect(() => {
     onboardingService
       .getAgreement()
       .then((res) => {
         if (res.success) {
           setData(res.data);
           if (res.data.onboardingStatus === "COMPLETED") setCurrentStep(8);
-          else if (res.data.onboardingStatus === "SIGNED") setCurrentStep(7);
+          else if (res.data.onboardingStatus === "SIGNED")
+            setCurrentStep((prev) => Math.max(prev, 6));
           setForm((f) => ({
             ...f,
             company:

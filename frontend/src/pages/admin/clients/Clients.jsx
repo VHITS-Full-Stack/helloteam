@@ -267,14 +267,7 @@ const Clients = () => {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-semibold text-gray-900 truncate">{client.companyName}</p>
-                            {client.timezone && (
-                              <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded flex-shrink-0">
-                                {TIMEZONE_LABELS[client.timezone] || client.timezone.replace(/_/g, ' ')}
-                              </span>
-                            )}
-                          </div>
+                          <p className="text-sm font-semibold text-gray-900 truncate">{client.companyName}</p>
                           <p className="text-xs text-gray-500 truncate">{client.contacts?.[0]?.name || client.contactPerson}</p>
                         </div>
                       </div>
