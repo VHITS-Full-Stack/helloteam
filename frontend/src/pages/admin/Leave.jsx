@@ -111,6 +111,10 @@ const getLeaveTypeLabel = (type) => {
 
 const formatDurationFromDays = (days) => {
   const totalMinutes = Math.round(Number(days || 0) * 8 * 60);
+  return formatDurationFromMinutes(totalMinutes);
+};
+
+const formatDurationFromMinutes = (totalMinutes) => {
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
   return `${hours}h ${String(mins).padStart(2, "0")}m`;
@@ -694,7 +698,7 @@ const AdminLeave = () => {
                         Days Off
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
-                        Duration
+                        Hours
                       </th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">
                         Code
@@ -769,12 +773,15 @@ const AdminLeave = () => {
                                 {formatDate(r.endDate, { includeYear: true })}
                               </p>
                             )}
+                            <p className="text-xs font-medium text-primary mt-1">
+                              {r.days} days
+                            </p>
                             <p className="text-xs text-gray-400 mt-0.5">
                               {r.client.name}
                             </p>
                           </td>
                           <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">
-                            {formatDurationFromDays(r.days)}
+                            {r.totalMinutes ? (r.totalMinutes / 60) : (r.days * 8)}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <span className="text-sm font-medium text-gray-900">
