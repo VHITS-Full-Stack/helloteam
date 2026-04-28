@@ -205,6 +205,8 @@ export const getEmployees = async (req: AuthenticatedRequest, res: Response): Pr
           billingRate: employee.billingRate ? Number(employee.billingRate) : null,
           payableRate: employee.payableRate ? Number(employee.payableRate) : null,
           clientGroupBillingRate,
+          lastClockOutReason: employee.lastClockOutReason,
+          lastClockOutAt: employee.lastClockOutAt,
           groupAssignments: employee.groupAssignments.map((ga) => ({
             ...ga,
             group: {

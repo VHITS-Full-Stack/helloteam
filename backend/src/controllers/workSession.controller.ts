@@ -2619,6 +2619,16 @@ export const adminClockOutEmployee = async (req: AuthenticatedRequest, res: Resp
       },
     });
 
+    // Also save to employee record for persistence
+    await prisma.employee.update({
+      where: { id: employeeId },
+      data: {
+        lastClockOutReason: reason || null,
+        lastClockedOutBy: adminId,
+        lastClockOutAt: new Date(),
+      },
+    });
+
     res.json({
       success: true,
       message: 'Employee clocked out successfully',

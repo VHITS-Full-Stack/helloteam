@@ -103,6 +103,8 @@ const TimeRecords = () => {
   const [clockOutEmployee, setClockOutEmployee] = useState(null);
   const [clockOutReason, setClockOutReason] = useState("");
   const [clockOutLoading, setClockOutLoading] = useState(false);
+  const [activeEmployees, setActiveEmployees] = useState([]);
+  const [loadingActive, setLoadingActive] = useState(false);
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -127,11 +129,26 @@ const TimeRecords = () => {
         setClockOutEmployee(null);
         setClockOutReason("");
         fetchData();
+        fetchActiveEmployees();
       }
     } catch (err) {
       console.error("Failed to clock out:", err);
     } finally {
       setClockOutLoading(false);
+    }
+  };
+
+  const fetchActiveEmployees = async () => {
+    setLoadingActive(true);
+    try {
+      const res = await adminPortalService.getRealTimeAttendanceMonitoring({});
+      if (res.success) {
+        setActiveEmployees(res.data?.employees || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch active employees:", err);
+    } finally {
+      setLoadingActive(false);
     }
   };
 
@@ -340,6 +357,13 @@ const TimeRecords = () => {
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
+
+  // Fetch active employees on mount
+  useEffect(() => {
+    fetchActiveEmployees();
+    const interval = setInterval(fetchActiveEmployees, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Filter by group (get employee IDs in selected group)
   // Filter groups by selected client
@@ -849,6 +873,52 @@ const TimeRecords = () => {
               View and manage all employee time records
             </p>
           </div>
+
+          {/* Active Employees Panel */}
+          {activeEmployees.length > 0 && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <h3 className="text-sm font-semibold text-green-800">
+                  Currently Active ({activeEmployees.length})
+                </h3>
+                <button
+                  onClick={fetchActiveEmployees}
+                  disabled={loadingActive}
+                  className="ml-auto p-1 text-green-600 hover:bg-green-100 rounded"
+                >
+                  <RefreshCw className={`w-4 h-4 ${loadingActive ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {activeEmployees.map((emp) => (
+                  <div
+                    key={emp.id}
+                    className="flex items-center gap-2 bg-white border border-green-200 rounded-full px-3 py-1.5"
+                  >
+                    <Avatar
+                      name={emp.name}
+                      src={emp.profilePhoto}
+                      size="xs"
+                    />
+                    <span className="text-sm font-medium text-gray-900">{emp.name}</span>
+                    <span className="text-xs text-green-600">
+                      {emp.clockIn ? new Date(emp.clockIn).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }) : ""}
+                    </span>
+                    <button
+                      onClick={() => {
+                        setClockOutEmployee({ id: emp.id, name: emp.name });
+                        setShowClockOutModal(true);
+                      }}
+                      className="ml-1 text-xs px-2 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 font-medium"
+                    >
+                      Clock Out
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 flex-shrink-0">
             <ExportButton onClick={handleExport} />
             <ExportButton onClick={handleExportPDF}>Export PDF</ExportButton>

@@ -3715,3 +3715,70 @@ export const getRealTimeAttendanceMonitoring = async (req: AuthenticatedRequest,
     res.status(500).json({ success: false, error: error?.message || 'Failed to fetch monitoring data' });
   }
 };
+
+// Get currently active employees (clocked in) and recently clocked out
+export const getActiveEmployees = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    // Get active sessions
+    const activeSessions = await prisma.workSession.findMany({
+      where: {
+        status: { in: ['ACTIVE', 'ON_BREAK'] },
+      },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true } },
+      },
+      orderBy: { startTime: 'desc' },
+    });
+
+    // Get recently completed sessions (last 2 hours) to show clock-out reason
+    const recentlyCompleted = await prisma.workSession.findMany({
+      where: {
+        status: 'COMPLETED',
+        endTime: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }, // last 2 hours
+        clockOutReason: { not: null },
+      },
+      include: {
+        employee: { select: { id: true, firstName: true, lastName: true, profilePhoto: true } },
+      },
+      orderBy: { endTime: 'desc' },
+      take: 50,
+    });
+
+    const employeeMap = new Map();
+
+    // Add active employees
+    for (const session of activeSessions) {
+      employeeMap.set(session.employee.id, {
+        id: session.employee.id,
+        name: `${session.employee.firstName} ${session.employee.lastName}`,
+        profilePhoto: session.employee.profilePhoto,
+        clockIn: session.startTime,
+        status: session.status,
+        clockOutReason: session.clockOutReason,
+        clockOutAt: session.endTime,
+      });
+    }
+
+    // Add recently completed employees (only if not already active)
+    for (const session of recentlyCompleted) {
+      if (!employeeMap.has(session.employee.id)) {
+        employeeMap.set(session.employee.id, {
+          id: session.employee.id,
+          name: `${session.employee.firstName} ${session.employee.lastName}`,
+          profilePhoto: session.employee.profilePhoto,
+          clockIn: session.startTime,
+          status: 'COMPLETED',
+          clockOutReason: session.clockOutReason,
+          clockOutAt: null,
+        });
+      }
+    }
+
+    const employees = Array.from(employeeMap.values());
+
+    res.json({ success: true, data: { employees } });
+  } catch (error: any) {
+    console.error('Get active employees error:', error);
+    res.status(500).json({ success: false, error: error?.message || 'Failed to fetch active employees' });
+  }
+};

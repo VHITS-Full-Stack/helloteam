@@ -216,6 +216,9 @@ model Employee {
   proofOfAddressUrl        String?
   proofOfAddressStatus     KycStatus        @default(PENDING)
   proofOfAddressRejectNote String?
+  lastClockOutReason      String?
+  lastClockedOutBy        String?
+  lastClockOutAt           DateTime?
   createdAt                DateTime         @default(now())
   updatedAt                DateTime         @updatedAt
 

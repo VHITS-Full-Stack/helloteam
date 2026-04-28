@@ -409,8 +409,12 @@ getAdminAnalytics: async () => {
     return await api.get('/admin-portal/analytics');
   },
 
-  clockOutEmployee: async (employeeId, notes, reason) => {
+clockOutEmployee: async (employeeId, notes, reason) => {
     return await api.post(`/admin-portal/employees/${employeeId}/clock-out`, { notes, reason });
+  },
+
+  getActiveEmployees: async () => {
+    return await api.get('/admin-portal/employees/active');
   },
 };
 

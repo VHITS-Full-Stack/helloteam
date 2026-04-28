@@ -10,6 +10,8 @@ import {
   Mail,
   ChevronDown,
   Users,
+  Clock,
+  Loader2,
 } from "lucide-react";
 import {
   Card,
@@ -28,12 +30,22 @@ import {
 import { useEmployeeList } from "../../../hooks/useEmployeeData";
 import employeeService from "../../../services/employee.service";
 import clientService from "../../../services/client.service";
+import adminPortalService from "../../../services/adminPortal.service";
 
 const Employees = () => {
   const navigate = useNavigate();
   const [resendingId, setResendingId] = useState(null);
   const [successMsg, setSuccessMsg] = useState("");
   const [clients, setClients] = useState([]);
+
+  // Clock out modal
+  const [showClockOutModal, setShowClockOutModal] = useState(false);
+  const [clockOutEmployee, setClockOutEmployee] = useState(null);
+  const [clockOutReason, setClockOutReason] = useState("");
+  const [clockOutLoading, setClockOutLoading] = useState(false);
+  const [clockOutSuccess, setClockOutSuccess] = useState("");
+  const [activeEmployees, setActiveEmployees] = useState([]);
+  const [loadingActive, setLoadingActive] = useState(false);
 
   useEffect(() => {
     if (successMsg) {
@@ -69,6 +81,56 @@ const Employees = () => {
     setPagination,
     refresh,
   } = useEmployeeList();
+
+  const fetchActiveEmployees = async () => {
+    setLoadingActive(true);
+    try {
+      const res = await adminPortalService.getActiveEmployees();
+      if (res.success) {
+        setActiveEmployees(res.data?.employees || []);
+      }
+    } catch (err) {
+      console.error("Failed to fetch active employees:", err);
+    } finally {
+      setLoadingActive(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveEmployees();
+    const interval = setInterval(fetchActiveEmployees, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleClockOutSubmit = async () => {
+    if (!clockOutEmployee || !clockOutReason.trim()) return;
+    setClockOutLoading(true);
+    try {
+      const res = await adminPortalService.clockOutEmployee(
+        clockOutEmployee.id,
+        null,
+        clockOutReason
+      );
+      if (res.success) {
+        setShowClockOutModal(false);
+        setClockOutSuccess(`Clocked out ${clockOutEmployee.name}`);
+        setClockOutReason("");
+        setClockOutEmployee(null);
+        fetchActiveEmployees();
+        refresh();
+        setTimeout(() => setClockOutSuccess(""), 3000);
+      }
+    } catch (err) {
+      console.error("Failed to clock out:", err);
+    } finally {
+      setClockOutLoading(false);
+    }
+  };
+
+  const isEmployeeActive = (employeeId) => {
+    const emp = activeEmployees.find(e => e.id === employeeId);
+    return emp && (emp.status === 'ACTIVE' || emp.status === 'ON_BREAK');
+  };
 
   const getStatusBadge = (employee) => {
     if (employee.terminationDate) {
@@ -349,6 +411,7 @@ const Employees = () => {
                   Rates (Pay / Bill / OT)
                 </TableHeader>
                 <TableHeader>Status</TableHeader>
+                <TableHeader className="whitespace-nowrap">Last Clock Out</TableHeader>
                 <TableHeader>KYC</TableHeader>
                 <TableHeader>Hired</TableHeader>
                 <TableHeader>Created</TableHeader>
@@ -389,6 +452,27 @@ const Employees = () => {
                   <TableCell>{getStatusBadge(employee)}</TableCell>
                   <TableCell>
                     {(() => {
+                      const activeEmp = activeEmployees.find(e => e.id === employee.id);
+                      const reason = activeEmp?.clockOutReason || employee.lastClockOutReason;
+                      if (reason) {
+                        return (
+                          <div className="max-w-[150px]">
+                            <p className="text-xs text-red-600 font-medium truncate" title={reason}>
+                              {reason}
+                            </p>
+                            {(activeEmp?.clockOutAt || employee.lastClockOutAt) && (
+                              <p className="text-[10px] text-gray-400">
+                                {new Date(activeEmp?.clockOutAt || employee.lastClockOutAt).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return <span className="text-gray-400">—</span>;
+                    })()}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
                       const kyc = employee.kycStatus || "PENDING";
                       const variant =
                         kyc === "APPROVED"
@@ -427,6 +511,22 @@ const Employees = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-1">
+                      {isEmployeeActive(employee.id) && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setClockOutEmployee({
+                              id: employee.id,
+                              name: `${employee.firstName} ${employee.lastName}`,
+                            });
+                            setShowClockOutModal(true);
+                          }}
+                          className="p-2 hover:bg-red-50 rounded-lg transition-colors inline-flex"
+                          title="Clock Out"
+                        >
+                          <Clock className="w-4 h-4 text-red-600" />
+                        </button>
+                      )}
                       {employee.onboardingStatus !== "COMPLETED" && (
                         <button
                           onClick={async (e) => {
@@ -557,6 +657,55 @@ const Employees = () => {
           </div>
         )}
       </Card>
+
+      {/* Clock Out Modal */}
+      {showClockOutModal && clockOutEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Clock Out Employee
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to clock out <strong>{clockOutEmployee.name}</strong>. 
+              This will end their active work session.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for clocking out{" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={clockOutReason}
+                onChange={(e) => setClockOutReason(e.target.value)}
+                placeholder="Enter reason why you are clocking out this employee..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowClockOutModal(false);
+                  setClockOutEmployee(null);
+                  setClockOutReason("");
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={clockOutLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClockOutSubmit}
+                disabled={clockOutLoading || !clockOutReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {clockOutLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Clock Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
