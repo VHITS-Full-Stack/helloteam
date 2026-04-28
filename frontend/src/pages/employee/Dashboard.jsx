@@ -62,7 +62,7 @@ import { formatTime12, formatDuration } from "../../utils/formatDateTime";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../context/SocketContext";
 
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const EmployeeDashboard = () => {
   const navigate = useNavigate();
@@ -96,7 +96,9 @@ const EmployeeDashboard = () => {
   const [overtimeSuccess, setOvertimeSuccess] = useState("");
 
   // Resolve client timezone
-  const clientTz = sessionData?.clientTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const clientTz =
+    sessionData?.clientTimezone ||
+    Intl.DateTimeFormat().resolvedOptions().timeZone;
 
   // Shift extension state (driven by session data)
   const [isInExtension, setIsInExtension] = useState(false);
@@ -234,7 +236,10 @@ const EmployeeDashboard = () => {
         taskService.getTasks({ limit: 1, status: "DONE" }),
       ]);
       if (personalRes.success && clientRes.success) {
-        const combined = [...(personalRes.data.tasks || []), ...(clientRes.data.tasks || [])];
+        const combined = [
+          ...(personalRes.data.tasks || []),
+          ...(clientRes.data.tasks || []),
+        ];
         setTodayTasks(combined.slice(0, 5));
         const totalPersonal = personalRes.data.pagination?.total || 0;
         const totalClient = clientRes.data.pagination?.total || 0;
@@ -1184,7 +1189,7 @@ const EmployeeDashboard = () => {
         {/* Left Column - Stats & Tasks */}
         <div className="lg:col-span-2 space-y-6">
           {/* Stats Row */}
-          <div className="overflow-x-auto pb-2">
+          <div className="overflow-x-auto pb-2 scrollbar-thin">
             <div className="grid grid-cols-6 gap-4 min-w-[840px]">
               <Card className="text-center">
                 <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
@@ -1289,9 +1294,17 @@ const EmployeeDashboard = () => {
 
               {/* Lunch Bypass Card */}
               <Card className="text-center">
-                {(() => {
-                  const remaining = lunchBypass?.remaining ?? 3;
-                  const max = lunchBypass?.max ?? 3;
+                {lunchBypass === null ? (
+                  <>
+                    <div className="w-12 h-12 mx-auto rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                      <UtensilsCrossed className="w-6 h-6 text-gray-400" />
+                    </div>
+                    <p className="text-2xl font-bold text-gray-300">—</p>
+                    <p className="text-xs text-gray-500">Lunch Bypasses</p>
+                    <p className="text-xs text-gray-400 mt-2">Rolling 90 days</p>
+                  </>
+                ) : (() => {
+                  const { remaining, max } = lunchBypass;
                   const bgColor = remaining === 0 ? "bg-red-100" : remaining === 1 ? "bg-amber-100" : "bg-green-100";
                   const iconColor = remaining === 0 ? "text-red-600" : remaining === 1 ? "text-amber-600" : "text-green-600";
                   const numColor = remaining === 0 ? "text-red-600" : remaining === 1 ? "text-amber-600" : "text-gray-900";
@@ -1503,11 +1516,14 @@ const EmployeeDashboard = () => {
                         <p className="text-sm text-gray-500 break-words">
                           {request.reason}
                         </p>
-                        {request.type === 'OFF_SHIFT' && request.requestedStartTime && request.requestedEndTime && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatTime12(request.requestedStartTime)} – {formatTime12(request.requestedEndTime)}
-                          </p>
-                        )}
+                        {request.type === "OFF_SHIFT" &&
+                          request.requestedStartTime &&
+                          request.requestedEndTime && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              {formatTime12(request.requestedStartTime)} –{" "}
+                              {formatTime12(request.requestedEndTime)}
+                            </p>
+                          )}
                         {request.status === "APPROVED" && request.approver && (
                           <p className="text-xs text-green-600 mt-1">
                             Approved by {request.approver.name}
@@ -1825,11 +1841,9 @@ const EmployeeDashboard = () => {
                             : "text-gray-400"
                       }`}
                     >
-                      {isScheduled ? (
-                        `${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)} EST`
-                      ) : (
-                        "Off"
-                      )}
+                      {isScheduled
+                        ? `${formatTime12(daySchedule.startTime)} – ${formatTime12(daySchedule.endTime)} EST`
+                        : "Off"}
                     </p>
                     {approvedExtension && isScheduled && (
                       <span
