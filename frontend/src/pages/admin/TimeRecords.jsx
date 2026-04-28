@@ -1601,11 +1601,11 @@ const TimeRecords = () => {
                             {session.breakMinutes}m break
                           </span>
                         )}
-                        {session.status === "ACTIVE" && (
+                        {session.status === "ACTIVE" || session.status === "ON_BREAK" ? (
                           <div className="flex items-center gap-2">
                             <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600">
                               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                              Active
+                              {session.status === "ON_BREAK" ? "On Break" : "Active"}
                             </span>
                             <button
                               onClick={() => {
@@ -1617,7 +1617,7 @@ const TimeRecords = () => {
                               Clock Out
                             </button>
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -2115,7 +2115,7 @@ const TimeRecords = () => {
 </button>
             </div>
           </div>
-        )}
+        </div>
       )}
 
       {/* Clock Out Modal */}
