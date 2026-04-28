@@ -1266,7 +1266,7 @@ const TimeRecords = () => {
         </form>
       </Modal>
 
-      {/* Detail Modal (truncated for brevity but logic remains same) */}
+      {/* Detail Modal */}
       <Modal
         isOpen={showDetailModal}
         onClose={() => {
@@ -1276,12 +1276,220 @@ const TimeRecords = () => {
         title="Session Details"
         size="xl"
       >
-        {selectedSession && (
-          <div className="space-y-6">
-             {/* Detail contents ... */}
-             <p className="text-sm text-gray-600">Session detail view contents...</p>
-          </div>
-        )}
+        {selectedSession && (() => {
+          const s = selectedSession;
+          const startDt = s.startTime ? new Date(s.startTime) : null;
+          const endDt = s.endTime ? new Date(s.endTime) : null;
+          const sessionDate = startDt
+            ? startDt.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            : '—';
+
+          const fmtTime = (dt) =>
+            dt ? dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }) : '—';
+
+          // Handles both ISO datetimes and raw "HH:MM" strings
+          const fmtScheduledTime = (val) => {
+            if (!val) return '—';
+            if (/^\d{1,2}:\d{2}$/.test(val)) {
+              const [h, m] = val.split(':').map(Number);
+              const d = new Date();
+              d.setHours(h, m, 0, 0);
+              return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            }
+            const dt = new Date(val);
+            return isNaN(dt.getTime()) ? val : fmtTime(dt);
+          };
+
+          const fmtMins = (mins) => {
+            if (mins == null || mins === 0) return '0m';
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return h > 0 ? (m > 0 ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+          };
+
+          const statusColors = {
+            ACTIVE: 'bg-green-100 text-green-700',
+            ON_BREAK: 'bg-yellow-100 text-yellow-700',
+            COMPLETED: 'bg-blue-100 text-blue-700',
+            APPROVED: 'bg-green-100 text-green-700',
+            PENDING: 'bg-yellow-100 text-yellow-700',
+            REJECTED: 'bg-red-100 text-red-700',
+          };
+          const statusLabel = {
+            ACTIVE: 'Active',
+            ON_BREAK: 'On Break',
+            COMPLETED: 'Completed',
+            APPROVED: 'Approved',
+            PENDING: 'Pending',
+            REJECTED: 'Rejected',
+          };
+
+          const lunchStatusColors = {
+            ON_TIME: 'bg-green-100 text-green-700',
+            EXTENDED: 'bg-yellow-100 text-yellow-700',
+            WAS_WORKING: 'bg-blue-100 text-blue-700',
+            UNAUTHORIZED: 'bg-red-100 text-red-700',
+          };
+          const lunchStatusLabel = {
+            ON_TIME: 'On Time',
+            EXTENDED: 'Extended',
+            WAS_WORKING: 'Was Working',
+            UNAUTHORIZED: 'Unauthorized',
+          };
+
+          const approvalStatusColors = {
+            PENDING: 'bg-yellow-100 text-yellow-700',
+            APPROVED: 'bg-green-100 text-green-700',
+            AUTO_APPROVED: 'bg-blue-100 text-blue-700',
+            PENDING_REVIEW: 'bg-orange-100 text-orange-700',
+            DENIED: 'bg-red-100 text-red-700',
+          };
+          const approvalStatusLabel = {
+            PENDING: 'Pending',
+            APPROVED: 'Approved',
+            AUTO_APPROVED: 'Auto-Approved',
+            PENDING_REVIEW: 'Pending Review',
+            DENIED: 'Denied',
+          };
+
+          const breaks = s.breaks || [];
+
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">{sessionDate}</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-lg font-semibold text-gray-900">
+                      {fmtTime(startDt)} – {fmtTime(endDt)}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[s.status] || 'bg-gray-100 text-gray-600'}`}>
+                      {statusLabel[s.status] || s.status}
+                    </span>
+                  </div>
+                  {s.client?.companyName && (
+                    <p className="text-sm text-gray-500 mt-0.5">{s.client.companyName}</p>
+                  )}
+                </div>
+                {s.approvalStatus && (
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${approvalStatusColors[s.approvalStatus] || 'bg-gray-100 text-gray-600'}`}>
+                    {approvalStatusLabel[s.approvalStatus] || s.approvalStatus}
+                  </span>
+                )}
+              </div>
+
+              {/* Time Summary */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Time Summary</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-8 gap-1">
+                  {[
+                    { label: 'Scheduled', value: `${fmtScheduledTime(s.scheduledStart)} – ${fmtScheduledTime(s.scheduledEnd)}`, full: true },
+                    { label: 'Total Time', value: fmtMins(s.totalMinutes) },
+                    { label: 'Work Time', value: fmtMins(s.workMinutes) },
+                    { label: 'Break Time', value: fmtMins(s.breakMinutes) },
+                    { label: 'Overtime', value: fmtMins(s.overtimeMinutes) },
+                    ...(s.billingMinutes != null ? [{ label: 'Billing', value: fmtMins(s.billingMinutes) }] : []),
+                  ].map((item, i) => (
+                    <div key={i} className={`bg-gray-50 rounded-lg px-3 py-2.5 ${item.full ? 'col-span-2 sm:col-span-3' : ''}`}>
+                      <p className="text-xs text-gray-500">{item.label}</p>
+                      <p className="text-sm font-medium text-gray-900 mt-0.5">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Breaks */}
+              {breaks.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    Breaks ({breaks.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {breaks.map((brk, i) => {
+                      const bStart = brk.startTime ? new Date(brk.startTime) : null;
+                      const bEnd = brk.endTime ? new Date(brk.endTime) : null;
+                      return (
+                        <div key={i} className="border border-gray-100 rounded-lg p-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Coffee className="w-3.5 h-3.5 text-gray-400" />
+                              <span className="text-sm text-gray-700">
+                                {fmtTime(bStart)} – {fmtTime(bEnd)}
+                              </span>
+                              {brk.durationMinutes != null && (
+                                <span className="text-xs text-gray-500">({fmtMins(brk.durationMinutes)})</span>
+                              )}
+                            </div>
+                            {brk.lunchStatus && (
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${lunchStatusColors[brk.lunchStatus] || 'bg-gray-100 text-gray-600'}`}>
+                                {lunchStatusLabel[brk.lunchStatus] || brk.lunchStatus}
+                              </span>
+                            )}
+                          </div>
+                          {(brk.paidMinutes != null || brk.unpaidMinutes != null) && (
+                            <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                              {brk.paidMinutes != null && <span>Paid: {fmtMins(brk.paidMinutes)}</span>}
+                              {brk.unpaidMinutes != null && <span>Unpaid: {fmtMins(brk.unpaidMinutes)}</span>}
+                            </div>
+                          )}
+                          {brk.bypassApprovalStatus && brk.bypassApprovalStatus !== 'PENDING_REVIEW' && (
+                            <div className="mt-1">
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${approvalStatusColors[brk.bypassApprovalStatus] || 'bg-gray-100 text-gray-600'}`}>
+                                {approvalStatusLabel[brk.bypassApprovalStatus] || brk.bypassApprovalStatus}
+                              </span>
+                            </div>
+                          )}
+                          {brk.bypassApprovalStatus === 'PENDING_REVIEW' && (
+                            <div className="mt-2 bg-orange-50 text-orange-700 text-xs rounded px-2 py-1">
+                              Pending Hello Team approval
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {s.notes && (
+                <div>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Notes</h3>
+                  <p className="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2.5 whitespace-pre-wrap">{s.notes}</p>
+                </div>
+              )}
+
+              {/* Activity Log */}
+              <div>
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Activity Log</h3>
+                {logsLoading ? (
+                  <div className="flex items-center justify-center py-6 text-gray-400">
+                    <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                    <span className="text-sm">Loading activity...</span>
+                  </div>
+                ) : sessionLogs.length === 0 ? (
+                  <p className="text-sm text-gray-400 py-4 text-center">No activity recorded.</p>
+                ) : (
+                  <div className="space-y-1 max-h-56 overflow-y-auto pr-1">
+                    {sessionLogs.map((log, i) => (
+                      <div key={i} className="flex gap-3 text-sm py-2 border-b border-gray-50 last:border-0">
+                        <span className="text-xs text-gray-400 whitespace-nowrap mt-0.5 w-32 shrink-0">
+                          {new Date(log.createdAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <span className="font-medium text-gray-700">{log.action?.replace(/_/g, ' ')}</span>
+                          {log.details && <span className="text-gray-500 ml-1">— {log.details}</span>}
+                          {log.actorName && <span className="text-xs text-gray-400 ml-1">by {log.actorName}</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
 
       {/* Toast Notification UI */}

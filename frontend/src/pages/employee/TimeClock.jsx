@@ -48,12 +48,13 @@ const TimeClock = () => {
 
   // Unauthorized lunch break state
   const [unauthorizedLunch, setUnauthorizedLunch] = useState(null); // { lateMinutes, scheduledDurationMinutes }
-  const [lunchResolutionStep, setLunchResolutionStep] = useState(null); // null | 'extended_confirm' | 'screenshot_form'
+  const [lunchResolutionStep, setLunchResolutionStep] = useState(null); // null | 'extended_confirm' | 'resume_time_form' | 'screenshot_form'
 
   // Screenshot upload state (for "I was working" resolution)
   const [breakScreenshot, setBreakScreenshot] = useState(null);
   const [screenshotExplanation, setScreenshotExplanation] = useState('');
   const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const [resumeTime, setResumeTime] = useState(''); // HH:MM — upgraded WAS_WORKING path only
   const screenshotFileRef = useRef(null);
 
   // Lunch warning state (fires 2 min before scheduled end)
@@ -392,6 +393,7 @@ const TimeClock = () => {
       playBreakEndSound();
       setUnauthorizedLunch(null);
       setLunchResolutionStep(null);
+      setResumeTime('');
       unauthorizedAutoFiredRef.current = false;
       lunchBannerUpgradedRef.current = false;
       await fetchData();
@@ -404,9 +406,16 @@ const TimeClock = () => {
 
   // Handle "I was working" - show screenshot upload form
   const handleWasWorkingClick = () => {
-    setLunchResolutionStep('screenshot_form');
+    const breakStart = sessionData?.session?.currentBreak?.startTime;
+    const scheduled = sessionData?.session?.currentBreak?.scheduledDurationMinutes ?? 30;
+    const lateMin = breakStart
+      ? Math.round((new Date() - new Date(breakStart)) / 60000 - scheduled)
+      : 0;
+    const upgraded = lateMin > 30;
+    setLunchResolutionStep(upgraded ? 'resume_time_form' : 'screenshot_form');
     setBreakScreenshot(null);
     setScreenshotExplanation('');
+    setResumeTime('');
     setError('');
   };
 
@@ -450,8 +459,8 @@ const TimeClock = () => {
       setUploadingScreenshot(true);
       setError('');
 
-      // Submit screenshot + explanation — this resolves and ends the break in one call
-      const endResponse = await workSessionService.submitWasWorkingBreak(breakScreenshot, screenshotExplanation);
+      // Submit screenshot + explanation (+resumeTime on upgraded path) — resolves and ends the break in one call
+      const endResponse = await workSessionService.submitWasWorkingBreak(breakScreenshot, screenshotExplanation, resumeTime || undefined);
 
       if (!endResponse.success) {
         setError(endResponse.message || 'Failed to submit screenshot');
@@ -465,6 +474,7 @@ const TimeClock = () => {
 
       setUnauthorizedLunch(null);
       setLunchResolutionStep(null);
+      setResumeTime('');
       unauthorizedAutoFiredRef.current = false;
       lunchBannerUpgradedRef.current = false;
       await fetchData();
@@ -1079,7 +1089,72 @@ const TimeClock = () => {
               </p>
             </div>
             <div className="px-6 py-5">
-              {lunchResolutionStep === 'extended_confirm' ? (
+              {lunchResolutionStep === 'resume_time_form' ? (
+                (() => {
+                  // Compute the min time (scheduled break end) for the time picker
+                  const breakStart = sessionData?.session?.currentBreak?.startTime;
+                  const scheduled = sessionData?.session?.currentBreak?.scheduledDurationMinutes ?? 30;
+                  const scheduledEndDate = breakStart
+                    ? new Date(new Date(breakStart).getTime() + scheduled * 60000)
+                    : null;
+                  const scheduledEndHHMM = scheduledEndDate
+                    ? `${String(scheduledEndDate.getHours()).padStart(2, '0')}:${String(scheduledEndDate.getMinutes()).padStart(2, '0')}`
+                    : null;
+                  const nowHHMM = `${String(currentTime.getHours()).padStart(2, '0')}:${String(currentTime.getMinutes()).padStart(2, '0')}`;
+                  const resumeTimeInvalid = resumeTime && scheduledEndHHMM && resumeTime <= scheduledEndHHMM;
+                  return (
+                    <div className="space-y-4">
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                        <p className="text-amber-900 text-sm font-medium mb-1">When did you actually start working again?</p>
+                        <p className="text-amber-800 text-sm">
+                          Please tell us when you actually started working again. The time before that will be treated as unpaid lunch.
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Time I started working *
+                        </label>
+                        <input
+                          type="time"
+                          value={resumeTime}
+                          min={scheduledEndHHMM || undefined}
+                          max={nowHHMM}
+                          onChange={(e) => setResumeTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+                        />
+                        {scheduledEndHHMM && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Must be after {scheduledEndHHMM} (when your lunch was scheduled to end)
+                          </p>
+                        )}
+                        {resumeTimeInvalid && (
+                          <p className="text-xs text-red-600 mt-1">Resume time must be after your scheduled lunch end</p>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setLunchResolutionStep(null)}
+                          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                        >
+                          Back
+                        </button>
+                        <button
+                          disabled={!resumeTime || !!resumeTimeInvalid}
+                          onClick={() => {
+                            setBreakScreenshot(null);
+                            setScreenshotExplanation('');
+                            setError('');
+                            setLunchResolutionStep('screenshot_form');
+                          }}
+                          className="flex-1 bg-primary hover:bg-primary-600 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                        >
+                          Next: Upload Screenshot
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()
+              ) : lunchResolutionStep === 'extended_confirm' ? (
                 <>
               <p className="text-gray-700 text-sm mb-4">
                 Are you sure? This will mark <strong>{liveLateMinutes} minute{liveLateMinutes !== 1 ? 's' : ''}</strong> as unpaid break time.

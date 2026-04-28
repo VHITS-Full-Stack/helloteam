@@ -400,7 +400,24 @@ export default function LunchBreakReview() {
                         <td className="py-3 px-4 text-gray-700">{formatTime(b.startTime)}</td>
                         <td className="py-3 px-4 text-gray-700">{formatTime(b.endTime)}</td>
                         <td className="py-3 px-4 text-right text-gray-700">{b.scheduledDurationMinutes} min</td>
-                        <td className="py-3 px-4 text-right text-amber-600 font-medium">{b.unpaidMinutes} min</td>
+                        <td className="py-3 px-4 text-right">
+                          {b.resumeTime ? (() => {
+                            const scheduledEnd = new Date(new Date(b.startTime).getTime() + b.scheduledDurationMinutes * 60000);
+                            const resumeDate = new Date(b.resumeTime);
+                            const endDate = new Date(b.endTime);
+                            const gapMin = Math.max(0, Math.round((resumeDate - scheduledEnd) / 60000));
+                            const lateWorkMin = Math.max(0, Math.round((endDate - resumeDate) / 60000));
+                            return (
+                              <div className="text-right text-xs space-y-0.5">
+                                <p className="text-red-500">{gapMin} min unpaid gap</p>
+                                <p className="text-amber-600 font-medium">{lateWorkMin} min claimed work</p>
+                                <p className="text-gray-400">resume: {formatTime(b.resumeTime)}</p>
+                              </div>
+                            );
+                          })() : (
+                            <span className="text-amber-600 font-medium">{b.unpaidMinutes} min</span>
+                          )}
+                        </td>
                         <td className="py-3 px-4 max-w-xs">
                           {b.wasWorkingExplanation ? (
                             <div>
@@ -471,7 +488,16 @@ export default function LunchBreakReview() {
               </div>
               <div className="px-6 py-5 space-y-4">
                 <div className={`rounded-lg p-3 text-sm ${isApprove ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
-                  {isApprove
+                  {b.resumeTime ? (() => {
+                    const scheduledEnd = new Date(new Date(b.startTime).getTime() + b.scheduledDurationMinutes * 60000);
+                    const resumeDate = new Date(b.resumeTime);
+                    const endDate = new Date(b.endTime);
+                    const gapMin = Math.max(0, Math.round((resumeDate - scheduledEnd) / 60000));
+                    const lateWorkMin = Math.max(0, Math.round((endDate - resumeDate) / 60000));
+                    return isApprove
+                      ? <><strong>{b.scheduledDurationMinutes} min</strong> paid lunch + <strong>{lateWorkMin} min</strong> claimed work → reclassified as paid hours. Gap ({gapMin} min, {formatTime(scheduledEnd.toISOString())}–{formatTime(b.resumeTime)}) stays unpaid.</>
+                      : <><strong>{lateWorkMin} min</strong> of claimed work is denied — becomes Unpaid Break. Gap ({gapMin} min) is already unpaid. Only the scheduled {b.scheduledDurationMinutes} min lunch is paid.</>;
+                  })() : isApprove
                     ? <>All <strong>{b.durationMinutes} min</strong> will be reclassified as worked hours (paid, billable). Scheduled: {b.scheduledDurationMinutes} min + {b.unpaidMinutes} min late time.</>
                     : <>The <strong>{b.unpaidMinutes} min</strong> of late time will remain as Unpaid Break. Only the scheduled {b.scheduledDurationMinutes} min will be paid.</>}
                 </div>

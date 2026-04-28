@@ -571,6 +571,7 @@ model Break {
   wasWorkingScreenshotUrl  String?   // uploaded screenshot URL for WAS_WORKING resolution
   wasWorkingExplanation    String?   // employee explanation text (20-500 chars)
   bypassApprovalStatus     String?   // AUTO_APPROVED | PENDING_REVIEW | APPROVED | DENIED
+  resumeTime               DateTime? // when employee claims they resumed working (upgraded WAS_WORKING path only)
 
   createdAt DateTime @default(now())
 
