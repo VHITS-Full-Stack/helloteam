@@ -36,6 +36,191 @@ import { formatDateTime } from "../../utils/formatDateTime";
 import { CKEditor } from "@ckeditor/ckeditor5-react";
 import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 
+function Base64UploadAdapter(loader) {
+  this.loader = loader;
+}
+Base64UploadAdapter.prototype.upload = function () {
+  return this.loader.file.then(
+    (file) =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(objectUrl);
+          const MAX_PX = 800;
+          let { width, height } = img;
+          if (width > MAX_PX || height > MAX_PX) {
+            if (width >= height) {
+              height = Math.round((height * MAX_PX) / width);
+              width = MAX_PX;
+            } else {
+              width = Math.round((width * MAX_PX) / height);
+              height = MAX_PX;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          resolve({ default: canvas.toDataURL('image/webp', 0.75) });
+        };
+        img.onerror = reject;
+        img.src = objectUrl;
+      }),
+  );
+};
+Base64UploadAdapter.prototype.abort = function () {};
+
+function Base64UploadAdapterPlugin(editor) {
+  editor.plugins.get('FileRepository').createUploadAdapter = (loader) =>
+    new Base64UploadAdapter(loader);
+}
+
+function IndentBlockPlugin(editor) {
+  const STEP = 40;
+  const MAX_INDENT = 200;
+  const BLOCK_TYPES = ['paragraph', 'heading1', 'heading2', 'heading3', 'heading4'];
+  // heading1→h2, heading2→h3, heading3→h4, paragraph→p (also upcast h1→heading1)
+  const VIEW_TAGS = ['p', 'h1', 'h2', 'h3', 'h4'];
+
+  // Allow blockIndent attribute on all block element types
+  for (const type of BLOCK_TYPES) {
+    if (editor.model.schema.isRegistered(type)) {
+      editor.model.schema.extend(type, { allowAttributes: 'blockIndent' });
+    }
+  }
+
+  // Downcast: model blockIndent attribute → padding-left inline style on view element
+  editor.conversion.for('downcast').add(dispatcher => {
+    dispatcher.on('attribute:blockIndent', (evt, data, conversionApi) => {
+      if (!conversionApi.consumable.consume(data.item, evt.name)) return;
+      const viewEl = conversionApi.mapper.toViewElement(data.item);
+      if (!viewEl) return;
+      if (data.attributeNewValue !== null) {
+        conversionApi.writer.setStyle('padding-left', data.attributeNewValue, viewEl);
+      } else {
+        conversionApi.writer.removeStyle('padding-left', viewEl);
+      }
+    });
+  });
+
+  // Upcast: padding-left inline style on block tags → model blockIndent attribute
+  for (const tag of VIEW_TAGS) {
+    editor.conversion.for('upcast').add(dispatcher => {
+      dispatcher.on(`element:${tag}`, (evt, data, conversionApi) => {
+        if (!data.modelRange) return;
+        const paddingLeft = data.viewItem.getStyle('padding-left');
+        if (!paddingLeft) return;
+        const modelEl = data.modelRange.start.nodeAfter;
+        if (modelEl && editor.model.schema.checkAttribute(modelEl, 'blockIndent')) {
+          conversionApi.writer.setAttribute('blockIndent', paddingLeft, modelEl);
+        }
+      }, { priority: 'low' });
+    });
+  }
+
+  const applyBlockIndent = (direction) => {
+    editor.model.change(writer => {
+      for (const block of editor.model.document.selection.getSelectedBlocks()) {
+        if (block.name === 'listItem') continue;
+        const cur = parseInt(block.getAttribute('blockIndent') || '0') || 0;
+        if (direction === 'in') {
+          if (cur < MAX_INDENT) writer.setAttribute('blockIndent', `${cur + STEP}px`, block);
+        } else {
+          const next = cur - STEP;
+          if (next > 0) {
+            writer.setAttribute('blockIndent', `${next}px`, block);
+          } else {
+            writer.removeAttribute('blockIndent', block);
+          }
+        }
+      }
+    });
+  };
+
+  const hasNonListBlock = () => {
+    const blocks = [...editor.model.document.selection.getSelectedBlocks()];
+    return blocks.some(b => b.name !== 'listItem' && editor.model.schema.checkAttribute(b, 'blockIndent'));
+  };
+
+  const hasIndentedBlock = () => {
+    const blocks = [...editor.model.document.selection.getSelectedBlocks()];
+    return blocks.some(b => {
+      if (b.name === 'listItem') return false;
+      return (parseInt(b.getAttribute('blockIndent') || '0') || 0) > 0;
+    });
+  };
+
+  // Patch indent/outdent commands after all plugins are initialized
+  editor.once('ready', () => {
+    const indentCmd = editor.commands.get('indent');
+    const outdentCmd = editor.commands.get('outdent');
+
+    if (indentCmd && !indentCmd._blockPatched) {
+      indentCmd._blockPatched = true;
+      const origExec = indentCmd.execute.bind(indentCmd);
+      const origRefresh = indentCmd.refresh.bind(indentCmd);
+      indentCmd.execute = function () {
+        const blocks = [...editor.model.document.selection.getSelectedBlocks()];
+        if (blocks.some(b => b.name !== 'listItem')) {
+          applyBlockIndent('in');
+        } else {
+          origExec();
+        }
+      };
+      indentCmd.refresh = function () {
+        origRefresh.call(this);
+        if (!this.isEnabled && hasNonListBlock()) this.isEnabled = true;
+      };
+    }
+
+    if (outdentCmd && !outdentCmd._blockPatched) {
+      outdentCmd._blockPatched = true;
+      const origExec = outdentCmd.execute.bind(outdentCmd);
+      const origRefresh = outdentCmd.refresh.bind(outdentCmd);
+      outdentCmd.execute = function () {
+        const blocks = [...editor.model.document.selection.getSelectedBlocks()];
+        if (blocks.some(b => b.name !== 'listItem')) {
+          applyBlockIndent('out');
+        } else {
+          origExec();
+        }
+      };
+      outdentCmd.refresh = function () {
+        origRefresh.call(this);
+        if (!this.isEnabled && hasIndentedBlock()) this.isEnabled = true;
+      };
+    }
+  });
+}
+
+const ckeditorConfig = {
+  extraPlugins: [Base64UploadAdapterPlugin, IndentBlockPlugin],
+  toolbar: [
+    'heading', '|',
+    'bold', 'italic', '|',
+    'link', '|',
+    'bulletedList', 'numberedList', '|',
+    'outdent', 'indent', '|',
+    'imageUpload', 'blockQuote', '|',
+    'undo', 'redo',
+  ],
+  image: {
+    toolbar: [
+      'imageStyle:inline',
+      'imageStyle:block',
+      'imageStyle:side',
+      '|',
+      'imageStyle:alignLeft',
+      'imageStyle:alignCenter',
+      'imageStyle:alignRight',
+      '|',
+      'toggleImageCaption',
+      'imageTextAlternative',
+    ],
+  },
+};
+
 const Settings = () => {
   const [activeTab, setActiveTab] = useState("general");
   const { isSuperAdmin } = usePermissions();
@@ -531,6 +716,16 @@ const Settings = () => {
     }
   };
 
+  // Toast notification state
+  const [toastMessage, setToastMessage] = useState(null);
+
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
   // CMS settings state
   const [cmsSettings, setCmsSettings] = useState({
     legalTerms: "",
@@ -576,9 +771,13 @@ const Settings = () => {
       const response = await settingsService.updateCmsSettings(cmsSettings);
       if (response.success) {
         setCmsSettings(response.data);
+        setToastMessage({ title: "Saved!", description: "CMS settings updated successfully." });
+      } else {
+        setToastMessage({ title: "Error", description: response.error || "Failed to save CMS settings.", type: "error" });
       }
     } catch (err) {
       console.error("Failed to save CMS settings:", err);
+      setToastMessage({ title: "Error", description: err.message || "Failed to save CMS settings.", type: "error" });
     } finally {
       setSavingCmsSettings(false);
     }
@@ -705,6 +904,57 @@ const Settings = () => {
       <style>{`
         .ck-editor-container .ck-editor__editable_inline {
           min-height: 250px;
+          padding-left: 15px !important;
+        }
+        .ck-editor-container .ck-editor__editable_inline figure.image {
+          max-width: 100%;
+          margin: 1em auto;
+          text-align: center;
+        }
+        .ck-editor-container .ck-editor__editable_inline figure.image img {
+          max-width: 100%;
+          height: auto;
+          display: block;
+        }
+        .ck-editor-container .ck-editor__editable_inline ul {
+          list-style-type: disc !important;
+          padding-left: 1.5em !important;
+        }
+        .ck-editor-container .ck-editor__editable_inline ol {
+          list-style-type: decimal !important;
+          padding-left: 1.5em !important;
+        }
+        .ck-editor-container .ck-editor__editable_inline li {
+          display: list-item !important;
+          list-style-position: outside !important;
+        }
+        .ck-editor-container .ck-editor__editable_inline h1 {
+          font-size: 2em;
+          font-weight: 700;
+          line-height: 1.2;
+          margin: 0.75em 0 0.4em;
+          color: #102a43;
+        }
+        .ck-editor-container .ck-editor__editable_inline h2 {
+          font-size: 1.6em;
+          font-weight: 700;
+          line-height: 1.25;
+          margin: 0.75em 0 0.4em;
+          color: #102a43;
+        }
+        .ck-editor-container .ck-editor__editable_inline h3 {
+          font-size: 1.3em;
+          font-weight: 600;
+          line-height: 1.3;
+          margin: 0.75em 0 0.4em;
+          color: #102a43;
+        }
+        .ck-editor-container .ck-editor__editable_inline h4 {
+          font-size: 1.1em;
+          font-weight: 600;
+          line-height: 1.4;
+          margin: 0.5em 0 0.3em;
+          color: #102a43;
         }
       `}</style>
       {/* Header */}
@@ -1802,6 +2052,7 @@ const Settings = () => {
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                             <CKEditor
                               editor={ClassicEditor}
+                              config={ckeditorConfig}
                               data={cmsSettings.legalTerms || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
@@ -1881,6 +2132,7 @@ const Settings = () => {
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                             <CKEditor
                               editor={ClassicEditor}
+                              config={ckeditorConfig}
                               data={cmsSettings.newHireGuide || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
@@ -1909,6 +2161,7 @@ const Settings = () => {
                           <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                             <CKEditor
                               editor={ClassicEditor}
+                              config={ckeditorConfig}
                               data={cmsSettings.privacyPolicy || ""}
                               onChange={(event, editor) => {
                                 const data = editor.getData();
@@ -1993,6 +2246,7 @@ const Settings = () => {
                             <div className="border border-gray-200 rounded-lg overflow-hidden bg-white ck-editor-container">
                               <CKEditor
                                 editor={ClassicEditor}
+                                config={ckeditorConfig}
                                 data={cmsSettings.welcomeTips || ""}
                                 onChange={(event, editor) => {
                                   const data = editor.getData();
@@ -2011,6 +2265,27 @@ const Settings = () => {
           )}
         </div>
       </div>
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-4 right-4 z-50 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className={`bg-white border-l-4 ${toastMessage.type === "error" ? "border-red-500" : "border-green-500"} rounded-lg shadow-lg p-4 flex items-start gap-3 min-w-[280px] ring-1 ring-black/5`}>
+            <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${toastMessage.type === "error" ? "bg-red-100" : "bg-green-100"}`}>
+              {toastMessage.type === "error" ? (
+                <AlertTriangle className="w-3 h-3 text-red-600" />
+              ) : (
+                <Save className="w-3 h-3 text-green-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-gray-900">{toastMessage.title}</h3>
+              <p className="text-xs text-gray-500 mt-0.5">{toastMessage.description}</p>
+            </div>
+            <button onClick={() => setToastMessage(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
