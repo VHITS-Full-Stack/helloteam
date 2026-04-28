@@ -3785,7 +3785,7 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
 
 export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { date, page = 1, limit = 50 } = req.query;
+    const { date, page = 1, limit = 50, tab = 'auto-closed' } = req.query;
 
     let startFilter: Date;
     let endFilter: Date;
@@ -3794,46 +3794,46 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
       startFilter.setHours(0, 0, 0, 0);
       endFilter = new Date(startFilter.getTime() + 24 * 60 * 60 * 1000);
     } else {
-      // Default: yesterday
       endFilter = new Date();
       endFilter.setHours(0, 0, 0, 0);
       startFilter = new Date(endFilter.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    const [breaks, total] = await Promise.all([
-      prisma.break.findMany({
-        where: {
-          lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } as any,
-          startTime: { gte: startFilter, lt: endFilter },
-        },
+    const isAutoApprovedTab = tab === 'auto-approved';
+    const statusFilter = isAutoApprovedTab
+      ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'AUTO_APPROVED' }
+      : { lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } };
+
+    const includeBlock = {
+      workSession: {
         include: {
-          workSession: {
-            include: {
-              employee: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  user: { select: { email: true } },
-                  clientAssignments: {
-                    where: { isActive: true },
-                    select: { client: { select: { companyName: true } } },
-                    take: 1,
-                  },
-                },
+          employee: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              user: { select: { email: true } },
+              clientAssignments: {
+                where: { isActive: true },
+                select: { client: { select: { companyName: true } } },
+                take: 1,
               },
             },
           },
         },
+      },
+    };
+
+    const [breaks, total] = await Promise.all([
+      prisma.break.findMany({
+        where: { ...statusFilter, startTime: { gte: startFilter, lt: endFilter } } as any,
+        include: includeBlock,
         orderBy: { startTime: 'desc' },
         skip: (Number(page) - 1) * Number(limit),
         take: Number(limit),
       }),
       prisma.break.count({
-        where: {
-          lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } as any,
-          startTime: { gte: startFilter, lt: endFilter },
-        },
+        where: { ...statusFilter, startTime: { gte: startFilter, lt: endFilter } } as any,
       }),
     ]);
 
@@ -3846,6 +3846,9 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
       paidMinutes: b.paidMinutes ?? 0,
       unpaidMinutes: b.unpaidMinutes ?? 0,
       lunchStatus: b.lunchStatus,
+      bypassApprovalStatus: b.bypassApprovalStatus ?? null,
+      wasWorkingScreenshotUrl: b.wasWorkingScreenshotUrl ?? null,
+      wasWorkingExplanation: b.wasWorkingExplanation ?? null,
       employeeId: b.workSession.employee.id,
       employeeName: `${b.workSession.employee.firstName} ${b.workSession.employee.lastName}`,
       employeeEmail: b.workSession.employee.user?.email,

@@ -23,6 +23,12 @@ import workSessionService from '../../services/workSession.service';
 import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound, playLunchWarningSound } from '../../utils/sounds';
 import { formatTime12, formatTimeInTimeZone } from '../../utils/formatDateTime';
 
+const ordinal = (n) => {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+
 const TimeClock = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [isLoading, setIsLoading] = useState(true);
@@ -450,11 +456,22 @@ const TimeClock = () => {
       unauthorizedAutoFiredRef.current = false;
       await fetchData();
 
-      const msg = endResponse.bypassApprovalStatus === 'PENDING_REVIEW'
-        ? 'Screenshot submitted for admin review. Your lunch break has ended — unpaid minutes will be adjusted if approved.'
-        : 'Screenshot submitted. Your lunch break has ended, and you are now working.';
+      let msg;
+      if (endResponse.bypassApprovalStatus === 'PENDING_REVIEW') {
+        msg = 'Screenshot submitted for admin review. Your lunch break has ended — unpaid minutes will be adjusted if approved.';
+      } else if (endResponse.bypassApprovalStatus === 'AUTO_APPROVED' && endResponse.bypassOrdinal != null) {
+        const n = endResponse.bypassOrdinal;
+        const left = endResponse.bypassRemaining;
+        if (left > 0) {
+          msg = `This is your ${ordinal(n)} auto-approved late End Lunch Break in the past 90 days. You have ${left} left before further late submissions need Hello Team admin approval before payment.`;
+        } else {
+          msg = `This is your ${ordinal(n)} (final) auto-approved late End Lunch Break in the past 90 days. Any further late submissions will need Hello Team admin approval before payment.`;
+        }
+      } else {
+        msg = 'Screenshot submitted. Your lunch break has ended, and you are now working.';
+      }
       setSuccess(msg);
-      setTimeout(() => setSuccess(''), 7000);
+      setTimeout(() => setSuccess(''), 10000);
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Failed to submit screenshot');
     } finally {

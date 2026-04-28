@@ -1170,7 +1170,8 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
         },
       });
 
-      if (bypassCount < 3) {
+      const MAX_BYPASSES = 3;
+      if (bypassCount < MAX_BYPASSES) {
         // Auto-approve: all elapsed time is paid
         bypassApprovalStatus = 'AUTO_APPROVED';
         paidMinutes = elapsedMinutes;
@@ -1181,6 +1182,9 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
         paidMinutes = scheduledDuration;
         unpaidMinutes = lateMinutes;
       }
+      // Ordinal info for the frontend warning (e.g. "2nd", 1 remaining)
+      (req as any)._bypassOrdinal = bypassCount + 1;         // 1-based index of THIS submission
+      (req as any)._bypassRemaining = Math.max(0, MAX_BYPASSES - (bypassCount + 1));
 
       wasWorkingScreenshotUrl = uploadResult.url;
       wasWorkingExplanation = explanation;
@@ -1208,7 +1212,16 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
       : `Lunch resolved (${resolution}). Paid: ${paidMinutes} min, Unpaid: ${unpaidMinutes} min`;
     await createSessionLog(activeSession.id, userId, employeeName, 'BREAK_END', logNote, getClientIp(req));
 
-    res.json({ success: true, lunchStatus, paidMinutes, unpaidMinutes, bypassApprovalStatus, message: 'Lunch break resolved.' });
+    res.json({
+      success: true,
+      lunchStatus,
+      paidMinutes,
+      unpaidMinutes,
+      bypassApprovalStatus,
+      bypassOrdinal: (req as any)._bypassOrdinal ?? null,
+      bypassRemaining: (req as any)._bypassRemaining ?? null,
+      message: 'Lunch break resolved.',
+    });
   } catch (error) {
     console.error('Resolve unauthorized lunch error:', error);
     res.status(500).json({ success: false, message: 'Failed to resolve lunch break' });
