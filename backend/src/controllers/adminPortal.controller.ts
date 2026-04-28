@@ -2786,8 +2786,8 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
       coveredAmount = raiseAmount;
     } else if (coverageType === 'PARTIAL') {
       coveredAmount = Number(clientCoveredAmount);
-      if (isNaN(coveredAmount) || coveredAmount <= 0 || coveredAmount >= raiseAmount) {
-        res.status(400).json({ success: false, error: 'client-Covered-Amount must be between 0 and employeeRaiseAmount for PARTIAL coverage' });
+      if (isNaN(coveredAmount) || coveredAmount <= 0 || coveredAmount > raiseAmount) {
+        res.status(400).json({ success: false, error: 'clientCoveredAmount must be greater than 0 and at most the raise amount for PARTIAL coverage' });
         return;
       }
     } else if (coverageType === 'NONE') {
@@ -2812,7 +2812,9 @@ export const giveRaise = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     const currentPayRate = employee.payableRate ? Number(employee.payableRate) : 0;
-    const currentBillRate = clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : 0;
+    const currentBillRate = clientEmployee?.hourlyRate
+      ? Number(clientEmployee.hourlyRate)
+      : (employee.billingRate ? Number(employee.billingRate) : 0);
     const newPayRate = currentPayRate + raiseAmount;
     const newBillRate = currentBillRate + coveredAmount;
 
@@ -3036,7 +3038,9 @@ export const confirmAdminRaise = async (req: AuthenticatedRequest, res: Response
     const clientEmployee = await prisma.clientEmployee.findFirst({
       where: { employeeId: request.employeeId, clientId: request.clientId, isActive: true },
     });
-    const oldHourlyRate = clientEmployee?.hourlyRate ? Number(clientEmployee.hourlyRate) : 0;
+    const oldHourlyRate = clientEmployee?.hourlyRate
+      ? Number(clientEmployee.hourlyRate)
+      : (request.employee.billingRate ? Number(request.employee.billingRate) : 0);
 
     const changeDate = request.effectiveDate || new Date();
 

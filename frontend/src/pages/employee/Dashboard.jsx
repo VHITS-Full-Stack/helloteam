@@ -603,7 +603,7 @@ const EmployeeDashboard = () => {
     }
   };
 
-  // Handle end break
+  // Handle end lunch Break
   const handleEndBreak = async () => {
     try {
       setActionLoading(true);
@@ -611,7 +611,7 @@ const EmployeeDashboard = () => {
       playBreakEndSound();
       await fetchWorkSessionData();
     } catch (err) {
-      setError(err.message || "Failed to end break");
+      setError(err.message || "Failed to end lunch break");
     } finally {
       setActionLoading(false);
     }
@@ -1020,7 +1020,7 @@ const EmployeeDashboard = () => {
                         icon={Play}
                         className="w-full"
                       >
-                        End Break
+                        End Lunch Break
                       </Button>
                     ) : (
                       <Button
@@ -1031,7 +1031,7 @@ const EmployeeDashboard = () => {
                         icon={Coffee}
                         className="w-full"
                       >
-                        Take Break
+                        Lunch Break
                       </Button>
                     )}
                     <Button

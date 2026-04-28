@@ -2030,12 +2030,16 @@ export const getEmployeePayrollSummary = async (
 
       // Apply adjustments (bonuses add, deductions subtract)
       const empAdjustments = adjustmentsByEmployee[emp.employee.id] || [];
-      const totalBonuses = empAdjustments
-        .filter((a: any) => a.type === "BONUS")
-        .reduce((sum: number, a: any) => sum + a.amount, 0);
-      const adjustmentDeductions = empAdjustments
-        .filter((a: any) => a.type === "DEDUCTION")
-        .reduce((sum: number, a: any) => sum + a.amount, 0);
+      const totalBonuses = Math.round(
+        empAdjustments
+          .filter((a: any) => a.type === "BONUS")
+          .reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100,
+      ) / 100;
+      const adjustmentDeductions = Math.round(
+        empAdjustments
+          .filter((a: any) => a.type === "DEDUCTION")
+          .reduce((sum: number, a: any) => sum + Number(a.amount), 0) * 100,
+      ) / 100;
       const employeeDeduction = emp.employee.deduction ? Number(emp.employee.deduction) : 0;
       const totalDeductions = Math.round((adjustmentDeductions + employeeDeduction) * 100) / 100;
 

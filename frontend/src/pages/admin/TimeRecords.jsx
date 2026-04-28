@@ -98,6 +98,12 @@ const TimeRecords = () => {
   const [pdfDownloading, setPdfDownloading] = useState(false);
   const [pdfError, setPdfError] = useState("");
 
+  // Clock out modal
+  const [showClockOutModal, setShowClockOutModal] = useState(false);
+  const [clockOutEmployee, setClockOutEmployee] = useState(null);
+  const [clockOutReason, setClockOutReason] = useState("");
+  const [clockOutLoading, setClockOutLoading] = useState(false);
+
   const handleSort = (field) => {
     if (sortField === field) {
       setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
@@ -106,6 +112,29 @@ const TimeRecords = () => {
       setSortDirection("asc");
     }
   };
+
+  const handleClockOutEmployee = async () => {
+    if (!clockOutEmployee) return;
+    setClockOutLoading(true);
+    try {
+      const res = await adminPortalService.clockOutEmployee(
+        clockOutEmployee.id,
+        null,
+        clockOutReason
+      );
+      if (res.success) {
+        setShowClockOutModal(false);
+        setClockOutEmployee(null);
+        setClockOutReason("");
+        fetchData();
+      }
+    } catch (err) {
+      console.error("Failed to clock out:", err);
+    } finally {
+      setClockOutLoading(false);
+    }
+  };
+
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 20,
@@ -1573,10 +1602,21 @@ const TimeRecords = () => {
                           </span>
                         )}
                         {session.status === "ACTIVE" && (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            Active
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-medium text-green-600">
+                              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                              Active
+                            </span>
+                            <button
+                              onClick={() => {
+                                setClockOutEmployee({ id: emp.id, name: `${emp.firstName} ${emp.lastName}` });
+                                setShowClockOutModal(true);
+                              }}
+                              className="text-[10px] px-2 py-0.5 rounded bg-red-50 text-red-600 hover:bg-red-100 font-medium"
+                            >
+                              Clock Out
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -2072,6 +2112,55 @@ const TimeRecords = () => {
                   <Loader2 className="w-4 h-4 animate-spin" />
                 )}
                 {otActionModal.type === "approve" ? "Approve" : "Deny"}
+</button>
+            </div>
+          </div>
+        )}
+      )}
+
+      {/* Clock Out Modal */}
+      {showClockOutModal && clockOutEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Clock Out Employee
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              You are about to clock out <strong>{clockOutEmployee.name}</strong>. 
+              This will end their active work session.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Reason for clocking out{" "}
+                <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                value={clockOutReason}
+                onChange={(e) => setClockOutReason(e.target.value)}
+                placeholder="Enter reason why you are clocking out this employee..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+              />
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowClockOutModal(false);
+                  setClockOutEmployee(null);
+                  setClockOutReason("");
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={clockOutLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleClockOutEmployee}
+                disabled={clockOutLoading || !clockOutReason.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors inline-flex items-center gap-2"
+              >
+                {clockOutLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                Clock Out
               </button>
             </div>
           </div>

@@ -989,7 +989,7 @@ export const startBreak = async (req: AuthenticatedRequest, res: Response): Prom
   }
 };
 
-// End break
+// End Lunch Break
 export const endBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -1082,8 +1082,8 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
       break: updatedBreak,
     });
   } catch (error) {
-    console.error('End break error:', error);
-    res.status(500).json({ success: false, message: 'Failed to end break' });
+    console.error('End Lunch break error:', error);
+    res.status(500).json({ success: false, message: 'Failed to end lunch break' });
   }
 };
 
@@ -2534,5 +2534,98 @@ export const rejectManualEntry = async (req: AuthenticatedRequest, res: Response
   } catch (error: any) {
     console.error('Reject manual entry error:', error);
     res.status(500).json({ success: false, message: error?.message || 'Failed to reject manual entry' });
+  }
+};
+
+// Admin clock out an employee
+export const adminClockOutEmployee = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const employeeId = req.params.employeeId as string;
+    const { notes, reason } = req.body;
+    const adminId = req.user?.userId;
+
+    if (!adminId) {
+      res.status(401).json({ success: false, message: 'Unauthorized' });
+      return;
+    }
+
+    if (!employeeId) {
+      res.status(400).json({ success: false, message: 'Employee ID is required' });
+      return;
+    }
+
+    // Find active session for this employee
+    const activeSession = await prisma.workSession.findFirst({
+      where: {
+        employeeId,
+        status: { in: ['ACTIVE', 'ON_BREAK'] },
+      },
+      include: {
+        breaks: true,
+      },
+    });
+
+    if (!activeSession) {
+      res.status(400).json({
+        success: false,
+        message: 'No active work session found for this employee',
+      });
+      return;
+    }
+
+    // End any ongoing break
+    const ongoingBreak = activeSession.breaks.find(b => !b.endTime);
+    if (ongoingBreak) {
+      const breakEndTime = new Date();
+      const breakDuration = Math.round(
+        (breakEndTime.getTime() - ongoingBreak.startTime.getTime()) / 60000
+      );
+
+      await prisma.break.update({
+        where: { id: ongoingBreak.id },
+        data: {
+          endTime: breakEndTime,
+          durationMinutes: breakDuration,
+        },
+      });
+    }
+
+    // Calculate total break time
+    const breaks = await prisma.break.findMany({
+      where: { workSessionId: activeSession.id },
+    });
+
+    const totalBreakMinutes = breaks.reduce((total, brk) => {
+      if (brk.durationMinutes) {
+        return total + brk.durationMinutes;
+      }
+      if (brk.endTime) {
+        return total + Math.round((brk.endTime.getTime() - brk.startTime.getTime()) / 60000);
+      }
+      return total;
+    }, 0);
+
+    // Update work session
+    const endTime = new Date();
+    const updatedSession = await prisma.workSession.update({
+      where: { id: activeSession.id },
+      data: {
+        status: 'COMPLETED',
+        endTime,
+        totalBreakMinutes,
+        notes: notes || activeSession.notes,
+        clockedOutBy: adminId,
+        clockOutReason: reason || null,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: 'Employee clocked out successfully',
+      data: { session: updatedSession },
+    });
+  } catch (error: any) {
+    console.error('Admin clock out error:', error);
+    res.status(500).json({ success: false, message: error?.message || 'Failed to clock out employee' });
   }
 };

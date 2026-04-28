@@ -17,7 +17,7 @@ const workSessionService = {
     return response;
   },
 
-  // End break
+  // End Lunch Break
   async endBreak() {
     return await api.post('/work-sessions/break/end');
   },

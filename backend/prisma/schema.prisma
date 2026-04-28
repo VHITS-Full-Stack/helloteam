@@ -515,6 +515,8 @@ model WorkSession {
   scheduledStartTime String? // HH:MM — shift start captured at clock-in
   scheduledEndTime   String? // HH:MM — shift end captured at clock-in
   isManual           Boolean           @default(false)
+  clockedOutBy      String? // Admin user ID who clocked out employee
+  clockOutReason    String? // Reason provided by admin when clocking out
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 

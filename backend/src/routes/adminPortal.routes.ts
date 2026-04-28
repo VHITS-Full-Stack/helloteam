@@ -34,6 +34,7 @@ import {
   getAdminAnalytics,
 } from '../controllers/adminPortal.controller';
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
+import { adminClockOutEmployee } from '../controllers/workSession.controller';
 
 const router = Router();
 
@@ -91,6 +92,9 @@ router.post('/bonus-requests/:bonusId/confirm', authenticate, authorize(...appro
 router.post('/employees/:id/edit-pay-rate', authenticate, authorize(...adjustmentRoles), editPayRate);
 router.post('/employees/:id/edit-billing-rate', authenticate, authorize(...adjustmentRoles), editBillingRate);
 router.post('/raise-requests/:raiseId/confirm-edit', authenticate, authorize(...adjustmentRoles), confirmDirectEdit);
+
+// Work session endpoints
+router.post('/employees/:employeeId/clock-out', authenticate, authorize(...adminRoles), adminClockOutEmployee);
 
 // Analytics endpoints
 router.get('/analytics/punctuality', authenticate, authorize(...adminRoles), getPunctualityAnalytics);

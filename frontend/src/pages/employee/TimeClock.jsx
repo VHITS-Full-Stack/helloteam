@@ -262,7 +262,7 @@ const TimeClock = () => {
     }
   };
 
-  // Handle end break
+  // Handle end Lunch Break
   const handleEndBreak = async () => {
     try {
       setActionLoading(true);
@@ -270,7 +270,7 @@ const TimeClock = () => {
       playBreakEndSound();
       await fetchData();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to end break');
+      setError(err.response?.data?.message || 'Failed to end lunch break');
     } finally {
       setActionLoading(false);
     }
@@ -396,7 +396,7 @@ const TimeClock = () => {
                       icon={Play}
                       className="w-full"
                     >
-                      End Break
+                      End Lunch Break
                     </Button>
                   ) : (
                     <Button
@@ -407,7 +407,7 @@ const TimeClock = () => {
                       icon={Coffee}
                       className="w-full"
                     >
-                      Take Break
+                      Lunch Break
                     </Button>
                   )}
 

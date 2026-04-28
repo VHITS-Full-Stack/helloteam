@@ -1671,8 +1671,8 @@ const RaiseRequests = () => {
                         </label>
                         <input
                           type="number"
-                          step="0.01"
-                          min="0.01"
+                          step="0"
+                          min="0"
                           value={giveBonusForm.amount}
                           onChange={(e) =>
                             setGiveBonusForm({
@@ -1691,8 +1691,8 @@ const RaiseRequests = () => {
                           </label>
                           <input
                             type="number"
-                            step="0.01"
-                            min="0.01"
+                            step="0"
+                            min="0"
                             value={giveBonusForm.clientCoveredAmount}
                             onChange={(e) =>
                               setGiveBonusForm({

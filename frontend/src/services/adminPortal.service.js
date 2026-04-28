@@ -405,8 +405,12 @@ const adminPortalService = {
     return await api.get('/admin-portal/attendance/monitoring', { params });
   },
 
-  getAdminAnalytics: async () => {
+getAdminAnalytics: async () => {
     return await api.get('/admin-portal/analytics');
+  },
+
+  clockOutEmployee: async (employeeId, notes, reason) => {
+    return await api.post(`/admin-portal/employees/${employeeId}/clock-out`, { notes, reason });
   },
 };
 
