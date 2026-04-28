@@ -12,6 +12,7 @@ import {
   MoreVertical,
   X,
   Phone,
+  UtensilsCrossed,
 } from 'lucide-react';
 import {
   Card,
@@ -28,6 +29,7 @@ import clientService from '../../services/client.service';
 const AttendanceMonitoring = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState([]);
+  const [lunchOverdue, setLunchOverdue] = useState([]);
   const [clients, setClients] = useState([]);
   const [clientId, setClientId] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -50,6 +52,7 @@ const AttendanceMonitoring = () => {
       const response = await adminPortalService.getRealTimeAttendanceMonitoring({ clientId });
       if (response.success) {
         setData(response.data);
+        setLunchOverdue(response.lunchOverdue || []);
         setLastRefreshed(new Date());
       }
     } catch (err) {
@@ -171,10 +174,14 @@ const AttendanceMonitoring = () => {
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Missing Now</p>
               <p className="text-xl font-bold text-red-600">{data.length}</p>
             </div>
+            <div className="text-center px-4 border-r border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Lunch Overdue</p>
+              <p className="text-xl font-bold text-amber-600">{lunchOverdue.length}</p>
+            </div>
             <div className="flex items-center gap-2 pr-2">
               <AlertCircle className="w-5 h-5 text-orange-500" />
               <p className="text-xs text-gray-500 max-w-[150px] leading-tight">
-                Employees are removed automatically once they clock in.
+                Employees are removed automatically once they resolve their break.
               </p>
             </div>
           </div>
@@ -189,88 +196,157 @@ const AttendanceMonitoring = () => {
               <tr className="bg-gray-50/80 border-b border-gray-200">
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Client</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Scheduled Shift</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Schedule Info</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sub-State</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {loading && data.length === 0 ? (
+              {loading && data.length === 0 && lunchOverdue.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-20 text-center">
+                  <td colSpan="6" className="px-6 py-20 text-center">
                     <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-primary mx-auto" />
                     <p className="mt-4 text-gray-500 font-medium tracking-tight">Scanning schedules...</p>
                   </td>
                 </tr>
-              ) : data.length === 0 ? (
+              ) : data.length === 0 && lunchOverdue.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-24 text-center">
+                  <td colSpan="6" className="px-6 py-24 text-center">
                     <div className="w-20 h-20 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-6">
                       <CheckCircle className="w-10 h-10 text-green-500" />
                     </div>
                     <h3 className="text-lg font-bold text-gray-900">All Clear!</h3>
-                    <p className="text-gray-500 mt-1">Everyone scheduled for this time has clocked in.</p>
+                    <p className="text-gray-500 mt-1">Everyone is clocked in and all lunch breaks are on time.</p>
                   </td>
                 </tr>
               ) : (
-                data.map((row) => (
-                  <tr key={row.employeeId} className="group hover:bg-red-50/30 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={row.employeeName} size="sm" className="ring-2 ring-white shadow-sm" />
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">{row.employeeName}</p>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-tighter">ID: {row.employeeId.slice(-8)}</p>
+                <>
+                  {/* Lunch Overdue rows — shown first as they need immediate attention */}
+                  {lunchOverdue.map((row) => {
+                    const lunchEndTime = new Date(row.scheduledLunchEnd).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+                    const subStateColor =
+                      row.lunchSubState === 'Time Entry Required' ? 'bg-red-100 text-red-700' :
+                      row.lunchSubState === 'Unauthorized' ? 'bg-orange-100 text-orange-700' :
+                      'bg-yellow-100 text-yellow-700';
+                    return (
+                      <tr key={`lunch-${row.employeeId}`} className="group hover:bg-amber-50/40 transition-colors bg-amber-50/20">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <Avatar name={row.employeeName} size="sm" className="ring-2 ring-amber-200 shadow-sm" />
+                            <div>
+                              <p className="text-sm font-bold text-gray-900">{row.employeeName}</p>
+                              <p className="text-[10px] text-gray-400 uppercase tracking-tighter">ID: {row.employeeId.slice(-8)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                            <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                            {row.clientName}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="space-y-0.5">
+                            <p className="text-sm font-bold text-gray-900">Lunch should end: {lunchEndTime}</p>
+                            <p className="text-[10px] text-amber-600 uppercase font-bold">{row.minutesPast} min past scheduled end</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 w-fit">
+                            <UtensilsCrossed className="w-3 h-3" /> In Lunch Break - Past Schedule
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold w-fit ${subStateColor}`}>
+                            {row.lunchSubState}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleMarkContacted(row)}
+                              className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
+                              title="Mark as Contacted"
+                            >
+                              <Phone className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleNotify(row)}
+                              className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
+                              title="Send Message"
+                            >
+                              <MessageSquare className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {/* Missing / not clocked in rows */}
+                  {data.map((row) => (
+                    <tr key={row.employeeId} className="group hover:bg-red-50/30 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-3">
+                          <Avatar name={row.employeeName} size="sm" className="ring-2 ring-white shadow-sm" />
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{row.employeeName}</p>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-tighter">ID: {row.employeeId.slice(-8)}</p>
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                        <Building2 className="w-3.5 h-3.5 text-gray-400" />
-                        {row.clientName}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-0.5">
-                        <p className="text-sm font-bold text-gray-900">{row.scheduledStart} - {row.scheduledEnd}</p>
-                        <p className="text-[10px] text-gray-400 uppercase font-bold">Shift Start Passed</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex flex-col">
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                          <Building2 className="w-3.5 h-3.5 text-gray-400" />
+                          {row.clientName}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="space-y-0.5">
+                          <p className="text-sm font-bold text-gray-900">{row.scheduledStart} – {row.scheduledEnd}</p>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold">Shift Start Passed</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-100 text-red-700 w-fit">
-                          <AlertCircle className="w-3 h-3" /> {row.overdueMinutes} MIN OVERDUE
+                          <AlertCircle className="w-3 h-3" /> Not Clocked In
                         </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => handleMarkContacted(row)}
-                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
-                          title="Mark as Contacted"
-                        >
-                          <Phone className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => handleNotify(row)}
-                          className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
-                          title="Send Message"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
-                        <Button 
-                          variant="primary" 
-                          size="sm" 
-                          className="ml-2 shadow-lg shadow-primary/20"
-                          onClick={() => handleNotify(row)}
-                        >
-                          Remind
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-red-50 text-red-600 w-fit">
+                          {row.overdueMinutes} min overdue
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => handleMarkContacted(row)}
+                            className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
+                            title="Mark as Contacted"
+                          >
+                            <Phone className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleNotify(row)}
+                            className="p-2 text-gray-400 hover:text-primary hover:bg-primary-50 rounded-lg transition-all"
+                            title="Send Message"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            className="ml-2 shadow-lg shadow-primary/20"
+                            onClick={() => handleNotify(row)}
+                          >
+                            Remind
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </>
               )}
             </tbody>
           </table>

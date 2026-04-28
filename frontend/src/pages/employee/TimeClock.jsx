@@ -1158,7 +1158,9 @@ const TimeClock = () => {
                 <>
               <p className="text-gray-700 text-sm mb-4">
                 Are you sure? This will mark <strong>{liveLateMinutes} minute{liveLateMinutes !== 1 ? 's' : ''}</strong> as unpaid break time.
-                You will not be paid for this time. The first {unauthorizedLunch.scheduledDurationMinutes} minutes of your lunch are still paid; only the late minutes will be unpaid. Continue?
+                You will not be paid for this time.
+                {isUpgraded && <> The first {unauthorizedLunch.scheduledDurationMinutes} minutes of your lunch are still paid; only the late minutes will be unpaid.</>}
+                {' '}Continue?
               </p>
                   <div className="flex gap-3">
                     <button

@@ -98,6 +98,17 @@ const settingsService = {
   deleteWelcomeTipsPdf: async () => {
     return api.delete('/settings/cms/welcome-tips-pdf');
   },
+
+  // Email Notification Settings
+  getEmailNotificationSettings: async () => {
+    const response = await api.get('/settings/email-notifications');
+    return response;
+  },
+
+  updateEmailNotificationSettings: async (settings) => {
+    const response = await api.put('/settings/email-notifications', settings);
+    return response;
+  },
 };
 
 export default settingsService;

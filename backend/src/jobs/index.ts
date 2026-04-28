@@ -9,6 +9,7 @@ import { runPayrollGeneration } from './payrollGeneration.job';
 import { runExpiredOTRequestJob } from './expiredOTRequest.job';
 import { runAttendanceAlertJob } from './attendanceAlert.job';
 import { runLunchAutoCloseJob } from './lunchAutoClose.job';
+import { runLunchBreakAlertJob } from './lunchBreakAlert.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -18,6 +19,7 @@ export const initializeJobs = (io: Server): void => {
   let shiftEndRunning = false;
   let autoApprovalRunning = false;
   let attendanceAlertRunning = false;
+  let lunchBreakAlertRunning = false;
 
   // Shift end: runs every minute to check for ending shifts and auto-clock-out
   cron.schedule('* * * * *', async () => {
@@ -34,6 +36,14 @@ export const initializeJobs = (io: Server): void => {
     try { await runAttendanceAlertJob(); } finally { attendanceAlertRunning = false; }
   });
   console.log('[Jobs] Attendance-alert job scheduled (every minute)');
+
+  // Lunch break alert: runs every 5 minutes to check for employees past lunch break end by 10+ min
+  cron.schedule('*/5 * * * *', async () => {
+    if (lunchBreakAlertRunning) return;
+    lunchBreakAlertRunning = true;
+    try { await runLunchBreakAlertJob(); } finally { lunchBreakAlertRunning = false; }
+  });
+  console.log('[Jobs] Lunch-break alert job scheduled (every 5 minutes)');
 
   // Auto-approval: runs every 5 minutes
   cron.schedule('*/5 * * * *', async () => {

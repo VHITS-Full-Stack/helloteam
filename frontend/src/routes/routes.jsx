@@ -84,6 +84,7 @@ const ClientTaskDetail = lazy(() => import('../pages/client/tasks/TaskDetail'));
 const BillingHistory = lazy(() => import('../pages/admin/BillingHistory'));
 const AdminRaiseRequests = lazy(() => import('../pages/admin/RaiseRequests'));
 const DocumentTypes = lazy(() => import('../pages/admin/DocumentTypes'));
+const EmailNotificationSettings = lazy(() => import('../pages/admin/EmailNotificationSettings'));
 const AdminSupport = lazy(() => import('../pages/admin/Support'));
 const PunctualityAnalytics = lazy(() => import('../pages/admin/PunctualityAnalytics'));
 const AttendanceMonitoring = lazy(() => import('../pages/admin/AttendanceMonitoring'));
@@ -264,6 +265,7 @@ const AppRoutes = () => {
           <Route path="leave-policy" element={<LeavePolicy />} />
           <Route path="schedules" element={<ScheduleManagement />} />
           <Route path="document-types" element={<DocumentTypes />} />
+          <Route path="email-notifications" element={<EmailNotificationSettings />} />
           <Route path="settings" element={<AdminSettings />} />
           <Route path="profile" element={<AdminProfile />} />
         </Route>

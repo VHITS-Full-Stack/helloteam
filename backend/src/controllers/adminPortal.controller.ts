@@ -3676,7 +3676,7 @@ export const getRealTimeAttendanceMonitoring = async (req: AuthenticatedRequest,
       if (emp.clientAssignments.length === 0) continue;
       const assignment = emp.clientAssignments[0];
       const timezone = assignment.client.timezone || 'UTC';
-      
+
       const dayOfWeek = getDayOfWeekInTimezone(timezone, now);
       const schedule = emp.schedules.find(s => s.dayOfWeek === dayOfWeek);
       if (!schedule) continue;
@@ -3697,6 +3697,7 @@ export const getRealTimeAttendanceMonitoring = async (req: AuthenticatedRequest,
         if (!hasClockedIn) {
           const overdueMinutes = Math.floor((now.getTime() - shiftStartUTC.getTime()) / 60000);
           missingEmployees.push({
+            type: 'MISSING',
             employeeId: emp.id,
             employeeName: `${emp.firstName} ${emp.lastName}`,
             clientId: assignment.client.id,
@@ -3709,7 +3710,68 @@ export const getRealTimeAttendanceMonitoring = async (req: AuthenticatedRequest,
       }
     }
 
-    res.json({ success: true, data: missingEmployees });
+    // --- Lunch Overdue: employees currently ON_BREAK past their scheduled lunch end ---
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+
+    const onBreakSessions = await prisma.workSession.findMany({
+      where: {
+        status: 'ON_BREAK',
+        startTime: { gte: startOfToday },
+      },
+      include: {
+        breaks: {
+          where: { endTime: null, isLunch: true },
+          orderBy: { startTime: 'desc' },
+          take: 1,
+        },
+        employee: {
+          include: {
+            clientAssignments: {
+              where: { isActive: true },
+              include: { client: { select: { id: true, companyName: true } } },
+              take: 1,
+            },
+          },
+        },
+      },
+    });
+
+    const lunchOverdue = [];
+    for (const session of onBreakSessions) {
+      if (session.breaks.length === 0) continue;
+      const activeBreak = session.breaks[0];
+      const scheduledDuration = (activeBreak as any).scheduledDurationMinutes ?? 30;
+      const scheduledLunchEnd = new Date(activeBreak.startTime.getTime() + scheduledDuration * 60000);
+      const minutesPast = Math.floor((now.getTime() - scheduledLunchEnd.getTime()) / 60000);
+      if (minutesPast < 1) continue; // not yet 1 minute past
+
+      const emp = session.employee;
+      if (!emp || emp.clientAssignments.length === 0) continue;
+      if (clientId && emp.clientAssignments[0].client.id !== (clientId as string)) continue;
+
+      let lunchSubState: string;
+      if (minutesPast >= 30) {
+        lunchSubState = 'Time Entry Required';
+      } else if (minutesPast >= 2) {
+        lunchSubState = 'Unauthorized';
+      } else {
+        lunchSubState = 'In Grace Window';
+      }
+
+      lunchOverdue.push({
+        type: 'LUNCH_OVERDUE',
+        employeeId: emp.id,
+        employeeName: `${emp.firstName} ${emp.lastName}`,
+        clientId: emp.clientAssignments[0].client.id,
+        clientName: emp.clientAssignments[0].client.companyName,
+        scheduledLunchEnd: scheduledLunchEnd.toISOString(),
+        minutesPast,
+        lunchSubState,
+      });
+    }
+
+    res.json({ success: true, data: missingEmployees, lunchOverdue });
   } catch (error: any) {
     console.error('Get real-time attendance error:', error);
     res.status(500).json({ success: false, error: error?.message || 'Failed to fetch monitoring data' });
@@ -3785,30 +3847,39 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
 
 export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { date, page = 1, limit = 50, tab = 'auto-closed' } = req.query;
+    const { date, page = 1, limit = 50, tab = 'auto-closed', status } = req.query;
 
-    let startFilter: Date;
-    let endFilter: Date;
+    let startFilter: Date | null = null;
+    let endFilter: Date | null = null;
     if (date) {
       startFilter = new Date(date as string);
       startFilter.setHours(0, 0, 0, 0);
       endFilter = new Date(startFilter.getTime() + 24 * 60 * 60 * 1000);
-    } else {
-      endFilter = new Date();
-      endFilter.setHours(0, 0, 0, 0);
-      startFilter = new Date(endFilter.getTime() - 24 * 60 * 60 * 1000);
     }
 
     const isAutoApprovedTab = tab === 'auto-approved';
     const isNeedsApprovalTab = tab === 'needs-approval';
-    const statusFilter = isNeedsApprovalTab
-      ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'PENDING_REVIEW' }
-      : isAutoApprovedTab
-        ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'AUTO_APPROVED' }
-        : { lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } };
 
-    // Needs-approval tab: skip date filter when no date is specified so all pending items show
-    const dateFilter = (isNeedsApprovalTab && !date) ? {} : { startTime: { gte: startFilter, lt: endFilter } };
+    // Build lunchStatus filter, optionally narrowed by `status` param for auto-closed tab
+    let lunchStatusFilter: any;
+    if (isNeedsApprovalTab) {
+      lunchStatusFilter = { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'PENDING_REVIEW' };
+    } else if (isAutoApprovedTab) {
+      lunchStatusFilter = { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'AUTO_APPROVED' };
+    } else {
+      // auto-closed tab — optionally filter by review status
+      if (status === 'needs-review') {
+        lunchStatusFilter = { lunchStatus: 'AUTO_CLOSED' };
+      } else if (status === 'reviewed') {
+        lunchStatusFilter = { lunchStatus: 'ADMIN_ADJUSTED' };
+      } else {
+        lunchStatusFilter = { lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } };
+      }
+    }
+    const statusFilter = lunchStatusFilter;
+
+    // Skip date filter when no date provided
+    const dateFilter = (startFilter && endFilter) ? { startTime: { gte: startFilter, lt: endFilter } } : {};
 
     const includeBlock = {
       workSession: {
@@ -3856,6 +3927,7 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
       wasWorkingScreenshotUrl: b.wasWorkingScreenshotUrl ?? null,
       wasWorkingExplanation: b.wasWorkingExplanation ?? null,
       resumeTime: (b as any).resumeTime ?? null,
+      adminNotes: (b as any).adminNotes ?? null,
       employeeId: b.workSession.employee.id,
       employeeName: `${b.workSession.employee.firstName} ${b.workSession.employee.lastName}`,
       employeeEmail: b.workSession.employee.user?.email,
@@ -3873,7 +3945,7 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
 export const adjustLunchBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { breakId } = req.params;
-    const { paidMinutes, unpaidMinutes, notes } = req.body;
+    const { paidMinutes, unpaidMinutes, notes, markAsReviewed } = req.body;
 
     const breakRecord = await prisma.break.findUnique({
       where: { id: breakId },
@@ -3889,9 +3961,16 @@ export const adjustLunchBreak = async (req: AuthenticatedRequest, res: Response)
       data: {
         paidMinutes: paidMinutes !== undefined ? parseInt(paidMinutes) : undefined,
         unpaidMinutes: unpaidMinutes !== undefined ? parseInt(unpaidMinutes) : undefined,
-        lunchStatus: 'ADMIN_ADJUSTED',
+        ...(markAsReviewed ? { lunchStatus: 'ADMIN_ADJUSTED' } : {}),
       } as any,
     });
+
+    // Save adminNotes separately — requires migration; silently skip if column not yet applied
+    if (notes) {
+      try {
+        await prisma.$executeRawUnsafe(`UPDATE breaks SET "adminNotes" = $1 WHERE id = $2`, notes, breakId);
+      } catch (_) { /* migration pending */ }
+    }
 
     // Record the adjustment in session logs
     const adminName = (req.user as any)?.name || 'Admin';
@@ -3899,9 +3978,9 @@ export const adjustLunchBreak = async (req: AuthenticatedRequest, res: Response)
       data: {
         workSessionId: breakRecord.workSession.id,
         userId: req.user!.userId,
-        actorName: adminName,
+        userName: adminName,
         action: 'ADMIN_ADJUST',
-        details: `Lunch break adjusted: paid=${paidMinutes ?? 'unchanged'} min, unpaid=${unpaidMinutes ?? 'unchanged'} min${notes ? `. Note: ${notes}` : ''}`,
+        message: `Lunch break adjusted: paid=${paidMinutes ?? 'unchanged'} min, unpaid=${unpaidMinutes ?? 'unchanged'} min${notes ? `. Note: ${notes}` : ''}`,
         ipAddress: (req.ip as string) || '',
       },
     });
@@ -3953,15 +4032,20 @@ export const approvePendingLunch = async (req: AuthenticatedRequest, res: Respon
         unpaidMinutes: approvedUnpaidMinutes,
       } as any,
     });
+    if (notes) {
+      try {
+        await prisma.$executeRawUnsafe(`UPDATE breaks SET "adminNotes" = $1 WHERE id = $2`, notes, breakId);
+      } catch (_) { /* migration pending */ }
+    }
 
     const adminName = (req.user as any)?.name || 'Admin';
     await prisma.sessionLog.create({
       data: {
         workSessionId: breakRecord.workSession.id,
         userId: req.user!.userId,
-        actorName: adminName,
+        userName: adminName,
         action: 'ADMIN_ADJUST',
-        details: `Pending lunch bypass approved — ${approvedPaidMinutes} min paid (${resumeTime ? 'split: gap unpaid' : 'full duration'}).${notes ? ` Note: ${notes}` : ''}`,
+        message: `Pending lunch bypass approved — ${approvedPaidMinutes} min paid (${resumeTime ? 'split: gap unpaid' : 'full duration'}).${notes ? ` Note: ${notes}` : ''}`,
         ipAddress: (req.ip as string) || '',
       },
     });
@@ -4003,15 +4087,20 @@ export const denyPendingLunch = async (req: AuthenticatedRequest, res: Response)
         unpaidMinutes: deniedUnpaidMinutes,
       } as any,
     });
+    if (notes) {
+      try {
+        await prisma.$executeRawUnsafe(`UPDATE breaks SET "adminNotes" = $1 WHERE id = $2`, notes, breakId);
+      } catch (_) { /* migration pending */ }
+    }
 
     const adminName = (req.user as any)?.name || 'Admin';
     await prisma.sessionLog.create({
       data: {
         workSessionId: breakRecord.workSession.id,
         userId: req.user!.userId,
-        actorName: adminName,
+        userName: adminName,
         action: 'ADMIN_ADJUST',
-        details: `Pending lunch bypass denied — ${deniedUnpaidMinutes} min unpaid.${notes ? ` Note: ${notes}` : ''}`,
+        message: `Pending lunch bypass denied — ${deniedUnpaidMinutes} min unpaid.${notes ? ` Note: ${notes}` : ''}`,
         ipAddress: (req.ip as string) || '',
       },
     });

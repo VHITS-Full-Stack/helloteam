@@ -43,6 +43,14 @@ const DEFAULT_SETTINGS = {
     welcomeTipsPdfKey: null,
     welcomeTipsPdfUrl: null,
   },
+  'email-notifications': {
+    notifications: {
+      lunch_break_10min_past: {
+        enabled: true,
+        emails: [],
+      },
+    },
+  },
 };
 
 // Build CMS settings object from DB rows, refreshing presigned PDF URL if needed
@@ -316,7 +324,7 @@ export const getSettingsByCategory = async (req: Request, res: Response) => {
   try {
     const category = req.params.category as string;
 
-    if (!['notifications', 'security', 'general', 'billing', 'cms'].includes(category)) {
+    if (!['notifications', 'security', 'general', 'billing', 'cms', 'email-notifications'].includes(category)) {
       return res.status(400).json({
         success: false,
         error: 'Invalid settings category',
@@ -346,7 +354,7 @@ export const updateSettingsByCategory = async (req: Request, res: Response) => {
     const category = req.params.category as string;
     const settings = req.body;
 
-    if (!['notifications', 'security', 'general', 'billing', 'cms'].includes(category)) {
+    if (!['notifications', 'security', 'general', 'billing', 'cms', 'email-notifications'].includes(category)) {
       return res.status(400).json({ success: false, error: 'Invalid settings category' });
     }
 

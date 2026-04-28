@@ -14,34 +14,39 @@ const formatDate = (iso) => {
 };
 
 const statusBadge = (status) => {
-  if (status === 'ADMIN_ADJUSTED') return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 font-medium">Reviewed</span>;
-  return <span className="px-2 py-0.5 text-xs rounded-full bg-red-100 text-red-700 font-medium">Needs Review</span>;
+  if (status === 'ADMIN_ADJUSTED') return <span className="px-2 py-0.5 text-xs rounded-full bg-green-100 text-green-700 font-medium whitespace-nowrap">Reviewed</span>;
+  if (status === 'AUTO_CLOSED') return <span className="px-2 py-0.5 text-xs rounded-full bg-orange-100 text-orange-700 font-medium whitespace-nowrap">Auto-Closed</span>;
+  return <span className="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-600 font-medium">{status ?? 'Unknown'}</span>;
+};
+
+const todayLocal = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 };
 
 export default function LunchBreakReview() {
-  const yesterday = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  })();
-
   const [activeTab, setActiveTab] = useState('auto-closed');
   const [breaks, setBreaks] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [date, setDate] = useState(yesterday);
+  const [date, setDate] = useState(todayLocal);
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'needs-review' | 'reviewed'
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
-    // Needs-approval defaults to no date (show all); others default to yesterday
-    setDate(tabId === 'needs-approval' ? '' : yesterday);
+    setDate(todayLocal());
+    setStatusFilter('all');
     setBreaks([]);
   };
 
   // Auto-Closed tab: adjust modal
   const [adjusting, setAdjusting] = useState(null);
-  const [adjustForm, setAdjustForm] = useState({ paidMinutes: '', unpaidMinutes: '', notes: '' });
+  const [adjustForm, setAdjustForm] = useState({ paidMinutes: '', unpaidMinutes: '', notes: '', markAsReviewed: false });
+  const [adjustOriginal, setAdjustOriginal] = useState({ paidMinutes: 0, unpaidMinutes: 0 });
   const [adjustSubmitting, setAdjustSubmitting] = useState(false);
   const [adjustError, setAdjustError] = useState('');
 
@@ -60,25 +65,31 @@ export default function LunchBreakReview() {
     try {
       const params = new URLSearchParams({ tab: activeTab });
       if (date) params.set('date', date);
+      if (activeTab === 'auto-closed' && statusFilter !== 'all') params.set('status', statusFilter);
       const res = await api.get(`/admin-portal/lunch-breaks/review?${params.toString()}`);
       if (res.success) {
-        setBreaks(res.data);
-        setTotal(res.total);
+        const responseData = res.data || {};
+        const breaksArray = Array.isArray(responseData) ? responseData : (responseData.breaks || []);
+        setBreaks(breaksArray);
+        setTotal(responseData.total || res.total || 0);
       } else {
         setError(res.error || 'Failed to load review queue');
+        setBreaks([]);
       }
     } catch (err) {
       setError(err.message || 'Failed to load review queue');
+      setBreaks([]);
     } finally {
       setLoading(false);
     }
-  }, [date, activeTab]);
+  }, [date, activeTab, statusFilter]);
 
   useEffect(() => { fetchBreaks(); }, [fetchBreaks]);
 
   const openAdjust = (b) => {
     setAdjusting(b.id);
-    setAdjustForm({ paidMinutes: b.paidMinutes, unpaidMinutes: b.unpaidMinutes, notes: '' });
+    setAdjustOriginal({ paidMinutes: b.paidMinutes, unpaidMinutes: b.unpaidMinutes });
+    setAdjustForm({ paidMinutes: b.paidMinutes, unpaidMinutes: b.unpaidMinutes, notes: '', markAsReviewed: b.lunchStatus === 'ADMIN_ADJUSTED' });
     setAdjustError('');
   };
 
@@ -86,10 +97,14 @@ export default function LunchBreakReview() {
     setAdjustSubmitting(true);
     setAdjustError('');
     try {
+      const newPaid = parseInt(adjustForm.paidMinutes) || 0;
+      const newUnpaid = parseInt(adjustForm.unpaidMinutes) || 0;
+      const valuesChanged = newPaid !== adjustOriginal.paidMinutes || newUnpaid !== adjustOriginal.unpaidMinutes;
       const res = await api.patch(`/admin-portal/lunch-breaks/${adjusting}/adjust`, {
-        paidMinutes: parseInt(adjustForm.paidMinutes) || 0,
-        unpaidMinutes: parseInt(adjustForm.unpaidMinutes) || 0,
+        paidMinutes: newPaid,
+        unpaidMinutes: newUnpaid,
         notes: adjustForm.notes,
+        markAsReviewed: adjustForm.markAsReviewed || valuesChanged,
       });
       if (res.success) {
         setAdjusting(null);
@@ -149,17 +164,25 @@ export default function LunchBreakReview() {
                 : 'Submissions pending Hello Team admin review — timesheet cannot be finalised until resolved'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 font-medium">
-            {activeTab === 'needs-approval' ? 'Filter by date' : 'Date'}
-          </label>
+        <div className="flex items-center gap-3">
+          {activeTab === 'auto-closed' && (
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary bg-white"
+            >
+              <option value="all">All status</option>
+              <option value="needs-review">Needs Review</option>
+              <option value="reviewed">Reviewed</option>
+            </select>
+          )}
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
           />
-          {activeTab === 'needs-approval' && date && (
+          {date && (
             <button
               onClick={() => setDate('')}
               className="text-xs text-gray-400 hover:text-gray-600 underline"
@@ -212,22 +235,23 @@ export default function LunchBreakReview() {
             ) : breaks.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-300" />
-                <p className="font-medium text-gray-500">No auto-closed lunch breaks for this date</p>
+                <p className="font-medium text-gray-500">No auto-closed lunch breaks{date ? ' for this date' : ''}</p>
                 <p className="text-sm mt-1">All employees resolved their lunch breaks normally.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Employee</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Client</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Lunch Start</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Lunch End</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium whitespace-nowrap">Lunch Start</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium whitespace-nowrap">Lunch End</th>
                       <th className="text-right py-3 px-4 text-gray-500 font-medium">Scheduled</th>
                       <th className="text-right py-3 px-4 text-gray-500 font-medium">Paid</th>
                       <th className="text-right py-3 px-4 text-gray-500 font-medium">Unpaid</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Status</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium whitespace-nowrap">Admin Note</th>
                       <th className="py-3 px-4" />
                     </tr>
                   </thead>
@@ -235,16 +259,21 @@ export default function LunchBreakReview() {
                     {breaks.map((b) => (
                       <tr key={b.id} className="hover:bg-gray-50">
                         <td className="py-3 px-4">
-                          <p className="font-medium text-gray-900">{b.employeeName}</p>
-                          <p className="text-xs text-gray-400">{b.employeeEmail}</p>
+                          <p className="font-medium text-gray-900 whitespace-nowrap">{b.employeeName}</p>
+                          <p className="text-xs text-gray-400 whitespace-nowrap">{b.employeeEmail}</p>
                         </td>
-                        <td className="py-3 px-4 text-gray-700">{b.clientName}</td>
-                        <td className="py-3 px-4 text-gray-700">{formatTime(b.startTime)}</td>
-                        <td className="py-3 px-4 text-gray-700">{formatTime(b.endTime)}</td>
+                        <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{b.clientName}</td>
+                        <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{formatTime(b.startTime)}</td>
+                        <td className="py-3 px-4 text-gray-700 whitespace-nowrap">{formatTime(b.endTime)}</td>
                         <td className="py-3 px-4 text-right text-gray-700">{b.scheduledDurationMinutes} min</td>
-                        <td className="py-3 px-4 text-right text-green-700 font-medium">{b.paidMinutes} min</td>
+                        <td className="py-3 px-4 text-right text-green-700 font-medium whitespace-nowrap">{b.paidMinutes} min</td>
                         <td className="py-3 px-4 text-right text-red-600 font-medium">{b.unpaidMinutes} min</td>
                         <td className="py-3 px-4">{statusBadge(b.lunchStatus)}</td>
+                        <td className="py-3 px-4 max-w-[180px]">
+                          {b.adminNotes
+                            ? <p className="text-xs text-gray-600 line-clamp-2" title={b.adminNotes}>{b.adminNotes}</p>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
                         <td className="py-3 px-4 text-right">
                           <button
                             onClick={() => openAdjust(b)}
@@ -281,7 +310,7 @@ export default function LunchBreakReview() {
             ) : breaks.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-300" />
-                <p className="font-medium text-gray-500">No auto-approved submissions for this date</p>
+                <p className="font-medium text-gray-500">No auto-approved submissions{date ? ' for this date' : ''}</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -296,6 +325,7 @@ export default function LunchBreakReview() {
                       <th className="text-right py-3 px-4 text-gray-500 font-medium">Paid (total)</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Explanation</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Screenshot</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Admin Note</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -338,6 +368,11 @@ export default function LunchBreakReview() {
                               View <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-3 px-4 max-w-[180px]">
+                          {b.adminNotes
+                            ? <p className="text-xs text-gray-600 line-clamp-2" title={b.adminNotes}>{b.adminNotes}</p>
+                            : <span className="text-gray-300">—</span>}
                         </td>
                       </tr>
                     ))}
@@ -385,6 +420,7 @@ export default function LunchBreakReview() {
                       <th className="text-right py-3 px-4 text-gray-500 font-medium">Late</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Explanation</th>
                       <th className="text-left py-3 px-4 text-gray-500 font-medium">Screenshot</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Admin Note</th>
                       <th className="py-3 px-4" />
                     </tr>
                   </thead>
@@ -446,6 +482,11 @@ export default function LunchBreakReview() {
                               View <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-3 px-4 max-w-[180px]">
+                          {b.adminNotes
+                            ? <p className="text-xs text-gray-600 line-clamp-2" title={b.adminNotes}>{b.adminNotes}</p>
+                            : <span className="text-gray-300">—</span>}
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex gap-2 justify-end">
@@ -586,6 +627,16 @@ export default function LunchBreakReview() {
                     className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                   />
                 </div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={adjustForm.markAsReviewed}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, markAsReviewed: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm text-gray-700">Mark as reviewed</span>
+                  <span className="text-xs text-gray-400">(auto-checked when you change the values)</span>
+                </label>
                 {adjustError && <p className="text-red-600 text-sm">{adjustError}</p>}
               </div>
               <div className="px-6 py-4 border-t border-gray-100 flex gap-3">

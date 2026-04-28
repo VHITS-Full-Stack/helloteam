@@ -247,6 +247,7 @@ model Employee {
   payrollAdjustments PayrollAdjustment[]
   payslips           Payslip[]
   clientRequests     ClientRequest[]
+  lunchBreakAlerts   LunchBreakAlert[]
 
   @@map("employees")
 }
@@ -553,6 +554,19 @@ model SessionLog {
   @@map("session_logs")
 }
 
+model NotificationSetting {
+  id               String   @id @default(uuid())
+  notificationType String   @unique
+  label            String
+  description      String?
+  isEnabled        Boolean  @default(true)
+  recipients       String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
 model Break {
   id              String    @id @default(uuid())
   workSessionId   String
@@ -572,6 +586,7 @@ model Break {
   wasWorkingExplanation    String?   // employee explanation text (20-500 chars)
   bypassApprovalStatus     String?   // AUTO_APPROVED | PENDING_REVIEW | APPROVED | DENIED
   resumeTime               DateTime? // when employee claims they resumed working (upgraded WAS_WORKING path only)
+  adminNotes               String?   // admin note saved when adjusting / approving / denying
 
   createdAt DateTime @default(now())
 
@@ -945,6 +960,22 @@ model Notification {
   @@index([userId, isRead])
   @@index([userId, createdAt])
   @@map("notifications")
+}
+
+// ============================================
+// LUNCH BREAK ALERTS
+// ============================================
+
+model LunchBreakAlert {
+  id        String   @id @default(uuid())
+  employeeId String
+  minutesPast Int
+  createdAt DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@map("lunch_break_alerts")
 }
 
 // ============================================

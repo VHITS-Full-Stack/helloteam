@@ -1352,10 +1352,7 @@ function SuccessStep() {
 const STEP_KEY = "ht_onboarding_step";
 
 export default function ClientPortalOnboarding() {
-  const [currentStep, setCurrentStep] = useState(() => {
-    const saved = localStorage.getItem(STEP_KEY);
-    return saved !== null ? parseInt(saved, 10) : 0;
-  });
+  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);

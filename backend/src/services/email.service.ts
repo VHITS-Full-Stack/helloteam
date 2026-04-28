@@ -798,6 +798,57 @@ export const sendLunchBreakReminderEmail = async (
   });
 };
 
+/**
+ * Send lunch break alert to admin recipients
+ * Notifies configured admins when an employee is 10+ minutes past their scheduled lunch break end
+ */
+export const sendLunchBreakAlertEmail = async (
+  email: string,
+  employeeName: string,
+  employeeEmail: string,
+  clientName: string,
+  minutesPast: number,
+  scheduledEndTime: Date,
+): Promise<EmailResult> => {
+  const actionUrl = `${config.frontendUrl}/admin/attendance`;
+  const endTimeFormatted = scheduledEndTime.toLocaleTimeString('en-US', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'UTC'
+  });
+
+  const content = `
+    <h2 style="${styles.h2}">Lunch Break Alert</h2>
+    <p style="${styles.paragraph}">
+      An employee is still on lunch break <strong>${minutesPast} minutes past</strong> their scheduled end time.
+    </p>
+    ${infoBoxHtml(
+      `
+      <p style="margin: 0 0 8px 0;"><strong>Employee:</strong> ${employeeName}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Email:</strong> ${employeeEmail}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Client:</strong> ${clientName}</p>
+      <p style="margin: 0 0 8px 0;"><strong>Scheduled Lunch End:</strong> ${endTimeFormatted} UTC</p>
+      <p style="margin: 0; color: ${colors.dangerText}; font-weight: 600;"><strong>Minutes Past End:</strong> ${minutesPast}</p>
+    `,
+      colors.warningBg,
+      colors.warning,
+    )}
+    <p style="${styles.paragraph}">
+      Please check in with the employee to ensure they end their lunch break in the system.
+    </p>
+    ${buttonHtml(actionUrl, "View Attendance", colors.warning)}
+  `;
+
+  const html = emailLayout('Lunch Break Alert', content, colors.warning);
+
+  return sendEmail({
+    to: email,
+    subject: `Alert: ${employeeName} is ${minutesPast} min past lunch break end`,
+    html,
+    text: `Alert: ${employeeName} (${employeeEmail}) from ${clientName} is ${minutesPast} minutes past their scheduled lunch break end (${endTimeFormatted} UTC). Please review.`,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -814,4 +865,5 @@ export default {
   sendInvoiceEmail,
   sendAttendanceAlertEmail,
   sendLunchBreakReminderEmail,
+  sendLunchBreakAlertEmail,
 };

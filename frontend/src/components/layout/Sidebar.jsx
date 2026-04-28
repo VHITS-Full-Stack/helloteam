@@ -39,10 +39,18 @@ import chatService from "../../services/chat.service";
 import taskService from "../../services/task.service";
 import supportTicketService from "../../services/supportTicket.service";
 
-const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlledCollapsed, onToggleCollapse }) => {
+const Sidebar = ({
+  portalType = "employee",
+  user,
+  onLogout,
+  collapsed: controlledCollapsed,
+  onToggleCollapse,
+}) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
-  const collapsed = controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
-  const toggleCollapsed = onToggleCollapse || (() => setInternalCollapsed(prev => !prev));
+  const collapsed =
+    controlledCollapsed !== undefined ? controlledCollapsed : internalCollapsed;
+  const toggleCollapsed =
+    onToggleCollapse || (() => setInternalCollapsed((prev) => !prev));
   const { hasPermission, loading: permissionsLoading } = usePermissions();
   const [pendingApprovalCount, setPendingApprovalCount] = useState(0);
   const [pendingBonusRaiseCount, setPendingBonusRaiseCount] = useState(0);
@@ -120,7 +128,9 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
         console.error("Failed to fetch admin pending counts:", e);
       }
       try {
-        const raiseRes = await adminPortalService.getRaiseRequests({ status: "PENDING" });
+        const raiseRes = await adminPortalService.getRaiseRequests({
+          status: "PENDING",
+        });
         if (raiseRes.success) {
           setPendingBonusRaiseCount((raiseRes.data?.requests || []).length);
         }
@@ -161,14 +171,33 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
     { group: "Work" },
     { to: "/employee/schedule", icon: Calendar, label: "Schedule" },
     { to: "/employee/time-records", icon: FileText, label: "Time Records" },
-    { to: "/employee/overtime-requests", icon: Clock, label: "Overtime Requests" },
+    {
+      to: "/employee/overtime-requests",
+      icon: Clock,
+      label: "Overtime Requests",
+    },
     { to: "/employee/leave", icon: Calendar, label: "Time Off" },
-    { to: "/employee/tasks", icon: ClipboardList, label: "Tasks", badge: pendingTaskCount },
+    {
+      to: "/employee/tasks",
+      icon: ClipboardList,
+      label: "Tasks",
+      badge: pendingTaskCount,
+    },
     { group: "Finance" },
     { to: "/employee/payslips", icon: Wallet, label: "Payslips" },
     { group: "" },
-    { to: "/employee/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
-    { to: "/employee/support", icon: MessageSquare, label: "Support", badge: supportTicketCount },
+    {
+      to: "/employee/chat",
+      icon: MessageCircle,
+      label: "Chat",
+      badge: unreadChatCount,
+    },
+    {
+      to: "/employee/support",
+      icon: MessageSquare,
+      label: "Support",
+      badge: supportTicketCount,
+    },
     { to: "/employee/profile", icon: User, label: "Profile" },
   ];
 
@@ -187,10 +216,20 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       badge: pendingApprovalCount,
     },
     { group: "Billing" },
-    { to: "/client/billing", icon: CreditCard, label: "Billing & Invoices", badge: outstandingInvoiceCount },
+    {
+      to: "/client/billing",
+      icon: CreditCard,
+      label: "Billing & Invoices",
+      badge: outstandingInvoiceCount,
+    },
     { to: "/client/rate-history", icon: TrendingUp, label: "Rate History" },
     { group: "Team" },
-    { to: "/client/chat", icon: MessageCircle, label: "Chat", badge: unreadChatCount },
+    {
+      to: "/client/chat",
+      icon: MessageCircle,
+      label: "Chat",
+      badge: unreadChatCount,
+    },
     { to: "/client/tasks", icon: ClipboardList, label: "Tasks" },
     { group: "" },
     { to: "/client/profile", icon: User, label: "Profile" },
@@ -198,149 +237,158 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
   ];
 
   // Admin links with permission requirements
-  const adminLinksConfig = useMemo(() => [
-    { group: "Operations" },
-    {
-      to: "/admin/dashboard",
-      icon: LayoutDashboard,
-      label: "Dashboard",
-      permission: PERMISSIONS.DASHBOARD.VIEW,
-    },
-    {
-      to: "/admin/employees",
-      icon: Users,
-      label: "Employees",
-      permission: PERMISSIONS.EMPLOYEES.VIEW,
-    },
-    {
-      to: "/admin/clients",
-      icon: Building2,
-      label: "Clients",
-      permission: PERMISSIONS.CLIENTS.VIEW,
-    },
-    {
-      to: "/admin/groups",
-      icon: FolderOpen,
-      label: "Groups",
-      permission: PERMISSIONS.GROUPS.VIEW,
-    },
-    { group: "Management" },
-    {
-      to: "/admin/time-records",
-      icon: Clock,
-      label: "Time Records",
-      permission: PERMISSIONS.TIME_RECORDS.VIEW,
-    },
-    {
-      to: "/admin/lunch-break-review",
-      icon: UtensilsCrossed,
-      label: "Lunch Break Review",
-      permission: PERMISSIONS.TIME_RECORDS.VIEW,
-    },
-    {
-      to: "/admin/schedules",
-      icon: CalendarDays,
-      label: "Schedules",
-      permission: PERMISSIONS.SCHEDULES.VIEW,
-    },
-    {
-      to: "/admin/approvals",
-      icon: CheckSquare,
-      label: "Approvals",
-      permission: PERMISSIONS.APPROVALS.VIEW,
-      badge: pendingApprovalCount,
-    },
-    {
-      to: "/admin/leave",
-      icon: Calendar,
-      label: "Time Off",
-      permission: PERMISSIONS.APPROVALS.VIEW,
-    },
-    {
-      to: "/admin/raise-requests",
-      icon: Gift,
-      label: "Bonuses & Raises",
-      permission: PERMISSIONS.APPROVALS.VIEW,
-      badge: pendingBonusRaiseCount,
-    },
-    {
-      to: "/admin/analytics",
-      icon: BarChart3,
-      label: "Analytics",
-      permission: PERMISSIONS.DASHBOARD.VIEW,
-      end: true,
-    },
-    {
-      to: "/admin/analytics/punctuality",
-      icon: TrendingUp,
-      label: "Punctuality Analytics",
-      permission: PERMISSIONS.DASHBOARD.VIEW,
-    },
-    {
-      to: "/admin/attendance-monitoring",
-      icon: Activity,
-      label: "Live Monitoring",
-      permission: PERMISSIONS.DASHBOARD.VIEW,
-    },
-    {
-      to: "/admin/tasks",
-      icon: ClipboardList,
-      label: "Tasks",
-      permission: PERMISSIONS.TASKS.VIEW,
-    },
-    {
-      to: "/admin/support",
-      icon: MessageSquare,
-      label: "Support Tickets",
-      badge: supportTicketCount,
-    },
-    { group: "Billing & Payroll" },
-    {
-      to: "/admin/invoices",
-      icon: FileText,
-      label: "Billing & Invoices",
-      permission: PERMISSIONS.PAYROLL.VIEW,
-    },
+  const adminLinksConfig = useMemo(
+    () => [
+      { group: "Operations" },
+      {
+        to: "/admin/dashboard",
+        icon: LayoutDashboard,
+        label: "Dashboard",
+        permission: PERMISSIONS.DASHBOARD.VIEW,
+      },
+      {
+        to: "/admin/employees",
+        icon: Users,
+        label: "Employees",
+        permission: PERMISSIONS.EMPLOYEES.VIEW,
+      },
+      {
+        to: "/admin/clients",
+        icon: Building2,
+        label: "Clients",
+        permission: PERMISSIONS.CLIENTS.VIEW,
+      },
+      {
+        to: "/admin/groups",
+        icon: FolderOpen,
+        label: "Groups",
+        permission: PERMISSIONS.GROUPS.VIEW,
+      },
+      { group: "Management" },
+      {
+        to: "/admin/time-records",
+        icon: Clock,
+        label: "Time Records",
+        permission: PERMISSIONS.TIME_RECORDS.VIEW,
+      },
+      {
+        to: "/admin/lunch-break-review",
+        icon: UtensilsCrossed,
+        label: "Lunch Break Review",
+        permission: PERMISSIONS.TIME_RECORDS.VIEW,
+      },
+      {
+        to: "/admin/schedules",
+        icon: CalendarDays,
+        label: "Schedules",
+        permission: PERMISSIONS.SCHEDULES.VIEW,
+      },
+      {
+        to: "/admin/approvals",
+        icon: CheckSquare,
+        label: "Approvals",
+        permission: PERMISSIONS.APPROVALS.VIEW,
+        badge: pendingApprovalCount,
+      },
+      {
+        to: "/admin/leave",
+        icon: Calendar,
+        label: "Time Off",
+        permission: PERMISSIONS.APPROVALS.VIEW,
+      },
+      {
+        to: "/admin/raise-requests",
+        icon: Gift,
+        label: "Bonuses & Raises",
+        permission: PERMISSIONS.APPROVALS.VIEW,
+        badge: pendingBonusRaiseCount,
+      },
+      {
+        to: "/admin/analytics",
+        icon: BarChart3,
+        label: "Analytics",
+        permission: PERMISSIONS.DASHBOARD.VIEW,
+        end: true,
+      },
+      {
+        to: "/admin/analytics/punctuality",
+        icon: TrendingUp,
+        label: "Punctuality Analytics",
+        permission: PERMISSIONS.DASHBOARD.VIEW,
+      },
+      {
+        to: "/admin/attendance-monitoring",
+        icon: Activity,
+        label: "Live Monitoring",
+        permission: PERMISSIONS.DASHBOARD.VIEW,
+      },
+      {
+        to: "/admin/tasks",
+        icon: ClipboardList,
+        label: "Tasks",
+        permission: PERMISSIONS.TASKS.VIEW,
+      },
+      {
+        to: "/admin/support",
+        icon: MessageSquare,
+        label: "Support Tickets",
+        badge: supportTicketCount,
+      },
+      { group: "Billing & Payroll" },
+      {
+        to: "/admin/invoices",
+        icon: FileText,
+        label: "Billing & Invoices",
+        permission: PERMISSIONS.PAYROLL.VIEW,
+      },
 
-    {
-      to: "/admin/billing-history",
-      icon: TrendingUp,
-      label: "Billing History",
-      permission: PERMISSIONS.EMPLOYEES.VIEW,
-    },
-    {
-      to: "/admin/payroll",
-      icon: Briefcase,
-      label: "Payroll",
-      permission: PERMISSIONS.PAYROLL.VIEW,
-      end: true,
-    },
-    {
-      to: "/admin/payroll/audit-logs",
-      icon: ClipboardCheck,
-      label: " Audit Logs",
-      permission: PERMISSIONS.PAYROLL.VIEW,
-    },
-    { group: "Settings" },
-    {
-      to: "/admin/settings",
-      icon: Settings,
-      label: "Settings",
-      permission: PERMISSIONS.SETTINGS.VIEW,
-    },
-    {
-      to: "/admin/profile",
-      icon: User,
-      label: "Profile",
-      permission: null,
-    },
-    {
-      to: "/admin/document-types",
-      icon: FileCheck,
-      label: "Document Types",
-      permission: PERMISSIONS.SETTINGS.EDIT,
-    },
-  ], [pendingApprovalCount, pendingBonusRaiseCount]);
+      {
+        to: "/admin/billing-history",
+        icon: TrendingUp,
+        label: "Billing History",
+        permission: PERMISSIONS.EMPLOYEES.VIEW,
+      },
+      {
+        to: "/admin/payroll",
+        icon: Briefcase,
+        label: "Payroll",
+        permission: PERMISSIONS.PAYROLL.VIEW,
+        end: true,
+      },
+      {
+        to: "/admin/payroll/audit-logs",
+        icon: ClipboardCheck,
+        label: " Audit Logs",
+        permission: PERMISSIONS.PAYROLL.VIEW,
+      },
+      { group: "Settings" },
+      {
+        to: "/admin/settings",
+        icon: Settings,
+        label: "Settings",
+        permission: PERMISSIONS.SETTINGS.VIEW,
+      },
+      {
+        to: "/admin/profile",
+        icon: User,
+        label: "Profile",
+        permission: null,
+      },
+      {
+        to: "/admin/document-types",
+        icon: FileCheck,
+        label: "Document Types",
+        permission: PERMISSIONS.SETTINGS.EDIT,
+      },
+      {
+        to: "/admin/email-notifications",
+        icon: MessageSquare,
+        label: "Email Notifications",
+        permission: PERMISSIONS.SETTINGS.EDIT,
+      },
+    ],
+    [pendingApprovalCount, pendingBonusRaiseCount, supportTicketCount],
+  );
 
   // Filter admin links based on permissions
   const adminLinks = useMemo(() => {
