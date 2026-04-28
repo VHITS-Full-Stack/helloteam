@@ -27,6 +27,7 @@ const Leave = () => {
   const [leaveHistory, setLeaveHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notAssigned, setNotAssigned] = useState(false);
 
   // Request form state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -93,7 +94,13 @@ const Leave = () => {
       }
     } catch (err) {
       console.error('Failed to fetch leave data:', err);
-      setError('Failed to load leave data. Please try again.');
+      const errMsg = err?.error || err?.message || '';
+      console.log("errMsg", errMsg)
+      if (errMsg.toLowerCase().includes('no client assignment') || errMsg.toLowerCase().includes('contact admin')) {
+        setNotAssigned(true);
+      } else {
+        setError('Failed to load leave data. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -218,7 +225,7 @@ const Leave = () => {
     }
     
     if (status === 'CANCELLED') {
-      return <span className="text-xs text-gray-500">Cancelled by employee</span>;
+      return <span className="text-xs text-gray-500 whitespace-nowrap">Cancelled by employee</span>;
     }
     
     let action = '';
@@ -257,11 +264,11 @@ const Leave = () => {
     }
     
     return (
-      <div className="text-xs space-y-0.5">
-        <div className={`font-medium ${status === 'REJECTED' ? 'text-red-600' : 'text-green-600'}`}>
-          {action} by {actionBy}
-        </div>
-        {actionTime && <div className="text-gray-500">{actionTime}</div>}
+      <div className="flex flex-col gap-0.5 whitespace-nowrap">
+        <span className={`text-[11px] font-bold uppercase tracking-tight ${status === 'REJECTED' ? 'text-red-600' : 'text-emerald-600'}`}>
+          {action} BY {actionBy}
+        </span>
+        {actionTime && <span className="text-[10px] text-gray-400 font-medium">{actionTime}</span>}
       </div>
     );
   };
@@ -279,6 +286,25 @@ const Leave = () => {
     return (
       <div className="flex items-center justify-center min-h-96">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (notAssigned) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Leave & Availability</h1>
+        </div>
+        <div className="flex flex-col items-center justify-center min-h-80 bg-amber-50 border border-amber-200 rounded-xl p-12 text-center">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="w-8 h-8 text-amber-500" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Not Assigned to a Client</h2>
+          <p className="text-gray-500 max-w-sm">
+            You are not currently assigned to any client. Please contact your admin to get assigned before accessing leave features.
+          </p>
+        </div>
       </div>
     );
   }
@@ -528,7 +554,8 @@ const Leave = () => {
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Start Date</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">End Date</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Days</th>
-                      <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Reason</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Hours</th>
+                      <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Reason</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Status</th>
                       <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase">Action Taken</th>
                       <th className="text-center px-4 py-3 text-xs font-semibold text-gray-500 uppercase w-16" />
@@ -546,31 +573,55 @@ const Leave = () => {
                             {getLeaveTypeLabel(request.leaveType)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                           {formatDate(request.startDate, {
                             includeWeekday: true,
                             includeYear: true,
                           })}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                           {formatDate(request.endDate, {
                             includeWeekday: true,
                             includeYear: true,
                           })}
                         </td>
                         <td className="px-4 py-3 text-center text-sm font-medium text-gray-900">
-                          {request.requestedDays}
+                          {Number(request.requestedDays) % 1 === 0 || Number(request.requestedDays) === 0.5 ? request.requestedDays : '—'}
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-600 max-w-[200px] truncate" title={request.reason}>
-                            {request.reason || '—'}
-                          </p>
-                          {request.isShortNotice && (
-                            <span className="inline-flex items-center gap-1 text-[10px] text-yellow-600 mt-0.5">
-                              <AlertTriangle className="w-3 h-3" />
-                              Short notice
+                        <td className="px-4 py-3 text-center text-sm text-gray-600">
+                          {request.totalMinutes ? (
+                            <span className="font-medium text-gray-900">
+                              {request.totalMinutes / 60}
                             </span>
+                          ) : request.requestedDays ? (
+                            <span className="font-medium text-gray-900">
+                              {request.requestedDays * 8}
+                            </span>
+                          ) : (
+                            '—'
                           )}
+                        </td>
+                        <td className="px-4 py-3 min-w-[150px]">
+                          <div className="flex flex-col items-center gap-1.5 text-center">
+                            {request.reason ? (
+                              <p className="text-sm text-gray-900 font-medium truncate max-w-[200px] whitespace-nowrap" title={request.reason}>
+                                {request.reason}
+                              </p>
+                            ) : request.isShortNotice ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200/50">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                SHORT NOTICE
+                              </span>
+                            ) : (
+                              <span className="text-gray-300">—</span>
+                            )}
+                            {request.reason && request.isShortNotice && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[10px] font-semibold border border-amber-200/50">
+                                <AlertTriangle className="w-2.5 h-2.5" />
+                                SHORT NOTICE
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-center">
                           {getStatusBadge(request.status)}
@@ -899,8 +950,15 @@ const Leave = () => {
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-500">Total Days:</span>
-                <span className="font-medium">{selectedRequest.requestedDays} days</span>
+                <span className="text-sm text-gray-500">Total Duration:</span>
+                <span className="font-medium text-right">
+                  <div>{selectedRequest.requestedDays} days</div>
+                  {selectedRequest.totalMinutes && (
+                    <div className="text-xs text-gray-500">
+                      ({Math.floor(selectedRequest.totalMinutes / 60)}h {selectedRequest.totalMinutes % 60 > 0 ? `${selectedRequest.totalMinutes % 60}m` : ''})
+                    </div>
+                  )}
+                </span>
               </div>
               {selectedRequest.reason && (
                 <div>

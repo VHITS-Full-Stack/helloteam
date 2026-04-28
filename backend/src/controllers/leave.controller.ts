@@ -374,7 +374,15 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     // Allow all leave types - check balance only for paid
     const isPaid = leaveType === 'PAID' || leaveType === 'PTO';
     
-    const requestedDays = calculateDays(start, end);
+    // Calculate requested days - support fractional days (e.g. 0.5 for half day)
+    let requestedDays: number;
+    if (days && Array.isArray(days) && days.length > 0) {
+      // 8 hours (480 mins) = 1 day
+      requestedDays = totalMinutes ? totalMinutes / 480 : days.length;
+    } else {
+      requestedDays = calculateDays(start, end);
+    }
+
     const noticeRequired = isPaid
       ? (policy?.requireTwoWeeksNoticePaidLeave ?? true)
       : (policy?.requireTwoWeeksNoticeUnpaidLeave ?? true);
@@ -419,25 +427,47 @@ export const submitLeaveRequest = async (req: AuthenticatedRequest, res: Respons
     }
 
     // Check for overlapping requests
-    const overlapping = await prisma.leaveRequest.findFirst({
+    // Enhanced overlap check: Allow multiple partial-day requests as long as total <= 8 hours
+    const existingRequests = await prisma.leaveRequest.findMany({
       where: {
         employeeId: employee.id,
         status: { in: ['PENDING', 'APPROVED_BY_CLIENT', 'APPROVED'] },
-        OR: [
-          {
-            startDate: { lte: end },
-            endDate: { gte: start },
-          },
-        ],
+        startDate: { lte: end },
+        endDate: { gte: start },
       },
     });
 
-    if (overlapping) {
-      res.status(400).json({
-        success: false,
-        error: 'You already have a leave request for overlapping dates',
-      });
-      return;
+    // Dates to check
+    const datesToCheck = days && Array.isArray(days) && days.length > 0 
+      ? days 
+      : [{ date: start.toISOString().split('T')[0], hours: 8, mins: 0 }];
+
+    for (const day of datesToCheck) {
+      const dayDateStr = day.date;
+      const dayDate = new Date(dayDateStr);
+      const dayMinutes = (Number(day.hours) * 60) + Number(day.mins);
+      
+      let existingMinutesForDay = 0;
+      for (const req of existingRequests) {
+        // Does this existing request cover this date?
+        if (dayDate >= req.startDate && dayDate <= req.endDate) {
+          if (req.days && Array.isArray(req.days)) {
+            const dayInfo = (req.days as any[]).find((d: any) => d.date === dayDateStr);
+            existingMinutesForDay += dayInfo ? (Number(dayInfo.hours) * 60 + Number(dayInfo.mins)) : 0;
+          } else {
+            // Legacy range request: assume 8 hours per day
+            existingMinutesForDay += 480;
+          }
+        }
+      }
+      
+      if (existingMinutesForDay + dayMinutes > 480) {
+        res.status(400).json({
+          success: false,
+          error: `Leave already applied for ${dayDateStr}. Total hours (${(existingMinutesForDay + dayMinutes) / 60}h) would exceed 8-hour limit. Remaining: ${(480 - existingMinutesForDay) / 60}h.`,
+        });
+        return;
+      }
     }
 
     // Create leave request
@@ -576,9 +606,12 @@ export const getLeaveHistory = async (req: AuthenticatedRequest, res: Response):
     // Add calculated days to each request
     const requestsWithDays = requests.map(request => {
       const requestAny = request as any;
+      const requestedDays = requestAny.totalMinutes 
+        ? requestAny.totalMinutes / 480 
+        : calculateDays(new Date(request.startDate), new Date(request.endDate));
       return {
         ...request,
-        requestedDays: requestAny.requestedDays ?? calculateDays(new Date(request.startDate), new Date(request.endDate)),
+        requestedDays,
       };
     });
 
@@ -631,10 +664,9 @@ export const cancelLeaveRequest = async (req: AuthenticatedRequest, res: Respons
       return;
     }
 
-    const requestedDays = calculateDays(
-      new Date(leaveRequest.startDate),
-      new Date(leaveRequest.endDate)
-    );
+    const requestedDays = leaveRequest.totalMinutes 
+      ? leaveRequest.totalMinutes / 480 
+      : calculateDays(new Date(leaveRequest.startDate), new Date(leaveRequest.endDate));
 
     // Update leave request to cancelled
     await prisma.leaveRequest.update({
@@ -723,10 +755,9 @@ export const getLeaveRequestDetails = async (req: AuthenticatedRequest, res: Res
       return;
     }
 
-    const requestedDays = calculateDays(
-      new Date(leaveRequest.startDate),
-      new Date(leaveRequest.endDate)
-    );
+    const requestedDays = leaveRequest.totalMinutes 
+      ? leaveRequest.totalMinutes / 480 
+      : calculateDays(new Date(leaveRequest.startDate), new Date(leaveRequest.endDate));
 
     // Build approval flow status
     const approvalFlow = [
