@@ -21,12 +21,12 @@ const Avatar = ({
   const [imgError, setImgError] = useState(false);
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    const names = name.split(' ');
+    if (!name || name.toLowerCase().includes('undefined') || name.toLowerCase().includes('null')) return '?';
+    const names = name.trim().split(' ').filter(Boolean);
     if (names.length >= 2) {
-      return `${names[0][0]}${names[1][0]}`.toUpperCase();
+      return `${names[0][0]}${names[names.length - 1][0]}`.toUpperCase();
     }
-    return name.slice(0, 2).toUpperCase();
+    return names[0] ? names[0].slice(0, 2).toUpperCase() : '?';
   };
 
   const statusColors = {
