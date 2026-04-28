@@ -1034,6 +1034,7 @@ const Approvals = () => {
                   <TableHeader className="!px-3">Description</TableHeader>
                   <TableHeader className="!px-3">Date</TableHeader>
                   <TableHeader className="!px-3">Days</TableHeader>
+                  <TableHeader className="!px-3">Hours</TableHeader>
                   <TableHeader className="!px-3">Created At</TableHeader>
                   {activeTab === "pending" && (
                     <TableHeader className="!px-3">Actions</TableHeader>
@@ -1094,7 +1095,20 @@ const Approvals = () => {
                       {formatDate(item.date)}
                     </TableCell>
                     <TableCell className="!px-3">
-                      {item.days} day{item.days !== 1 ? "s" : ""}
+                      {item.days} day{Number(item.days) !== 1 ? "s" : ""}
+                    </TableCell>
+                    <TableCell className="!px-3">
+                      {item.totalMinutes ? (
+                        <span className="font-medium text-gray-900 text-sm">
+                          {item.totalMinutes / 60}
+                        </span>
+                      ) : item.days ? (
+                        <span className="font-medium text-gray-900 text-sm">
+                          {item.days * 8}
+                        </span>
+                      ) : (
+                        <span className="text-gray-300 text-sm">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="!px-3">
                       <span className="text-xs text-gray-500">
