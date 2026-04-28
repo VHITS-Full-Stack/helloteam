@@ -28,11 +28,13 @@ const workSessionService = {
   },
 
   // Resolve unauthorized lunch with "I was working" screenshot (WAS_WORKING path — multipart)
-  async submitWasWorkingBreak(screenshotFile, explanation) {
+  // resumeTime is HH:MM string, only present on the upgraded path (>30 min past scheduled end)
+  async submitWasWorkingBreak(screenshotFile, explanation, resumeTime) {
     const formData = new FormData();
     formData.append('resolution', 'WAS_WORKING');
     formData.append('screenshot', screenshotFile);
     formData.append('explanation', explanation);
+    if (resumeTime) formData.append('resumeTime', resumeTime);
     return await api.post('/work-sessions/break/resolve-unauthorized', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });

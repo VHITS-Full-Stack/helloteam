@@ -1142,6 +1142,7 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
       // WAS_WORKING — requires screenshot + explanation
       const screenshotFile = (req as any).file as Express.Multer.File | undefined;
       const explanation: string = req.body.explanation ?? '';
+      const resumeTimeStr: string | undefined = req.body.resumeTime; // HH:MM, only sent on upgraded path
 
       if (!screenshotFile) {
         res.status(400).json({ success: false, message: 'Screenshot is required for WAS_WORKING resolution' });
@@ -1150,6 +1151,33 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
       if (explanation.length < 20 || explanation.length > 500) {
         res.status(400).json({ success: false, message: 'Explanation must be 20–500 characters' });
         return;
+      }
+
+      // --- Upgraded path: split the late period into gap (always unpaid) + late work (bypass counter) ---
+      let resumeTimeDate: Date | undefined;
+      let gapMinutes = 0;
+      let lateWorkMinutes: number;
+
+      if (resumeTimeStr) {
+        const [hh, mm] = resumeTimeStr.split(':').map(Number);
+        resumeTimeDate = new Date(currentBreak.startTime);
+        resumeTimeDate.setHours(hh, mm, 0, 0);
+
+        const scheduledBreakEnd = new Date(currentBreak.startTime.getTime() + scheduledDuration * 60000);
+
+        if (resumeTimeDate <= scheduledBreakEnd) {
+          res.status(400).json({ success: false, message: 'Resume time must be after your scheduled lunch end' });
+          return;
+        }
+        if (resumeTimeDate >= endTime) {
+          res.status(400).json({ success: false, message: 'Resume time must be before the current time' });
+          return;
+        }
+
+        gapMinutes = Math.max(0, Math.round((resumeTimeDate.getTime() - scheduledBreakEnd.getTime()) / 60000));
+        lateWorkMinutes = Math.max(0, Math.round((endTime.getTime() - resumeTimeDate.getTime()) / 60000));
+      } else {
+        lateWorkMinutes = lateMinutes; // non-upgraded: full late period goes through bypass counter
       }
 
       const uploadResult = await uploadToS3(screenshotFile, 'lunch-screenshots', { maxSizeBytes: 10 * 1024 * 1024 });
@@ -1172,24 +1200,26 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
 
       const MAX_BYPASSES = 3;
       if (bypassCount < MAX_BYPASSES) {
-        // Auto-approve: all elapsed time is paid
         bypassApprovalStatus = 'AUTO_APPROVED';
-        paidMinutes = elapsedMinutes;
-        unpaidMinutes = 0;
+        paidMinutes = scheduledDuration + lateWorkMinutes; // gap always unpaid
+        unpaidMinutes = gapMinutes;
       } else {
-        // Exhausted: hold for admin review; late time unpaid until approved
         bypassApprovalStatus = 'PENDING_REVIEW';
         paidMinutes = scheduledDuration;
-        unpaidMinutes = lateMinutes;
+        unpaidMinutes = gapMinutes; // gap immediately unpaid; lateWork is pending (infer from resumeTime)
       }
+
       // Ordinal info for the frontend warning (e.g. "2nd", 1 remaining)
-      (req as any)._bypassOrdinal = bypassCount + 1;         // 1-based index of THIS submission
+      (req as any)._bypassOrdinal = bypassCount + 1;
       (req as any)._bypassRemaining = Math.max(0, MAX_BYPASSES - (bypassCount + 1));
 
       wasWorkingScreenshotUrl = uploadResult.url;
       wasWorkingExplanation = explanation;
       lunchStatus = 'WAS_WORKING';
+      if (resumeTimeDate) (req as any)._resumeTimeDate = resumeTimeDate;
     }
+
+    const resumeTimeDate: Date | undefined = (req as any)._resumeTimeDate;
 
     await prisma.break.update({
       where: { id: currentBreak.id },
@@ -1198,6 +1228,7 @@ export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: R
         ...(wasWorkingScreenshotUrl !== undefined && { wasWorkingScreenshotUrl }),
         ...(wasWorkingExplanation !== undefined && { wasWorkingExplanation }),
         ...(bypassApprovalStatus !== undefined && { bypassApprovalStatus }),
+        ...(resumeTimeDate !== undefined && { resumeTime: resumeTimeDate }),
       } as any,
     });
 

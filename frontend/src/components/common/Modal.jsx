@@ -51,13 +51,14 @@ const Modal = ({
           className={`
             relative bg-white rounded-xl shadow-xl
             w-full ${sizes[size]}
+            max-h-[90vh] flex flex-col
             transform transition-all
             animate-fade-in
           `}
         >
           {/* Header */}
           {title ? (
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
               <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
               {showClose && (
                 <button
@@ -69,7 +70,7 @@ const Modal = ({
               )}
             </div>
           ) : showClose && (
-            <div className="flex justify-end px-4 pt-3 pb-0">
+            <div className="flex justify-end px-4 pt-3 pb-0 flex-shrink-0">
               <button
                 onClick={onClose}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
@@ -80,13 +81,13 @@ const Modal = ({
           )}
 
           {/* Content */}
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 overflow-y-auto flex-1">
             {children}
           </div>
 
           {/* Footer */}
           {footer && (
-            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-3 flex-shrink-0">
               {footer}
             </div>
           )}

@@ -3855,6 +3855,7 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
       bypassApprovalStatus: b.bypassApprovalStatus ?? null,
       wasWorkingScreenshotUrl: b.wasWorkingScreenshotUrl ?? null,
       wasWorkingExplanation: b.wasWorkingExplanation ?? null,
+      resumeTime: (b as any).resumeTime ?? null,
       employeeId: b.workSession.employee.id,
       employeeName: `${b.workSession.employee.firstName} ${b.workSession.employee.lastName}`,
       employeeEmail: b.workSession.employee.user?.email,
@@ -3927,13 +3928,29 @@ export const approvePendingLunch = async (req: AuthenticatedRequest, res: Respon
       return;
     }
 
-    // All elapsed time becomes paid (Reclassified Worked Hours)
+    // Compute paid/unpaid based on whether a resumeTime split was recorded
+    const resumeTime = (breakRecord as any).resumeTime ? new Date((breakRecord as any).resumeTime) : null;
+    const scheduledDuration = (breakRecord as any).scheduledDurationMinutes ?? 30;
+    let approvedPaidMinutes: number;
+    let approvedUnpaidMinutes: number;
+
+    if (resumeTime && breakRecord.endTime) {
+      const scheduledBreakEnd = new Date(new Date(breakRecord.startTime).getTime() + scheduledDuration * 60000);
+      const gapMinutes = Math.max(0, Math.round((resumeTime.getTime() - scheduledBreakEnd.getTime()) / 60000));
+      const lateWorkMinutes = Math.max(0, Math.round((new Date(breakRecord.endTime).getTime() - resumeTime.getTime()) / 60000));
+      approvedPaidMinutes = scheduledDuration + lateWorkMinutes; // gap stays unpaid
+      approvedUnpaidMinutes = gapMinutes;
+    } else {
+      approvedPaidMinutes = breakRecord.durationMinutes ?? (breakRecord as any).paidMinutes;
+      approvedUnpaidMinutes = 0;
+    }
+
     await prisma.break.update({
       where: { id: breakId },
       data: {
         bypassApprovalStatus: 'APPROVED',
-        paidMinutes: breakRecord.durationMinutes ?? (breakRecord as any).paidMinutes,
-        unpaidMinutes: 0,
+        paidMinutes: approvedPaidMinutes,
+        unpaidMinutes: approvedUnpaidMinutes,
       } as any,
     });
 
@@ -3944,7 +3961,7 @@ export const approvePendingLunch = async (req: AuthenticatedRequest, res: Respon
         userId: req.user!.userId,
         actorName: adminName,
         action: 'ADMIN_ADJUST',
-        details: `Pending lunch bypass approved — all ${breakRecord.durationMinutes} min reclassified as worked hours.${notes ? ` Note: ${notes}` : ''}`,
+        details: `Pending lunch bypass approved — ${approvedPaidMinutes} min paid (${resumeTime ? 'split: gap unpaid' : 'full duration'}).${notes ? ` Note: ${notes}` : ''}`,
         ipAddress: (req.ip as string) || '',
       },
     });
@@ -3971,10 +3988,20 @@ export const denyPendingLunch = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    // Late time stays unpaid (scheduled duration paid, late time unpaid)
+    // On denial, all late time (gap + late work) becomes unpaid
+    const resumeTimeDeny = (breakRecord as any).resumeTime ? new Date((breakRecord as any).resumeTime) : null;
+    const scheduledDurationDeny = (breakRecord as any).scheduledDurationMinutes ?? 30;
+    const deniedUnpaidMinutes = resumeTimeDeny
+      ? (breakRecord.durationMinutes ?? 0) - scheduledDurationDeny  // gap + late work both unpaid
+      : (breakRecord as any).unpaidMinutes ?? ((breakRecord.durationMinutes ?? 0) - scheduledDurationDeny);
+
     await prisma.break.update({
       where: { id: breakId },
-      data: { bypassApprovalStatus: 'DENIED' } as any,
+      data: {
+        bypassApprovalStatus: 'DENIED',
+        paidMinutes: scheduledDurationDeny,
+        unpaidMinutes: deniedUnpaidMinutes,
+      } as any,
     });
 
     const adminName = (req.user as any)?.name || 'Admin';
@@ -3984,7 +4011,7 @@ export const denyPendingLunch = async (req: AuthenticatedRequest, res: Response)
         userId: req.user!.userId,
         actorName: adminName,
         action: 'ADMIN_ADJUST',
-        details: `Pending lunch bypass denied — late time (${(breakRecord as any).unpaidMinutes ?? 0} min) remains unpaid.${notes ? ` Note: ${notes}` : ''}`,
+        details: `Pending lunch bypass denied — ${deniedUnpaidMinutes} min unpaid.${notes ? ` Note: ${notes}` : ''}`,
         ipAddress: (req.ip as string) || '',
       },
     });
