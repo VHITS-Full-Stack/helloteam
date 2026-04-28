@@ -2,7 +2,8 @@ import { Response, Request } from 'express';
 import { AuthenticatedRequest } from '../types';
 import prisma from '../config/database';
 import { WorkSessionStatus } from '@prisma/client';
-import { sendOTWorkedEmail } from '../services/email.service';
+import { sendOTWorkedEmail, sendLunchBreakReminderEmail } from '../services/email.service';
+import { uploadToS3 } from '../services/s3.service';
 import { sendSMS } from '../services/sms.service';
 import { createNotification } from './notification.controller';
 import { getTimeInTimezone, buildScheduleTimestamp, buildTimestampFromDate } from '../utils/timezone';
@@ -370,7 +371,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
       return;
     }
 
-    // End any ongoing break
+    // End any ongoing break — lunch breaks auto-close with unpaid time flagged for review
     const ongoingBreak = activeSession.breaks.find(b => !b.endTime);
     if (ongoingBreak) {
       const breakEndTime = new Date();
@@ -378,13 +379,24 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
         (breakEndTime.getTime() - ongoingBreak.startTime.getTime()) / 60000
       );
 
-      await prisma.break.update({
-        where: { id: ongoingBreak.id },
-        data: {
-          endTime: breakEndTime,
-          durationMinutes: breakDuration,
-        },
-      });
+      if ((ongoingBreak as any).isLunch) {
+        const scheduledDuration = (ongoingBreak as any).scheduledDurationMinutes ?? 30;
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: {
+            endTime: breakEndTime,
+            durationMinutes: breakDuration,
+            paidMinutes: scheduledDuration,
+            unpaidMinutes: Math.max(0, breakDuration - scheduledDuration),
+            lunchStatus: 'AUTO_CLOSED',
+          } as any,
+        });
+      } else {
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: { endTime: breakEndTime, durationMinutes: breakDuration },
+        });
+      }
     }
 
     // Calculate total break time
@@ -918,7 +930,7 @@ export const clockOut = async (req: AuthenticatedRequest, res: Response): Promis
   }
 };
 
-// Start break
+// Start lunch break
 export const startBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const userId = req.user?.userId;
@@ -928,64 +940,66 @@ export const startBreak = async (req: AuthenticatedRequest, res: Response): Prom
       return;
     }
 
-    const employee = await prisma.employee.findUnique({
-      where: { userId },
-    });
-
+    const employee = await prisma.employee.findUnique({ where: { userId } });
     if (!employee) {
       res.status(404).json({ success: false, message: 'Employee record not found' });
       return;
     }
 
-    // Find active session
+    // Find active session and check for existing lunch break
     const activeSession = await prisma.workSession.findFirst({
-      where: {
-        employeeId: employee.id,
-        status: 'ACTIVE',
-      },
+      where: { employeeId: employee.id, status: 'ACTIVE' },
+      include: { breaks: { where: { isLunch: true } } },
     });
 
     if (!activeSession) {
-      res.status(400).json({
-        success: false,
-        message: 'No active work session found. Please clock in first.',
-      });
+      res.status(400).json({ success: false, message: 'No active work session found. Please clock in first.' });
       return;
     }
 
-    // Create break record
+    // One lunch per shift
+    if (activeSession.breaks.length > 0) {
+      res.status(400).json({ success: false, message: 'You have already taken your lunch break for this shift.' });
+      return;
+    }
+
+    // Resolve lunch duration: assignment override → client policy → system default (30 min)
+    const clientAssignment = await prisma.clientEmployee.findFirst({
+      where: { employeeId: employee.id, isActive: true },
+      include: { client: { include: { clientPolicies: true } } },
+    });
+    const lunchDuration: number =
+      clientAssignment?.lunchDurationMinutes ??
+      (clientAssignment?.client?.clientPolicies as any)?.lunchDurationMinutes ??
+      30;
+
     const breakRecord = await prisma.break.create({
       data: {
         workSessionId: activeSession.id,
         startTime: new Date(),
+        isLunch: true,
+        scheduledDurationMinutes: lunchDuration,
+        lunchStatus: 'ACTIVE',
       },
     });
 
-    // Update session status
     await prisma.workSession.update({
       where: { id: activeSession.id },
       data: { status: 'ON_BREAK' },
     });
 
-    // Create session log for break start
     const employeeName = `${employee.firstName} ${employee.lastName}`;
-    await createSessionLog(
-      activeSession.id,
-      userId,
-      employeeName,
-      'BREAK_START',
-      `.: Break started`,
-      getClientIp(req)
-    );
+    await createSessionLog(activeSession.id, userId, employeeName, 'BREAK_START', `Lunch break started (${lunchDuration} min scheduled)`, getClientIp(req));
 
     res.status(201).json({
       success: true,
-      message: 'Break started',
+      message: 'Lunch break started',
       break: breakRecord,
+      scheduledDurationMinutes: lunchDuration,
     });
   } catch (error) {
     console.error('Start break error:', error);
-    res.status(500).json({ success: false, message: 'Failed to start break' });
+    res.status(500).json({ success: false, message: 'Failed to start lunch break' });
   }
 };
 
@@ -999,21 +1013,14 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
       return;
     }
 
-    const employee = await prisma.employee.findUnique({
-      where: { userId },
-    });
-
+    const employee = await prisma.employee.findUnique({ where: { userId } });
     if (!employee) {
       res.status(404).json({ success: false, message: 'Employee record not found' });
       return;
     }
 
-    // Find session on break
     const activeSession = await prisma.workSession.findFirst({
-      where: {
-        employeeId: employee.id,
-        status: 'ON_BREAK',
-      },
+      where: { employeeId: employee.id, status: 'ON_BREAK' },
       include: {
         breaks: {
           where: { endTime: null },
@@ -1024,66 +1031,246 @@ export const endBreak = async (req: AuthenticatedRequest, res: Response): Promis
     });
 
     if (!activeSession) {
-      res.status(400).json({
-        success: false,
-        message: 'You are not currently on break',
-      });
+      res.status(400).json({ success: false, message: 'You are not currently on break' });
       return;
     }
 
     const currentBreak = activeSession.breaks[0];
     if (!currentBreak) {
-      res.status(400).json({
-        success: false,
-        message: 'No active break found',
-      });
+      res.status(400).json({ success: false, message: 'No active break found' });
       return;
     }
 
-    // Calculate break duration
     const endTime = new Date();
-    const durationMinutes = Math.round(
-      (endTime.getTime() - currentBreak.startTime.getTime()) / 60000
-    );
+    const elapsedMinutes = (endTime.getTime() - currentBreak.startTime.getTime()) / 60000;
+    const scheduledDuration = (currentBreak as any).scheduledDurationMinutes ?? 30;
+    const gracePeriod = 2;
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
 
-    // Update break record
-    const updatedBreak = await prisma.break.update({
+    // Unauthorized: more than grace period past scheduled end — employee must resolve
+    if (elapsedMinutes > scheduledDuration + gracePeriod) {
+      const lateMinutes = Math.round(elapsedMinutes - scheduledDuration);
+      return res.json({
+        success: true,
+        lunchStatus: 'UNAUTHORIZED',
+        lateMinutes,
+        scheduledDurationMinutes: scheduledDuration,
+        message: 'Your lunch break has exceeded the allowed time.',
+      });
+    }
+
+    // Grace window (0–2 min late): paid = scheduled duration, extra credited as regular work
+    const isGrace = elapsedMinutes > scheduledDuration;
+    const paidMinutes = isGrace ? scheduledDuration : Math.round(elapsedMinutes);
+    const extraWorkMinutes = isGrace ? Math.round(elapsedMinutes - scheduledDuration) : 0;
+    const durationMinutes = Math.round(elapsedMinutes);
+    const lunchStatus = isGrace ? 'GRACE' : 'NORMAL';
+
+    await prisma.break.update({
       where: { id: currentBreak.id },
-      data: {
-        endTime,
-        durationMinutes,
-      },
+      data: { endTime, durationMinutes, paidMinutes, unpaidMinutes: 0, lunchStatus } as any,
     });
 
-    // Update session status back to ACTIVE and accumulate break time
+    // Increment by paidMinutes (not durationMinutes) so grace minutes stay as work time
     await prisma.workSession.update({
       where: { id: activeSession.id },
-      data: {
-        status: 'ACTIVE',
-        totalBreakMinutes: { increment: durationMinutes },
-      },
+      data: { status: 'ACTIVE', totalBreakMinutes: { increment: paidMinutes } },
     });
 
-    // Create session log for break end
-    const employeeName = `${employee.firstName} ${employee.lastName}`;
     await createSessionLog(
-      activeSession.id,
-      userId,
-      employeeName,
-      'BREAK_END',
-      `.: Break ended. Duration: ${durationMinutes} minutes`,
+      activeSession.id, userId, employeeName, 'BREAK_END',
+      `Lunch break ended. Paid: ${paidMinutes} min${isGrace ? `, ${extraWorkMinutes} min grace added to work` : ''}`,
       getClientIp(req),
-      { durationMinutes }
+      { paidMinutes, extraWorkMinutes, lunchStatus }
     );
 
     res.json({
       success: true,
-      message: 'Break ended',
-      break: updatedBreak,
+      lunchStatus,
+      paidMinutes,
+      extraWorkMinutes,
+      scheduledDurationMinutes: scheduledDuration,
+      message: isGrace
+        ? `Lunch break ended. ${paidMinutes} min paid lunch, ${extraWorkMinutes} min added to work hours.`
+        : 'Lunch break ended.',
     });
   } catch (error) {
     console.error('End Lunch break error:', error);
     res.status(500).json({ success: false, message: 'Failed to end lunch break' });
+  }
+};
+
+// Resolve unauthorized lunch break
+export const resolveUnauthorizedLunch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const { resolution } = req.body; // 'EXTENDED' | 'WAS_WORKING' (Phase 2 adds screenshot path)
+
+    const employee = await prisma.employee.findUnique({ where: { userId } });
+    if (!employee) { res.status(404).json({ success: false, message: 'Employee record not found' }); return; }
+
+    const activeSession = await prisma.workSession.findFirst({
+      where: { employeeId: employee.id, status: 'ON_BREAK' },
+      include: { breaks: { where: { endTime: null }, orderBy: { startTime: 'desc' }, take: 1 } },
+    });
+    if (!activeSession) { res.status(400).json({ success: false, message: 'No active lunch break found' }); return; }
+
+    const currentBreak = activeSession.breaks[0];
+    if (!currentBreak) { res.status(400).json({ success: false, message: 'No active break record found' }); return; }
+
+    const endTime = new Date();
+    const elapsedMinutes = Math.round((endTime.getTime() - currentBreak.startTime.getTime()) / 60000);
+    const scheduledDuration = (currentBreak as any).scheduledDurationMinutes ?? 30;
+    const lateMinutes = Math.max(0, elapsedMinutes - scheduledDuration);
+
+    let paidMinutes: number;
+    let unpaidMinutes: number;
+    let lunchStatus: string;
+
+    let wasWorkingScreenshotUrl: string | undefined;
+    let wasWorkingExplanation: string | undefined;
+    let bypassApprovalStatus: string | undefined;
+
+    if (resolution === 'EXTENDED') {
+      // Employee was honest — late time is unpaid
+      paidMinutes = scheduledDuration;
+      unpaidMinutes = lateMinutes;
+      lunchStatus = 'EXTENDED';
+    } else {
+      // WAS_WORKING — requires screenshot + explanation
+      const screenshotFile = (req as any).file as Express.Multer.File | undefined;
+      const explanation: string = req.body.explanation ?? '';
+
+      if (!screenshotFile) {
+        res.status(400).json({ success: false, message: 'Screenshot is required for WAS_WORKING resolution' });
+        return;
+      }
+      if (explanation.length < 20 || explanation.length > 500) {
+        res.status(400).json({ success: false, message: 'Explanation must be 20–500 characters' });
+        return;
+      }
+
+      const uploadResult = await uploadToS3(screenshotFile, 'lunch-screenshots', { maxSizeBytes: 10 * 1024 * 1024 });
+      if (!uploadResult.success) {
+        res.status(500).json({ success: false, message: uploadResult.error || 'Screenshot upload failed' });
+        return;
+      }
+
+      // Bypass counter: count AUTO_APPROVED WAS_WORKING breaks in the last 90 days
+      const ninetyDaysAgo = new Date();
+      ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+      const bypassCount = await prisma.break.count({
+        where: {
+          workSession: { employeeId: employee.id },
+          lunchStatus: 'WAS_WORKING',
+          bypassApprovalStatus: 'AUTO_APPROVED',
+          startTime: { gte: ninetyDaysAgo },
+        },
+      });
+
+      if (bypassCount < 3) {
+        // Auto-approve: all elapsed time is paid
+        bypassApprovalStatus = 'AUTO_APPROVED';
+        paidMinutes = elapsedMinutes;
+        unpaidMinutes = 0;
+      } else {
+        // Exhausted: hold for admin review; late time unpaid until approved
+        bypassApprovalStatus = 'PENDING_REVIEW';
+        paidMinutes = scheduledDuration;
+        unpaidMinutes = lateMinutes;
+      }
+
+      wasWorkingScreenshotUrl = uploadResult.url;
+      wasWorkingExplanation = explanation;
+      lunchStatus = 'WAS_WORKING';
+    }
+
+    await prisma.break.update({
+      where: { id: currentBreak.id },
+      data: {
+        endTime, durationMinutes: elapsedMinutes, paidMinutes, unpaidMinutes, lunchStatus,
+        ...(wasWorkingScreenshotUrl !== undefined && { wasWorkingScreenshotUrl }),
+        ...(wasWorkingExplanation !== undefined && { wasWorkingExplanation }),
+        ...(bypassApprovalStatus !== undefined && { bypassApprovalStatus }),
+      } as any,
+    });
+
+    await prisma.workSession.update({
+      where: { id: activeSession.id },
+      data: { status: 'ACTIVE', totalBreakMinutes: { increment: elapsedMinutes } },
+    });
+
+    const employeeName = `${employee.firstName} ${employee.lastName}`;
+    const logNote = bypassApprovalStatus
+      ? `Lunch resolved (${resolution}, ${bypassApprovalStatus}). Paid: ${paidMinutes} min, Unpaid: ${unpaidMinutes} min`
+      : `Lunch resolved (${resolution}). Paid: ${paidMinutes} min, Unpaid: ${unpaidMinutes} min`;
+    await createSessionLog(activeSession.id, userId, employeeName, 'BREAK_END', logNote, getClientIp(req));
+
+    res.json({ success: true, lunchStatus, paidMinutes, unpaidMinutes, bypassApprovalStatus, message: 'Lunch break resolved.' });
+  } catch (error) {
+    console.error('Resolve unauthorized lunch error:', error);
+    res.status(500).json({ success: false, message: 'Failed to resolve lunch break' });
+  }
+};
+
+export const sendLunchBreakReminder = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const employee = await prisma.employee.findUnique({
+      where: { userId },
+      include: { user: true },
+    });
+    if (!employee) { res.status(404).json({ success: false, message: 'Employee not found' }); return; }
+
+    const employeeName = employee.firstName || employee.user.email;
+
+    sendLunchBreakReminderEmail(employee.user.email, employeeName).catch((err) =>
+      console.error('Failed to send lunch reminder email:', err)
+    );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('sendLunchBreakReminder error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send reminder' });
+  }
+};
+
+export const getLunchBypassCount = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) { res.status(401).json({ success: false, message: 'Unauthorized' }); return; }
+
+    const employee = await prisma.employee.findUnique({ where: { userId } });
+    if (!employee) { res.status(404).json({ success: false, message: 'Employee not found' }); return; }
+
+    const ninetyDaysAgo = new Date();
+    ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+
+    const usedCount = await prisma.break.count({
+      where: {
+        workSession: { employeeId: employee.id },
+        lunchStatus: 'WAS_WORKING',
+        bypassApprovalStatus: 'AUTO_APPROVED',
+        startTime: { gte: ninetyDaysAgo },
+      },
+    });
+
+    const MAX_BYPASSES = 3;
+    res.json({
+      success: true,
+      data: {
+        used: usedCount,
+        remaining: Math.max(0, MAX_BYPASSES - usedCount),
+        max: MAX_BYPASSES,
+      },
+    });
+  } catch (error) {
+    console.error('getLunchBypassCount error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get bypass count' });
   }
 };
 
@@ -1193,6 +1380,9 @@ export const getCurrentSession = async (req: AuthenticatedRequest, res: Response
         currentBreak: currentBreak ? {
           id: currentBreak.id,
           startTime: currentBreak.startTime,
+          isLunch: (currentBreak as any).isLunch ?? false,
+          scheduledDurationMinutes: (currentBreak as any).scheduledDurationMinutes ?? null,
+          lunchStatus: (currentBreak as any).lunchStatus ?? null,
           durationMinutes: Math.round(
             (now.getTime() - currentBreak.startTime.getTime()) / 60000
           ),
@@ -2573,7 +2763,7 @@ export const adminClockOutEmployee = async (req: AuthenticatedRequest, res: Resp
       return;
     }
 
-    // End any ongoing break
+    // End any ongoing break — lunch breaks auto-close with unpaid time flagged for review
     const ongoingBreak = activeSession.breaks.find(b => !b.endTime);
     if (ongoingBreak) {
       const breakEndTime = new Date();
@@ -2581,13 +2771,24 @@ export const adminClockOutEmployee = async (req: AuthenticatedRequest, res: Resp
         (breakEndTime.getTime() - ongoingBreak.startTime.getTime()) / 60000
       );
 
-      await prisma.break.update({
-        where: { id: ongoingBreak.id },
-        data: {
-          endTime: breakEndTime,
-          durationMinutes: breakDuration,
-        },
-      });
+      if ((ongoingBreak as any).isLunch) {
+        const scheduledDuration = (ongoingBreak as any).scheduledDurationMinutes ?? 30;
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: {
+            endTime: breakEndTime,
+            durationMinutes: breakDuration,
+            paidMinutes: scheduledDuration,
+            unpaidMinutes: Math.max(0, breakDuration - scheduledDuration),
+            lunchStatus: 'AUTO_CLOSED',
+          } as any,
+        });
+      } else {
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: { endTime: breakEndTime, durationMinutes: breakDuration },
+        });
+      }
     }
 
     // Calculate total break time

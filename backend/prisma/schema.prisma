@@ -379,6 +379,9 @@ model ClientEmployee {
   hourlyRate   Decimal? @db.Decimal(10, 2)
   overtimeRate Decimal? @db.Decimal(10, 2)
 
+  // Lunch duration override (null = use client policy default)
+  lunchDurationMinutes Int?
+
   // Optional per-employee PTO override (if null, uses client policy default)
   ptoAllowPaidLeave        Boolean?
   ptoEntitlementType       PaidLeaveEntitlementType?
@@ -436,6 +439,9 @@ model ClientPolicy {
 
   // Invoice configuration
   invoiceByGroup Boolean @default(false) // true = generate separate invoices per group
+
+  // Lunch break settings
+  lunchDurationMinutes  Int     @default(30)   // default lunch duration for all employees
 
   // Auto-approve configuration
   autoApproveTimesheets Boolean @default(false)
@@ -553,7 +559,20 @@ model Break {
   startTime       DateTime
   endTime         DateTime?
   durationMinutes Int?
-  createdAt       DateTime  @default(now())
+
+  // Lunch break fields
+  isLunch                  Boolean   @default(false)
+  scheduledDurationMinutes Int?      // duration snapshot at lunch start
+  paidMinutes              Int?      // resolved paid lunch minutes
+  unpaidMinutes            Int?      // resolved unpaid minutes
+  lunchStatus              String?   // ACTIVE | NORMAL | GRACE | UNAUTHORIZED | AUTO_CLOSED | EXTENDED | WAS_WORKING
+  warningFiredAt           DateTime? // when 28-min warning was pushed
+  alertEmailSent           Boolean   @default(false) // 10-min-past admin alert sent
+  wasWorkingScreenshotUrl  String?   // uploaded screenshot URL for WAS_WORKING resolution
+  wasWorkingExplanation    String?   // employee explanation text (20-500 chars)
+  bypassApprovalStatus     String?   // AUTO_APPROVED | PENDING_REVIEW | APPROVED | DENIED
+
+  createdAt DateTime @default(now())
 
   workSession WorkSession @relation(fields: [workSessionId], references: [id], onDelete: Cascade)
 

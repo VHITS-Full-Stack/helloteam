@@ -497,6 +497,24 @@ const AddClient = () => {
                   client
                 </p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lunch Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="120"
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary"
+                  value={formData.lunchDurationMinutes}
+                  onChange={(e) => setFormData({ ...formData, lunchDurationMinutes: e.target.value })}
+                  placeholder="30"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Default lunch duration for all employees. Can be overridden per employee assignment.
+                </p>
+              </div>
+
               {!isEdit && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">

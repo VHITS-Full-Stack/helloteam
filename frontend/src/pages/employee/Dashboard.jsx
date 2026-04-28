@@ -36,6 +36,7 @@ import {
   Loader2,
   Check,
   DollarSign,
+  UtensilsCrossed,
 } from "lucide-react";
 import {
   Card,
@@ -115,6 +116,9 @@ const EmployeeDashboard = () => {
 
   // Next payroll date state
   const [nextPayrollDate, setNextPayrollDate] = useState(null);
+
+  // Lunch bypass counter (rolling 90-day "I was working" auto-approvals)
+  const [lunchBypass, setLunchBypass] = useState(null); // { used, remaining, max }
 
   // Clock-in warning states
   const [showPostShiftWarning, setShowPostShiftWarning] = useState(false);
@@ -271,6 +275,18 @@ const EmployeeDashboard = () => {
     }
   }, []);
 
+  // Fetch lunch bypass remaining count
+  const fetchLunchBypassCount = useCallback(async () => {
+    try {
+      const res = await workSessionService.getLunchBypassCount();
+      if (res.success && res.data) {
+        setLunchBypass(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch lunch bypass count:", err);
+    }
+  }, []);
+
   // Save activity notes
   const saveNotes = useCallback(
     async (notesText) => {
@@ -394,6 +410,7 @@ const EmployeeDashboard = () => {
     fetchUnreadCount();
     fetchWeekSchedule();
     fetchNextPayrollDate();
+    fetchLunchBypassCount();
   }, [
     fetchWorkSessionData,
     fetchOvertimeRequests,
@@ -401,6 +418,7 @@ const EmployeeDashboard = () => {
     fetchUnreadCount,
     fetchWeekSchedule,
     fetchNextPayrollDate,
+    fetchLunchBypassCount,
   ]);
 
   // Detect if session is in extension mode (resumed after shift end)
@@ -1167,7 +1185,7 @@ const EmployeeDashboard = () => {
         <div className="lg:col-span-2 space-y-6">
           {/* Stats Row */}
           <div className="overflow-x-auto pb-2">
-            <div className="grid grid-cols-5 gap-4 min-w-[700px]">
+            <div className="grid grid-cols-6 gap-4 min-w-[840px]">
               <Card className="text-center">
                 <div className="w-12 h-12 mx-auto rounded-full bg-primary-100 flex items-center justify-center mb-3">
                   <Clock className="w-6 h-6 text-primary" />
@@ -1267,6 +1285,27 @@ const EmployeeDashboard = () => {
                     {/* <p className="text-xs text-gray-400 mt-2">Not set</p> */}
                   </>
                 )}
+              </Card>
+
+              {/* Lunch Bypass Card */}
+              <Card className="text-center">
+                {(() => {
+                  const remaining = lunchBypass?.remaining ?? 3;
+                  const max = lunchBypass?.max ?? 3;
+                  const bgColor = remaining === 0 ? "bg-red-100" : remaining === 1 ? "bg-amber-100" : "bg-green-100";
+                  const iconColor = remaining === 0 ? "text-red-600" : remaining === 1 ? "text-amber-600" : "text-green-600";
+                  const numColor = remaining === 0 ? "text-red-600" : remaining === 1 ? "text-amber-600" : "text-gray-900";
+                  return (
+                    <>
+                      <div className={`w-12 h-12 mx-auto rounded-full ${bgColor} flex items-center justify-center mb-3`}>
+                        <UtensilsCrossed className={`w-6 h-6 ${iconColor}`} />
+                      </div>
+                      <p className={`text-2xl font-bold ${numColor}`}>{remaining}/{max}</p>
+                      <p className="text-xs text-gray-500">Lunch Bypasses</p>
+                      <p className="text-xs text-gray-400 mt-2">Rolling 90 days</p>
+                    </>
+                  );
+                })()}
               </Card>
             </div>
           </div>

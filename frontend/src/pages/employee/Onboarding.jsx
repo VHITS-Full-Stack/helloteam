@@ -907,7 +907,7 @@ const Onboarding = () => {
                         className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
                       >
                         <option value="">Select ID type...</option>
-                        {govIdTypes.map((t) => (
+                        {govIdTypes.filter(t => t.name !== id2Type).map((t) => (
                           <option key={t.id} value={t.name}>
                             {t.name}
                           </option>
@@ -1008,7 +1008,7 @@ const Onboarding = () => {
                         className="appearance-none pr-9 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none text-sm disabled:bg-gray-100"
                       >
                         <option value="">Select ID type...</option>
-                        {govIdTypes.map((t) => (
+                        {govIdTypes.filter(t => t.name !== idType).map((t) => (
                           <option key={t.id} value={t.name}>
                             {t.name}
                           </option>

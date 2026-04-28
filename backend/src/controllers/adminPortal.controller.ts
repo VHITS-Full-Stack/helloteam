@@ -3782,3 +3782,123 @@ export const getActiveEmployees = async (req: AuthenticatedRequest, res: Respons
     res.status(500).json({ success: false, error: error?.message || 'Failed to fetch active employees' });
   }
 };
+
+export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { date, page = 1, limit = 50 } = req.query;
+
+    let startFilter: Date;
+    let endFilter: Date;
+    if (date) {
+      startFilter = new Date(date as string);
+      startFilter.setHours(0, 0, 0, 0);
+      endFilter = new Date(startFilter.getTime() + 24 * 60 * 60 * 1000);
+    } else {
+      // Default: yesterday
+      endFilter = new Date();
+      endFilter.setHours(0, 0, 0, 0);
+      startFilter = new Date(endFilter.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    const [breaks, total] = await Promise.all([
+      prisma.break.findMany({
+        where: {
+          lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } as any,
+          startTime: { gte: startFilter, lt: endFilter },
+        },
+        include: {
+          workSession: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  user: { select: { email: true } },
+                  clientAssignments: {
+                    where: { isActive: true },
+                    select: { client: { select: { companyName: true } } },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { startTime: 'desc' },
+        skip: (Number(page) - 1) * Number(limit),
+        take: Number(limit),
+      }),
+      prisma.break.count({
+        where: {
+          lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } as any,
+          startTime: { gte: startFilter, lt: endFilter },
+        },
+      }),
+    ]);
+
+    const data = breaks.map((b: any) => ({
+      id: b.id,
+      startTime: b.startTime,
+      endTime: b.endTime,
+      scheduledDurationMinutes: b.scheduledDurationMinutes ?? 30,
+      durationMinutes: b.durationMinutes,
+      paidMinutes: b.paidMinutes ?? 0,
+      unpaidMinutes: b.unpaidMinutes ?? 0,
+      lunchStatus: b.lunchStatus,
+      employeeId: b.workSession.employee.id,
+      employeeName: `${b.workSession.employee.firstName} ${b.workSession.employee.lastName}`,
+      employeeEmail: b.workSession.employee.user?.email,
+      clientName: b.workSession.employee.clientAssignments[0]?.client?.companyName || '—',
+      sessionId: b.workSessionId,
+    }));
+
+    res.json({ success: true, data, total, page: Number(page), limit: Number(limit) });
+  } catch (error: any) {
+    console.error('getLunchBreakReview error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch lunch break review queue' });
+  }
+};
+
+export const adjustLunchBreak = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { breakId } = req.params;
+    const { paidMinutes, unpaidMinutes, notes } = req.body;
+
+    const breakRecord = await prisma.break.findUnique({
+      where: { id: breakId },
+      include: { workSession: { select: { id: true } } },
+    });
+    if (!breakRecord) {
+      res.status(404).json({ success: false, error: 'Break record not found' });
+      return;
+    }
+
+    await prisma.break.update({
+      where: { id: breakId },
+      data: {
+        paidMinutes: paidMinutes !== undefined ? parseInt(paidMinutes) : undefined,
+        unpaidMinutes: unpaidMinutes !== undefined ? parseInt(unpaidMinutes) : undefined,
+        lunchStatus: 'ADMIN_ADJUSTED',
+      } as any,
+    });
+
+    // Record the adjustment in session logs
+    const adminName = (req.user as any)?.name || 'Admin';
+    await prisma.sessionLog.create({
+      data: {
+        workSessionId: breakRecord.workSession.id,
+        userId: req.user!.userId,
+        actorName: adminName,
+        action: 'ADMIN_ADJUST',
+        details: `Lunch break adjusted: paid=${paidMinutes ?? 'unchanged'} min, unpaid=${unpaidMinutes ?? 'unchanged'} min${notes ? `. Note: ${notes}` : ''}`,
+        ipAddress: (req.ip as string) || '',
+      },
+    });
+
+    res.json({ success: true, message: 'Lunch break record adjusted' });
+  } catch (error: any) {
+    console.error('adjustLunchBreak error:', error);
+    res.status(500).json({ success: false, error: 'Failed to adjust lunch break' });
+  }
+};

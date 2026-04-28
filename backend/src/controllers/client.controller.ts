@@ -342,6 +342,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
       numberOfUnpaidHolidays,
       allowOvertime,
       overtimeRequiresApproval,
+      lunchDurationMinutes,
       autoApproveTimesheets,
       autoApproveMinutes,
       invoiceByGroup,
@@ -462,6 +463,7 @@ export const createClient = async (req: AuthenticatedRequest, res: Response): Pr
           numberOfUnpaidHolidays: parseInt(numberOfUnpaidHolidays, 10) || 0,
           allowOvertime: allowOvertime ?? true,
           overtimeRequiresApproval: overtimeRequiresApproval ?? true,
+          lunchDurationMinutes: lunchDurationMinutes ? parseInt(lunchDurationMinutes, 10) : 30,
           autoApproveTimesheets: autoApproveTimesheets ?? false,
           autoApproveMinutes: autoApproveMinutes ? parseInt(autoApproveMinutes, 10) : 1440,
           invoiceByGroup: invoiceByGroup ?? false,
@@ -671,6 +673,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
       defaultHourlyRate,
       defaultOvertimeRate,
       currency,
+      lunchDurationMinutes,
     } = req.body;
 
     // Check if client exists
@@ -780,6 +783,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             ...(defaultHourlyRate !== undefined && { defaultHourlyRate: parseFloat(defaultHourlyRate) || 0 }),
             ...(defaultOvertimeRate !== undefined && { defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0 }),
             ...(currency !== undefined && { currency }),
+            ...(lunchDurationMinutes !== undefined && { lunchDurationMinutes: parseInt(lunchDurationMinutes, 10) || 30 }),
           },
         });
       } else {
@@ -806,6 +810,7 @@ export const updateClient = async (req: AuthenticatedRequest, res: Response): Pr
             defaultHourlyRate: parseFloat(defaultHourlyRate) || 0,
             defaultOvertimeRate: parseFloat(defaultOvertimeRate) || 0,
             currency: currency ?? 'USD',
+            lunchDurationMinutes: lunchDurationMinutes ? parseInt(lunchDurationMinutes, 10) : 30,
           },
         });
       }
@@ -1169,7 +1174,7 @@ export const updateEmployeeRate = async (req: AuthenticatedRequest, res: Respons
   try {
     const id = req.params.id as string; // client ID
     const employeeId = req.params.employeeId as string;
-    const { hourlyRate, overtimeRate } = req.body;
+    const { hourlyRate, overtimeRate, lunchDurationMinutes } = req.body;
 
     // Find the client-employee assignment
     const assignment = await prisma.clientEmployee.findFirst({
@@ -1207,6 +1212,7 @@ export const updateEmployeeRate = async (req: AuthenticatedRequest, res: Respons
       data: {
         hourlyRate: hourlyRate !== undefined && hourlyRate !== '' ? parseFloat(hourlyRate) : null,
         overtimeRate: overtimeRate !== undefined && overtimeRate !== '' ? parseFloat(overtimeRate) : null,
+        lunchDurationMinutes: lunchDurationMinutes !== undefined ? (lunchDurationMinutes === null || lunchDurationMinutes === '' ? null : parseInt(lunchDurationMinutes)) : undefined,
       },
     });
 
@@ -1336,6 +1342,8 @@ export const getEmployeeRate = async (req: AuthenticatedRequest, res: Response):
         defaultOvertimeRate: assignment.client.clientPolicies?.defaultOvertimeRate
           ? Number(assignment.client.clientPolicies.defaultOvertimeRate)
           : 0,
+        lunchDurationMinutes: (assignment as any).lunchDurationMinutes ?? null,
+        clientLunchDurationMinutes: (assignment.client.clientPolicies as any)?.lunchDurationMinutes ?? 30,
       },
     });
   } catch (error) {

@@ -220,3 +220,107 @@ export const deleteClientLogo = async (req: AuthenticatedRequest, res: Response)
     res.status(500).json({ success: false, error: 'Failed to delete company logo' });
   }
 };
+
+/**
+ * Upload break screenshot for unauthorized lunch resolution
+ */
+export const uploadBreakScreenshot = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: 'User not authenticated' });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ success: false, error: 'No file uploaded' });
+      return;
+    }
+
+    const { breakId, explanation } = req.body;
+
+    if (!breakId) {
+      res.status(400).json({ success: false, error: 'Break ID is required' });
+      return;
+    }
+
+    if (!explanation || explanation.length < 20 || explanation.length > 500) {
+      res.status(400).json({ success: false, error: 'Explanation must be between 20 and 500 characters' });
+      return;
+    }
+
+    // Verify break belongs to employee's current session
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { employee: true },
+    });
+
+    if (!user || !user.employee) {
+      res.status(404).json({ success: false, error: 'Employee not found' });
+      return;
+    }
+
+    const activeSession = await prisma.workSession.findFirst({
+      where: { employeeId: user.employee.id, status: { in: ['ACTIVE', 'ON_BREAK'] } },
+      include: { breaks: { where: { endTime: null }, orderBy: { startTime: 'desc' }, take: 1 } },
+    });
+
+    if (!activeSession || !activeSession.breaks[0]) {
+      res.status(400).json({ success: false, error: 'No active break found' });
+      return;
+    }
+
+    if (activeSession.breaks[0].id !== breakId) {
+      res.status(400).json({ success: false, error: 'Break ID mismatch' });
+      return;
+    }
+
+    // Upload screenshot to S3
+    const uploadResult = await uploadToS3(req.file, 'break-screenshots');
+
+    if (!uploadResult.success) {
+      res.status(400).json({ success: false, error: uploadResult.error });
+      return;
+    }
+
+    // Get current break to calculate duration
+    const currentBreak = await prisma.break.findUnique({ where: { id: breakId } });
+    if (!currentBreak) {
+      res.status(400).json({ success: false, error: 'Break not found' });
+      return;
+    }
+
+    const endTime = new Date();
+    const elapsedMinutes = Math.round((endTime.getTime() - new Date(currentBreak.startTime).getTime()) / 60000);
+    const scheduledDuration = currentBreak.scheduledDurationMinutes ?? 30;
+
+    // Update break with screenshot, explanation, and resolution - treat all time as paid pending review
+    await prisma.break.update({
+      where: { id: breakId },
+      data: {
+        endTime,
+        durationMinutes: elapsedMinutes,
+        wasWorkingScreenshotUrl: uploadResult.url,
+        wasWorkingExplanation: explanation,
+        bypassApprovalStatus: 'PENDING_REVIEW',
+        lunchStatus: 'WAS_WORKING',
+        paidMinutes: elapsedMinutes,
+        unpaidMinutes: 0,
+      },
+    });
+
+    // Update work session status back to ACTIVE
+    await prisma.workSession.update({
+      where: { id: currentBreak.workSessionId },
+      data: { status: 'ACTIVE' },
+    });
+
+    res.json({
+      success: true,
+      message: 'Screenshot submitted. You are now back to working status pending review.',
+      screenshotUrl: uploadResult.url,
+    });
+  } catch (error) {
+    console.error('Upload break screenshot error:', error);
+    res.status(500).json({ success: false, error: 'Failed to upload screenshot' });
+  }
+};

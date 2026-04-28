@@ -8,6 +8,7 @@ import { runPayrollDeadlineReminder } from './payrollDeadlineReminder.job';
 import { runPayrollGeneration } from './payrollGeneration.job';
 import { runExpiredOTRequestJob } from './expiredOTRequest.job';
 import { runAttendanceAlertJob } from './attendanceAlert.job';
+import { runLunchAutoCloseJob } from './lunchAutoClose.job';
 import type { Server } from 'socket.io';
 
 export const initializeJobs = (io: Server): void => {
@@ -97,6 +98,13 @@ export const initializeJobs = (io: Server): void => {
     await runExpiredOTRequestJob(io);
   });
   console.log('[Jobs] Expired OT request auto-rejection scheduled (daily, 01:00 UTC)');
+
+  // Lunch auto-close: runs daily at 02:00 UTC
+  // Closes any lunch breaks still open from a previous day (employee never returned and never clocked out)
+  cron.schedule('0 2 * * *', async () => {
+    await runLunchAutoCloseJob();
+  });
+  console.log('[Jobs] Lunch auto-close job scheduled (daily, 02:00 UTC)');
 
   console.log('[Jobs] All cron jobs initialized');
 };

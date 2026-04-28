@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Clock,
   Play,
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent, Badge, Button, Modal } from '../../components/common';
 import workSessionService from '../../services/workSession.service';
-import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound } from '../../utils/sounds';
+import { playClockInSound, playClockOutSound, playBreakStartSound, playBreakEndSound, playLunchWarningSound } from '../../utils/sounds';
 import { formatTime12, formatTimeInTimeZone } from '../../utils/formatDateTime';
 
 const TimeClock = () => {
@@ -31,6 +31,7 @@ const TimeClock = () => {
   const [weeklySummary, setWeeklySummary] = useState(null);
   const [sessionHistory, setSessionHistory] = useState([]);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
   const [showClockOutModal, setShowClockOutModal] = useState(false);
   const [clockOutNotes, setClockOutNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -38,6 +39,24 @@ const TimeClock = () => {
   const [showEarlyClockInWarning, setShowEarlyClockInWarning] = useState(false);
   const [showLateArrivalWarning, setShowLateArrivalWarning] = useState(false);
   const [clockInWarningMessage, setClockInWarningMessage] = useState('');
+
+  // Unauthorized lunch break state
+  const [unauthorizedLunch, setUnauthorizedLunch] = useState(null); // { lateMinutes, scheduledDurationMinutes }
+  const [lunchResolutionStep, setLunchResolutionStep] = useState(null); // null | 'extended_confirm' | 'screenshot_form'
+
+  // Screenshot upload state (for "I was working" resolution)
+  const [breakScreenshot, setBreakScreenshot] = useState(null);
+  const [screenshotExplanation, setScreenshotExplanation] = useState('');
+  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
+  const screenshotFileRef = useRef(null);
+
+  // Lunch warning state (fires 2 min before scheduled end)
+  const [showLunchWarning, setShowLunchWarning] = useState(false);
+  const lunchWarningFiredRef = useRef(false);
+  const lunchWarningSoundStopRef = useRef(null);
+  const lunchTitleFlashRef = useRef(null);
+  const lunchTitleOriginalRef = useRef('');
+  const unauthorizedAutoFiredRef = useRef(false);
 
   // Fetch current session and summaries
   const fetchData = useCallback(async () => {
@@ -102,6 +121,64 @@ const TimeClock = () => {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Stops the warning audio, title flash, and hides the modal
+  const dismissLunchWarning = useCallback(() => {
+    setShowLunchWarning(false);
+    if (lunchWarningSoundStopRef.current) {
+      lunchWarningSoundStopRef.current();
+      lunchWarningSoundStopRef.current = null;
+    }
+    if (lunchTitleFlashRef.current) {
+      clearInterval(lunchTitleFlashRef.current);
+      lunchTitleFlashRef.current = null;
+      document.title = lunchTitleOriginalRef.current || document.title;
+    }
+  }, []);
+
+  // Lunch break timer: fires 28-min warning and auto-shows unauthorized banner at grace expiry
+  useEffect(() => {
+    const currentBreak = sessionData?.session?.currentBreak;
+    if (!currentBreak?.isLunch || !currentBreak?.startTime) {
+      // Break ended — reset all refs so the next lunch break starts clean
+      if (lunchWarningFiredRef.current) {
+        lunchWarningFiredRef.current = false;
+        dismissLunchWarning();
+      }
+      unauthorizedAutoFiredRef.current = false;
+      return;
+    }
+
+    const elapsedMinutes = (currentTime - new Date(currentBreak.startTime)) / 1000 / 60;
+    const scheduled = currentBreak.scheduledDurationMinutes ?? 30;
+
+    // 28-min warning (2 min before scheduled end)
+    if (elapsedMinutes >= scheduled - 2 && !lunchWarningFiredRef.current) {
+      lunchWarningFiredRef.current = true;
+      setShowLunchWarning(true);
+      lunchWarningSoundStopRef.current = playLunchWarningSound();
+      lunchTitleOriginalRef.current = document.title;
+      let flashOn = true;
+      lunchTitleFlashRef.current = setInterval(() => {
+        document.title = flashOn ? '⚠ LUNCH ENDING SOON' : lunchTitleOriginalRef.current;
+        flashOn = !flashOn;
+      }, 800);
+      workSessionService.sendLunchBreakReminder().catch((e) =>
+        console.error('Lunch reminder email failed:', e)
+      );
+    }
+
+    // Auto-show unauthorized banner at grace window expiry (scheduled + 2 min)
+    // Does NOT wait for the employee to press End Lunch Break
+    if (elapsedMinutes > scheduled + 2 && !unauthorizedAutoFiredRef.current) {
+      unauthorizedAutoFiredRef.current = true;
+      dismissLunchWarning();
+      setUnauthorizedLunch({
+        lateMinutes: Math.round(elapsedMinutes - scheduled),
+        scheduledDurationMinutes: scheduled,
+      });
+    }
+  }, [currentTime, sessionData?.session?.currentBreak, dismissLunchWarning]);
 
   // Format time display
   const formatDuration = (minutes) => {
@@ -266,7 +343,15 @@ const TimeClock = () => {
   const handleEndBreak = async () => {
     try {
       setActionLoading(true);
-      await workSessionService.endBreak();
+      const response = await workSessionService.endBreak();
+      if (response.lunchStatus === 'UNAUTHORIZED') {
+        dismissLunchWarning();
+        unauthorizedAutoFiredRef.current = true; // prevent auto-trigger from overwriting
+        setUnauthorizedLunch({ lateMinutes: response.lateMinutes, scheduledDurationMinutes: response.scheduledDurationMinutes });
+        return;
+      }
+      dismissLunchWarning();
+      lunchWarningFiredRef.current = false;
       playBreakEndSound();
       await fetchData();
     } catch (err) {
@@ -276,13 +361,115 @@ const TimeClock = () => {
     }
   };
 
+  // Resolve unauthorized lunch: employee extended on purpose
+  const handleExtendedOnPurpose = async () => {
+    try {
+      setActionLoading(true);
+      // First resolve the unauthorized status as extended
+      await workSessionService.resolveUnauthorizedLunch({ resolution: 'EXTENDED' });
+      // Now end the current lunch break
+      const endResponse = await workSessionService.endBreak();
+      // Clean up state
+      dismissLunchWarning();
+      lunchWarningFiredRef.current = false;
+      playBreakEndSound();
+      setUnauthorizedLunch(null);
+      setLunchResolutionStep(null);
+      unauthorizedAutoFiredRef.current = false;
+      await fetchData();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to resolve lunch break');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Handle "I was working" - show screenshot upload form
+  const handleWasWorkingClick = () => {
+    setLunchResolutionStep('screenshot_form');
+    setBreakScreenshot(null);
+    setScreenshotExplanation('');
+    setError('');
+  };
+
+  // Handle screenshot file selection
+  const handleScreenshotFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Please upload a JPEG, PNG, or WebP image');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File too large. Maximum size is 5MB.');
+      return;
+    }
+
+    setBreakScreenshot(file);
+    setError('');
+  };
+
+  // Submit screenshot and explanation
+  const handleScreenshotSubmit = async () => {
+    if (!breakScreenshot) {
+      setError('Please upload a screenshot');
+      return;
+    }
+
+    if (!screenshotExplanation.trim() || screenshotExplanation.length < 20) {
+      setError('Please provide an explanation (20-500 characters)');
+      return;
+    }
+
+    if (screenshotExplanation.length > 500) {
+      setError('Explanation must be 500 characters or less');
+      return;
+    }
+
+    try {
+      setUploadingScreenshot(true);
+      setError('');
+
+      // Submit screenshot + explanation — this resolves and ends the break in one call
+      const endResponse = await workSessionService.submitWasWorkingBreak(breakScreenshot, screenshotExplanation);
+
+      if (!endResponse.success) {
+        setError(endResponse.message || 'Failed to submit screenshot');
+        return;
+      }
+
+      // Success: Dismiss warning, play sound, clear state
+      dismissLunchWarning();
+      lunchWarningFiredRef.current = false;
+      playBreakEndSound();
+
+      setUnauthorizedLunch(null);
+      setLunchResolutionStep(null);
+      unauthorizedAutoFiredRef.current = false;
+      await fetchData();
+
+      const msg = endResponse.bypassApprovalStatus === 'PENDING_REVIEW'
+        ? 'Screenshot submitted for admin review. Your lunch break has ended — unpaid minutes will be adjusted if approved.'
+        : 'Screenshot submitted. Your lunch break has ended, and you are now working.';
+      setSuccess(msg);
+      setTimeout(() => setSuccess(''), 7000);
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Failed to submit screenshot');
+    } finally {
+      setUploadingScreenshot(false);
+    }
+  };
+
   // Get status info
   const getStatusInfo = () => {
     if (!sessionData?.isWorking) {
       return { status: 'Not Working', color: 'gray', icon: Square };
     }
     if (sessionData?.session?.status === 'ON_BREAK') {
-      return { status: 'On Break', color: 'yellow', icon: Coffee };
+      const isLunch = sessionData?.session?.currentBreak?.isLunch;
+      return { status: isLunch ? 'Paid Lunch Break' : 'On Break', color: 'yellow', icon: Coffee };
     }
     return { status: 'Working', color: 'green', icon: Play };
   };
@@ -307,6 +494,20 @@ const TimeClock = () => {
           <button
             onClick={() => setError(null)}
             className="ml-auto text-red-500 hover:text-red-700"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
+      {/* Success Alert */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <p className="text-green-700">{success}</p>
+          <button
+            onClick={() => setSuccess(null)}
+            className="ml-auto text-green-500 hover:text-green-700"
           >
             &times;
           </button>
@@ -780,6 +981,186 @@ const TimeClock = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Lunch Break Ending Soon Warning */}
+      {showLunchWarning && !unauthorizedLunch && (() => {
+        const currentBreak = sessionData?.session?.currentBreak;
+        const scheduledMs = (currentBreak?.scheduledDurationMinutes ?? 30) * 60 * 1000;
+        const elapsedMs = currentBreak?.startTime ? currentTime - new Date(currentBreak.startTime) : 0;
+        const remainingMs = Math.max(0, scheduledMs - elapsedMs);
+        const remainingMins = Math.floor(remainingMs / 1000 / 60);
+        const remainingSecs = Math.floor((remainingMs / 1000) % 60);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+              <div className="bg-amber-500 px-6 py-4 flex items-center gap-3">
+                <div className="w-3 h-3 bg-white rounded-full animate-ping flex-shrink-0" />
+                <div>
+                  <h2 className="text-white font-bold text-lg">Lunch Break Ending Soon</h2>
+                  <p className="text-amber-100 text-sm mt-0.5">Please return to your desk and end your lunch break.</p>
+                </div>
+              </div>
+              <div className="px-6 py-5 text-center">
+                <p className="text-gray-500 text-sm mb-1">Time remaining</p>
+                <p className="text-5xl font-mono font-bold text-amber-600 mb-1">
+                  {String(remainingMins).padStart(2, '0')}:{String(remainingSecs).padStart(2, '0')}
+                </p>
+                <p className="text-gray-400 text-xs mb-6">
+                  of your {currentBreak?.scheduledDurationMinutes ?? 30}-minute paid lunch break
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleEndBreak}
+                    disabled={actionLoading}
+                    className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                  >
+                    End Lunch Break Now
+                  </button>
+                  <button
+                    onClick={dismissLunchWarning}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    Acknowledge
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Unauthorized Lunch Break Banner */}
+      {unauthorizedLunch && (() => {
+        // Recompute late minutes live every second from the still-open break record
+        const breakStart = sessionData?.session?.currentBreak?.startTime;
+        const liveLateMinutes = breakStart
+          ? Math.max(1, Math.round((currentTime - new Date(breakStart)) / 60000 - unauthorizedLunch.scheduledDurationMinutes))
+          : unauthorizedLunch.lateMinutes;
+        return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+            <div className="bg-red-600 px-6 py-4">
+              <h2 className="text-white font-bold text-lg">Unauthorized Lunch Break</h2>
+              <p className="text-red-100 text-sm mt-1">
+                You are <strong>{liveLateMinutes} minute{liveLateMinutes !== 1 ? 's' : ''}</strong> past your scheduled lunch end — and counting.
+              </p>
+            </div>
+            <div className="px-6 py-5">
+              {lunchResolutionStep === 'extended_confirm' ? (
+                <>
+              <p className="text-gray-700 text-sm mb-4">
+                Are you sure? This will mark <strong>{liveLateMinutes} minute{liveLateMinutes !== 1 ? 's' : ''}</strong> as unpaid break time.
+                You will not be paid for this time. The first {unauthorizedLunch.scheduledDurationMinutes} minutes of your lunch are still paid; only the late minutes will be unpaid. Continue?
+              </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleExtendedOnPurpose}
+                      disabled={actionLoading}
+                      className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      Yes, I extended on purpose
+                    </button>
+                    <button
+                      onClick={() => setLunchResolutionStep(null)}
+                      className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                    >
+                      No, take me back
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-gray-700 text-sm mb-5">
+                    You are on an unauthorized lunch break. You are not clocked in and not getting paid for this time. Which describes what happened?
+                  </p>
+                  <div className="space-y-3">
+                    {!sessionData?.session?.currentBreak?.id ? (
+                      <button
+                        onClick={() => setError('Please wait for the session to load, then try again.')}
+                        disabled={!sessionData?.session?.id}
+                        className="w-full text-left border border-gray-200 hover:border-primary-400 hover:bg-primary-50 rounded-lg px-4 py-3 text-sm font-medium text-gray-800 transition-colors disabled:opacity-50"
+                      >
+                        I was working and forgot to press End Lunch Break
+                      </button>
+                    ) : lunchResolutionStep === 'screenshot_form' ? (
+                      <div className="space-y-4">
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <h4 className="font-medium text-yellow-800 mb-2">Upload Screenshot Proof</h4>
+                          <ul className="text-sm text-yellow-700 space-y-1">
+                            <li>• Full-screen screenshot showing your computer screen</li>
+                            <li>• Computer clock must be visible with a time inside the late window</li>
+                            <li>• Work application must be visible (email, spreadsheet, etc.)</li>
+                          </ul>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Screenshot *
+                          </label>
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={handleScreenshotFileChange}
+                            ref={screenshotFileRef}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary text-sm"
+                          />
+                          {breakScreenshot && (
+                            <p className="text-green-600 text-sm mt-1">Selected: {breakScreenshot.name}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Explanation (20-500 characters) *
+                          </label>
+                          <textarea
+                            value={screenshotExplanation}
+                            onChange={(e) => setScreenshotExplanation(e.target.value)}
+                            placeholder="Explain what you were working on..."
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            rows={3}
+                          />
+                          <p className="text-gray-500 text-xs mt-1">{screenshotExplanation.length}/500 characters</p>
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => setLunchResolutionStep(null)}
+                            className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleScreenshotSubmit}
+                            disabled={uploadingScreenshot || !breakScreenshot || screenshotExplanation.length < 20}
+                            className="flex-1 bg-primary hover:bg-primary-600 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50"
+                          >
+                            {uploadingScreenshot ? 'Submitting...' : 'Submit for Review'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleWasWorkingClick}
+                        className="w-full text-left border border-gray-200 hover:border-primary-400 hover:bg-primary-50 rounded-lg px-4 py-3 text-sm font-medium text-gray-800 transition-colors"
+                      >
+                        I was working and forgot to press End Lunch Break
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setLunchResolutionStep('extended_confirm')}
+                      className="w-full text-left border border-gray-200 hover:border-orange-400 hover:bg-orange-50 rounded-lg px-4 py-3 text-sm font-medium text-gray-800 transition-colors"
+                    >
+                      I extended my lunch break on purpose
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        );
+      })()}
 
       {/* Clock Out Modal */}
       <Modal

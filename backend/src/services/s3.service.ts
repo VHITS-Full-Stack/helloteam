@@ -65,7 +65,8 @@ const saveLocally = (file: Express.Multer.File, folder: string): { url: string; 
  */
 export const uploadToS3 = async (
   file: Express.Multer.File,
-  folder: string = 'profile-photos'
+  folder: string = 'profile-photos',
+  options: { maxSizeBytes?: number } = {}
 ): Promise<UploadResult> => {
   try {
     // Validate file type
@@ -76,11 +77,12 @@ export const uploadToS3 = async (
       };
     }
 
-    // Validate file size
-    if (file.size > MAX_FILE_SIZE) {
+    // Validate file size (caller can override the default 5 MB cap)
+    const maxSize = options.maxSizeBytes ?? MAX_FILE_SIZE;
+    if (file.size > maxSize) {
       return {
         success: false,
-        error: 'File too large. Maximum size is 5MB',
+        error: `File too large. Maximum size is ${Math.round(maxSize / 1024 / 1024)} MB`,
       };
     }
 

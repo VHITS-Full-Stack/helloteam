@@ -243,6 +243,7 @@ function useClientDetail(id) {
   const [rateFormData, setRateFormData] = useState({
     hourlyRate: '',
     overtimeRate: '',
+    lunchDurationMinutes: '',
     // UI-driven overtime multiplier. If user doesn't touch it, we keep submitting overtimeRate=0
     // so backend can apply its default rule (overtimeRate=0 => 1x hourly).
     overtimeMultiplier: '1',
@@ -253,6 +254,7 @@ function useClientDetail(id) {
     groupName: null,
     defaultHourlyRate: 0,
     defaultOvertimeRate: 0,
+    clientLunchDurationMinutes: 30,
   });
   const [ptoFormData, setPtoFormData] = useState({
     ptoAllowPaidLeave: '',
@@ -472,12 +474,14 @@ function useClientDetail(id) {
         const draft = {
           hourlyRate: originalHourlyRate,
           overtimeRate: originalOvertimeRate,
+          lunchDurationMinutes: response.data.lunchDurationMinutes !== null && response.data.lunchDurationMinutes !== undefined ? response.data.lunchDurationMinutes : '',
           employeeBillingRate: response.data.employeeBillingRate || null,
           clientGroupBillingRate: response.data.clientGroupBillingRate || null,
           groupBillingRate: response.data.groupBillingRate || null,
           groupName: response.data.groupName || null,
           defaultHourlyRate: response.data.defaultHourlyRate,
           defaultOvertimeRate: response.data.defaultOvertimeRate,
+          clientLunchDurationMinutes: response.data.clientLunchDurationMinutes ?? 30,
         };
 
         const effectiveHourly = resolveEffectiveHourlyRate(draft);
@@ -499,6 +503,7 @@ function useClientDetail(id) {
       setRateFormData({
         hourlyRate: '',
         overtimeRate: '',
+        lunchDurationMinutes: '',
         overtimeMultiplier: '1',
         isOvertimeMultiplierDirty: false,
         employeeBillingRate: null,
@@ -507,6 +512,7 @@ function useClientDetail(id) {
         groupName: null,
         defaultHourlyRate: Number(client?.clientPolicies?.defaultHourlyRate || 0),
         defaultOvertimeRate: Number(client?.clientPolicies?.defaultOvertimeRate || 0),
+        clientLunchDurationMinutes: Number(client?.clientPolicies?.lunchDurationMinutes || 30),
       });
     }
     setShowRateModal(true);
@@ -533,6 +539,7 @@ function useClientDetail(id) {
       const response = await clientService.updateEmployeeRate(id, selectedEmployee.id, {
         hourlyRate: rateFormData.hourlyRate,
         overtimeRate: overtimeRateToSend,
+        lunchDurationMinutes: rateFormData.lunchDurationMinutes === '' ? null : parseInt(rateFormData.lunchDurationMinutes) || null,
       });
 
       if (response.success) {

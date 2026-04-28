@@ -451,16 +451,30 @@ async function autoClockOut(
   io?: Server
 ): Promise<void> {
   try {
-    // End any ongoing break
+    // End any ongoing break — lunch breaks auto-close with unpaid time flagged for review
     const ongoingBreak = session.breaks?.find((b: any) => !b.endTime);
     if (ongoingBreak) {
       const breakDuration = Math.round(
         (endTime.getTime() - ongoingBreak.startTime.getTime()) / 60000
       );
-      await prisma.break.update({
-        where: { id: ongoingBreak.id },
-        data: { endTime, durationMinutes: breakDuration },
-      });
+      if (ongoingBreak.isLunch) {
+        const scheduledDuration = ongoingBreak.scheduledDurationMinutes ?? 30;
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: {
+            endTime,
+            durationMinutes: breakDuration,
+            paidMinutes: scheduledDuration,
+            unpaidMinutes: Math.max(0, breakDuration - scheduledDuration),
+            lunchStatus: 'AUTO_CLOSED',
+          },
+        });
+      } else {
+        await prisma.break.update({
+          where: { id: ongoingBreak.id },
+          data: { endTime, durationMinutes: breakDuration },
+        });
+      }
     }
 
     // Calculate total break time

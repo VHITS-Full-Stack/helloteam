@@ -22,6 +22,32 @@ const workSessionService = {
     return await api.post('/work-sessions/break/end');
   },
 
+  // Resolve unauthorized lunch break (EXTENDED path — JSON body)
+  async resolveUnauthorizedLunch(data) {
+    return await api.post('/work-sessions/break/resolve-unauthorized', data);
+  },
+
+  // Resolve unauthorized lunch with "I was working" screenshot (WAS_WORKING path — multipart)
+  async submitWasWorkingBreak(screenshotFile, explanation) {
+    const formData = new FormData();
+    formData.append('resolution', 'WAS_WORKING');
+    formData.append('screenshot', screenshotFile);
+    formData.append('explanation', explanation);
+    return await api.post('/work-sessions/break/resolve-unauthorized', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+
+  // Send lunch break reminder email to the employee (fired by frontend at 28-min warning)
+  async sendLunchBreakReminder() {
+    return await api.post('/work-sessions/break/lunch-reminder');
+  },
+
+  // Get remaining "I was working" auto-approvals (rolling 90-day window)
+  async getLunchBypassCount() {
+    return await api.get('/work-sessions/break/lunch-bypass-count');
+  },
+
   // Get current session status
   async getCurrentSession() {
     return await api.get('/work-sessions/current');

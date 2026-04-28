@@ -33,6 +33,8 @@ import {
   getRealTimeAttendanceMonitoring,
   getAdminAnalytics,
   getActiveEmployees,
+  getLunchBreakReview,
+  adjustLunchBreak,
 } from '../controllers/adminPortal.controller';
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 import { adminClockOutEmployee } from '../controllers/workSession.controller';
@@ -97,6 +99,10 @@ router.post('/raise-requests/:raiseId/confirm-edit', authenticate, authorize(...
 // Work session endpoints
 router.post('/employees/:employeeId/clock-out', authenticate, authorize(...adminRoles), adminClockOutEmployee);
 router.get('/employees/active', authenticate, authorize(...adminRoles), getActiveEmployees);
+
+// Lunch break review queue
+router.get('/lunch-breaks/review', authenticate, authorize(...adminRoles), getLunchBreakReview);
+router.patch('/lunch-breaks/:breakId/adjust', authenticate, authorize(...adminRoles), adjustLunchBreak);
 
 // Analytics endpoints
 router.get('/analytics/punctuality', authenticate, authorize(...adminRoles), getPunctualityAnalytics);

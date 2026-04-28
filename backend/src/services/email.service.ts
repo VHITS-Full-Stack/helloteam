@@ -766,6 +766,38 @@ export const sendAttendanceAlertEmail = async (
       text: `Attendance Alert: ${employeeName} is missing from their ${shiftTime} shift at ${clientName}. They are currently ${overdueMinutes} minutes overdue.`,
     });
   }
+export const sendLunchBreakReminderEmail = async (
+  email: string,
+  employeeName: string,
+): Promise<EmailResult> => {
+  const content = `
+    <h2 style="${styles.h2}">Lunch Break Reminder</h2>
+    <p style="${styles.paragraph}">Hi ${employeeName},</p>
+    <p style="${styles.paragraph}">
+      Your scheduled lunch break is ending soon. Please return to your desk and press
+      <strong>End Lunch Break</strong> in the portal so your time is recorded correctly.
+    </p>
+    ${infoBoxHtml(
+      `<p style="margin: 0; font-weight: 600;">Action required: press <em>End Lunch Break</em> in your portal now.</p>`,
+      '#fffbeb',
+      '#f59e0b',
+    )}
+    <p style="${styles.paragraph}">
+      If you do not press End Lunch Break before your scheduled break ends, the system will
+      flag the break as unauthorized and may affect your timesheet.
+    </p>
+  `;
+
+  const html = emailLayout('Lunch Break Reminder', content, '#f59e0b');
+
+  return sendEmail({
+    to: email,
+    subject: 'Lunch Break Reminder',
+    html,
+    text: `Hi ${employeeName}, your lunch break is ending soon. Please press End Lunch Break in the portal now to ensure your time is recorded correctly.`,
+  });
+};
+
 export default {
   sendEmail,
   sendPasswordResetEmail,
@@ -780,5 +812,6 @@ export default {
   sendOTBillingReminderEmail,
   sendAggressiveOTReminderEmail,
   sendInvoiceEmail,
-  sendAttendanceAlertEmail
+  sendAttendanceAlertEmail,
+  sendLunchBreakReminderEmail,
 };

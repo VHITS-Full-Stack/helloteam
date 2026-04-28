@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
-import { uploadProfilePhoto, deleteProfilePhoto, uploadClientLogo, deleteClientLogo } from '../controllers/upload.controller';
+import { uploadProfilePhoto, deleteProfilePhoto, uploadClientLogo, deleteClientLogo, uploadBreakScreenshot } from '../controllers/upload.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -29,5 +29,8 @@ router.delete('/profile-photo', authenticate, deleteProfilePhoto);
 // Client logo routes
 router.post('/client-logo', authenticate, upload.single('photo'), uploadClientLogo);
 router.delete('/client-logo', authenticate, deleteClientLogo);
+
+// Break screenshot for unauthorized lunch resolution
+router.post('/break-screenshot', authenticate, upload.single('photo'), uploadBreakScreenshot);
 
 export default router;

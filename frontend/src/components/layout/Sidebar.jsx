@@ -28,6 +28,7 @@ import {
   Gift,
   ClipboardCheck,
   Activity,
+  UtensilsCrossed,
 } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -228,6 +229,12 @@ const Sidebar = ({ portalType = "employee", user, onLogout, collapsed: controlle
       to: "/admin/time-records",
       icon: Clock,
       label: "Time Records",
+      permission: PERMISSIONS.TIME_RECORDS.VIEW,
+    },
+    {
+      to: "/admin/lunch-break-review",
+      icon: UtensilsCrossed,
+      label: "Lunch Break Review",
       permission: PERMISSIONS.TIME_RECORDS.VIEW,
     },
     {

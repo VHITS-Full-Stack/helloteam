@@ -59,6 +59,7 @@ const ClientConnectedGroups = lazy(() => import('../pages/admin/clients/ClientCo
 const EmployeePtoConfig = lazy(() => import('../pages/admin/clients/EmployeePtoConfig'));
 const AdminAnalytics = lazy(() => import('../pages/admin/Analytics'));
 const AdminTimeRecords = lazy(() => import('../pages/admin/TimeRecords'));
+const LunchBreakReview = lazy(() => import('../pages/admin/LunchBreakReview'));
 const AdminApprovals = lazy(() => import('../pages/admin/Approvals'));
 const Payroll = lazy(() => import('../pages/admin/Payroll'));
 const PayrollEmployeeDetail = lazy(() => import('../pages/admin/PayrollEmployeeDetail'));
@@ -245,6 +246,7 @@ const AppRoutes = () => {
           <Route path="analytics/punctuality" element={<PunctualityAnalytics />} />
           <Route path="attendance-monitoring" element={<AttendanceMonitoring />} />
           <Route path="time-records" element={<AdminTimeRecords />} />
+          <Route path="lunch-break-review" element={<LunchBreakReview />} />
           <Route path="approvals" element={<AdminApprovals />} />
           <Route path="raise-requests" element={<AdminRaiseRequests />} />
           <Route path="payroll" element={<Payroll />} />

@@ -111,6 +111,15 @@ export const authService = {
     return api.uploadFile('/upload/client-logo', file, 'photo');
   },
 
+  // Upload break screenshot for unauthorized lunch resolution
+  async uploadBreakScreenshot(file, breakId, explanation) {
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('breakId', breakId);
+    formData.append('explanation', explanation);
+    return api.uploadFormData('/upload/break-screenshot', formData);
+  },
+
   // Delete company logo (for clients)
   async deleteClientLogo() {
     return api.delete('/upload/client-logo');
