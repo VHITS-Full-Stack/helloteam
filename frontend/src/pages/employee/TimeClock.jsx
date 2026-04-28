@@ -63,6 +63,7 @@ const TimeClock = () => {
   const lunchTitleFlashRef = useRef(null);
   const lunchTitleOriginalRef = useRef('');
   const unauthorizedAutoFiredRef = useRef(false);
+  const lunchBannerUpgradedRef = useRef(false); // fires at scheduled + 30 min
 
   // Fetch current session and summaries
   const fetchData = useCallback(async () => {
@@ -152,6 +153,7 @@ const TimeClock = () => {
         dismissLunchWarning();
       }
       unauthorizedAutoFiredRef.current = false;
+      lunchBannerUpgradedRef.current = false;
       return;
     }
 
@@ -174,9 +176,18 @@ const TimeClock = () => {
       );
     }
 
+    // Upgrade: more than 30 min past scheduled end — subsumes the +2 trigger
+    if (elapsedMinutes > scheduled + 30 && !lunchBannerUpgradedRef.current) {
+      lunchBannerUpgradedRef.current = true;
+      unauthorizedAutoFiredRef.current = true; // prevents +2 from also firing
+      dismissLunchWarning();
+      setUnauthorizedLunch({
+        lateMinutes: Math.round(elapsedMinutes - scheduled),
+        scheduledDurationMinutes: scheduled,
+      });
     // Auto-show unauthorized banner at grace window expiry (scheduled + 2 min)
     // Does NOT wait for the employee to press End Lunch Break
-    if (elapsedMinutes > scheduled + 2 && !unauthorizedAutoFiredRef.current) {
+    } else if (elapsedMinutes > scheduled + 2 && !unauthorizedAutoFiredRef.current) {
       unauthorizedAutoFiredRef.current = true;
       dismissLunchWarning();
       setUnauthorizedLunch({
@@ -382,6 +393,7 @@ const TimeClock = () => {
       setUnauthorizedLunch(null);
       setLunchResolutionStep(null);
       unauthorizedAutoFiredRef.current = false;
+      lunchBannerUpgradedRef.current = false;
       await fetchData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to resolve lunch break');
@@ -454,11 +466,12 @@ const TimeClock = () => {
       setUnauthorizedLunch(null);
       setLunchResolutionStep(null);
       unauthorizedAutoFiredRef.current = false;
+      lunchBannerUpgradedRef.current = false;
       await fetchData();
 
       let msg;
       if (endResponse.bypassApprovalStatus === 'PENDING_REVIEW') {
-        msg = 'Screenshot submitted for admin review. Your lunch break has ended — unpaid minutes will be adjusted if approved.';
+        msg = 'You have used all 3 of your auto-approved late End Lunch Breaks in the past 90 days. This submission has been sent to the Hello Team admin team for review. Repeated late submissions may trigger a deeper investigation.';
       } else if (endResponse.bypassApprovalStatus === 'AUTO_APPROVED' && endResponse.bypassOrdinal != null) {
         const n = endResponse.bypassOrdinal;
         const left = endResponse.bypassRemaining;
@@ -1053,12 +1066,15 @@ const TimeClock = () => {
         const liveLateMinutes = breakStart
           ? Math.max(1, Math.round((currentTime - new Date(breakStart)) / 60000 - unauthorizedLunch.scheduledDurationMinutes))
           : unauthorizedLunch.lateMinutes;
+        const isUpgraded = liveLateMinutes > 30;
         return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
-            <div className="bg-red-600 px-6 py-4">
-              <h2 className="text-white font-bold text-lg">Unauthorized Lunch Break</h2>
-              <p className="text-red-100 text-sm mt-1">
+            <div className={`${isUpgraded ? 'bg-gray-900' : 'bg-red-600'} px-6 py-4`}>
+              <h2 className="text-white font-bold text-lg">
+                {isUpgraded ? 'Lunch Break Significantly Overdue' : 'Unauthorized Lunch Break'}
+              </h2>
+              <p className={`${isUpgraded ? 'text-gray-300' : 'text-red-100'} text-sm mt-1`}>
                 You are <strong>{liveLateMinutes} minute{liveLateMinutes !== 1 ? 's' : ''}</strong> past your scheduled lunch end — and counting.
               </p>
             </div>
@@ -1088,7 +1104,9 @@ const TimeClock = () => {
               ) : (
                 <>
                   <p className="text-gray-700 text-sm mb-5">
-                    You are on an unauthorized lunch break. You are not clocked in and not getting paid for this time. Which describes what happened?
+                    {isUpgraded
+                      ? 'Your lunch break is more than 30 minutes past its scheduled end. You are not clocked in and not getting paid for this time. Please answer the questions below.'
+                      : 'You are on an unauthorized lunch break. You are not clocked in and not getting paid for this time. Which describes what happened?'}
                   </p>
                   <div className="space-y-3">
                     {!sessionData?.session?.currentBreak?.id ? (

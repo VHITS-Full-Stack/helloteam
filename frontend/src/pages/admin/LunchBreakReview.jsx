@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, CheckCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, ExternalLink, ChevronDown, ChevronUp, ShieldAlert } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../../components/common';
 import api from '../../services/api';
 
@@ -19,16 +19,25 @@ const statusBadge = (status) => {
 };
 
 export default function LunchBreakReview() {
+  const yesterday = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+  })();
+
   const [activeTab, setActiveTab] = useState('auto-closed');
   const [breaks, setBreaks] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [date, setDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
-  });
+  const [date, setDate] = useState(yesterday);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    // Needs-approval defaults to no date (show all); others default to yesterday
+    setDate(tabId === 'needs-approval' ? '' : yesterday);
+    setBreaks([]);
+  };
 
   // Auto-Closed tab: adjust modal
   const [adjusting, setAdjusting] = useState(null);
@@ -36,14 +45,22 @@ export default function LunchBreakReview() {
   const [adjustSubmitting, setAdjustSubmitting] = useState(false);
   const [adjustError, setAdjustError] = useState('');
 
-  // Auto-Approved tab: expand explanation inline
+  // Auto-Approved / Needs Approval: expand explanation inline
   const [expandedExplanation, setExpandedExplanation] = useState(null);
+
+  // Needs Approval tab: approve/deny modal
+  const [reviewingBreak, setReviewingBreak] = useState(null); // { break, action: 'approve'|'deny' }
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   const fetchBreaks = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const res = await api.get(`/admin-portal/lunch-breaks/review?date=${date}&tab=${activeTab}`);
+      const params = new URLSearchParams({ tab: activeTab });
+      if (date) params.set('date', date);
+      const res = await api.get(`/admin-portal/lunch-breaks/review?${params.toString()}`);
       if (res.success) {
         setBreaks(res.data);
         setTotal(res.total);
@@ -87,9 +104,36 @@ export default function LunchBreakReview() {
     }
   };
 
+  const openReview = (b, action) => {
+    setReviewingBreak({ break: b, action });
+    setReviewNotes('');
+    setReviewError('');
+  };
+
+  const submitReview = async () => {
+    if (!reviewingBreak) return;
+    setReviewSubmitting(true);
+    setReviewError('');
+    try {
+      const { break: b, action } = reviewingBreak;
+      const res = await api.post(`/admin-portal/lunch-breaks/${b.id}/${action}`, { notes: reviewNotes });
+      if (res.success) {
+        setReviewingBreak(null);
+        fetchBreaks();
+      } else {
+        setReviewError(res.error || `Failed to ${action}`);
+      }
+    } catch (err) {
+      setReviewError(err.message || `Failed to ${reviewingBreak.action}`);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   const tabs = [
     { id: 'auto-closed', label: 'Auto-Closed' },
     { id: 'auto-approved', label: 'Auto-Approved' },
+    { id: 'needs-approval', label: 'Needs Approval' },
   ];
 
   return (
@@ -100,17 +144,29 @@ export default function LunchBreakReview() {
           <p className="text-gray-500 text-sm mt-1">
             {activeTab === 'auto-closed'
               ? 'Lunch breaks that were auto-closed because the employee never pressed End Lunch Break'
-              : 'Lunch breaks where the employee claimed they were working and got auto-approved'}
+              : activeTab === 'auto-approved'
+                ? 'Lunch breaks where the employee claimed they were working and got auto-approved'
+                : 'Submissions pending Hello Team admin review — timesheet cannot be finalised until resolved'}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-600 font-medium">Date</label>
+          <label className="text-sm text-gray-600 font-medium">
+            {activeTab === 'needs-approval' ? 'Filter by date' : 'Date'}
+          </label>
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary"
           />
+          {activeTab === 'needs-approval' && date && (
+            <button
+              onClick={() => setDate('')}
+              className="text-xs text-gray-400 hover:text-gray-600 underline"
+            >
+              Show all
+            </button>
+          )}
         </div>
       </div>
 
@@ -119,7 +175,7 @@ export default function LunchBreakReview() {
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`px-5 py-2.5 text-sm font-medium transition-colors rounded-t-lg -mb-px border-b-2 ${
               activeTab === tab.id
                 ? 'border-primary text-primary bg-primary-50'
@@ -144,7 +200,7 @@ export default function LunchBreakReview() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5 text-red-500" />
-              Auto-Closed Lunch Breaks — {formatDate(date)}
+              Auto-Closed Lunch Breaks — {date ? formatDate(date) : 'All Dates'}
               <span className="ml-2 text-sm font-normal text-gray-500">({total} record{total !== 1 ? 's' : ''})</span>
             </CardTitle>
           </CardHeader>
@@ -213,7 +269,7 @@ export default function LunchBreakReview() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CheckCircle className="w-5 h-5 text-green-500" />
-              Auto-Approved "I Was Working" Submissions — {formatDate(date)}
+              Auto-Approved "I Was Working" Submissions — {date ? formatDate(date) : 'All Dates'}
               <span className="ml-2 text-sm font-normal text-gray-500">({total} record{total !== 1 ? 's' : ''})</span>
             </CardTitle>
           </CardHeader>
@@ -292,6 +348,164 @@ export default function LunchBreakReview() {
           </CardContent>
         </Card>
       )}
+
+      {/* Needs Approval Tab */}
+      {activeTab === 'needs-approval' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldAlert className="w-5 h-5 text-amber-500" />
+              Pending Admin Review
+              <span className="ml-2 text-sm font-normal text-gray-500">({total} record{total !== 1 ? 's' : ''})</span>
+              {!date && <span className="ml-1 text-xs text-gray-400 font-normal">— all time</span>}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : breaks.length === 0 ? (
+              <div className="text-center py-12 text-gray-400">
+                <CheckCircle className="w-10 h-10 mx-auto mb-3 text-green-300" />
+                <p className="font-medium text-gray-500">No pending submissions</p>
+                <p className="text-sm mt-1">All late lunch bypass submissions have been resolved.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100">
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Employee</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Client</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Date</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Lunch Start</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Lunch End</th>
+                      <th className="text-right py-3 px-4 text-gray-500 font-medium">Scheduled</th>
+                      <th className="text-right py-3 px-4 text-gray-500 font-medium">Late</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Explanation</th>
+                      <th className="text-left py-3 px-4 text-gray-500 font-medium">Screenshot</th>
+                      <th className="py-3 px-4" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {breaks.map((b) => (
+                      <tr key={b.id} className="hover:bg-amber-50/40">
+                        <td className="py-3 px-4">
+                          <p className="font-medium text-gray-900">{b.employeeName}</p>
+                          <p className="text-xs text-gray-400">{b.employeeEmail}</p>
+                        </td>
+                        <td className="py-3 px-4 text-gray-700">{b.clientName}</td>
+                        <td className="py-3 px-4 text-gray-700">{formatDate(b.startTime)}</td>
+                        <td className="py-3 px-4 text-gray-700">{formatTime(b.startTime)}</td>
+                        <td className="py-3 px-4 text-gray-700">{formatTime(b.endTime)}</td>
+                        <td className="py-3 px-4 text-right text-gray-700">{b.scheduledDurationMinutes} min</td>
+                        <td className="py-3 px-4 text-right text-amber-600 font-medium">{b.unpaidMinutes} min</td>
+                        <td className="py-3 px-4 max-w-xs">
+                          {b.wasWorkingExplanation ? (
+                            <div>
+                              <p className={`text-gray-700 text-xs ${expandedExplanation === b.id ? '' : 'line-clamp-2'}`}>
+                                {b.wasWorkingExplanation}
+                              </p>
+                              {b.wasWorkingExplanation.length > 80 && (
+                                <button
+                                  onClick={() => setExpandedExplanation(expandedExplanation === b.id ? null : b.id)}
+                                  className="text-primary-500 text-xs mt-1 flex items-center gap-0.5"
+                                >
+                                  {expandedExplanation === b.id ? <><ChevronUp className="w-3 h-3" /> Less</> : <><ChevronDown className="w-3 h-3" /> More</>}
+                                </button>
+                              )}
+                            </div>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-3 px-4">
+                          {b.wasWorkingScreenshotUrl ? (
+                            <a
+                              href={b.wasWorkingScreenshotUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary-600 hover:text-primary-800 font-medium"
+                            >
+                              View <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : <span className="text-gray-400">—</span>}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => openReview(b, 'approve')}
+                              className="text-xs text-green-700 hover:text-green-900 font-medium border border-green-200 hover:border-green-400 bg-green-50 hover:bg-green-100 rounded-lg px-3 py-1.5 transition-colors"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => openReview(b, 'deny')}
+                              className="text-xs text-red-600 hover:text-red-800 font-medium border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 rounded-lg px-3 py-1.5 transition-colors"
+                            >
+                              Deny
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Approve/Deny Confirmation Modal */}
+      {reviewingBreak && (() => {
+        const { break: b, action } = reviewingBreak;
+        const isApprove = action === 'approve';
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md mx-4">
+              <div className={`px-6 py-4 border-b border-gray-100 rounded-t-xl ${isApprove ? 'bg-green-50' : 'bg-red-50'}`}>
+                <h2 className="font-semibold text-gray-900">
+                  {isApprove ? 'Approve Lunch Bypass' : 'Deny Lunch Bypass'}
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">{b.employeeName} · {formatDate(b.startTime)}</p>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <div className={`rounded-lg p-3 text-sm ${isApprove ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                  {isApprove
+                    ? <>All <strong>{b.durationMinutes} min</strong> will be reclassified as worked hours (paid, billable). Scheduled: {b.scheduledDurationMinutes} min + {b.unpaidMinutes} min late time.</>
+                    : <>The <strong>{b.unpaidMinutes} min</strong> of late time will remain as Unpaid Break. Only the scheduled {b.scheduledDurationMinutes} min will be paid.</>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Admin Note (optional)</label>
+                  <textarea
+                    rows={2}
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder={isApprove ? 'e.g. Screenshot verified, clock and work app visible' : 'e.g. Screenshot did not show required proof'}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary focus:border-primary resize-none"
+                  />
+                </div>
+                {reviewError && <p className="text-red-600 text-sm">{reviewError}</p>}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-100 flex gap-3">
+                <button
+                  onClick={submitReview}
+                  disabled={reviewSubmitting}
+                  className={`flex-1 text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 ${isApprove ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}`}
+                >
+                  {reviewSubmitting ? 'Saving…' : isApprove ? 'Confirm Approve' : 'Confirm Deny'}
+                </button>
+                <button
+                  onClick={() => setReviewingBreak(null)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Adjust Modal (Auto-Closed tab only) */}
       {adjusting && (() => {

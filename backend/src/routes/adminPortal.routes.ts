@@ -35,6 +35,8 @@ import {
   getActiveEmployees,
   getLunchBreakReview,
   adjustLunchBreak,
+  approvePendingLunch,
+  denyPendingLunch,
 } from '../controllers/adminPortal.controller';
 import { downloadAdminTimesheetPdf } from '../controllers/timesheet.controller';
 import { adminClockOutEmployee } from '../controllers/workSession.controller';
@@ -103,6 +105,8 @@ router.get('/employees/active', authenticate, authorize(...adminRoles), getActiv
 // Lunch break review queue
 router.get('/lunch-breaks/review', authenticate, authorize(...adminRoles), getLunchBreakReview);
 router.patch('/lunch-breaks/:breakId/adjust', authenticate, authorize(...adminRoles), adjustLunchBreak);
+router.post('/lunch-breaks/:breakId/approve', authenticate, authorize(...adminRoles), approvePendingLunch);
+router.post('/lunch-breaks/:breakId/deny', authenticate, authorize(...adminRoles), denyPendingLunch);
 
 // Analytics endpoints
 router.get('/analytics/punctuality', authenticate, authorize(...adminRoles), getPunctualityAnalytics);

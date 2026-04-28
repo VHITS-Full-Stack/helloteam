@@ -3800,9 +3800,15 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
     }
 
     const isAutoApprovedTab = tab === 'auto-approved';
-    const statusFilter = isAutoApprovedTab
-      ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'AUTO_APPROVED' }
-      : { lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } };
+    const isNeedsApprovalTab = tab === 'needs-approval';
+    const statusFilter = isNeedsApprovalTab
+      ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'PENDING_REVIEW' }
+      : isAutoApprovedTab
+        ? { lunchStatus: 'WAS_WORKING', bypassApprovalStatus: 'AUTO_APPROVED' }
+        : { lunchStatus: { in: ['AUTO_CLOSED', 'ADMIN_ADJUSTED'] } };
+
+    // Needs-approval tab: skip date filter when no date is specified so all pending items show
+    const dateFilter = (isNeedsApprovalTab && !date) ? {} : { startTime: { gte: startFilter, lt: endFilter } };
 
     const includeBlock = {
       workSession: {
@@ -3826,14 +3832,14 @@ export const getLunchBreakReview = async (req: AuthenticatedRequest, res: Respon
 
     const [breaks, total] = await Promise.all([
       prisma.break.findMany({
-        where: { ...statusFilter, startTime: { gte: startFilter, lt: endFilter } } as any,
+        where: { ...statusFilter, ...dateFilter } as any,
         include: includeBlock,
         orderBy: { startTime: 'desc' },
         skip: (Number(page) - 1) * Number(limit),
         take: Number(limit),
       }),
       prisma.break.count({
-        where: { ...statusFilter, startTime: { gte: startFilter, lt: endFilter } } as any,
+        where: { ...statusFilter, ...dateFilter } as any,
       }),
     ]);
 
@@ -3903,5 +3909,89 @@ export const adjustLunchBreak = async (req: AuthenticatedRequest, res: Response)
   } catch (error: any) {
     console.error('adjustLunchBreak error:', error);
     res.status(500).json({ success: false, error: 'Failed to adjust lunch break' });
+  }
+};
+
+export const approvePendingLunch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { breakId } = req.params;
+    const { notes } = req.body;
+
+    const breakRecord = await prisma.break.findUnique({
+      where: { id: breakId },
+      include: { workSession: { select: { id: true } } },
+    });
+    if (!breakRecord) { res.status(404).json({ success: false, error: 'Break record not found' }); return; }
+    if ((breakRecord as any).bypassApprovalStatus !== 'PENDING_REVIEW') {
+      res.status(400).json({ success: false, error: 'This break is not pending review' });
+      return;
+    }
+
+    // All elapsed time becomes paid (Reclassified Worked Hours)
+    await prisma.break.update({
+      where: { id: breakId },
+      data: {
+        bypassApprovalStatus: 'APPROVED',
+        paidMinutes: breakRecord.durationMinutes ?? (breakRecord as any).paidMinutes,
+        unpaidMinutes: 0,
+      } as any,
+    });
+
+    const adminName = (req.user as any)?.name || 'Admin';
+    await prisma.sessionLog.create({
+      data: {
+        workSessionId: breakRecord.workSession.id,
+        userId: req.user!.userId,
+        actorName: adminName,
+        action: 'ADMIN_ADJUST',
+        details: `Pending lunch bypass approved — all ${breakRecord.durationMinutes} min reclassified as worked hours.${notes ? ` Note: ${notes}` : ''}`,
+        ipAddress: (req.ip as string) || '',
+      },
+    });
+
+    res.json({ success: true, message: 'Lunch bypass approved. Time reclassified as worked hours.' });
+  } catch (error: any) {
+    console.error('approvePendingLunch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to approve pending lunch bypass' });
+  }
+};
+
+export const denyPendingLunch = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { breakId } = req.params;
+    const { notes } = req.body;
+
+    const breakRecord = await prisma.break.findUnique({
+      where: { id: breakId },
+      include: { workSession: { select: { id: true } } },
+    });
+    if (!breakRecord) { res.status(404).json({ success: false, error: 'Break record not found' }); return; }
+    if ((breakRecord as any).bypassApprovalStatus !== 'PENDING_REVIEW') {
+      res.status(400).json({ success: false, error: 'This break is not pending review' });
+      return;
+    }
+
+    // Late time stays unpaid (scheduled duration paid, late time unpaid)
+    await prisma.break.update({
+      where: { id: breakId },
+      data: { bypassApprovalStatus: 'DENIED' } as any,
+    });
+
+    const adminName = (req.user as any)?.name || 'Admin';
+    await prisma.sessionLog.create({
+      data: {
+        workSessionId: breakRecord.workSession.id,
+        userId: req.user!.userId,
+        actorName: adminName,
+        action: 'ADMIN_ADJUST',
+        details: `Pending lunch bypass denied — late time (${(breakRecord as any).unpaidMinutes ?? 0} min) remains unpaid.${notes ? ` Note: ${notes}` : ''}`,
+        ipAddress: (req.ip as string) || '',
+      },
+    });
+
+    res.json({ success: true, message: 'Lunch bypass denied. Late time recorded as unpaid.' });
+  } catch (error: any) {
+    console.error('denyPendingLunch error:', error);
+    res.status(500).json({ success: false, error: 'Failed to deny pending lunch bypass' });
   }
 };
