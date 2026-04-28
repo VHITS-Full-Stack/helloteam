@@ -14,7 +14,7 @@
   inset: 0;
   background:
     radial-gradient(circle at 0% 0%, rgba(51, 78, 104, 0.03) 0%, transparent 50%),
-    radial-gradient(circle at 100% 100%, rgba(247, 168, 22, 0.03) 0%, transparent 50%);
+    radial-gradient(circle at 100% 100%, rgba(51, 78, 104, 0.03) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -96,10 +96,10 @@
 }
 
 .onboarding-step-item.active {
-  background: #f7a816;
-  color: #102a43;
+  background: #334e68;
+  color: white;
   font-weight: 700;
-  box-shadow: 0 8px 16px rgba(247, 168, 22, 0.25);
+  box-shadow: 0 8px 16px rgba(51, 78, 104, 0.25);
   transform: translateX(4px);
 }
 
@@ -121,8 +121,8 @@
 }
 
 .onboarding-step-item.active .onboarding-step-dot {
-  border-color: #102a43;
-  background: rgba(16, 42, 67, 0.1);
+  border-color: white;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .onboarding-step-dot.done {
@@ -158,18 +158,18 @@
 
 /* Progress Bar */
 .onboarding-progress-wrap {
-  background: #f7a8161a;
+  background: rgba(51, 78, 104, 0.05);
   border-radius: 10px;
   height: 8px;
   margin-bottom: 40px;
-  border: 1px solid #f7a81626;
+  border: 1px solid rgba(51, 78, 104, 0.1);
   overflow: hidden;
 }
 
 .onboarding-progress-fill {
   height: 100%;
-  background: #f7a816;
-  box-shadow: 0 0 10px rgba(247, 168, 22, 0.3);
+  background: #334e68;
+  box-shadow: 0 0 10px rgba(51, 78, 104, 0.2);
   transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
@@ -183,7 +183,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  color: #f7a816;
+  color: #334e68;
   margin-bottom: 12px;
 }
 
@@ -246,42 +246,95 @@
   gap: 8px;
 }
 
-.ck-content h1, .ck-content h2, .ck-content h3, .ck-content h4 {
-  color: #102a43;
-  margin-top: 1.5em;
-  margin-bottom: 0.5em;
-  font-weight: bold;
-}
+.ck-content h1 { font-size: 2em; color: #102a43; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold; }
+.ck-content h2 { font-size: 1.6em; color: #102a43; margin-top: 1.5em; margin-bottom: 0.5em; font-weight: bold; }
+.ck-content h3 { font-size: 1.3em; color: #102a43; margin-top: 1.25em; margin-bottom: 0.5em; font-weight: bold; }
+.ck-content h4 { font-size: 1.1em; color: #102a43; margin-top: 1em; margin-bottom: 0.5em; font-weight: bold; }
 
 .ck-content p {
   margin-bottom: 1em;
 }
 
 .ck-content ul {
-  list-style-type: disc;
-  margin-left: 1.5em;
+  list-style-type: disc !important;
+  padding-left: 1.5em !important;
   margin-bottom: 1em;
 }
 
 .ck-content ol {
-  list-style-type: decimal;
-  margin-left: 1.5em;
+  list-style-type: decimal !important;
+  padding-left: 1.5em !important;
   margin-bottom: 1em;
 }
 
+.ck-content li {
+  margin-bottom: 0.25em;
+  display: list-item !important;
+  list-style-position: outside !important;
+}
+
 .ck-content blockquote {
-  border-left: 4px solid #f7a816;
-  padding-left: 1em;
+  border-left: 4px solid #334e68;
+  padding: 0.5em 1em;
   color: #627d98;
   font-style: italic;
-  margin-bottom: 1em;
+  margin: 0 0 1em 0;
+  background: #fafafa;
+  border-radius: 0 4px 4px 0;
+}
+
+.ck-content blockquote p {
+  margin-bottom: 0;
+}
+
+.ck-content figure.image {
+  margin: 1em auto;
+  text-align: center;
+  max-width: 100%;
+}
+
+.ck-content figure.image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  display: block;
+}
+
+.ck-content figure.image.image-style-side {
+  float: right;
+  margin-left: 1em;
+  max-width: 40%;
+}
+
+.ck-content figure.image.image-style-align-left {
+  float: left;
+  margin-right: 1em;
+  text-align: left;
+}
+
+.ck-content figure.image.image-style-align-right {
+  float: right;
+  margin-left: 1em;
+  text-align: right;
+}
+
+.ck-content figure.image.image-style-align-center {
+  margin: 1em auto;
+  text-align: center;
+}
+
+.ck-content a {
+  color: #334e68;
+  text-decoration: none;
+  pointer-events: none;
+  cursor: default;
 }
 
 .onboarding-doc-h::before {
   content: '';
   width: 4px;
   height: 16px;
-  background: #f7a816;
+  background: #334e68;
   border-radius: 2px;
 }
 
@@ -296,7 +349,7 @@
   transition: border-color 0.2s;
 }
 
-.onboarding-sig-pad:hover { border-color: #f7a816; }
+.onboarding-sig-pad:hover { border-color: #334e68; }
 
 /* Success State */
 .onboarding-success-pulse {

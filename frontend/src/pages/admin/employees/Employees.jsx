@@ -153,8 +153,12 @@ const Employees = () => {
   };
 
   const getClientAndGroup = (employee) => {
-    const client = employee.clientAssignments?.[0]?.client?.companyName;
-    const group = employee.groupAssignments?.[0]?.group?.name;
+    let client = employee.clientAssignments?.[0]?.client?.companyName;
+    let group = employee.groupAssignments?.[0]?.group?.name;
+
+    if (client === 'undefined') client = null;
+    if (group === 'undefined') group = null;
+
     if (!client && !group)
       return <span className="text-gray-400">Unassigned</span>;
     return (
@@ -429,17 +433,17 @@ const Employees = () => {
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar
                         src={employee.profilePhoto}
-                        name={`${employee.firstName} ${employee.lastName}`}
+                        name={`${employee.firstName || ''} ${employee.lastName || ''}`.trim() || 'Employee'}
                         size="md"
                       />
-                        <div className="min-w-0">
-                        <p className="font-medium text-gray-500 truncate">
-                          {employee.firstName} {employee.lastName}
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {employee.firstName && employee.firstName !== 'undefined' ? employee.firstName : ''} {employee.lastName && employee.lastName !== 'undefined' ? employee.lastName : ''}
                         </p>
-                        <p className="text-sm text-gray-400 truncate">
-                          {employee.user?.email}
+                        <p className="text-sm text-gray-500 truncate">
+                          {employee.user?.email && employee.user?.email !== 'undefined' ? employee.user.email : ''}
                         </p>
-                        {employee.phone && (
+                        {employee.phone && employee.phone !== 'undefined' && (
                           <p className="text-xs text-gray-400">
                             {employee.phone}
                           </p>

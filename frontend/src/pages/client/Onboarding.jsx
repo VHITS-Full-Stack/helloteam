@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -92,7 +92,7 @@ function WelcomeStep({ onNext, employees }) {
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 1 OF 8 — WELCOME
         </div>
         <h1 className="onboarding-headline">Welcome to Hello Team</h1>
@@ -147,7 +147,7 @@ function WelcomeStep({ onNext, employees }) {
           variant="secondary"
           size="xl"
           rounded="pill"
-          className="h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+          className="h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
           onClick={onNext}
           icon={ChevronRight}
           iconPosition="right"
@@ -160,11 +160,12 @@ function WelcomeStep({ onNext, employees }) {
 }
 
 function LegalStep({ onNext, onBack, content }) {
+  const [scrolled, setScrolled] = useState(false);
   const [agreed, setAgreed] = useState(false);
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 2 OF 8 — LEGAL TERMS & Condition
         </div>
 
@@ -175,7 +176,18 @@ function LegalStep({ onNext, onBack, content }) {
       </div>
 
       <div className="onboarding-welcome-card">
-        <div className="onboarding-scroll-view mb-8 ck-content">
+        <div
+          className="onboarding-scroll-view mb-8 ck-content"
+          onScroll={(e) => {
+            if (
+              e.target.scrollHeight -
+                e.target.scrollTop -
+                e.target.clientHeight <
+              40
+            )
+              setScrolled(true);
+          }}
+        >
           <h4 className="text-lg font-bold mb-4">
             Hello Team Master Services Agreement
           </h4>
@@ -209,16 +221,23 @@ function LegalStep({ onNext, onBack, content }) {
               </p>
             </>
           )}
+
+          <p className="mt-8 text-xs font-bold text-slate-400 italic text-center">
+            {scrolled
+              ? "✓ You have reviewed the entire agreement"
+              : "↓ Please scroll to the bottom to acknowledge the agreement"}
+          </p>
         </div>
 
         <label
-          className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all mb-8 ${agreed ? "bg-slate-50 border-primary" : "border-slate-100 hover:border-slate-200"}`}
+          className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all mb-8 ${!scrolled ? "opacity-50 grayscale pointer-events-none" : agreed ? "bg-slate-50 border-primary" : "border-slate-100 hover:border-slate-200"}`}
         >
           <input
             type="checkbox"
             className="w-5 h-5 rounded accent-primary"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
+            disabled={!scrolled}
           />
           <span className="text-sm font-semibold text-slate-700">
             I have reviewed and accept the Master Services Agreement
@@ -236,7 +255,7 @@ function LegalStep({ onNext, onBack, content }) {
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!agreed}
             onClick={onNext}
             icon={ChevronRight}
@@ -251,18 +270,30 @@ function LegalStep({ onNext, onBack, content }) {
 }
 
 function PrivacyPolicyStep({ onNext, onBack, content }) {
+  const [scrolled, setScrolled] = useState(false);
   const [agreed, setAgreed] = useState(false);
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 3 OF 9 — PRIVACY POLICY
         </div>
         <h4>Please review our Privacy Policy before proceeding.</h4>
       </div>
 
       <div className="onboarding-welcome-card" >
-        <div className="onboarding-scroll-view mb-8 ck-content">
+        <div
+          className="onboarding-scroll-view mb-8 ck-content"
+          onScroll={(e) => {
+            if (
+              e.target.scrollHeight -
+                e.target.scrollTop -
+                e.target.clientHeight <
+              40
+            )
+              setScrolled(true);
+          }}
+        >
           <h4 className="text-lg font-bold mb-4">Hello Team Privacy Policy</h4>
           {content ? (
             <div dangerouslySetInnerHTML={{ __html: content }} />
@@ -287,16 +318,23 @@ function PrivacyPolicyStep({ onNext, onBack, content }) {
               </p>
             </>
           )}
+
+          <p className="mt-8 text-xs font-bold text-slate-400 italic text-center">
+            {scrolled
+              ? "✓ You have reviewed the entire policy"
+              : "↓ Please scroll to the bottom to acknowledge the policy"}
+          </p>
         </div>
 
         <label
-          className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all mb-8 ${agreed ? "bg-slate-50 border-primary" : "border-slate-100 hover:border-slate-200"}`}
+          className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all mb-8 ${!scrolled ? "opacity-50 grayscale pointer-events-none" : agreed ? "bg-slate-50 border-primary" : "border-slate-100 hover:border-slate-200"}`}
         >
           <input
             type="checkbox"
             className="w-5 h-5 rounded accent-primary"
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
+            disabled={!scrolled}
           />
           <span className="text-sm font-semibold text-slate-700">
             I have read and agree to the Privacy Policy
@@ -315,7 +353,7 @@ function PrivacyPolicyStep({ onNext, onBack, content }) {
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!agreed}
             onClick={onNext}
             icon={ChevronRight}
@@ -441,7 +479,7 @@ function GuideStep({
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           {isBestPractices
             ? "STEP 8 OF 8 — Practical Tips / Best Practices"
             : "STEP 3 OF 8 — FOUNDATIONS"}
@@ -532,7 +570,7 @@ function GuideStep({
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             onClick={onNext}
             loading={loading}
             disabled={loading}
@@ -557,7 +595,7 @@ function EntityFormStep({ onNext, onBack, form, setForm, loading }) {
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 4 OF 8 — CONTRACT ONBOARDING INFORMATION FORM
         </div>
       </div>
@@ -623,7 +661,7 @@ function EntityFormStep({ onNext, onBack, form, setForm, loading }) {
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!isFilled || loading}
             onClick={onNext}
             loading={loading}
@@ -674,7 +712,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 5 OF 8 — PAYMENT SETUP
         </div>
       </div>
@@ -949,7 +987,7 @@ function PaymentStep({ onNext, onBack, form, setForm, loading }) {
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!isFilled || loading}
             onClick={onNext}
             loading={loading}
@@ -1056,7 +1094,7 @@ function SigningStep({
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 6 OF 8 — CONTRACT EXECUTION
         </div>
         <h2 className="onboarding-headline">Digital Signature</h2>
@@ -1139,7 +1177,7 @@ function SigningStep({
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!hasDrawn || !signedByName || loading}
             onClick={() => {
               if (canvasRef.current) {
@@ -1167,7 +1205,7 @@ function AccessPolicyStep({ onNext, onBack, privacyPolicy }) {
   return (
     <div className="onboarding-container">
       <div className="onboarding-header">
-        <div className="onboarding-eyebrow" style={{ color: "#f7a816" }}>
+        <div className="onboarding-eyebrow" style={{ color: "var(--color-primary)" }}>
           STEP 7 OF 8 — SECURITY POLICY
         </div>
         <h2 className="onboarding-headline">
@@ -1268,7 +1306,7 @@ function AccessPolicyStep({ onNext, onBack, privacyPolicy }) {
             variant="secondary"
             size="xl"
             rounded="pill"
-            className="px-14 h-16 shadow-xl shadow-secondary/10 font-bold text-sm tracking-widest bg-[#f7d08a] hover:bg-[#f7a816] text-[#334e68]"
+            className="px-14 h-16 shadow-xl shadow-primary/10 font-bold text-sm tracking-widest bg-primary hover:bg-primary-dark text-white"
             disabled={!agreed}
             onClick={onNext}
             icon={CheckSquare}
@@ -1346,6 +1384,15 @@ export default function ClientPortalOnboarding() {
     achAccountType: "",
   });
   const [signedByName, setSignedByName] = useState("");
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Auto-clear toast message after 5 seconds
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   useEffect(() => {
     localStorage.setItem(STEP_KEY, String(currentStep));
@@ -1439,6 +1486,11 @@ export default function ClientPortalOnboarding() {
       setCurrentStep((prev) => prev + 1);
     } catch (err) {
       setError(err.message);
+      setToastMessage({
+        title: "Error",
+        description: err.message || "An unexpected error occurred",
+        type: "error",
+      });
     } finally {
       setLoading(false);
     }
@@ -1573,6 +1625,39 @@ export default function ClientPortalOnboarding() {
           </div>
         </main>
       </div>
+
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300">
+          <div
+            className={`bg-white border-l-4 ${toastMessage.type === "error" ? "border-red-500 shadow-red-100" : "border-emerald-500 shadow-emerald-100"} rounded-2xl shadow-2xl p-5 flex items-start gap-4 min-w-[320px] ring-1 ring-black/5`}
+          >
+            <div
+              className={`mt-0.5 w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${toastMessage.type === "error" ? "bg-red-50" : "bg-emerald-50"}`}
+            >
+              {toastMessage.type === "error" ? (
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              ) : (
+                <Check className="w-5 h-5 text-emerald-600" />
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-slate-900 leading-tight">
+                {toastMessage.title}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                {toastMessage.description}
+              </p>
+            </div>
+            <button
+              onClick={() => setToastMessage(null)}
+              className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
